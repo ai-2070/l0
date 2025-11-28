@@ -39,6 +39,50 @@ export {
   safeJSONParse,
 } from "./utils/autoCorrect";
 
+// Document Windows
+export {
+  createWindow,
+  processWithWindow,
+  l0WithWindow,
+  mergeResults,
+  getProcessingStats,
+  DocumentWindowImpl,
+} from "./window";
+
+export type {
+  WindowOptions,
+  DocumentWindow,
+  DocumentChunk,
+  WindowStats,
+  WindowProcessResult,
+  L0WindowOptions,
+  ChunkStrategy,
+  ContextRestorationOptions,
+  ContextRestorationStrategy,
+  WindowPreset,
+} from "./types/window";
+
+export {
+  smallWindow,
+  mediumWindow,
+  largeWindow,
+  paragraphWindow,
+  sentenceWindow,
+} from "./types/window";
+
+// Chunking utilities
+export {
+  chunkDocument,
+  chunkByTokens,
+  chunkByChars,
+  chunkByParagraphs,
+  chunkBySentences,
+  splitIntoSentences,
+  estimateTokenCount,
+  getChunkOverlap,
+  mergeChunks,
+} from "./utils/chunking";
+
 // Types
 export type {
   L0Options,

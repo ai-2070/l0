@@ -6,6 +6,7 @@ L0 adds **guardrails, drift detection, retry logic, formatting helpers, and netw
 - streaming stabilization
 - structure-aware guardrails
 - **deterministic structured output** (guaranteed valid JSON with schema validation)
+- **document windows** (automatic chunking for long documents)
 - drift/entropy detection
 - safe retry logic
 - zero-token detection
@@ -413,7 +414,92 @@ console.log('Fallback used:', result.state.fallbackIndex > 0);
 
 ---
 
-# 🧮 **11\. Memory, State & Checkpoints**
+# 📄 **11\. Document Windows**
+
+**Automatic chunking and navigation for long documents.**
+
+When documents exceed model context limits, L0 automatically chunks and processes them:
+
+### Quick Example:
+
+```typescript
+import { createWindow } from 'l0';
+
+// Long document (50,000 tokens)
+const document = readFileSync('legal-contract.txt', 'utf-8');
+
+// Create window with automatic chunking
+const window = createWindow(document, {
+  size: 2000,    // 2000 tokens per chunk
+  overlap: 200,  // 200 token overlap
+  strategy: 'paragraph'
+});
+
+console.log(`Split into ${window.totalChunks} chunks`);
+
+// Process all chunks
+const results = await window.processAll((chunk) => ({
+  stream: () => streamText({
+    model: openai('gpt-4o'),
+    prompt: `Summarize: ${chunk.content}`
+  })
+}));
+
+// Merge results
+const summary = results
+  .map(r => r.result.state.content)
+  .join('\n\n');
+```
+
+### Features:
+
+- ✅ **Automatic chunking** - Token, character, paragraph, or sentence-based
+- ✅ **Smart overlap** - Maintains context between chunks
+- ✅ **Navigation** - next(), prev(), jump() through chunks
+- ✅ **Batch processing** - Sequential or parallel with concurrency control
+- ✅ **Context restoration** - Auto-retry with adjacent chunks on drift
+
+### Chunking Strategies:
+
+```typescript
+// Token-based (default)
+const window = createWindow(doc, {
+  size: 2000,
+  strategy: 'token'
+});
+
+// Paragraph-based (preserves structure)
+const window = createWindow(doc, {
+  size: 2000,
+  strategy: 'paragraph'
+});
+
+// Sentence-based (never splits sentences)
+const window = createWindow(doc, {
+  size: 1500,
+  strategy: 'sentence'
+});
+
+// Character-based (exact counts)
+const window = createWindow(doc, {
+  size: 5000,
+  strategy: 'char'
+});
+```
+
+### Use Cases:
+
+- **Legal documents** - Analyze contracts, terms, policies
+- **Transcripts** - Summarize meetings, interviews, podcasts
+- **Books** - Extract themes, analyze chapters
+- **Code** - Generate documentation for large files
+- **Reports** - Process multi-page documents
+
+📚 See [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md) for complete guide
+
+---
+
+# 🧮 **12\. Memory, State & Checkpoints**
 
 L0 provides:
 
@@ -432,7 +518,7 @@ Perfect for restoring sessions.
 
 ---
 
-# 📝 **12\. Formatting Helpers**
+# 📝 **13\. Formatting Helpers**
 
 These helpers normalize user prompts and output formats:
 
@@ -473,7 +559,7 @@ These are non-AI, tiny syntactic repairs, not semantic corrections.
 
 ---
 
-# 🎯 **13\. Guardrail Presets**
+# 🎯 **14\. Guardrail Presets**
 
 L0 includes presets to simplify configuration.
 
@@ -508,7 +594,7 @@ strictGuardrails = [
 
 ---
 
-# 🔁 **14\. Retry Presets**
+# 🔁 **15\. Retry Presets**
 
 ### **Minimal**
 
