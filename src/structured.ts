@@ -1,6 +1,6 @@
 // L0 Structured Output API - Deterministic JSON with schema validation and auto-correction
 
-import type { z } from "zod";
+import { z } from "zod";
 import type {
   StructuredOptions,
   StructuredResult,
@@ -10,7 +10,11 @@ import type {
 } from "./types/structured";
 import type { L0Options, L0Event, L0State } from "./types/l0";
 import { l0 } from "./runtime/l0";
-import { autoCorrectJSON, safeJSONParse, isValidJSON } from "./utils/autoCorrect";
+import {
+  autoCorrectJSON,
+  safeJSONParse,
+  isValidJSON,
+} from "./utils/autoCorrect";
 
 /**
  * L0 Structured Output - Guaranteed valid JSON matching your schema
@@ -105,6 +109,9 @@ export async function structured<T extends z.ZodTypeAny>(
     },
     timeout,
     signal: signal || abortController.signal,
+    // Disable zero-token detection for structured output
+    // Short valid JSON (like "[]" or "{}") should not be rejected
+    detectZeroTokens: false,
     monitoring: {
       enabled: monitoring?.enabled ?? false,
       sampleRate: monitoring?.sampleRate ?? 1.0,
@@ -210,7 +217,9 @@ export async function structured<T extends z.ZodTypeAny>(
         parsedData = JSON.parse(correctedOutput);
       } catch (parseError) {
         const err =
-          parseError instanceof Error ? parseError : new Error(String(parseError));
+          parseError instanceof Error
+            ? parseError
+            : new Error(String(parseError));
         errors.push(err);
 
         // Try one more auto-correction attempt if not already done

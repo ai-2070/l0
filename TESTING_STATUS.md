@@ -27,8 +27,8 @@ npm run test:coverage # Generate coverage report
 
 ## Current Test Status
 
-### Test Files: 7 passed (7)
-### Total Tests: 474 passed (474)
+### Test Files: 8 passed (8)
+### Total Tests: 567 passed (567)
 ### Success Rate: 100% ✅
 
 | Test File | Status | Tests | Description |
@@ -39,6 +39,7 @@ npm run test:coverage # Generate coverage report
 | `drift.test.ts` | ✅ PASS | 79 | Comprehensive Drift Detection tests |
 | `runtime.test.ts` | ✅ PASS | 52 | Comprehensive core runtime tests with mock streams |
 | `format.test.ts` | ✅ PASS | 158 | Comprehensive formatting utilities tests |
+| `structured.test.ts` | ✅ PASS | 93 | Comprehensive structured output and auto-correction tests |
 | `monitoring.test.ts` | ✅ PASS | 3 | Monitoring utilities (placeholder) |
 
 ## Test Coverage by Module
@@ -362,6 +363,57 @@ npm run test:coverage # Generate coverage report
 
 **Status:** ✅ Complete (100% passing)
 
+### ✅ Structured Output (Comprehensive - 93 tests)
+**Coverage:**
+- Auto-Correction Utilities (28 tests)
+  - autoCorrectJSON with structural fixes, markdown stripping, comment removal
+  - Close missing braces and brackets
+  - Remove trailing commas
+  - Strip LLM prefixes and suffixes
+  - Handle deeply nested and complex JSON
+  - isValidJSON validation
+  - safeJSONParse with correction
+  - extractJSON from mixed content
+- Structured Output Core (31 tests)
+  - Basic functionality with schema validation
+  - Auto-correction of malformed JSON
+  - Array and nested object handling
+  - Schema constraint validation (email, min/max, etc.)
+  - Optional fields and default values
+  - Retry logic with validation failures
+  - Callback handling (onValidationError, onAutoCorrect, onRetry)
+  - Error handling (empty output, whitespace, invalid JSON)
+  - Strict mode and passthrough schemas
+  - Telemetry collection and metrics
+  - Abort signal handling
+- Helper Functions (11 tests)
+  - structuredObject for simple object schemas
+  - structuredArray for array schemas
+  - structuredStream for streaming validation
+  - Token yielding during streaming
+  - Final validation after stream completion
+- Edge Cases (16 tests)
+  - Very large JSON (1000+ items)
+  - Deeply nested structures
+  - Unicode and escaped characters
+  - Numbers, booleans, null values
+  - Mixed types in arrays
+  - Enums and string transformations
+  - Date handling
+  - Complex validation rules (password matching, etc.)
+  - Record types and discriminated unions
+- Performance (2 tests)
+  - Rapid validation (10 concurrent)
+  - Concurrent validations
+- Real-World Scenarios (5 tests)
+  - API response format validation
+  - LLM-generated code analysis
+  - Structured entity extraction
+  - Sentiment analysis output
+  - Classification with probabilities
+
+**Status:** ✅ Complete (100% passing)
+
 ### ✅ Drift Detection (Comprehensive - 79 tests)
 **Coverage:**
 - DriftDetector Initialization (4 tests)
@@ -481,11 +533,12 @@ The following modules have placeholder tests and need comprehensive test suites:
   - Output formatting
   - Tool formatting
 
-- [ ] **Structured Output** (new file needed)
-  - Schema validation
-  - Auto-correction
-  - JSON extraction/repair
-  - Streaming structured output
+- [x] **Structured Output** (`structured.test.ts`) - ✅ Complete (93 tests)
+  - Auto-correction utilities (autoCorrectJSON, isValidJSON, safeJSONParse)
+  - Schema validation with Zod
+  - Retry logic and error handling
+  - Helper functions (structuredObject, structuredArray, structuredStream)
+  - Edge cases and real-world scenarios
 
 - [ ] **Document Windows** (new file needed)
   - Window creation
