@@ -10,6 +10,7 @@ import type {
   BackoffResult,
   ErrorClassification,
   RetryContext,
+  ErrorTypeDelays,
 } from "../types/retry";
 import { calculateBackoff, sleep } from "../utils/timers";
 import {
@@ -27,6 +28,8 @@ import {
   isDNSError,
   isSSLError,
   isTimeoutError,
+  NetworkErrorType,
+  suggestRetryDelay,
 } from "../utils/errors";
 
 /**
@@ -281,12 +284,36 @@ export class RetryManager {
         ? this.state.networkRetries
         : this.state.transientRetries;
 
-    const backoff = calculateBackoff(
-      this.config.backoff,
-      attemptCount,
-      this.config.baseDelay,
-      this.config.maxDelay,
-    );
+    // For network errors, check if custom delay is configured
+    let backoff: BackoffResult;
+    if (
+      categorized.category === ErrorCategory.NETWORK &&
+      this.config.errorTypeDelays &&
+      isNetworkError(error)
+    ) {
+      const analysis = analyzeNetworkError(error);
+      const customDelayMap = this.mapErrorTypeDelays(
+        this.config.errorTypeDelays,
+      );
+      const customDelay = suggestRetryDelay(
+        error,
+        attemptCount,
+        customDelayMap,
+        this.config.maxDelay,
+      );
+      backoff = {
+        delay: customDelay,
+        cappedAtMax: customDelay >= (this.config.maxDelay ?? 10000),
+        rawDelay: customDelay,
+      };
+    } else {
+      backoff = calculateBackoff(
+        this.config.backoff,
+        attemptCount,
+        this.config.baseDelay,
+        this.config.maxDelay,
+      );
+    }
 
     return {
       shouldRetry: true,
@@ -350,12 +377,39 @@ export class RetryManager {
             ? this.state.networkRetries
             : this.state.transientRetries;
 
-        const backoff = calculateBackoff(
-          this.config.backoff,
-          attemptCount,
-          this.config.baseDelay,
-          this.config.maxDelay,
-        );
+        // Calculate backoff with custom delays if network error
+        let backoff: BackoffResult;
+        if (
+          categorized.category === ErrorCategory.NETWORK &&
+          this.config.errorTypeDelays &&
+          isNetworkError(err)
+        ) {
+          const customDelayMap = this.mapErrorTypeDelays(
+            this.config.errorTypeDelays,
+          );
+          const customDelay = suggestRetryDelay(
+            err,
+            attemptCount,
+            customDelayMap,
+            this.config.maxDelay,
+          );
+          backoff = {
+            delay: customDelay,
+            cappedAtMax: customDelay >= (this.config.maxDelay ?? 10000),
+            rawDelay: customDelay,
+          };
+        } else {
+          backoff = calculateBackoff(
+            this.config.backoff,
+            attemptCount,
+            this.config.baseDelay,
+            this.config.maxDelay,
+          );
+        }
+  getModelRetries(): number {
+    return this.state.attempt;
+  }
+}
 
         // Notify callback
         if (onRetry) {
@@ -410,6 +464,28 @@ export class RetryManager {
    */
   getModelRetries(): number {
     return this.state.attempt;
+  }
+
+  /**
+   * Map ErrorTypeDelays to NetworkErrorType record
+   */
+  private mapErrorTypeDelays(
+    delays: ErrorTypeDelays,
+  ): Partial<Record<NetworkErrorType, number>> {
+    return {
+      [NetworkErrorType.CONNECTION_DROPPED]: delays.connectionDropped,
+      [NetworkErrorType.FETCH_ERROR]: delays.fetchError,
+      [NetworkErrorType.ECONNRESET]: delays.econnreset,
+      [NetworkErrorType.ECONNREFUSED]: delays.econnrefused,
+      [NetworkErrorType.SSE_ABORTED]: delays.sseAborted,
+      [NetworkErrorType.NO_BYTES]: delays.noBytes,
+      [NetworkErrorType.PARTIAL_CHUNKS]: delays.partialChunks,
+      [NetworkErrorType.RUNTIME_KILLED]: delays.runtimeKilled,
+      [NetworkErrorType.BACKGROUND_THROTTLE]: delays.backgroundThrottle,
+      [NetworkErrorType.DNS_ERROR]: delays.dnsError,
+      [NetworkErrorType.TIMEOUT]: delays.timeout,
+      [NetworkErrorType.UNKNOWN]: delays.unknown,
+    };
   }
 }
 

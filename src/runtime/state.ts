@@ -12,9 +12,11 @@ export function createInitialState(): L0State {
     tokenCount: 0,
     retryAttempts: 0,
     networkRetries: 0,
+    fallbackIndex: 0,
     violations: [],
     driftDetected: false,
     completed: false,
+    networkErrors: [],
   };
 }
 

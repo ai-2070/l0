@@ -1,6 +1,71 @@
 // Retry types and error categorization for L0
 
 /**
+ * Per-error-type delay configuration
+ */
+export interface ErrorTypeDelays {
+  /**
+   * Connection dropped delay (default: 1000ms)
+   */
+  connectionDropped?: number;
+
+  /**
+   * fetch() TypeError delay (default: 500ms)
+   */
+  fetchError?: number;
+
+  /**
+   * ECONNRESET delay (default: 1000ms)
+   */
+  econnreset?: number;
+
+  /**
+   * ECONNREFUSED delay (default: 2000ms)
+   */
+  econnrefused?: number;
+
+  /**
+   * SSE aborted delay (default: 500ms)
+   */
+  sseAborted?: number;
+
+  /**
+   * No bytes arrived delay (default: 500ms)
+   */
+  noBytes?: number;
+
+  /**
+   * Partial chunks delay (default: 500ms)
+   */
+  partialChunks?: number;
+
+  /**
+   * Runtime killed delay (default: 2000ms)
+   */
+  runtimeKilled?: number;
+
+  /**
+   * Background throttle delay (default: 5000ms)
+   */
+  backgroundThrottle?: number;
+
+  /**
+   * DNS error delay (default: 3000ms)
+   */
+  dnsError?: number;
+
+  /**
+   * Timeout delay (default: 1000ms)
+   */
+  timeout?: number;
+
+  /**
+   * Unknown network error delay (default: 1000ms)
+   */
+  unknown?: number;
+}
+
+/**
  * Retry configuration
  */
 export interface RetryConfig {
@@ -28,6 +93,12 @@ export interface RetryConfig {
    * What types of errors to retry on
    */
   retryOn: RetryReason[];
+
+  /**
+   * Custom delays for specific error types (optional)
+   * Overrides baseDelay for specific network errors
+   */
+  errorTypeDelays?: ErrorTypeDelays;
 }
 
 /**

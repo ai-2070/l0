@@ -4,12 +4,50 @@
 // Core runtime
 export { l0, getText, consumeStream } from "./runtime/l0";
 
+// Structured output
+export {
+  structured,
+  structuredObject,
+  structuredArray,
+  structuredStream,
+} from "./structured";
+
+export type {
+  StructuredOptions,
+  StructuredResult,
+  StructuredState,
+  StructuredTelemetry,
+  CorrectionInfo,
+  CorrectionType,
+  AutoCorrectOptions,
+  AutoCorrectResult,
+} from "./types/structured";
+
+export {
+  minimalStructured,
+  recommendedStructured,
+  strictStructured,
+} from "./types/structured";
+
+// Auto-correction utilities
+export {
+  autoCorrectJSON,
+  extractJSON,
+  isValidJSON,
+  describeJSONError,
+  repairJSON,
+  safeJSONParse,
+} from "./utils/autoCorrect";
+
 // Types
 export type {
   L0Options,
   L0Result,
   L0State,
   L0Event,
+  L0Telemetry,
+  CategorizedNetworkError,
+  L0Interceptor,
   RetryOptions,
   GuardrailRule,
   GuardrailViolation,
@@ -75,6 +113,49 @@ export {
   extractTokens,
   reconstructText,
 } from "./runtime/events";
+
+// Monitoring and telemetry
+export {
+  L0Monitor,
+  createMonitor,
+  TelemetryExporter,
+} from "./runtime/monitoring";
+
+export type { MonitoringConfig } from "./runtime/monitoring";
+
+// Interceptors
+export {
+  InterceptorManager,
+  createInterceptorManager,
+  loggingInterceptor,
+  metadataInterceptor,
+  authInterceptor,
+  timingInterceptor,
+  validationInterceptor,
+  rateLimitInterceptor,
+  cachingInterceptor,
+  transformInterceptor,
+  analyticsInterceptor,
+} from "./runtime/interceptors";
+
+export type { InterceptorContext } from "./runtime/interceptors";
+
+// Parallel operations
+export {
+  parallel,
+  parallelAll,
+  sequential,
+  batched,
+  race,
+  OperationPool,
+  createPool,
+} from "./runtime/parallel";
+
+export type {
+  ParallelOptions,
+  ParallelResult,
+  AggregatedTelemetry,
+} from "./runtime/parallel";
 
 // Format helpers
 export {
@@ -178,6 +259,7 @@ export type {
   ErrorCategory,
   RetryReason,
   CategorizedError,
+  ErrorTypeDelays,
 } from "./types/retry";
 export type { DriftResult, DriftType, DriftConfig } from "./runtime/drift";
 

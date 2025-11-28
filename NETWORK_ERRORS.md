@@ -585,6 +585,36 @@ try {
 }
 ```
 
+### Custom Delay Configuration
+
+Configure different delays for each network error type:
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  retry: {
+    attempts: 3,
+    backoff: 'exponential',
+    retryOn: ['network_error', 'timeout'],
+    // Custom delays per error type
+    errorTypeDelays: {
+      connectionDropped: 2000,     // 2s for connection drops
+      fetchError: 500,             // 0.5s for fetch errors
+      econnreset: 1500,            // 1.5s for ECONNRESET
+      econnrefused: 3000,          // 3s for ECONNREFUSED
+      sseAborted: 1000,            // 1s for SSE aborted
+      noBytes: 500,                // 0.5s for no bytes
+      partialChunks: 750,          // 0.75s for partial chunks
+      runtimeKilled: 5000,         // 5s for runtime kills
+      backgroundThrottle: 10000,   // 10s for background throttle
+      dnsError: 4000,              // 4s for DNS errors
+      timeout: 2000,               // 2s for timeouts
+      unknown: 1000                // 1s for unknown errors
+    }
+  }
+});
+```
+
 ### Mobile-Friendly Configuration
 
 ```typescript
@@ -593,7 +623,13 @@ const result = await l0({
   retry: {
     attempts: 3,
     backoff: 'full-jitter',
-    retryOn: ['network_error', 'timeout']
+    retryOn: ['network_error', 'timeout'],
+    // Mobile-specific delays
+    errorTypeDelays: {
+      backgroundThrottle: 15000,   // Wait longer for mobile
+      timeout: 3000,               // More lenient timeouts
+      connectionDropped: 2500      // Mobile networks unstable
+    }
   },
   timeout: {
     initialToken: 10000,  // Longer for mobile
@@ -610,11 +646,49 @@ const result = await l0({
   retry: {
     attempts: 3,
     backoff: 'exponential',
-    maxDelay: 5000  // Keep delays short for edge
+    maxDelay: 5000,  // Keep delays short for edge
+    // Edge-optimized delays
+    errorTypeDelays: {
+      runtimeKilled: 2000,   // Quick retry on timeout
+      timeout: 1500,         // Short timeout retries
+      connectionDropped: 1000 // Fast reconnection
+    }
   },
   timeout: {
     initialToken: 3000,
     interToken: 5000
+  }
+});
+```
+
+### Production High-Availability Configuration
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  retry: {
+    attempts: 5,
+    backoff: 'full-jitter',
+    maxDelay: 10000,
+    retryOn: ['network_error', 'timeout', 'rate_limit'],
+    // Optimized delays for HA
+    errorTypeDelays: {
+      connectionDropped: 1000,
+      fetchError: 500,
+      econnreset: 1000,
+      econnrefused: 2500,
+      sseAborted: 750,
+      partialChunks: 500,
+      runtimeKilled: 3000,
+      timeout: 1500
+    }
+  },
+  timeout: {
+    initialToken: 5000,
+    interToken: 8000
+  },
+  onRetry: (attempt, reason) => {
+    logger.info('Retry', { attempt, reason, timestamp: Date.now() });
   }
 });
 ```
@@ -643,12 +717,17 @@ console.log('Model retries:', result.state.retryAttempts);
 ### Detailed Error Analysis
 
 ```typescript
-import { analyzeNetworkError, describeNetworkError } from 'l0';
+import { 
+  analyzeNetworkError, 
+  describeNetworkError,
+  suggestRetryDelay 
+} from 'l0';
 
 try {
   // ... streaming
 } catch (error) {
   const analysis = analyzeNetworkError(error as Error);
+  const suggestedDelay = suggestRetryDelay(error as Error, 0);
   
   // Log to monitoring service
   monitoring.trackError({
@@ -656,9 +735,33 @@ try {
     subtype: analysis.type,
     retryable: analysis.retryable,
     description: describeNetworkError(error as Error),
+    suggestedDelay,
     context: analysis.context
   });
 }
+```
+
+### Custom Delay Based on Error Analysis
+
+```typescript
+import { analyzeNetworkError, NetworkErrorType } from 'l0';
+
+// Build custom delays based on your infrastructure
+const customDelays = {
+  [NetworkErrorType.CONNECTION_DROPPED]: 1500,
+  [NetworkErrorType.ECONNRESET]: 1200,
+  [NetworkErrorType.RUNTIME_KILLED]: 4000,
+  // etc.
+};
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  retry: {
+    attempts: 3,
+    backoff: 'exponential',
+    errorTypeDelays: customDelays
+  }
+});
 ```
 
 ---
@@ -674,25 +777,40 @@ try {
    - Higher timeouts for mobile/edge environments
    - Adjust based on observed latency
 
-3. **Monitor Network Retries**
+3. **Customize Delays Per Error Type**
+   - Use `errorTypeDelays` to tune specific error handling
+   - Faster retries for transient errors (fetch, SSE aborted)
+   - Longer delays for infrastructure issues (DNS, ECONNREFUSED)
+   - Adjust based on your deployment environment
+
+4. **Monitor Network Retries**
    - Check `result.state.networkRetries` after completion
    - Alert if network retries are consistently high
    - Investigate infrastructure issues
+   - Use error analysis to identify patterns
 
-4. **Handle Checkpoints**
+5. **Handle Checkpoints**
    - Partial content is preserved in `result.state.checkpoint`
    - Can be used to resume or show partial results
    - Useful for long-running streams
 
-5. **Mobile Considerations**
+6. **Mobile Considerations**
    - Longer timeouts for mobile
+   - Custom delays for `backgroundThrottle` (10-15 seconds)
    - Handle visibility changes
-   - Account for background throttling
+   - Account for network instability
 
-6. **Edge Runtime Considerations**
+7. **Edge Runtime Considerations**
    - Set appropriate timeouts under runtime limit
-   - Use shorter backoff delays
+   - Use shorter custom delays (1-3 seconds)
+   - Quick retries for `runtimeKilled` errors
    - Monitor runtime timeout errors
+
+8. **Production Tuning**
+   - Start with defaults, measure, then customize
+   - Use `suggestRetryDelay()` as a baseline
+   - A/B test different delay configurations
+   - Balance user experience vs. server load
 
 ---
 

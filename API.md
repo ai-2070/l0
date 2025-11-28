@@ -233,7 +233,14 @@ const result = await l0({
     backoff: "exponential",
     baseDelay: 1000,
     maxDelay: 10000,
-    retryOn: ["zero_output", "guardrail_violation", "drift"]
+    retryOn: ["zero_output", "guardrail_violation", "drift"],
+    // Custom delays per error type
+    errorTypeDelays: {
+      connectionDropped: 2000,     // 2s for connection drops
+      fetchError: 500,             // 0.5s for fetch errors
+      runtimeKilled: 5000,         // 5s for runtime timeouts
+      timeout: 1500                // 1.5s for timeouts
+    }
   }
 });
 ```
@@ -247,7 +254,11 @@ import { RetryManager } from "l0";
 
 const manager = new RetryManager({
   maxAttempts: 3,
-  backoff: "exponential"
+  backoff: "exponential",
+  errorTypeDelays: {
+    connectionDropped: 1500,
+    timeout: 2000
+  }
 });
 
 const result = await manager.execute(async () => {
@@ -264,6 +275,38 @@ L0 automatically categorizes errors:
 - **Transient errors** (429, 503, timeouts) - Retry forever, doesn't count
 - **Model errors** - Count toward retry limit
 - **Fatal errors** - Don't retry (auth errors, invalid requests)
+
+### Custom Delay Configuration
+
+Configure different retry delays for each network error type:
+
+```typescript
+const result = await l0({
+  stream: ...,
+  retry: {
+    attempts: 3,
+    backoff: "exponential",
+    errorTypeDelays: {
+      connectionDropped: 2000,      // Connection lost
+      fetchError: 500,              // fetch() failed
+      econnreset: 1500,             // Connection reset
+      econnrefused: 3000,           // Connection refused
+      sseAborted: 1000,             // SSE aborted
+      noBytes: 500,                 // No data received
+      partialChunks: 750,           // Incomplete data
+      runtimeKilled: 5000,          // Lambda/Edge timeout
+      backgroundThrottle: 10000,    // Mobile background
+      dnsError: 4000,               // DNS lookup failed
+      timeout: 2000,                // Request timeout
+      unknown: 1000                 // Unknown error
+    }
+  }
+});
+```
+
+All delays are in milliseconds and work with the configured backoff strategy.
+
+📚 See [CUSTOM_DELAYS.md](./CUSTOM_DELAYS.md) for comprehensive guide
 
 ---
 
@@ -581,6 +624,41 @@ interface RetryOptions {
   baseDelay?: number;
   maxDelay?: number;
   retryOn?: RetryReason[];
+  errorTypeDelays?: {
+    connectionDropped?: number;
+    fetchError?: number;
+    econnreset?: number;
+    econnrefused?: number;
+    sseAborted?: number;
+    noBytes?: number;
+    partialChunks?: number;
+    runtimeKilled?: number;
+    backgroundThrottle?: number;
+    dnsError?: number;
+    timeout?: number;
+    unknown?: number;
+  };
+}
+```
+
+### `ErrorTypeDelays`
+
+Per-error-type delay configuration (all values in milliseconds).
+
+```typescript
+interface ErrorTypeDelays {
+  connectionDropped?: number;    // Default: 1000ms
+  fetchError?: number;           // Default: 500ms
+  econnreset?: number;          // Default: 1000ms
+  econnrefused?: number;        // Default: 2000ms
+  sseAborted?: number;          // Default: 500ms
+  noBytes?: number;             // Default: 500ms
+  partialChunks?: number;       // Default: 500ms
+  runtimeKilled?: number;       // Default: 2000ms
+  backgroundThrottle?: number;  // Default: 5000ms
+  dnsError?: number;            // Default: 3000ms
+  timeout?: number;             // Default: 1000ms
+  unknown?: number;             // Default: 1000ms
 }
 ```
 

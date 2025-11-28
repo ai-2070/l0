@@ -1,0 +1,379 @@
+// Auto-correction utilities for fixing common JSON issues in LLM output
+
+import type {
+  AutoCorrectOptions,
+  AutoCorrectResult,
+  CorrectionType,
+} from "../types/structured";
+
+/**
+ * Auto-correct common JSON issues in LLM output
+ *
+ * @param raw - Raw JSON string from LLM
+ * @param options - Auto-correction options
+ * @returns Corrected JSON string and list of corrections applied
+ */
+export function autoCorrectJSON(
+  raw: string,
+  options: AutoCorrectOptions = {},
+): AutoCorrectResult {
+  const {
+    structural = true,
+    stripFormatting = true,
+    schemaBased = false,
+    strict = false,
+  } = options;
+
+  let corrected = raw;
+  const corrections: CorrectionType[] = [];
+  let success = false;
+
+  try {
+    // Step 1: Strip formatting (markdown, prefixes, suffixes)
+    if (stripFormatting) {
+      const { text, applied } = stripUnwantedFormatting(corrected);
+      corrected = text;
+      corrections.push(...applied);
+    }
+
+    // Step 2: Structural fixes (braces, brackets, commas)
+    if (structural) {
+      const { text, applied } = applyStructuralFixes(corrected);
+      corrected = text;
+      corrections.push(...applied);
+    }
+
+    // Step 3: Quote and escape fixes
+    const { text: fixedQuotes, applied: quoteCorrections } =
+      fixQuotesAndEscapes(corrected);
+    corrected = fixedQuotes;
+    corrections.push(...quoteCorrections);
+
+    // Step 4: Validate JSON
+    JSON.parse(corrected);
+    success = true;
+
+    return {
+      corrected,
+      success: true,
+      corrections,
+    };
+  } catch (error) {
+    return {
+      corrected,
+      success: false,
+      corrections,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+}
+
+/**
+ * Strip unwanted formatting (markdown fences, prefixes, suffixes)
+ */
+function stripUnwantedFormatting(text: string): {
+  text: string;
+  applied: CorrectionType[];
+} {
+  let result = text;
+  const applied: CorrectionType[] = [];
+
+  // Remove markdown code fences
+  const markdownFenceRegex = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/;
+  if (markdownFenceRegex.test(result)) {
+    result = result.replace(markdownFenceRegex, "$1");
+    applied.push("strip_markdown_fence");
+  }
+
+  // Remove "json" prefix at start
+  if (result.trim().startsWith("json")) {
+    result = result.trim().replace(/^json\s*/i, "");
+    applied.push("strip_json_prefix");
+  }
+
+  // Remove common LLM prefixes
+  const prefixes = [
+    /^Here's the JSON:?\s*/i,
+    /^Here is the JSON:?\s*/i,
+    /^The JSON is:?\s*/i,
+    /^Sure,? here's the JSON:?\s*/i,
+    /^Certainly[,!]? here's the JSON:?\s*/i,
+    /^Output:?\s*/i,
+    /^Result:?\s*/i,
+    /^Response:?\s*/i,
+    /^As an AI[^{]*/i,
+    /^I can help[^{]*/i,
+  ];
+
+  for (const prefix of prefixes) {
+    if (prefix.test(result)) {
+      result = result.replace(prefix, "");
+      applied.push("remove_prefix_text");
+      break;
+    }
+  }
+
+  // Remove common suffixes (text after closing brace/bracket)
+  const suffixes = [
+    /[\]}]\s*\n\n.*$/s,
+    /[\]}]\s*I hope this helps.*$/is,
+    /[\]}]\s*Let me know if.*$/is,
+    /[\]}]\s*This JSON.*$/is,
+  ];
+
+  for (const suffix of suffixes) {
+    if (suffix.test(result)) {
+      // Find the last } or ]
+      const lastBrace = result.lastIndexOf("}");
+      const lastBracket = result.lastIndexOf("]");
+      const lastIndex = Math.max(lastBrace, lastBracket);
+
+      if (lastIndex !== -1) {
+        result = result.substring(0, lastIndex + 1);
+        applied.push("remove_suffix_text");
+        break;
+      }
+    }
+  }
+
+  // Remove C-style comments (some models add them)
+  if (/\/\*[\s\S]*?\*\/|\/\/.*$/gm.test(result)) {
+    result = result
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    applied.push("remove_comments");
+  }
+
+  // Trim whitespace
+  result = result.trim();
+
+  return { text: result, applied };
+}
+
+/**
+ * Apply structural fixes (close braces, remove trailing commas, etc.)
+ */
+function applyStructuralFixes(text: string): {
+  text: string;
+  applied: CorrectionType[];
+} {
+  let result = text;
+  const applied: CorrectionType[] = [];
+
+  // Count braces and brackets
+  const openBraces = (result.match(/{/g) || []).length;
+  const closeBraces = (result.match(/}/g) || []).length;
+  const openBrackets = (result.match(/\[/g) || []).length;
+  const closeBrackets = (result.match(/\]/g) || []).length;
+
+  // Close missing braces
+  if (openBraces > closeBraces) {
+    const missing = openBraces - closeBraces;
+    result += "}".repeat(missing);
+    applied.push("close_brace");
+  }
+
+  // Close missing brackets
+  if (openBrackets > closeBrackets) {
+    const missing = openBrackets - closeBrackets;
+    result += "]".repeat(missing);
+    applied.push("close_bracket");
+  }
+
+  // Remove trailing commas before closing braces/brackets
+  const trailingCommaRegex = /,(\s*[}\]])/g;
+  if (trailingCommaRegex.test(result)) {
+    result = result.replace(trailingCommaRegex, "$1");
+    applied.push("remove_trailing_comma");
+  }
+
+  // Remove trailing comma at the very end
+  if (result.trim().endsWith(",")) {
+    result = result.trim().slice(0, -1);
+    applied.push("remove_trailing_comma");
+  }
+
+  return { text: result, applied };
+}
+
+/**
+ * Fix quote issues and escape control characters
+ */
+function fixQuotesAndEscapes(text: string): {
+  text: string;
+  applied: CorrectionType[];
+} {
+  let result = text;
+  const applied: CorrectionType[] = [];
+
+  // Escape unescaped control characters in strings
+  try {
+    // Try to parse - if it fails due to control chars, fix them
+    JSON.parse(result);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("control character") ||
+        error.message.includes("Bad control character"))
+    ) {
+      // Escape newlines, tabs, etc. in string values
+      result = result.replace(
+        /"([^"\\]*(?:\\.[^"\\]*)*)"/g,
+        (match, content) => {
+          const escaped = content
+            .replace(/\n/g, "\\n")
+            .replace(/\r/g, "\\r")
+            .replace(/\t/g, "\\t");
+          return `"${escaped}"`;
+        },
+      );
+      applied.push("escape_control_chars");
+    }
+  }
+
+  return { text: result, applied };
+}
+
+/**
+ * Attempt to extract JSON from text that may contain other content
+ *
+ * @param text - Text that may contain JSON
+ * @returns Extracted JSON string or original text
+ */
+export function extractJSON(text: string): string {
+  // Try to find JSON object
+  const objectMatch = text.match(/\{[\s\S]*\}/);
+  if (objectMatch) {
+    return objectMatch[0];
+  }
+
+  // Try to find JSON array
+  const arrayMatch = text.match(/\[[\s\S]*\]/);
+  if (arrayMatch) {
+    return arrayMatch[0];
+  }
+
+  return text;
+}
+
+/**
+ * Check if a string is valid JSON
+ *
+ * @param text - String to check
+ * @returns True if valid JSON
+ */
+export function isValidJSON(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get a human-readable description of JSON parse error
+ *
+ * @param error - JSON parse error
+ * @returns Human-readable description
+ */
+export function describeJSONError(error: Error): string {
+  const message = error.message.toLowerCase();
+
+  if (message.includes("unexpected end")) {
+    return "Incomplete JSON - missing closing braces or brackets";
+  }
+
+  if (message.includes("unexpected token")) {
+    return "Invalid JSON syntax - unexpected character";
+  }
+
+  if (message.includes("control character")) {
+    return "Invalid control characters in string values";
+  }
+
+  if (message.includes("trailing comma")) {
+    return "Trailing commas not allowed in JSON";
+  }
+
+  if (message.includes("expected property name")) {
+    return "Invalid property name - must be quoted";
+  }
+
+  return error.message;
+}
+
+/**
+ * Repair common JSON structure issues
+ * More aggressive than autoCorrectJSON - tries harder to salvage malformed JSON
+ *
+ * @param text - Potentially malformed JSON
+ * @returns Repaired JSON or throws error
+ */
+export function repairJSON(text: string): string {
+  // First try auto-correction
+  const autoResult = autoCorrectJSON(text, {
+    structural: true,
+    stripFormatting: true,
+  });
+
+  if (autoResult.success) {
+    return autoResult.corrected;
+  }
+
+  // Try to extract JSON from surrounding text
+  const extracted = extractJSON(text);
+  if (extracted !== text) {
+    const retryResult = autoCorrectJSON(extracted, {
+      structural: true,
+      stripFormatting: true,
+    });
+    if (retryResult.success) {
+      return retryResult.corrected;
+    }
+  }
+
+  // Last resort: try to fix common patterns
+  let result = text.trim();
+
+  // Fix single quotes to double quotes (common in some models)
+  result = result.replace(/'([^']*?)'/g, '"$1"');
+
+  // Try one more time
+  const finalResult = autoCorrectJSON(result, {
+    structural: true,
+    stripFormatting: true,
+  });
+
+  if (finalResult.success) {
+    return finalResult.corrected;
+  }
+
+  throw new Error(`Unable to repair JSON: ${describeJSONError(finalResult.error!)}`);
+}
+
+/**
+ * Safely parse JSON with auto-correction
+ *
+ * @param text - JSON string to parse
+ * @param options - Auto-correction options
+ * @returns Parsed JSON object
+ */
+export function safeJSONParse<T = any>(
+  text: string,
+  options: AutoCorrectOptions = {},
+): { data: T; corrected: boolean; corrections: CorrectionType[] } {
+  // Try parsing as-is first
+  try {
+    const data = JSON.parse(text);
+    return { data, corrected: false, corrections: [] };
+  } catch {
+    // Try with auto-correction
+    const result = autoCorrectJSON(text, options);
+    if (result.success) {
+      const data = JSON.parse(result.corrected);
+      return { data, corrected: true, corrections: result.corrections };
+    }
+    throw new Error(`Failed to parse JSON: ${describeJSONError(result.error!)}`);
+  }
+}

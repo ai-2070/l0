@@ -73,7 +73,29 @@ const parsed = JSON.parse(json);
 console.log(parsed);
 ```
 
-### 2. With Timeout Protection
+### 2. Custom Retry Delays
+
+Configure different delays for each network error type:
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ /* ... */ }),
+  guardrails: recommendedGuardrails,
+  retry: {
+    attempts: 3,
+    backoff: "exponential",
+    errorTypeDelays: {
+      connectionDropped: 2000,      // 2s for connection drops
+      fetchError: 500,              // 0.5s for fetch errors
+      runtimeKilled: 5000,          // 5s for runtime timeouts
+      timeout: 1500,                // 1.5s for timeouts
+      backgroundThrottle: 10000     // 10s for mobile background
+    }
+  }
+});
+```
+
+### 3. With Timeout Protection
 
 ```typescript
 const result = await l0({
@@ -87,7 +109,7 @@ const result = await l0({
 });
 ```
 
-### 3. With Callbacks
+### 4. With Callbacks
 
 ```typescript
 const result = await l0({
@@ -109,7 +131,7 @@ const result = await l0({
 });
 ```
 
-### 4. Drift Detection
+### 5. Drift Detection
 
 ```typescript
 const result = await l0({
@@ -125,7 +147,7 @@ if (result.state.driftDetected) {
 }
 ```
 
-### 5. Custom Guardrails
+### 6. Custom Guardrails
 
 ```typescript
 const customRule = {
@@ -305,6 +327,8 @@ console.log({
 - Check out [examples](./examples/) for more patterns
 - Learn about [custom guardrails](./API.md#custom-guardrails)
 - Explore [format helpers](./API.md#format-helpers)
+- Configure [custom delays](./CUSTOM_DELAYS.md) for network errors
+- Review [network error handling](./NETWORK_ERRORS.md)
 
 ## Common Issues
 
@@ -353,6 +377,8 @@ guardrails: [
 3. **Set timeouts**: Prevent hanging on slow/stalled streams
 4. **Use format helpers**: Consistent prompts lead to better outputs
 5. **Check state**: Inspect `result.state` after completion
+6. **Tune delays**: Customize `errorTypeDelays` for your infrastructure
+7. **Monitor retries**: Track `networkRetries` to identify patterns
 
 ## Support
 

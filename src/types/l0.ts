@@ -21,6 +21,23 @@ export interface L0Options {
   stream: () => Promise<any> | any;
 
   /**
+   * Optional fallback stream functions to try if primary stream fails
+   * after exhausting retries. Useful for falling back to cheaper models.
+   *
+   * @example
+   * ```typescript
+   * {
+   *   stream: () => streamText({ model: openai('gpt-4o'), prompt }),
+   *   fallbackStreams: [
+   *     () => streamText({ model: openai('gpt-4o-mini'), prompt }),
+   *     () => streamText({ model: openai('gpt-3.5-turbo'), prompt })
+   *   ]
+   * }
+   * ```
+   */
+  fallbackStreams?: Array<() => Promise<any> | any>;
+
+  /**
    * Array of guardrail rules to apply during streaming
    */
   guardrails?: GuardrailRule[];
@@ -50,6 +67,36 @@ export interface L0Options {
   signal?: AbortSignal;
 
   /**
+   * Enable built-in monitoring and telemetry
+   */
+  monitoring?: {
+    /**
+     * Enable telemetry collection (default: false)
+     */
+    enabled?: boolean;
+
+    /**
+     * Sample rate for telemetry (0-1, default: 1.0)
+     */
+    sampleRate?: number;
+
+    /**
+     * Include detailed network error information
+     */
+    includeNetworkDetails?: boolean;
+
+    /**
+     * Include timing metrics
+     */
+    includeTimings?: boolean;
+
+    /**
+     * Custom metadata to attach to all events
+     */
+    metadata?: Record<string, any>;
+  };
+
+  /**
    * Enable drift detection
    */
   detectDrift?: boolean;
@@ -73,6 +120,38 @@ export interface L0Options {
    * Optional callback for retry attempts
    */
   onRetry?: (attempt: number, reason: string) => void;
+
+  /**
+   * Interceptors for preprocessing and postprocessing
+   */
+  interceptors?: L0Interceptor[];
+}
+
+/**
+ * Interceptor for preprocessing (before) and postprocessing (after) L0 execution
+ */
+export interface L0Interceptor {
+  /**
+   * Optional name for the interceptor
+   */
+  name?: string;
+
+  /**
+   * Before hook - runs before stream starts
+   * Can modify options, inject metadata, add authentication, etc.
+   */
+  before?: (options: L0Options) => L0Options | Promise<L0Options>;
+
+  /**
+   * After hook - runs after stream completes
+   * Can inspect output, post-process content, log results, etc.
+   */
+  after?: (result: L0Result) => L0Result | Promise<L0Result>;
+
+  /**
+   * Error hook - runs if an error occurs
+   */
+  onError?: (error: Error, options: L0Options) => void | Promise<void>;
 }
 
 /**
@@ -98,6 +177,16 @@ export interface L0Result {
    * Any errors that occurred
    */
   errors: Error[];
+
+  /**
+   * Telemetry data (if monitoring enabled)
+   */
+  telemetry?: L0Telemetry;
+
+  /**
+   * Abort controller for canceling the stream
+   */
+  abort: () => void;
 }
 
 /**
@@ -130,6 +219,11 @@ export interface L0State {
   networkRetries: number;
 
   /**
+   * Index of current fallback stream being used (0 = primary, 1+ = fallback)
+   */
+  fallbackIndex: number;
+
+  /**
    * Guardrail violations encountered
    */
   violations: GuardrailViolation[];
@@ -153,6 +247,163 @@ export interface L0State {
    * Timestamp of last token
    */
   lastTokenAt?: number;
+
+  /**
+   * Total duration in milliseconds
+   */
+  duration?: number;
+
+  /**
+   * Network errors encountered (categorized)
+   */
+  networkErrors: CategorizedNetworkError[];
+}
+
+/**
+ * Telemetry data collected during L0 execution
+ */
+export interface L0Telemetry {
+  /**
+   * Session ID for this execution
+   */
+  sessionId: string;
+
+  /**
+   * Timestamp when execution started
+   */
+  startTime: number;
+
+  /**
+   * Timestamp when execution ended
+   */
+  endTime?: number;
+
+  /**
+   * Total duration in milliseconds
+   */
+  duration?: number;
+
+  /**
+   * Performance metrics
+   */
+  metrics: {
+    /**
+     * Time to first token (ms)
+     */
+    timeToFirstToken?: number;
+
+    /**
+     * Average time between tokens (ms)
+     */
+    avgInterTokenTime?: number;
+
+    /**
+     * Tokens per second
+     */
+    tokensPerSecond?: number;
+
+    /**
+     * Total tokens received
+     */
+    totalTokens: number;
+
+    /**
+     * Total retries (all types)
+     */
+    totalRetries: number;
+
+    /**
+     * Network retries (doesn't count toward limit)
+     */
+    networkRetries: number;
+
+    /**
+     * Model retries (counts toward limit)
+     */
+    modelRetries: number;
+  };
+
+  /**
+   * Network events and errors
+   */
+  network: {
+    /**
+     * Total network errors encountered
+     */
+    errorCount: number;
+
+    /**
+     * Network errors by type
+     */
+    errorsByType: Record<string, number>;
+
+    /**
+     * Network error details (if includeNetworkDetails enabled)
+     */
+    errors?: Array<{
+      type: string;
+      message: string;
+      timestamp: number;
+      retried: boolean;
+      delay?: number;
+    }>;
+  };
+
+  /**
+   * Guardrail events
+   */
+  guardrails?: {
+    /**
+     * Total violations
+     */
+    violationCount: number;
+
+    /**
+     * Violations by rule
+     */
+    violationsByRule: Record<string, number>;
+
+    /**
+     * Violations by severity
+     */
+    violationsBySeverity: {
+      warning: number;
+      error: number;
+      fatal: number;
+    };
+  };
+
+  /**
+   * Drift detection results
+   */
+  drift?: {
+    /**
+     * Whether drift was detected
+     */
+    detected: boolean;
+
+    /**
+     * Types of drift detected
+     */
+    types: string[];
+  };
+
+  /**
+   * Custom metadata
+   */
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Categorized network error for telemetry
+ */
+export interface CategorizedNetworkError {
+  type: string;
+  message: string;
+  timestamp: number;
+  retried: boolean;
+  delay?: number;
+  attempt?: number;
 }
 
 /**
@@ -192,6 +443,34 @@ export interface RetryOptions {
     | "timeout"
     | "rate_limit"
   >;
+
+  /**
+   * Custom delays for specific network error types (optional)
+   * Overrides baseDelay for specific errors
+   *
+   * @example
+   * ```typescript
+   * {
+   *   connectionDropped: 2000,  // 2 seconds for connection drops
+   *   fetchError: 500,           // 0.5 seconds for fetch errors
+   *   runtimeKilled: 5000        // 5 seconds for runtime kills
+   * }
+   * ```
+   */
+  errorTypeDelays?: {
+    connectionDropped?: number;
+    fetchError?: number;
+    econnreset?: number;
+    econnrefused?: number;
+    sseAborted?: number;
+    noBytes?: number;
+    partialChunks?: number;
+    runtimeKilled?: number;
+    backgroundThrottle?: number;
+    dnsError?: number;
+    timeout?: number;
+    unknown?: number;
+  };
 }
 
 /**

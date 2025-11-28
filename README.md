@@ -5,6 +5,7 @@ L0 adds **guardrails, drift detection, retry logic, formatting helpers, and netw
 
 - streaming stabilization
 - structure-aware guardrails
+- **deterministic structured output** (guaranteed valid JSON with schema validation)
 - drift/entropy detection
 - safe retry logic
 - zero-token detection
@@ -200,7 +201,132 @@ L0 automatically detects and recovers from **all common network failures**:
 
 ---
 
-# 🧱 **8\. Unified Event Format**
+# 🔀 **8\. Fall-Through Model Retries**
+
+**Automatic fallback to cheaper models when primary model fails.**
+
+L0 supports automatic model fallback when the primary model exhausts all retry attempts. This is **critical for financial/enterprise apps** where reliability is more important than using a specific model.
+
+### How it works:
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ 
+    model: openai('gpt-4o'), 
+    prompt 
+  }),
+  fallbackStreams: [
+    () => streamText({ model: openai('gpt-4o-mini'), prompt }),
+    () => streamText({ model: openai('gpt-3.5-turbo'), prompt })
+  ],
+  retry: recommendedRetry
+});
+```
+
+### Behavior:
+
+1. **Primary model** (`gpt-4o`) attempts with full retry logic
+2. If all retries exhausted → **automatic fallback** to `gpt-4o-mini`
+3. If that fails → fallback to `gpt-3.5-turbo`
+4. Each fallback gets its own full retry attempts
+
+### Benefits:
+
+- **Reliability over cost** — System stays up even if primary model fails
+- **Graceful degradation** — Cheaper models often sufficient for validation passes
+- **Zero code changes** — Fallbacks are transparent to consuming code
+- **Telemetry tracking** — `state.fallbackIndex` shows which model succeeded
+- **Enterprise-grade** — Perfect for financial apps requiring 99.9% uptime
+
+### Use Cases:
+
+- **Validation passes** — GPT-4o fails → use mini for a simpler validation
+- **High availability** — Ensure system never goes down due to model issues
+- **Cost optimization** — Try expensive model first, fallback to cheap if unavailable
+- **Multi-provider** — Fallback to different providers (OpenAI → Anthropic → Google)
+
+---
+
+## Fall-Through vs. Multi-Model Redundancy
+
+L0 supports **two different patterns** for model reliability. They solve different problems:
+
+### Fall-Through Model Retries (Sequential Fallback)
+
+**Pattern:** Try one model at a time, fallback if it fails.
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model: openai('gpt-4o'), prompt }),
+  fallbackStreams: [
+    () => streamText({ model: openai('gpt-4o-mini'), prompt }),
+    () => streamText({ model: anthropic('claude'), prompt })
+  ]
+});
+
+// Execution: GPT-4o → (fails) → GPT-4o-mini → (fails) → Claude
+```
+
+**Characteristics:**
+- ⏱️ **Higher latency** (sequential execution)
+- 💰 **Lower cost** (only pay for 1 model at a time)
+- 🎯 **Predictable order** (primary → fallback1 → fallback2)
+- 🔄 **Each model gets full retry attempts**
+
+**Best for:**
+- Financial/enterprise apps (reliability over speed)
+- Batch processing (not latency-sensitive)
+- Cost-conscious applications
+- Predictable degradation paths
+
+---
+
+### Multi-Model Redundancy (Parallel Race)
+
+**Pattern:** Call all models simultaneously, take fastest response.
+
+```typescript
+import { race } from 'l0';
+
+const result = await race([
+  () => streamText({ model: openai('gpt-4o'), prompt }),
+  () => streamText({ model: anthropic('claude'), prompt }),
+  () => streamText({ model: google('gemini'), prompt })
+]);
+
+// Execution: All 3 models called at once → fastest wins
+```
+
+**Characteristics:**
+- ⚡ **Lower latency** (parallel, take fastest)
+- 💸 **Higher cost** (pay for all parallel calls)
+- 🎲 **Non-deterministic** (fastest wins, not necessarily best)
+- ❌ **Wastes tokens** from slower responses
+
+**Best for:**
+- Real-time chat (user waiting for response)
+- Ultra-low latency requirements
+- High-value queries (cost doesn't matter)
+- Experimentation (comparing model outputs)
+
+---
+
+### Comparison Table
+
+| Aspect | Fall-Through Retries | Multi-Model Redundancy |
+|--------|---------------------|------------------------|
+| **Execution** | Sequential (one at a time) | Parallel (all at once) |
+| **Cost** | Low (1 model/attempt) | High (N models simultaneously) |
+| **Latency** | Higher (sum of attempts) | Lower (fastest response) |
+| **Predictability** | High (ordered fallback) | Low (race condition) |
+| **Token Waste** | None | High (unused responses) |
+| **Use Case** | High availability, budget-conscious | Speed-critical, cost-insensitive |
+
+📚 See [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) for parallel operations documentation.
+
+---
+
+# 🧱 **9\. Unified Event Format**
 
 Regardless of Vercel event types,  
 L0 normalizes events into:
@@ -218,7 +344,76 @@ This makes downstream UI much simpler and fully testable.
 
 ---
 
-# 🧮 **9\. Memory, State & Checkpoints**
+# 🎯 **10\. Deterministic Structured Output**
+
+**Guaranteed valid JSON matching your schema. No hallucinations. No narrations. No weird prefaces.**
+
+The #1 request from production teams: reliable JSON output.
+
+### What You Get:
+
+```typescript
+import { structured } from 'l0';
+import { z } from 'zod';
+
+const schema = z.object({
+  amount: z.number(),
+  approved: z.boolean(),
+  reason: z.string().optional()
+});
+
+const result = await structured({
+  schema,
+  stream: () => streamText({ model, prompt })
+});
+
+// Guaranteed to match schema!
+console.log(result.data.amount);   // Type-safe: number
+console.log(result.data.approved); // Type-safe: boolean
+```
+
+### Features:
+
+- ✅ **Automatic schema validation** with Zod
+- ✅ **Auto-correction** of common JSON issues (missing braces, trailing commas, markdown fences)
+- ✅ **Retry on validation failure**
+- ✅ **Fallback model support**
+- ✅ **Type-safe results** with TypeScript inference
+- ✅ **Zero crashes** - never fails on malformed JSON
+
+### Auto-Correction:
+
+Automatically fixes:
+- Missing closing `}` or `]`
+- Trailing commas
+- Markdown code fences ` ```json ... ``` `
+- Text prefixes ("Here's the JSON:", "Sure!", etc.)
+- Unescaped control characters
+- Single quotes instead of double quotes
+
+### Example with Fallbacks:
+
+```typescript
+const result = await structured({
+  schema,
+  stream: () => streamText({ model: openai('gpt-4o'), prompt }),
+  fallbackStreams: [
+    () => streamText({ model: openai('gpt-4o-mini'), prompt })
+  ],
+  autoCorrect: true,
+  retry: { attempts: 2 }
+});
+
+console.log('Was corrected:', result.corrected);
+console.log('Corrections:', result.corrections);
+console.log('Fallback used:', result.state.fallbackIndex > 0);
+```
+
+📚 See [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md) for complete guide with examples
+
+---
+
+# 🧮 **11\. Memory, State & Checkpoints**
 
 L0 provides:
 
@@ -237,7 +432,7 @@ Perfect for restoring sessions.
 
 ---
 
-# 📝 **10\. Formatting Helpers**
+# 📝 **12\. Formatting Helpers**
 
 These helpers normalize user prompts and output formats:
 
@@ -278,7 +473,7 @@ These are non-AI, tiny syntactic repairs, not semantic corrections.
 
 ---
 
-# 🔧 **12\. Guardrail Presets**
+# 🎯 **13\. Guardrail Presets**
 
 L0 includes presets to simplify configuration.
 
@@ -313,7 +508,7 @@ strictGuardrails = [
 
 ---
 
-# 🔁 **13\. Retry Presets**
+# 🔁 **14\. Retry Presets**
 
 ### **Minimal**
 

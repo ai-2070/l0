@@ -8,6 +8,9 @@ import { DriftDetector } from "./drift";
 import { detectZeroToken } from "./zeroToken";
 import { normalizeStreamEvent } from "./events";
 import { hasMeaningfulContent } from "../utils/tokens";
+import { L0Monitor } from "./monitoring";
+import { isNetworkError } from "../utils/errors";
+import { InterceptorManager } from "./interceptors";
 
 /**
  * Main L0 wrapper function
@@ -33,38 +36,85 @@ import { hasMeaningfulContent } from "../utils/tokens";
 export async function l0(options: L0Options): Promise<L0Result> {
   const {
     stream: streamFactory,
+    fallbackStreams = [],
     guardrails = [],
     retry = {},
     timeout = {},
-    signal,
+    signal: externalSignal,
+    monitoring,
     detectDrift: enableDrift = false,
     detectZeroTokens = true,
     onEvent,
     onViolation,
     onRetry,
+    interceptors = [],
   } = options;
+
+  // Initialize interceptor manager
+  const interceptorManager = new InterceptorManager(interceptors);
+
+  // Execute "before" interceptors
+  let processedOptions = options;
+  try {
+    processedOptions = await interceptorManager.executeBefore(options);
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    await interceptorManager.executeError(err, options);
+    throw err;
+  }
+
+  // Use processed options for the rest of execution
+  const {
+    stream: processedStream,
+    fallbackStreams: processedFallbackStreams = [],
+    guardrails: processedGuardrails = [],
+    retry: processedRetry = {},
+    timeout: processedTimeout = {},
+    signal: processedSignal,
+    monitoring: processedMonitoring,
+    detectDrift: processedDetectDrift = false,
+    detectZeroTokens: processedDetectZeroTokens = true,
+    onEvent: processedOnEvent,
+    onViolation: processedOnViolation,
+    onRetry: processedOnRetry,
+  } = processedOptions;
 
   // Initialize state
   const state: L0State = createInitialState();
   const errors: Error[] = [];
 
+  // Initialize built-in abort controller
+  const abortController = new AbortController();
+  const signal = processedSignal || externalSignal || abortController.signal;
+
+  // Initialize monitoring
+  const monitor = new L0Monitor({
+    enabled: processedMonitoring?.enabled ?? false,
+    sampleRate: processedMonitoring?.sampleRate ?? 1.0,
+    includeNetworkDetails: processedMonitoring?.includeNetworkDetails ?? true,
+    includeTimings: processedMonitoring?.includeTimings ?? true,
+    metadata: processedMonitoring?.metadata,
+  });
+
+  monitor.start();
+
   // Initialize engines
   const guardrailEngine =
-    guardrails.length > 0
+    processedGuardrails.length > 0
       ? new GuardrailEngine({
-          rules: guardrails,
+          rules: processedGuardrails,
           stopOnFatal: true,
           enableStreaming: true,
-          onViolation,
+          onViolation: processedOnViolation,
         })
       : null;
 
   const retryManager = new RetryManager({
-    maxAttempts: retry.attempts ?? 2,
-    baseDelay: retry.baseDelay ?? 1000,
-    maxDelay: retry.maxDelay ?? 10000,
-    backoff: retry.backoff ?? "exponential",
-    retryOn: retry.retryOn ?? [
+    maxAttempts: processedRetry.attempts ?? 2,
+    baseDelay: processedRetry.baseDelay ?? 1000,
+    maxDelay: processedRetry.maxDelay ?? 10000,
+    backoff: processedRetry.backoff ?? "exponential",
+    retryOn: processedRetry.retryOn ?? [
       "zero_output",
       "guardrail_violation",
       "drift",
@@ -74,289 +124,381 @@ export async function l0(options: L0Options): Promise<L0Result> {
     ],
   });
 
-  const driftDetector = enableDrift ? new DriftDetector() : null;
+  const driftDetector = processedDetectDrift ? new DriftDetector() : null;
 
   // Create async generator for streaming
   const streamGenerator = async function* (): AsyncGenerator<L0Event> {
-    let retryAttempt = 0;
-    const maxRetries = retry.attempts ?? 2;
+    let fallbackIndex = 0;
+    const allStreams = [processedStream, ...processedFallbackStreams];
 
-    while (retryAttempt <= maxRetries) {
-      try {
-        // Reset state for retry
-        if (retryAttempt > 0) {
+    // Try primary stream first, then fallbacks if exhausted
+    while (fallbackIndex < allStreams.length) {
+      const currentStreamFactory = allStreams[fallbackIndex];
+      let retryAttempt = 0;
+      const maxRetries = processedRetry.attempts ?? 2;
+
+      // Update state with current fallback index
+      state.fallbackIndex = fallbackIndex;
+
+      while (retryAttempt <= maxRetries) {
+        try {
+          // Reset state for retry
+          if (retryAttempt > 0) {
+            state.content = "";
+            state.tokenCount = 0;
+            state.violations = [];
+            state.driftDetected = false;
+          }
+
+          // Get stream from factory
+          const streamResult = await currentStreamFactory();
+
+          // Handle different stream result types
+          let sourceStream: AsyncIterable<any>;
+          if (streamResult.textStream) {
+            sourceStream = streamResult.textStream;
+          } else if (streamResult.fullStream) {
+            sourceStream = streamResult.fullStream;
+          } else if (Symbol.asyncIterator in streamResult) {
+            sourceStream = streamResult;
+          } else {
+            throw new Error("Invalid stream result - no iterable stream found");
+          }
+
+          // Track timing
+          const startTime = Date.now();
+          state.firstTokenAt = undefined;
+          state.lastTokenAt = undefined;
+
+          let firstTokenReceived = false;
+          let lastTokenTime = startTime;
+
+          // Initial token timeout
+          const initialTimeout = processedTimeout.initialToken ?? 2000;
+          let initialTimeoutId: NodeJS.Timeout | null = null;
+          let initialTimeoutReached = false;
+
+          if (!signal?.aborted) {
+            initialTimeoutId = setTimeout(() => {
+              initialTimeoutReached = true;
+            }, initialTimeout);
+          }
+
+          // Stream processing
+          for await (const chunk of sourceStream) {
+            // Check abort signal
+            if (signal?.aborted) {
+              throw new Error("Stream aborted by signal");
+            }
+
+            // Clear initial timeout on first chunk
+            if (initialTimeoutId && !firstTokenReceived) {
+              clearTimeout(initialTimeoutId);
+              initialTimeoutId = null;
+              initialTimeoutReached = false;
+            }
+
+            // Check initial timeout
+            if (initialTimeoutReached && !firstTokenReceived) {
+              throw new Error("Initial token timeout reached");
+            }
+
+            // Normalize event
+            const event = normalizeStreamEvent(chunk);
+
+            if (event.type === "token" && event.value) {
+              const token = event.value;
+
+              // Track first token
+              if (!firstTokenReceived) {
+                firstTokenReceived = true;
+                state.firstTokenAt = Date.now();
+              }
+
+              // Update state
+              state.content += token;
+              state.tokenCount++;
+              state.lastTokenAt = Date.now();
+              lastTokenTime = state.lastTokenAt;
+
+              // Record token in monitoring
+              monitor.recordToken(state.lastTokenAt);
+
+              // Check inter-token timeout
+              const interTimeout = processedTimeout.interToken ?? 5000;
+              const timeSinceLastToken = Date.now() - lastTokenTime;
+              if (timeSinceLastToken > interTimeout) {
+                throw new Error("Inter-token timeout reached");
+              }
+
+              // Update checkpoint periodically
+              if (state.tokenCount % 10 === 0) {
+                state.checkpoint = state.content;
+              }
+
+              // Run streaming guardrails
+              if (guardrailEngine && state.tokenCount % 5 === 0) {
+                const context: GuardrailContext = {
+                  content: state.content,
+                  checkpoint: state.checkpoint,
+                  delta: token,
+                  tokenCount: state.tokenCount,
+                  isComplete: false,
+                };
+
+                const result = guardrailEngine.check(context);
+                if (result.violations.length > 0) {
+                  state.violations.push(...result.violations);
+                  monitor.recordGuardrailViolations(result.violations);
+                }
+
+                // Check for fatal violations
+                if (result.shouldHalt) {
+                  throw new Error(
+                    `Fatal guardrail violation: ${result.violations[0]?.message}`,
+                  );
+                }
+              }
+
+              // Check drift
+              if (driftDetector && state.tokenCount % 10 === 0) {
+                const drift = driftDetector.check(state.content, token);
+                if (drift.detected) {
+                  state.driftDetected = true;
+                  monitor.recordDrift(true, drift.types);
+                }
+              }
+
+              // Emit event
+              const l0Event: L0Event = {
+                type: "token",
+                value: token,
+                timestamp: Date.now(),
+              };
+
+              if (processedOnEvent) processedOnEvent(l0Event);
+              yield l0Event;
+            } else if (event.type === "error") {
+              throw event.error || new Error("Stream error");
+            } else if (event.type === "done") {
+              break;
+            }
+          }
+
+          // Clear any remaining timeout
+          if (initialTimeoutId) {
+            clearTimeout(initialTimeoutId);
+          }
+
+          // Check for zero output
+          if (processedDetectZeroTokens && detectZeroToken(state.content)) {
+            throw new Error("Zero output detected - no meaningful content");
+          }
+
+          // Run final guardrails
+          if (guardrailEngine) {
+            const context: GuardrailContext = {
+              content: state.content,
+              checkpoint: state.checkpoint,
+              tokenCount: state.tokenCount,
+              isComplete: true,
+            };
+
+            const result = guardrailEngine.check(context);
+            if (result.violations.length > 0) {
+              state.violations.push(...result.violations);
+              monitor.recordGuardrailViolations(result.violations);
+            }
+
+            // Check if should retry
+            if (result.shouldRetry && retryAttempt < maxRetries) {
+              const violation = result.violations[0];
+              if (processedOnRetry) {
+                processedOnRetry(
+                  retryAttempt + 1,
+                  `Guardrail violation: ${violation?.message}`,
+                );
+              }
+              retryAttempt++;
+              state.retryAttempts++;
+              continue;
+            }
+
+            // Fatal violations
+            if (result.shouldHalt) {
+              throw new Error(
+                `Fatal guardrail violation: ${result.violations[0]?.message}`,
+              );
+            }
+          }
+
+          // Check drift
+          if (driftDetector) {
+            const finalDrift = driftDetector.check(state.content);
+            if (finalDrift.detected && retryAttempt < maxRetries) {
+              state.driftDetected = true;
+              monitor.recordDrift(true, finalDrift.types);
+              if (processedOnRetry) {
+                processedOnRetry(retryAttempt + 1, "Drift detected");
+              }
+              monitor.recordRetry(false);
+              retryAttempt++;
+              state.retryAttempts++;
+              continue;
+            }
+          }
+
+          // Success - mark as completed
+          state.completed = true;
+          monitor.complete();
+
+          // Calculate duration
+          if (state.firstTokenAt) {
+            state.duration = Date.now() - state.firstTokenAt;
+          }
+
+          // Emit done event
+          const doneEvent: L0Event = {
+            type: "done",
+            timestamp: Date.now(),
+          };
+          if (processedOnEvent) processedOnEvent(doneEvent);
+          yield doneEvent;
+
+          break; // Exit retry loop on success
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          errors.push(err);
+
+          // Categorize error
+          const categorized = retryManager.categorizeError(err);
+          const decision = retryManager.shouldRetry(err);
+
+          // Record network error in monitoring
+          const isNetError = isNetworkError(err);
+          if (isNetError) {
+            monitor.recordNetworkError(
+              err,
+              decision.shouldRetry,
+              decision.delay,
+              retryAttempt,
+            );
+          }
+
+          // Check if should retry
+          if (decision.shouldRetry) {
+            if (decision.countsTowardLimit) {
+              retryAttempt++;
+              state.retryAttempts++;
+            } else {
+              state.networkRetries++;
+            }
+
+            // Record in monitoring
+            monitor.recordRetry(isNetError);
+
+            if (processedOnRetry) {
+              processedOnRetry(retryAttempt, decision.reason);
+            }
+
+            // Record retry and wait
+            await retryManager.recordRetry(categorized, decision);
+            continue;
+          }
+
+          // Not retryable - emit error and throw
+          const errorEvent: L0Event = {
+            type: "error",
+            error: err,
+            timestamp: Date.now(),
+          };
+          if (processedOnEvent) processedOnEvent(errorEvent);
+          yield errorEvent;
+
+          // Execute error interceptors
+          await interceptorManager.executeError(err, processedOptions);
+
+          throw err;
+        }
+      }
+
+      // If we exhausted retries for this stream, try fallback
+      if (!state.completed) {
+        if (fallbackIndex < allStreams.length - 1) {
+          // Move to next fallback
+          fallbackIndex++;
+          const fallbackMessage = `Retries exhausted for stream ${fallbackIndex}, falling back to stream ${fallbackIndex + 1}`;
+
+          monitor.logEvent({
+            type: "fallback",
+            message: fallbackMessage,
+            fromIndex: fallbackIndex - 1,
+            toIndex: fallbackIndex,
+          });
+
+          if (processedOnRetry) {
+            processedOnRetry(0, fallbackMessage);
+          }
+
+          // Reset state for fallback attempt
           state.content = "";
           state.tokenCount = 0;
           state.violations = [];
           state.driftDetected = false;
-        }
+          state.retryAttempts = 0;
 
-        // Get stream from factory
-        const streamResult = await streamFactory();
-
-        // Handle different stream result types
-        let sourceStream: AsyncIterable<any>;
-        if (streamResult.textStream) {
-          sourceStream = streamResult.textStream;
-        } else if (streamResult.fullStream) {
-          sourceStream = streamResult.fullStream;
-        } else if (Symbol.asyncIterator in streamResult) {
-          sourceStream = streamResult;
-        } else {
-          throw new Error("Invalid stream result - no iterable stream found");
-        }
-
-        // Track timing
-        const startTime = Date.now();
-        state.firstTokenAt = undefined;
-        state.lastTokenAt = undefined;
-
-        let firstTokenReceived = false;
-        let lastTokenTime = startTime;
-
-        // Initial token timeout
-        const initialTimeout = timeout.initialToken ?? 2000;
-        let initialTimeoutId: NodeJS.Timeout | null = null;
-        let initialTimeoutReached = false;
-
-        if (!signal?.aborted) {
-          initialTimeoutId = setTimeout(() => {
-            initialTimeoutReached = true;
-          }, initialTimeout);
-        }
-
-        // Stream processing
-        for await (const chunk of sourceStream) {
-          // Check abort signal
-          if (signal?.aborted) {
-            throw new Error("Stream aborted by signal");
-          }
-
-          // Clear initial timeout on first chunk
-          if (initialTimeoutId && !firstTokenReceived) {
-            clearTimeout(initialTimeoutId);
-            initialTimeoutId = null;
-            initialTimeoutReached = false;
-          }
-
-          // Check initial timeout
-          if (initialTimeoutReached && !firstTokenReceived) {
-            throw new Error("Initial token timeout reached");
-          }
-
-          // Normalize event
-          const event = normalizeStreamEvent(chunk);
-
-          if (event.type === "token" && event.value) {
-            const token = event.value;
-
-            // Track first token
-            if (!firstTokenReceived) {
-              firstTokenReceived = true;
-              state.firstTokenAt = Date.now();
-            }
-
-            // Update state
-            state.content += token;
-            state.tokenCount++;
-            state.lastTokenAt = Date.now();
-            lastTokenTime = state.lastTokenAt;
-
-            // Check inter-token timeout
-            const interTimeout = timeout.interToken ?? 5000;
-            const timeSinceLastToken = Date.now() - lastTokenTime;
-            if (timeSinceLastToken > interTimeout) {
-              throw new Error("Inter-token timeout reached");
-            }
-
-            // Update checkpoint periodically
-            if (state.tokenCount % 10 === 0) {
-              state.checkpoint = state.content;
-            }
-
-            // Run streaming guardrails
-            if (guardrailEngine && state.tokenCount % 5 === 0) {
-              const context: GuardrailContext = {
-                content: state.content,
-                checkpoint: state.checkpoint,
-                delta: token,
-                tokenCount: state.tokenCount,
-                isComplete: false,
-              };
-
-              const result = guardrailEngine.check(context);
-              if (result.violations.length > 0) {
-                state.violations.push(...result.violations);
-              }
-
-              // Check for fatal violations
-              if (result.shouldHalt) {
-                throw new Error(
-                  `Fatal guardrail violation: ${result.violations[0]?.message}`,
-                );
-              }
-            }
-
-            // Check drift
-            if (driftDetector && state.tokenCount % 10 === 0) {
-              const drift = driftDetector.check(state.content, token);
-              if (drift.detected) {
-                state.driftDetected = true;
-              }
-            }
-
-            // Emit event
-            const l0Event: L0Event = {
-              type: "token",
-              value: token,
-              timestamp: Date.now(),
-            };
-
-            if (onEvent) onEvent(l0Event);
-            yield l0Event;
-          } else if (event.type === "error") {
-            throw event.error || new Error("Stream error");
-          } else if (event.type === "done") {
-            break;
-          }
-        }
-
-        // Clear any remaining timeout
-        if (initialTimeoutId) {
-          clearTimeout(initialTimeoutId);
-        }
-
-        // Check for zero output
-        if (detectZeroTokens && detectZeroToken(state.content)) {
-          throw new Error("Zero output detected - no meaningful content");
-        }
-
-        // Run final guardrails
-        if (guardrailEngine) {
-          const context: GuardrailContext = {
-            content: state.content,
-            checkpoint: state.checkpoint,
-            tokenCount: state.tokenCount,
-            isComplete: true,
-          };
-
-          const result = guardrailEngine.check(context);
-          if (result.violations.length > 0) {
-            state.violations.push(...result.violations);
-          }
-
-          // Check if should retry
-          if (result.shouldRetry && retryAttempt < maxRetries) {
-            const violation = result.violations[0];
-            if (onRetry) {
-              onRetry(
-                retryAttempt + 1,
-                `Guardrail violation: ${violation?.message}`,
-              );
-            }
-            retryAttempt++;
-            state.retryAttempts++;
-            continue;
-          }
-
-          // Fatal violations
-          if (result.shouldHalt) {
-            throw new Error(
-              `Fatal guardrail violation: ${result.violations[0]?.message}`,
-            );
-          }
-        }
-
-        // Check drift
-        if (driftDetector) {
-          const finalDrift = driftDetector.check(state.content);
-          if (finalDrift.detected && retryAttempt < maxRetries) {
-            state.driftDetected = true;
-            if (onRetry) {
-              onRetry(retryAttempt + 1, "Drift detected");
-            }
-            retryAttempt++;
-            state.retryAttempts++;
-            continue;
-          }
-        }
-
-        // Success - mark as completed
-        state.completed = true;
-
-        // Emit done event
-        const doneEvent: L0Event = {
-          type: "done",
-          timestamp: Date.now(),
-        };
-        if (onEvent) onEvent(doneEvent);
-        yield doneEvent;
-
-        break; // Exit retry loop on success
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        errors.push(err);
-
-        // Categorize error
-        const categorized = retryManager.categorizeError(err);
-        const decision = retryManager.shouldRetry(err);
-
-        // Check if should retry
-        if (decision.shouldRetry) {
-          if (decision.countsTowardLimit) {
-            retryAttempt++;
-            state.retryAttempts++;
-          } else {
-            state.networkRetries++;
-          }
-
-          if (onRetry) {
-            onRetry(retryAttempt, decision.reason);
-          }
-
-          // Record retry and wait
-          await retryManager.recordRetry(categorized, decision);
+          // Continue to next fallback
           continue;
+        } else {
+          // All streams exhausted
+          const exhaustedError = new Error(
+            `All streams exhausted (primary + ${processedFallbackStreams.length} fallbacks)`,
+          );
+          errors.push(exhaustedError);
+
+          const errorEvent: L0Event = {
+            type: "error",
+            error: exhaustedError,
+            timestamp: Date.now(),
+          };
+          if (processedOnEvent) processedOnEvent(errorEvent);
+          yield errorEvent;
+
+          // Execute error interceptors
+          await interceptorManager.executeError(
+            exhaustedError,
+            processedOptions,
+          );
+
+          throw exhaustedError;
         }
-
-        // Not retryable - emit error and throw
-        const errorEvent: L0Event = {
-          type: "error",
-          error: err,
-          timestamp: Date.now(),
-        };
-        if (onEvent) onEvent(errorEvent);
-        yield errorEvent;
-
-        throw err;
       }
-    }
 
-    // If we exhausted retries
-    if (!state.completed) {
-      const exhaustedError = new Error(
-        `Maximum retry attempts (${maxRetries}) reached`,
-      );
-      errors.push(exhaustedError);
-
-      const errorEvent: L0Event = {
-        type: "error",
-        error: exhaustedError,
-        timestamp: Date.now(),
-      };
-      if (onEvent) onEvent(errorEvent);
-      yield errorEvent;
-
-      throw exhaustedError;
+      // Success - break out of fallback loop
+      break;
     }
   };
 
-  // Return L0 result
-  return {
+  // Create initial result
+  let result: L0Result = {
     stream: streamGenerator(),
     state,
     errors,
+    telemetry: monitor.export(),
+    abort: () => abortController.abort(),
   };
+
+  // Execute "after" interceptors
+  try {
+    result = await interceptorManager.executeAfter(result);
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    await interceptorManager.executeError(err, processedOptions);
+    throw err;
+  }
+
+  // Return processed result
+  return result;
 }
 
 /**
@@ -369,9 +511,11 @@ function createInitialState(): L0State {
     tokenCount: 0,
     retryAttempts: 0,
     networkRetries: 0,
+    fallbackIndex: 0,
     violations: [],
     driftDetected: false,
     completed: false,
+    networkErrors: [],
   };
 }
 

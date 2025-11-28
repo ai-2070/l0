@@ -427,10 +427,7 @@ export function createNetworkError(
 /**
  * Check if error indicates stream was interrupted mid-flight
  */
-export function isStreamInterrupted(
-  error: Error,
-  tokenCount: number,
-): boolean {
+export function isStreamInterrupted(error: Error, tokenCount: number): boolean {
   // If we received some tokens but then got a network error, stream was interrupted
   if (tokenCount > 0 && isNetworkError(error)) {
     return true;
@@ -448,12 +445,21 @@ export function isStreamInterrupted(
 
 /**
  * Suggest retry delay based on network error type
+ * @param error - Error to analyze
+ * @param attempt - Retry attempt number (0-based)
+ * @param customDelays - Optional custom delays per error type
+ * @param maxDelay - Optional maximum delay cap (default: 30000ms)
  */
-export function suggestRetryDelay(error: Error, attempt: number): number {
+export function suggestRetryDelay(
+  error: Error,
+  attempt: number,
+  customDelays?: Partial<Record<NetworkErrorType, number>>,
+  maxDelay: number = 30000,
+): number {
   const analysis = analyzeNetworkError(error);
 
-  // Base delays for different error types
-  const baseDelays: Record<NetworkErrorType, number> = {
+  // Default base delays for different error types
+  const defaultDelays: Record<NetworkErrorType, number> = {
     [NetworkErrorType.CONNECTION_DROPPED]: 1000,
     [NetworkErrorType.FETCH_ERROR]: 500,
     [NetworkErrorType.ECONNRESET]: 1000,
@@ -469,9 +475,11 @@ export function suggestRetryDelay(error: Error, attempt: number): number {
     [NetworkErrorType.UNKNOWN]: 1000,
   };
 
-  const baseDelay = baseDelays[analysis.type];
+  // Use custom delay if provided, otherwise use default
+  const baseDelay =
+    customDelays?.[analysis.type] ?? defaultDelays[analysis.type];
   if (baseDelay === 0) return 0;
 
   // Exponential backoff
-  return Math.min(baseDelay * Math.pow(2, attempt), 30000);
+  return Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
 }
