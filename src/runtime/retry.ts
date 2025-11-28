@@ -4,7 +4,6 @@ import type {
   RetryConfig,
   RetryState,
   RetryReason,
-  ErrorCategory,
   CategorizedError,
   RetryDecision,
   BackoffResult,
@@ -12,6 +11,7 @@ import type {
   RetryContext,
   ErrorTypeDelays,
 } from "../types/retry";
+import { ErrorCategory } from "../types/retry";
 import { calculateBackoff, sleep } from "../utils/timers";
 import {
   isNetworkError,
@@ -96,8 +96,8 @@ export class RetryManager {
    * Classify error type using enhanced network error detection
    */
   private classifyError(error: Error): ErrorClassification {
-    const message = error.message.toLowerCase();
-    const name = error.name.toLowerCase();
+    const message = error.message?.toLowerCase() || "";
+    const name = error.name?.toLowerCase() || "";
 
     // Use enhanced network error detection from utils/errors
     const isNetwork = isNetworkError(error);
@@ -406,11 +406,6 @@ export class RetryManager {
             this.config.maxDelay,
           );
         }
-  getModelRetries(): number {
-    return this.state.attempt;
-  }
-}
-
         // Notify callback
         if (onRetry) {
           onRetry({
