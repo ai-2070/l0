@@ -174,22 +174,29 @@ Backoff options:
 
 # 🌐 **7\. Network Failure Protection**
 
-L0 automatically detects and recovers from:
+L0 automatically detects and recovers from **all common network failures**:
 
-- dropped connections
-- partial SSE
-- Vercel Edge streaming stalls
-- Cloudflare Worker proxy cuts
-- mobile browser background suspension
-- unstable WiFi / train tunnels
+- ✅ Connection dropped / closed / lost
+- ✅ fetch() TypeError / network request failed
+- ✅ ECONNRESET / ECONNREFUSED / ECONNABORTED
+- ✅ SSE aborted / stream closed
+- ✅ No bytes arrived / empty response
+- ✅ Partial chunks / incomplete data
+- ✅ Node/Edge runtime killed (Lambda/Vercel timeout)
+- ✅ Mobile background throttle / tab suspension
+- ✅ DNS errors / host not found
+- ✅ Timeout errors (initial token / inter-token)
 
 ### Features:
 
-- network error classification
-- retry-on-network (infinite, safe)
-- inter-token stall detection
-- fetch transport error detection
-- stream rehydration
+- **12 specific error types** detected and handled
+- Automatic retry without counting toward limit
+- Smart backoff based on error type
+- Checkpoint preservation for partial progress
+- Detailed error analysis for debugging
+- Mobile and edge runtime support
+
+📚 See [NETWORK_ERRORS.md](./NETWORK_ERRORS.md) for complete details
 
 ---
 
@@ -415,6 +422,15 @@ for await (const event of result.stream) {
 L0 is the missing reliability layer for modern LLM apps.
 
 ---
+
+# 📚 Documentation
+
+- [README.md](./README.md) - Main documentation (this file)
+- [API.md](./API.md) - Complete API reference
+- [QUICKSTART.md](./QUICKSTART.md) - 5-minute getting started
+- [NETWORK_ERRORS.md](./NETWORK_ERRORS.md) - Network error handling guide
+- [IMPLEMENTATION.md](./IMPLEMENTATION.md) - Implementation details
+- [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines
 
 # 🗺 Roadmap
 

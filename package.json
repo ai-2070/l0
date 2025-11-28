@@ -1,15 +1,64 @@
 {
-  "name": "ai",
-  "version": "1.0.0",
-  "description": "",
+  "name": "l0",
+  "version": "0.1.0",
+  "description": "A Lightweight Runtime for Reliable LLM Apps - Streaming, guardrails, drift detection, and retry logic",
   "license": "MIT",
   "author": "",
-  "type": "commonjs",
-  "main": "index.js",
-  "directories": {
-    "test": "tests"
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  }
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "llm",
+    "ai",
+    "streaming",
+    "guardrails",
+    "retry",
+    "drift-detection",
+    "reliability",
+    "vercel-ai-sdk",
+    "openai",
+    "anthropic"
+  ],
+  "peerDependencies": {
+    "ai": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/l0"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/l0/issues"
+  },
+  "homepage": "https://github.com/yourusername/l0#readme"
 }
