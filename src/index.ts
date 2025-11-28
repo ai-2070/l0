@@ -240,6 +240,21 @@ export {
   parseFunctionCall,
 } from "./format/tools";
 
+export {
+  trim,
+  escape,
+  unescape,
+  escapeHtml,
+  unescapeHtml,
+  escapeRegex,
+  sanitize,
+  truncate,
+  truncateWords,
+  wrap,
+  pad,
+  removeAnsi,
+} from "./format/utils";
+
 export type {
   FormatContextOptions,
   FormatMemoryOptions,
@@ -282,7 +297,6 @@ export {
   countMeaningfulTokens,
   extractMeaningfulTokens,
   detectRepeatedTokens,
-  estimateTokenCount,
   endsAbruptly,
 } from "./utils/tokens";
 

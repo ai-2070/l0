@@ -35,13 +35,17 @@ export function escape(str: string): string {
 export function unescape(str: string): string {
   if (!str) return str;
 
+  // Use placeholder to handle escaped backslashes correctly
+  const BACKSLASH_PLACEHOLDER = "\x00BACKSLASH\x00";
+
   return str
+    .replace(/\\\\/g, BACKSLASH_PLACEHOLDER)
     .replace(/\\t/g, "\t")
     .replace(/\\r/g, "\r")
     .replace(/\\n/g, "\n")
     .replace(/\\'/g, "'")
     .replace(/\\"/g, '"')
-    .replace(/\\\\/g, "\\");
+    .replace(new RegExp(BACKSLASH_PLACEHOLDER, "g"), "\\");
 }
 
 /**
