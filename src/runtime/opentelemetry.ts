@@ -426,7 +426,9 @@ export class L0OpenTelemetry {
     monitor.complete = () => {
       originalComplete();
       const telemetry = monitor.getTelemetry();
-      this.recordTelemetry(telemetry);
+      if (telemetry) {
+        this.recordTelemetry(telemetry);
+      }
     };
   }
 

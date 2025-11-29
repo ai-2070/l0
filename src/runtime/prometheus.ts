@@ -387,6 +387,7 @@ export interface PrometheusMetric {
   labels?: Record<string, string>;
   buckets?: number[]; // For histograms
   quantiles?: number[]; // For summaries
+  observations?: number[]; // For histogram aggregation
 }
 
 /**
@@ -409,15 +410,60 @@ export class PrometheusRegistry {
   }
 
   /**
-   * Register a metric
+   * Generate a unique key for a metric with its labels
+   */
+  private getLabelKey(labels?: Record<string, string>): string {
+    if (!labels || Object.keys(labels).length === 0) {
+      return "";
+    }
+    const sortedPairs = Object.entries(labels)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join(",");
+    return sortedPairs;
+  }
+
+  /**
+   * Register a metric - aggregates counters and replaces gauges
    */
   private register(metric: PrometheusMetric): void {
     const key = metric.name;
+    const mergedLabels = { ...this.defaultLabels, ...metric.labels };
+    const labelKey = this.getLabelKey(mergedLabels);
     const existing = this.metrics.get(key) || [];
-    existing.push({
-      ...metric,
-      labels: { ...this.defaultLabels, ...metric.labels },
-    });
+
+    // Find existing metric with same labels
+    const existingIndex = existing.findIndex(
+      (m) => this.getLabelKey(m.labels) === labelKey,
+    );
+
+    if (existingIndex >= 0) {
+      const existingMetric = existing[existingIndex]!;
+      if (metric.type === "counter") {
+        // Counters: aggregate by summing values
+        existingMetric.value += metric.value;
+      } else if (metric.type === "gauge") {
+        // Gauges: replace with latest value
+        existingMetric.value = metric.value;
+      } else if (metric.type === "histogram") {
+        // Histograms: store observations for later bucket calculation
+        if (!existingMetric.observations) {
+          existingMetric.observations = [];
+        }
+        existingMetric.observations.push(metric.value);
+      }
+    } else {
+      // New metric with these labels
+      const newMetric: PrometheusMetric = {
+        ...metric,
+        labels: mergedLabels,
+      };
+      if (metric.type === "histogram") {
+        newMetric.observations = [metric.value];
+      }
+      existing.push(newMetric);
+    }
+
     this.metrics.set(key, existing);
   }
 
@@ -656,10 +702,34 @@ export class PrometheusRegistry {
       for (const metric of metricList) {
         const labelStr = this.formatLabels(metric.labels);
 
-        if (metric.type === "histogram") {
-          // For histograms, we accumulate into buckets
+        if (metric.type === "histogram" && metric.observations) {
+          // For histograms, calculate proper bucket counts
+          const observations = metric.observations;
+          const buckets = metric.buckets ?? [
+            0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
+          ];
+          const sum = observations.reduce((a, b) => a + b, 0);
+          const count = observations.length;
+
+          // Output bucket counts (cumulative)
+          for (const le of buckets) {
+            const bucketCount = observations.filter((v) => v <= le).length;
+            const bucketLabelStr = labelStr
+              ? labelStr.replace("}", `,le="${le}"}`)
+              : `{le="${le}"}`;
+            lines.push(`${name}_bucket${bucketLabelStr} ${bucketCount}`);
+          }
+          // +Inf bucket
+          const infLabelStr = labelStr
+            ? labelStr.replace("}", `,le="+Inf"}`)
+            : `{le="+Inf"}`;
+          lines.push(`${name}_bucket${infLabelStr} ${count}`);
+          lines.push(`${name}_sum${labelStr} ${sum}`);
+          lines.push(`${name}_count${labelStr} ${count}`);
+        } else if (metric.type === "histogram") {
+          // Fallback for histogram without observations
           lines.push(
-            `${name}_bucket${labelStr.replace("}", `,le="+Inf"}`)} ${metric.value}`,
+            `${name}_bucket${labelStr ? labelStr.replace("}", `,le="+Inf"}`) : `{le="+Inf"}`} 1`,
           );
           lines.push(`${name}_sum${labelStr} ${metric.value}`);
           lines.push(`${name}_count${labelStr} 1`);

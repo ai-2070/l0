@@ -335,7 +335,7 @@ describe("Mastra Adapter", () => {
       }
 
       const tokenEvents = events.filter((e) => e.type === "token");
-      expect(tokenEvents.length).toBeGreaterThanOrEqual(0);
+      expect(tokenEvents.length).toBeGreaterThan(0);
     });
 
     it("should handle tool-call chunks", async () => {

@@ -820,6 +820,9 @@ import express from "express";
 const collector = createPrometheusCollector();
 const app = express();
 
+// Parse JSON request bodies
+app.use(express.json());
+
 // Expose metrics endpoint
 app.get("/metrics", prometheusMiddleware(collector));
 
@@ -1116,8 +1119,9 @@ sentry.completeExecution(result.telemetry);
 const sentry = createSentryIntegration({ hub: Sentry });
 sentry.startExecution();
 
+let result;
 try {
-  const result = await l0({ stream, monitoring: { enabled: true } });
+  result = await l0({ stream, monitoring: { enabled: true } });
 
   for await (const event of result.stream) {
     // ...

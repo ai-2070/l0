@@ -152,8 +152,7 @@ export async function* wrapOpenAIStream(
         if (!delta) continue;
 
         // Prefix for multi-choice scenarios
-        const choicePrefix =
-          choiceIndex === "all" && choices.length > 1 ? `[choice:${idx}]` : "";
+        const choicePrefix = choiceIndex === "all" ? `[choice:${idx}]` : "";
 
         // Handle text content
         if (delta.content) {

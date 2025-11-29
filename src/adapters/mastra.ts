@@ -349,7 +349,11 @@ export async function* wrapMastraFullStream(
   streamResult: MastraModelOutput<any>,
   options: MastraAdapterOptions = {},
 ): AsyncGenerator<L0Event> {
-  const { includeUsage = true, includeToolCalls = true } = options;
+  const {
+    includeUsage = true,
+    includeToolCalls = true,
+    includeReasoning = false,
+  } = options;
 
   try {
     const fullStream = streamResult.fullStream;
@@ -377,15 +381,17 @@ export async function* wrapMastraFullStream(
           break;
 
         case "reasoning":
-          yield {
-            type: "message",
-            value: JSON.stringify({
-              type: "reasoning",
-              reasoning: chunk.payload?.text ?? chunk.textDelta,
-            }),
-            role: "assistant",
-            timestamp: Date.now(),
-          };
+          if (includeReasoning) {
+            yield {
+              type: "message",
+              value: JSON.stringify({
+                type: "reasoning",
+                reasoning: chunk.payload?.text ?? chunk.textDelta,
+              }),
+              role: "assistant",
+              timestamp: Date.now(),
+            };
+          }
           break;
 
         case "tool-call":

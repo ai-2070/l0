@@ -809,9 +809,11 @@ const agent = new Agent({
   model: "openai/gpt-4o",
 });
 
+const schema = z.object({ name: z.string(), age: z.number() });
+
 const result = await structured({
-  schema: z.object({ name: z.string(), age: z.number() }),
-  stream: mastraStructured(agent, "Generate user data", userSchema),
+  schema,
+  stream: mastraStructured(agent, "Generate user data", schema),
 });
 ```
 
