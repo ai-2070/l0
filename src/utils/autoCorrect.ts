@@ -240,18 +240,86 @@ function fixQuotesAndEscapes(text: string): {
 
 /**
  * Attempt to extract JSON from text that may contain other content
+ * Uses balanced brace matching to find the first complete JSON object or array
  *
  * @param text - Text that may contain JSON
  * @returns Extracted JSON string or original text
  */
 export function extractJSON(text: string): string {
-  // Try to find JSON object
+  // Find the first { or [
+  const objectStart = text.indexOf("{");
+  const arrayStart = text.indexOf("[");
+
+  let startIndex: number;
+  let openChar: string;
+  let closeChar: string;
+
+  if (objectStart === -1 && arrayStart === -1) {
+    return text;
+  } else if (objectStart === -1) {
+    startIndex = arrayStart;
+    openChar = "[";
+    closeChar = "]";
+  } else if (arrayStart === -1) {
+    startIndex = objectStart;
+    openChar = "{";
+    closeChar = "}";
+  } else {
+    // Both exist, use whichever comes first
+    if (objectStart < arrayStart) {
+      startIndex = objectStart;
+      openChar = "{";
+      closeChar = "}";
+    } else {
+      startIndex = arrayStart;
+      openChar = "[";
+      closeChar = "]";
+    }
+  }
+
+  // Use balanced brace matching to find the end
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = startIndex; i < text.length; i++) {
+    const char = text[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === openChar) {
+      depth++;
+    } else if (char === closeChar) {
+      depth--;
+      if (depth === 0) {
+        return text.substring(startIndex, i + 1);
+      }
+    }
+  }
+
+  // Couldn't find balanced braces, fall back to greedy regex
   const objectMatch = text.match(/\{[\s\S]*\}/);
   if (objectMatch) {
     return objectMatch[0];
   }
 
-  // Try to find JSON array
   const arrayMatch = text.match(/\[[\s\S]*\]/);
   if (arrayMatch) {
     return arrayMatch[0];

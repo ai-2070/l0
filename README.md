@@ -787,7 +787,7 @@ OPENAI_API_KEY=sk-... npm run test:integration
 
 | Category          | Tests | Description                      |
 | ----------------- | ----- | -------------------------------- |
-| Unit Tests        | 1211  | Fast, mocked, no API calls       |
+| Unit Tests        | 1200+  | Fast, mocked, no API calls       |
 | Integration Tests | 40+   | Real API calls, all SDK adapters |
 
 ### SDK Adapter Matrix

@@ -220,7 +220,9 @@ export async function structured<T extends z.ZodTypeAny>(
             parsedData = JSON.parse(extracted);
             correctedOutput = extracted;
             wasAutoCorrected = true;
-            appliedCorrections.push("extract_json" as any);
+            if (!appliedCorrections.includes("extract_json" as any)) {
+              appliedCorrections.push("extract_json" as any);
+            }
             autoCorrections++;
           } catch {
             // Try auto-correction on the extracted content
@@ -260,7 +262,38 @@ export async function structured<T extends z.ZodTypeAny>(
             throw new Error(`Invalid JSON: ${err.message}`);
           }
         } else {
-          throw new Error(`Invalid JSON after auto-correction: ${err.message}`);
+          // Auto-correction was applied but parsing still failed and extractJSON didn't help
+          // Try one more aggressive extraction - look for the first complete JSON structure
+          const rawExtracted = extractJSON(rawOutput);
+          if (rawExtracted !== rawOutput) {
+            const rescueResult = autoCorrectJSON(rawExtracted, {
+              structural: true,
+              stripFormatting: true,
+            });
+
+            if (rescueResult.success) {
+              try {
+                parsedData = JSON.parse(rescueResult.corrected);
+                correctedOutput = rescueResult.corrected;
+                wasAutoCorrected = true;
+                appliedCorrections = rescueResult.corrections;
+                autoCorrections++;
+                correctionTypes.push(...rescueResult.corrections);
+              } catch {
+                throw new Error(
+                  `Invalid JSON after auto-correction: ${err.message}`,
+                );
+              }
+            } else {
+              throw new Error(
+                `Invalid JSON after auto-correction: ${err.message}`,
+              );
+            }
+          } else {
+            throw new Error(
+              `Invalid JSON after auto-correction: ${err.message}`,
+            );
+          }
         }
       }
 
