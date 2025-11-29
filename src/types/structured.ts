@@ -245,7 +245,8 @@ export type CorrectionType =
   | "escape_control_chars"
   | "fill_missing_fields"
   | "remove_unknown_fields"
-  | "coerce_types";
+  | "coerce_types"
+  | "extract_json";
 
 /**
  * Auto-correction options

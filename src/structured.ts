@@ -220,8 +220,9 @@ export async function structured<T extends z.ZodTypeAny>(
             parsedData = JSON.parse(extracted);
             correctedOutput = extracted;
             wasAutoCorrected = true;
-            if (!appliedCorrections.includes("extract_json" as any)) {
-              appliedCorrections.push("extract_json" as any);
+            if (!appliedCorrections.includes("extract_json")) {
+              appliedCorrections.push("extract_json");
+              correctionTypes.push("extract_json");
             }
             autoCorrections++;
           } catch {
@@ -235,7 +236,7 @@ export async function structured<T extends z.ZodTypeAny>(
               parsedData = JSON.parse(rescueResult.corrected);
               correctedOutput = rescueResult.corrected;
               wasAutoCorrected = true;
-              appliedCorrections = rescueResult.corrections;
+              appliedCorrections.push(...rescueResult.corrections);
               autoCorrections++;
               correctionTypes.push(...rescueResult.corrections);
             } else {
@@ -255,7 +256,7 @@ export async function structured<T extends z.ZodTypeAny>(
             parsedData = JSON.parse(rescueResult.corrected);
             correctedOutput = rescueResult.corrected;
             wasAutoCorrected = true;
-            appliedCorrections = rescueResult.corrections;
+            appliedCorrections.push(...rescueResult.corrections);
             autoCorrections++;
             correctionTypes.push(...rescueResult.corrections);
           } else {
@@ -276,9 +277,15 @@ export async function structured<T extends z.ZodTypeAny>(
                 parsedData = JSON.parse(rescueResult.corrected);
                 correctedOutput = rescueResult.corrected;
                 wasAutoCorrected = true;
-                appliedCorrections = rescueResult.corrections;
+                appliedCorrections.push(
+                  "extract_json",
+                  ...rescueResult.corrections,
+                );
                 autoCorrections++;
-                correctionTypes.push(...rescueResult.corrections);
+                correctionTypes.push(
+                  "extract_json",
+                  ...rescueResult.corrections,
+                );
               } catch {
                 throw new Error(
                   `Invalid JSON after auto-correction: ${err.message}`,

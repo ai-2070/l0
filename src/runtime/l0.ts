@@ -490,9 +490,11 @@ export async function l0(options: L0Options): Promise<L0Result> {
               yield l0Event;
             } else if (event.type === "message") {
               // Pass through message events (e.g., tool calls, function calls)
+              // Preserve all original event properties including role
               const messageEvent: L0Event = {
                 type: "message",
                 value: event.value,
+                role: event.role,
                 timestamp: Date.now(),
               };
               if (processedOnEvent) processedOnEvent(messageEvent);
