@@ -102,6 +102,29 @@ export interface L0Options {
   };
 
   /**
+   * Configure check intervals for streaming operations
+   */
+  checkIntervals?: {
+    /**
+     * Run guardrail checks every N tokens (default: 5)
+     * Lower values = more frequent checks, higher CPU usage
+     * Higher values = less frequent checks, potential for more content before violation detected
+     */
+    guardrails?: number;
+
+    /**
+     * Run drift detection every N tokens (default: 10)
+     */
+    drift?: number;
+
+    /**
+     * Save checkpoint every N tokens (default: 10)
+     * Checkpoints are used for recovery if a violation is detected
+     */
+    checkpoint?: number;
+  };
+
+  /**
    * Enable drift detection
    */
   detectDrift?: boolean;

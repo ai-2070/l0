@@ -43,6 +43,7 @@ export class RetryManager {
         "timeout",
         "rate_limit",
       ],
+      maxErrorHistory: config.maxErrorHistory,
     };
 
     this.state = this.createInitialState();
@@ -346,6 +347,16 @@ export class RetryManager {
 
     this.state.lastError = categorizedError;
     this.state.errorHistory.push(categorizedError);
+
+    // Enforce error history bound if configured (prevents memory leaks in long-running processes)
+    const maxHistory = this.config.maxErrorHistory;
+    if (
+      maxHistory !== undefined &&
+      this.state.errorHistory.length > maxHistory
+    ) {
+      this.state.errorHistory = this.state.errorHistory.slice(-maxHistory);
+    }
+
     this.state.totalDelay += decision.delay;
 
     // Wait for backoff delay

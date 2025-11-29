@@ -1,6 +1,152 @@
 // Network error detection utilities for L0
 
 /**
+ * Error codes for L0 errors
+ */
+export type L0ErrorCode =
+  | "STREAM_ABORTED"
+  | "INITIAL_TOKEN_TIMEOUT"
+  | "INTER_TOKEN_TIMEOUT"
+  | "ZERO_OUTPUT"
+  | "GUARDRAIL_VIOLATION"
+  | "FATAL_GUARDRAIL_VIOLATION"
+  | "INVALID_STREAM"
+  | "ALL_STREAMS_EXHAUSTED"
+  | "NETWORK_ERROR"
+  | "DRIFT_DETECTED";
+
+/**
+ * Context information for L0 errors
+ */
+export interface L0ErrorContext {
+  /**
+   * Error code for programmatic handling
+   */
+  code: L0ErrorCode;
+
+  /**
+   * Current checkpoint content (for recovery)
+   */
+  checkpoint?: string;
+
+  /**
+   * Number of tokens processed before error
+   */
+  tokenCount?: number;
+
+  /**
+   * Current accumulated content length
+   */
+  contentLength?: number;
+
+  /**
+   * Number of retry attempts made
+   */
+  retryAttempts?: number;
+
+  /**
+   * Number of network retries (don't count toward limit)
+   */
+  networkRetries?: number;
+
+  /**
+   * Index of fallback stream being used (0 = primary)
+   */
+  fallbackIndex?: number;
+
+  /**
+   * Whether the error is recoverable
+   */
+  recoverable?: boolean;
+
+  /**
+   * Additional context data
+   */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Enhanced error class for L0 with recovery context
+ */
+export class L0Error extends Error {
+  /**
+   * Error code for programmatic handling
+   */
+  readonly code: L0ErrorCode;
+
+  /**
+   * Error context with recovery information
+   */
+  readonly context: L0ErrorContext;
+
+  /**
+   * Timestamp when error occurred
+   */
+  readonly timestamp: number;
+
+  constructor(message: string, context: L0ErrorContext) {
+    super(message);
+    this.name = "L0Error";
+    this.code = context.code;
+    this.context = context;
+    this.timestamp = Date.now();
+
+    // Maintain proper prototype chain
+    Object.setPrototypeOf(this, L0Error.prototype);
+  }
+
+  /**
+   * Check if error is recoverable based on checkpoint
+   */
+  get isRecoverable(): boolean {
+    return (
+      this.context.recoverable === true &&
+      this.context.checkpoint !== undefined &&
+      this.context.checkpoint.length > 0
+    );
+  }
+
+  /**
+   * Get checkpoint content for recovery
+   */
+  getCheckpoint(): string | undefined {
+    return this.context.checkpoint;
+  }
+
+  /**
+   * Create a descriptive string with context
+   */
+  toDetailedString(): string {
+    const parts = [this.message];
+
+    if (this.context.tokenCount !== undefined) {
+      parts.push(`Tokens: ${this.context.tokenCount}`);
+    }
+    if (this.context.retryAttempts !== undefined) {
+      parts.push(`Retries: ${this.context.retryAttempts}`);
+    }
+    if (
+      this.context.fallbackIndex !== undefined &&
+      this.context.fallbackIndex > 0
+    ) {
+      parts.push(`Fallback: ${this.context.fallbackIndex}`);
+    }
+    if (this.context.checkpoint) {
+      parts.push(`Checkpoint: ${this.context.checkpoint.length} chars`);
+    }
+
+    return parts.join(" | ");
+  }
+}
+
+/**
+ * Type guard for L0Error
+ */
+export function isL0Error(error: unknown): error is L0Error {
+  return error instanceof L0Error;
+}
+
+/**
  * Node.js style error with optional code property
  */
 interface NodeError extends Error {

@@ -108,6 +108,13 @@ export interface RetryConfig {
    * Overrides baseDelay for specific network errors
    */
   errorTypeDelays?: ErrorTypeDelays;
+
+  /**
+   * Maximum number of errors to keep in history (default: unlimited)
+   * Set this to a number (e.g., 100) to prevent memory leaks in long-running
+   * processes with many retries. Older errors are evicted when limit is reached.
+   */
+  maxErrorHistory?: number;
 }
 
 /**
