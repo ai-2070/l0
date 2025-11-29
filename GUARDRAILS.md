@@ -116,11 +116,11 @@ customPatternRule([/forbidden/i, /blocked/i], "Custom violation", "error");
 **Built-in patterns:**
 
 | Category         | Examples                                    |
-| ---------------- | ------------------------------------------- | -------- | --- |
+| ---------------- | ------------------------------------------- |
 | Meta commentary  | "As an AI...", "I'm an AI assistant"        |
 | Hedging          | "Sure!", "Certainly!", "Of course!"         |
 | Refusal          | "I cannot provide...", "I'm not able to..." |
-| Instruction leak | `[SYSTEM]`, `<                              | im_start | >`  |
+| Instruction leak | `[SYSTEM]`, `<\|im_start\|>`                |
 | Placeholders     | `[INSERT ...]`, `{{placeholder}}`           |
 | Format collapse  | "Here is the...", "Let me..."               |
 | Repetition       | Same sentence repeated 3+ times             |
