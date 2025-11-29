@@ -741,6 +741,51 @@ See [MONITORING.md](./MONITORING.md) for complete integration guides.
 
 ---
 
+## Event Sourcing
+
+Every L0 stream operation can be recorded and replayed deterministically. This enables testing, debugging, and audit trails.
+
+```typescript
+import {
+  createInMemoryEventStore,
+  createEventRecorder,
+  replay,
+} from "@ai2070/l0";
+
+// Record a stream
+const store = createInMemoryEventStore();
+const recorder = createEventRecorder(store, "my-stream");
+
+await recorder.recordStart({ prompt: "test", model: "gpt-4" });
+await recorder.recordToken("Hello", 0);
+await recorder.recordToken(" World", 1);
+await recorder.recordComplete("Hello World", 2);
+
+// Replay it - exact same output, no API calls
+const result = await replay({
+  streamId: "my-stream",
+  eventStore: store,
+  fireCallbacks: true, // onToken still fires!
+});
+
+for await (const event of result.stream) {
+  console.log(event); // Same events as original
+}
+```
+
+**Key insight:** Replay is pure stream rehydration. No network, no retries, no guardrail evaluation - derived computations are stored as events.
+
+**Use cases:**
+- Deterministic testing - record once, replay in tests
+- Production failure reproduction
+- Time-travel debugging
+- Complete audit trails
+- Response caching
+
+See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for complete guide.
+
+---
+
 ## Error Handling
 
 L0 provides detailed error context for debugging and recovery:
@@ -816,6 +861,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | **Monitoring** | ✓ | ✓ | Prometheus, metrics, tokens, retries |
 | **Sentry** | ✓ | ✓ | Error tagging, breadcrumbs, performance |
 | **OpenTelemetry** | ✓ | ✓ | GenAI semantic conventions, spans, TTFT |
+| **Event Sourcing** | ✓ | – | Record/replay, deterministic testing |
 | **Interceptors** | ✓ | – | All built-in interceptors validated |
 | **Drift Detection** | ✓ | – | Pattern detection, entropy, format drift |
 
@@ -834,6 +880,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)                       | Network error handling     |
 | [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Parallel operations        |
 | [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics      |
+| [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails|
 | [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers         |
 
 ---

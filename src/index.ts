@@ -484,3 +484,55 @@ export type {
   MastraAdapterOptions,
   MastraMessageInput,
 } from "./adapters/mastra";
+
+// Event Sourcing - Atomic, Replayable Operations
+export {
+  InMemoryEventStore,
+  L0EventRecorder,
+  L0EventReplayer,
+  createInMemoryEventStore,
+  createEventRecorder,
+  createEventReplayer,
+} from "./runtime/eventStore";
+
+export type { ReplayedState } from "./runtime/eventStore";
+
+export { replay, compareReplays, getStreamMetadata } from "./runtime/replay";
+
+export type {
+  L0ReplayResult,
+  ReplayCallbacks,
+  ReplayComparison,
+  StreamMetadata,
+} from "./runtime/replay";
+
+export type {
+  L0RecordedEvent,
+  L0StartEvent,
+  L0TokenEvent,
+  L0CheckpointEvent,
+  L0GuardrailEvent,
+  L0DriftEvent,
+  L0RetryEvent,
+  L0FallbackEvent,
+  L0ContinuationEvent,
+  L0CompleteEvent,
+  L0ErrorEvent,
+  L0EventEnvelope,
+  L0EventStore,
+  L0EventStoreWithSnapshots,
+  L0Snapshot,
+  L0ExecutionMode,
+  L0ReplayOptions,
+  L0RecordOptions,
+  SerializedOptions,
+  SerializedError,
+  GuardrailEventResult,
+  DriftEventResult,
+} from "./types/events";
+
+export {
+  serializeError,
+  deserializeError,
+  generateStreamId,
+} from "./types/events";
