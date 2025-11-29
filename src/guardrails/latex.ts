@@ -7,6 +7,30 @@ import type {
   LatexStructure,
 } from "../types/guardrails";
 
+// Pre-compiled regex patterns for performance
+const BEGIN_PATTERN = /\\begin\{(\w+)\}/g;
+const END_PATTERN = /\\end\{(\w+)\}/g;
+const DISPLAY_MATH_OPEN = /\\\[/g;
+const DISPLAY_MATH_CLOSE = /\\\]/g;
+const DOUBLE_DOLLAR = /\$\$/g;
+
+// LaTeX detection patterns
+const LATEX_PATTERNS = [
+  /\\begin\{/,
+  /\\end\{/,
+  /\\\[/, // Display math
+  /\\\]/, // Display math
+  /\$\$/, // Display math
+  /\\[a-zA-Z]+\{/, // Commands with arguments
+  /\\section/,
+  /\\subsection/,
+  /\\textbf/,
+  /\\textit/,
+  /\\frac/,
+  /\\sum/,
+  /\\int/,
+];
+
 /**
  * Analyze LaTeX structure in content
  * @param content - Content to analyze
@@ -18,19 +42,20 @@ export function analyzeLatexStructure(content: string): LatexStructure {
   const envStack: string[] = [];
 
   // Match \begin{env} and \end{env}
-  const beginPattern = /\\begin\{(\w+)\}/g;
-  const endPattern = /\\end\{(\w+)\}/g;
+  // Reset lastIndex for global patterns
+  BEGIN_PATTERN.lastIndex = 0;
+  END_PATTERN.lastIndex = 0;
 
   // Find all begins and ends with positions
   const begins: Array<{ env: string; pos: number }> = [];
   const ends: Array<{ env: string; pos: number }> = [];
 
   let match;
-  while ((match = beginPattern.exec(content)) !== null) {
+  while ((match = BEGIN_PATTERN.exec(content)) !== null) {
     begins.push({ env: match[1]!, pos: match.index });
   }
 
-  while ((match = endPattern.exec(content)) !== null) {
+  while ((match = END_PATTERN.exec(content)) !== null) {
     ends.push({ env: match[1]!, pos: match.index });
   }
 
@@ -88,23 +113,7 @@ export function looksLikeLatex(content: string): boolean {
   if (!content) return false;
 
   // Check for common LaTeX patterns
-  const latexPatterns = [
-    /\\begin\{/,
-    /\\end\{/,
-    /\\\[/, // Display math
-    /\\\]/, // Display math
-    /\$\$/, // Display math
-    /\\[a-zA-Z]+\{/, // Commands with arguments
-    /\\section/,
-    /\\subsection/,
-    /\\textbf/,
-    /\\textit/,
-    /\\frac/,
-    /\\sum/,
-    /\\int/,
-  ];
-
-  return latexPatterns.some((pattern) => pattern.test(content));
+  return LATEX_PATTERNS.some((pattern) => pattern.test(content));
 }
 
 /**

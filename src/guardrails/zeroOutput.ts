@@ -7,6 +7,11 @@ import type {
 } from "../types/guardrails";
 import { hasMeaningfulContent } from "../utils/tokens";
 
+// Pre-compiled regex patterns for performance
+const PUNCTUATION_ONLY = /^[^\w\s]+$/;
+const REPEATED_CHARS = /^(.)\1+$/;
+const ALPHANUMERIC = /[a-zA-Z0-9]/;
+
 /**
  * Check if content is empty or only whitespace
  * @param content - Content to check
@@ -34,17 +39,17 @@ export function isNoiseOnly(content: string): boolean {
   const trimmed = content.trim();
 
   // Check for only punctuation
-  if (/^[^\w\s]+$/.test(trimmed)) {
+  if (PUNCTUATION_ONLY.test(trimmed)) {
     return true;
   }
 
   // Check for only repeated characters
-  if (/^(.)\1+$/.test(trimmed)) {
+  if (REPEATED_CHARS.test(trimmed)) {
     return true;
   }
 
   // Check for very short meaningless content
-  if (trimmed.length < 3 && !/[a-zA-Z0-9]/.test(trimmed)) {
+  if (trimmed.length < 3 && !ALPHANUMERIC.test(trimmed)) {
     return true;
   }
 

@@ -7,6 +7,31 @@ import type {
   MarkdownStructure,
 } from "../types/guardrails";
 
+// Pre-compiled regex patterns for performance
+const HEADER_PATTERN = /^(#{1,6})\s+/;
+const LIST_PATTERN = /^(\s*)([-*+]|\d+\.)\s+/;
+const TABLE_SEPARATOR = /^\|?[\s-:|]+\|[\s-:|]*$/;
+const PIPE_COUNT = /\|/g;
+const UNORDERED_LIST = /^(\s*)([-*+])\s+/;
+const ORDERED_LIST = /^(\s*)(\d+)\.\s+/;
+const WHITESPACE_ONLY = /^\s*$/;
+const SENTENCE_END = /[.!?;:\]})"`']$/;
+const HEADER_LINE = /^#{1,6}\s+/;
+const UNORDERED_LIST_LINE = /^[-*+]\s+/;
+const ORDERED_LIST_LINE = /^\d+\.\s+/;
+
+// Markdown detection patterns
+const MARKDOWN_PATTERNS = [
+  /^#{1,6}\s+/m, // Headers
+  /```/, // Code fences
+  /^\s*[-*+]\s+/m, // Unordered lists
+  /^\s*\d+\.\s+/m, // Ordered lists
+  /\*\*.*\*\*/, // Bold
+  /\*.*\*/, // Italic
+  /\[.*\]\(.*\)/, // Links
+  /^>\s+/m, // Blockquotes
+];
+
 /**
  * Analyze Markdown structure in content
  * @param content - Content to analyze
@@ -41,13 +66,13 @@ export function analyzeMarkdownStructure(content: string): MarkdownStructure {
 
     // Check for headers (only outside fences)
     if (!inFence) {
-      const headerMatch = line.match(/^(#{1,6})\s+/);
+      const headerMatch = line.match(HEADER_PATTERN);
       if (headerMatch && headerMatch[1]) {
         headers.push(headerMatch[1].length);
       }
 
       // Check list depth
-      const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+/);
+      const listMatch = line.match(LIST_PATTERN);
       if (listMatch && listMatch[1] !== undefined) {
         const indent = listMatch[1].length;
         const currentDepth = Math.floor(indent / 2) + 1;
@@ -80,18 +105,7 @@ export function looksLikeMarkdown(content: string): boolean {
   if (!content) return false;
 
   // Check for common Markdown patterns
-  const markdownPatterns = [
-    /^#{1,6}\s+/m, // Headers
-    /```/, // Code fences
-    /^\s*[-*+]\s+/m, // Unordered lists
-    /^\s*\d+\.\s+/m, // Ordered lists
-    /\*\*.*\*\*/, // Bold
-    /\*.*\*/, // Italic
-    /\[.*\]\(.*\)/, // Links
-    /^>\s+/m, // Blockquotes
-  ];
-
-  return markdownPatterns.some((pattern) => pattern.test(content));
+  return MARKDOWN_PATTERNS.some((pattern) => pattern.test(content));
 }
 
 /**
@@ -156,16 +170,16 @@ export function validateMarkdownTables(
     const line = lines[i]!;
 
     // Check for table separator line (|---|---|)
-    if (/^\|?[\s-:|]+\|[\s-:|]*$/.test(line)) {
+    if (TABLE_SEPARATOR.test(line)) {
       inTable = true;
-      columnCount = (line.match(/\|/g) || []).length;
+      columnCount = (line.match(PIPE_COUNT) || []).length;
       continue;
     }
 
     if (inTable) {
       // Check if still in table (line contains |)
       if (line.includes("|")) {
-        const cols = (line.match(/\|/g) || []).length;
+        const cols = (line.match(PIPE_COUNT) || []).length;
         if (cols !== columnCount) {
           violations.push({
             rule: "markdown-tables",
@@ -208,7 +222,7 @@ export function validateMarkdownLists(
     const line = lines[i]!;
 
     // Check for unordered list
-    const unorderedMatch = line.match(/^(\s*)([-*+])\s+/);
+    const unorderedMatch = line.match(UNORDERED_LIST);
     if (unorderedMatch && unorderedMatch[1] !== undefined) {
       const indent = unorderedMatch[1].length;
 
@@ -228,7 +242,7 @@ export function validateMarkdownLists(
     }
 
     // Check for ordered list
-    const orderedMatch = line.match(/^(\s*)(\d+)\.\s+/);
+    const orderedMatch = line.match(ORDERED_LIST);
     if (orderedMatch && orderedMatch[1] !== undefined) {
       const indent = orderedMatch[1].length;
 
@@ -248,7 +262,7 @@ export function validateMarkdownLists(
     }
 
     // Non-list line, reset
-    if (line.trim().length > 0 && !line.match(/^\s*$/)) {
+    if (line.trim().length > 0 && !WHITESPACE_ONLY.test(line)) {
       lastListType = null;
       lastIndent = -1;
     }
@@ -296,10 +310,10 @@ export function validateMarkdownComplete(
   if (
     !structure.inFence &&
     lastLine.trim().length > 0 &&
-    !/[.!?;:\]})"`']$/.test(lastLine) &&
-    !/^#{1,6}\s+/.test(lastLine) && // Not a header
-    !/^[-*+]\s+/.test(lastLine) && // Not a list item
-    !/^\d+\.\s+/.test(lastLine) // Not an ordered list
+    !SENTENCE_END.test(lastLine) &&
+    !HEADER_LINE.test(lastLine) && // Not a header
+    !UNORDERED_LIST_LINE.test(lastLine) && // Not a list item
+    !ORDERED_LIST_LINE.test(lastLine) // Not an ordered list
   ) {
     violations.push({
       rule: "markdown-complete",
