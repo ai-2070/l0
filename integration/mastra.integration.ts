@@ -199,7 +199,7 @@ describeIf(hasOpenAI)("Mastra AI Integration", () => {
           ],
           // Enable retry so thrown errors trigger fallback
           retry: {
-            maxAttempts: 1,
+            attempts: 1,
             retryOn: ["malformed", "server_error"],
           },
           detectZeroTokens: false,

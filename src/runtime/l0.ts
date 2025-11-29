@@ -164,13 +164,21 @@ export async function l0(options: L0Options): Promise<L0Result> {
       : null;
 
   const retryManager = new RetryManager({
-    maxAttempts: processedRetry.attempts ?? 2,
+    attempts: processedRetry.attempts ?? 2,
     maxRetries: processedRetry.maxRetries,
     baseDelay: processedRetry.baseDelay ?? 1000,
     maxDelay: processedRetry.maxDelay ?? 10000,
     backoff: processedRetry.backoff ?? "exponential",
     retryOn: processedRetry.retryOn ?? [
-      "zero_output", "guardrail_violation", "drift", "malformed", "incomplete", "network_error", "timeout", "rate_limit", "server_error",
+      "zero_output",
+      "guardrail_violation",
+      "drift",
+      "malformed",
+      "incomplete",
+      "network_error",
+      "timeout",
+      "rate_limit",
+      "server_error",
     ],
   });
 

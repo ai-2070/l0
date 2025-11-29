@@ -492,7 +492,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
           monitoring: { enabled: true },
           // Enable retry with malformed so thrown errors trigger fallback
           retry: {
-            maxAttempts: 1,
+            attempts: 1,
             retryOn: ["malformed", "server_error"],
           },
           detectZeroTokens: false,

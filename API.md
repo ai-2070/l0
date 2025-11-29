@@ -337,7 +337,7 @@ import {
 import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 // RETRY_DEFAULTS
-// { maxAttempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
+// { attempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
 
 // ERROR_TYPE_DELAY_DEFAULTS
 // { connectionDropped: 1000, fetchError: 500, timeout: 1000, ... }
@@ -414,7 +414,7 @@ errorTypeDelays: {
 import { RetryManager } from "@ai2070/l0";
 
 const manager = new RetryManager({
-  maxAttempts: 3,
+  attempts: 3,
   backoff: "exponential",
 });
 

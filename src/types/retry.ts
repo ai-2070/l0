@@ -73,7 +73,7 @@ export interface RetryConfig {
    * Maximum retry attempts for model failures (default: 2)
    * Network and transient errors do not count toward this limit.
    */
-  maxAttempts: number;
+  attempts: number;
 
   /**
    * Absolute maximum number of retries across ALL error types (default: undefined = unlimited)
@@ -137,7 +137,7 @@ export type RetryReason =
  */
 export const RETRY_DEFAULTS = {
   /** Maximum retry attempts for model failures */
-  maxAttempts: 2,
+  attempts: 2,
   /** Base delay in milliseconds */
   baseDelay: 1000,
   /** Maximum delay cap in milliseconds */

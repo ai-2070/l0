@@ -30,7 +30,7 @@ export class RetryManager {
 
   constructor(config: Partial<RetryConfig> = {}) {
     this.config = {
-      maxAttempts: config.maxAttempts ?? RETRY_DEFAULTS.maxAttempts,
+      attempts: config.attempts ?? RETRY_DEFAULTS.attempts,
       maxRetries: config.maxRetries,
       baseDelay: config.baseDelay ?? RETRY_DEFAULTS.baseDelay,
       maxDelay: config.maxDelay ?? RETRY_DEFAULTS.maxDelay,
@@ -264,7 +264,7 @@ export class RetryManager {
     // Check if we've hit the retry limit (only for model errors)
     if (
       categorized.countsTowardLimit &&
-      this.state.attempt >= this.config.maxAttempts
+      this.state.attempt >= this.config.attempts
     ) {
       this.state.limitReached = true;
       return {

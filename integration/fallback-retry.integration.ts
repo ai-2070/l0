@@ -58,7 +58,7 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
           ],
           // Enable retry so thrown errors trigger fallback after exhausting retries
           retry: {
-            maxAttempts: 1,
+            attempts: 1,
             retryOn: ["malformed", "server_error"],
           },
           detectZeroTokens: false,
@@ -94,7 +94,7 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
           // Enable retry with malformed so thrown errors trigger fallback after exhausting retries
           // Generic thrown errors are categorized as "malformed"
           retry: {
-            maxAttempts: 1,
+            attempts: 1,
             retryOn: ["malformed", "server_error"],
           },
           detectZeroTokens: false,
@@ -245,7 +245,7 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
           onViolation: (v) => violations.push(v),
           // Enable retry with malformed so thrown errors trigger fallback
           retry: {
-            maxAttempts: 1,
+            attempts: 1,
             retryOn: ["malformed", "server_error"],
           },
           detectZeroTokens: false,
