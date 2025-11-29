@@ -3,64 +3,21 @@
 import type { L0Telemetry } from "../types/l0";
 import type { GuardrailViolation } from "../types/guardrails";
 import type { L0Monitor } from "./monitoring";
+import type * as Sentry from "@sentry/node";
+import type { SeverityLevel, Breadcrumb, Scope } from "@sentry/types";
 
 /**
- * Sentry-like hub interface (compatible with @sentry/node)
+ * Sentry client interface (compatible with @sentry/node)
  */
-export interface SentryHub {
-  captureException(error: Error, context?: Record<string, any>): string;
-  captureMessage(message: string, level?: SentrySeverity): string;
-  addBreadcrumb(breadcrumb: SentryBreadcrumb): void;
-  setTag(key: string, value: string): void;
-  setExtra(key: string, value: any): void;
-  setContext(name: string, context: Record<string, any>): void;
-  startTransaction?(context: SentryTransactionContext): SentryTransaction;
-}
-
-/**
- * Sentry severity levels
- */
-export type SentrySeverity = "fatal" | "error" | "warning" | "info" | "debug";
-
-/**
- * Sentry breadcrumb
- */
-export interface SentryBreadcrumb {
-  type?: string;
-  category?: string;
-  message?: string;
-  data?: Record<string, any>;
-  level?: SentrySeverity;
-  timestamp?: number;
-}
-
-/**
- * Sentry transaction context
- */
-export interface SentryTransactionContext {
-  name: string;
-  op: string;
-  description?: string;
-  data?: Record<string, any>;
-}
-
-/**
- * Sentry transaction interface
- */
-export interface SentryTransaction {
-  setStatus(status: string): void;
-  setData(key: string, value: any): void;
-  startChild(context: { op: string; description?: string }): SentrySpan;
-  finish(): void;
-}
-
-/**
- * Sentry span interface
- */
-export interface SentrySpan {
-  setStatus(status: string): void;
-  setData(key: string, value: any): void;
-  finish(): void;
+export interface SentryClient {
+  captureException: typeof Sentry.captureException;
+  captureMessage: typeof Sentry.captureMessage;
+  addBreadcrumb: typeof Sentry.addBreadcrumb;
+  setTag: typeof Sentry.setTag;
+  setExtra: typeof Sentry.setExtra;
+  setContext: typeof Sentry.setContext;
+  startSpan?: typeof Sentry.startSpan;
+  withScope?: typeof Sentry.withScope;
 }
 
 /**
@@ -68,9 +25,10 @@ export interface SentrySpan {
  */
 export interface SentryConfig {
   /**
-   * Sentry hub instance (from @sentry/node)
+   * Sentry client instance (from @sentry/node)
+   * Pass the Sentry namespace: `import * as Sentry from '@sentry/node'`
    */
-  hub: SentryHub;
+  sentry: SentryClient;
 
   /**
    * Whether to capture network errors
@@ -97,7 +55,7 @@ export interface SentryConfig {
   breadcrumbsForTokens?: boolean;
 
   /**
-   * Whether to enable performance monitoring (transactions)
+   * Whether to enable performance monitoring (spans)
    * @default true
    */
   enableTracing?: boolean;
@@ -117,18 +75,16 @@ export interface SentryConfig {
  * L0 Sentry integration for error tracking and performance monitoring
  */
 export class L0Sentry {
-  private hub: SentryHub;
+  private sentry: SentryClient;
   private config: Required<
-    Omit<SentryConfig, "hub" | "tags" | "environment">
+    Omit<SentryConfig, "sentry" | "tags" | "environment">
   > & {
     tags?: Record<string, string>;
     environment?: string;
   };
-  private transaction?: SentryTransaction;
-  private streamSpan?: SentrySpan;
 
   constructor(config: SentryConfig) {
-    this.hub = config.hub;
+    this.sentry = config.sentry;
     this.config = {
       captureNetworkErrors: config.captureNetworkErrors ?? true,
       captureGuardrailViolations: config.captureGuardrailViolations ?? true,
@@ -142,12 +98,12 @@ export class L0Sentry {
     // Set default tags
     if (this.config.tags) {
       for (const [key, value] of Object.entries(this.config.tags)) {
-        this.hub.setTag(key, value);
+        this.sentry.setTag(key, value);
       }
     }
 
     if (this.config.environment) {
-      this.hub.setTag("environment", this.config.environment);
+      this.sentry.setTag("environment", this.config.environment);
     }
   }
 
@@ -155,11 +111,11 @@ export class L0Sentry {
    * Start tracking an L0 execution
    */
   startExecution(
-    name: string = "l0.execution",
+    _name: string = "l0.execution",
     metadata?: Record<string, any>,
   ): void {
     // Add breadcrumb
-    this.hub.addBreadcrumb({
+    this.sentry.addBreadcrumb({
       type: "info",
       category: "l0",
       message: "L0 execution started",
@@ -167,29 +123,13 @@ export class L0Sentry {
       level: "info",
       timestamp: Date.now() / 1000,
     });
-
-    // Start transaction if tracing enabled
-    if (this.config.enableTracing && this.hub.startTransaction) {
-      this.transaction = this.hub.startTransaction({
-        name,
-        op: "l0.stream",
-        data: metadata,
-      });
-    }
   }
 
   /**
    * Start tracking stream consumption
    */
   startStream(): void {
-    if (this.transaction) {
-      this.streamSpan = this.transaction.startChild({
-        op: "l0.stream.consume",
-        description: "Consuming LLM stream",
-      });
-    }
-
-    this.hub.addBreadcrumb({
+    this.sentry.addBreadcrumb({
       type: "info",
       category: "l0.stream",
       message: "Stream started",
@@ -203,7 +143,7 @@ export class L0Sentry {
    */
   recordToken(token?: string): void {
     if (this.config.breadcrumbsForTokens) {
-      this.hub.addBreadcrumb({
+      this.sentry.addBreadcrumb({
         type: "debug",
         category: "l0.token",
         message: token ? `Token: ${token.slice(0, 50)}` : "Token received",
@@ -217,7 +157,7 @@ export class L0Sentry {
    * Record first token (TTFT)
    */
   recordFirstToken(ttft: number): void {
-    this.hub.addBreadcrumb({
+    this.sentry.addBreadcrumb({
       type: "info",
       category: "l0.stream",
       message: `First token received`,
@@ -225,17 +165,13 @@ export class L0Sentry {
       level: "info",
       timestamp: Date.now() / 1000,
     });
-
-    if (this.streamSpan) {
-      this.streamSpan.setData("ttft_ms", ttft);
-    }
   }
 
   /**
    * Record a network error
    */
   recordNetworkError(error: Error, errorType: string, retried: boolean): void {
-    this.hub.addBreadcrumb({
+    this.sentry.addBreadcrumb({
       type: "error",
       category: "l0.network",
       message: `Network error: ${errorType}`,
@@ -250,7 +186,7 @@ export class L0Sentry {
 
     if (this.config.captureNetworkErrors && !retried) {
       // Only capture if not retried (final failure)
-      this.hub.captureException(error, {
+      this.sentry.captureException(error, {
         tags: {
           error_type: errorType,
           component: "l0.network",
@@ -266,7 +202,7 @@ export class L0Sentry {
    * Record a retry attempt
    */
   recordRetry(attempt: number, reason: string, isNetworkError: boolean): void {
-    this.hub.addBreadcrumb({
+    this.sentry.addBreadcrumb({
       type: "info",
       category: "l0.retry",
       message: `Retry attempt ${attempt}`,
@@ -286,7 +222,7 @@ export class L0Sentry {
   recordGuardrailViolations(violations: GuardrailViolation[]): void {
     for (const violation of violations) {
       // Add breadcrumb for all violations
-      this.hub.addBreadcrumb({
+      this.sentry.addBreadcrumb({
         type: "error",
         category: "l0.guardrail",
         message: `Guardrail violation: ${violation.rule}`,
@@ -305,7 +241,7 @@ export class L0Sentry {
         this.config.captureGuardrailViolations &&
         this.shouldCapture(violation.severity)
       ) {
-        this.hub.captureMessage(
+        this.sentry.captureMessage(
           `Guardrail violation: ${violation.message}`,
           this.mapSeverity(violation.severity),
         );
@@ -318,7 +254,7 @@ export class L0Sentry {
    */
   recordDrift(detected: boolean, types: string[]): void {
     if (detected) {
-      this.hub.addBreadcrumb({
+      this.sentry.addBreadcrumb({
         type: "error",
         category: "l0.drift",
         message: `Drift detected: ${types.join(", ")}`,
@@ -333,14 +269,7 @@ export class L0Sentry {
    * Complete stream tracking
    */
   completeStream(tokenCount: number): void {
-    if (this.streamSpan) {
-      this.streamSpan.setData("token_count", tokenCount);
-      this.streamSpan.setStatus("ok");
-      this.streamSpan.finish();
-      this.streamSpan = undefined;
-    }
-
-    this.hub.addBreadcrumb({
+    this.sentry.addBreadcrumb({
       type: "info",
       category: "l0.stream",
       message: "Stream completed",
@@ -355,7 +284,7 @@ export class L0Sentry {
    */
   completeExecution(telemetry: L0Telemetry): void {
     // Set context with telemetry data
-    this.hub.setContext("l0_telemetry", {
+    this.sentry.setContext("l0_telemetry", {
       session_id: telemetry.sessionId,
       duration_ms: telemetry.duration,
       tokens: telemetry.metrics.totalTokens,
@@ -367,7 +296,7 @@ export class L0Sentry {
     });
 
     // Add final breadcrumb
-    this.hub.addBreadcrumb({
+    this.sentry.addBreadcrumb({
       type: "info",
       category: "l0",
       message: "L0 execution completed",
@@ -379,16 +308,6 @@ export class L0Sentry {
       level: "info",
       timestamp: Date.now() / 1000,
     });
-
-    // Finish transaction
-    if (this.transaction) {
-      this.transaction.setData("tokens", telemetry.metrics.totalTokens);
-      this.transaction.setData("duration_ms", telemetry.duration);
-      this.transaction.setData("retries", telemetry.metrics.totalRetries);
-      this.transaction.setStatus("ok");
-      this.transaction.finish();
-      this.transaction = undefined;
-    }
   }
 
   /**
@@ -397,7 +316,7 @@ export class L0Sentry {
   recordFailure(error: Error, telemetry?: L0Telemetry): void {
     // Set context if telemetry available
     if (telemetry) {
-      this.hub.setContext("l0_telemetry", {
+      this.sentry.setContext("l0_telemetry", {
         session_id: telemetry.sessionId,
         duration_ms: telemetry.duration,
         tokens: telemetry.metrics.totalTokens,
@@ -407,7 +326,7 @@ export class L0Sentry {
     }
 
     // Capture exception
-    this.hub.captureException(error, {
+    this.sentry.captureException(error, {
       tags: {
         component: "l0",
       },
@@ -421,19 +340,6 @@ export class L0Sentry {
           : undefined,
       },
     });
-
-    // Finish transaction with error status
-    if (this.streamSpan) {
-      this.streamSpan.setStatus("internal_error");
-      this.streamSpan.finish();
-      this.streamSpan = undefined;
-    }
-
-    if (this.transaction) {
-      this.transaction.setStatus("internal_error");
-      this.transaction.finish();
-      this.transaction = undefined;
-    }
   }
 
   /**
@@ -449,7 +355,7 @@ export class L0Sentry {
   /**
    * Map guardrail severity to Sentry severity
    */
-  private mapSeverity(severity: "warning" | "error" | "fatal"): SentrySeverity {
+  private mapSeverity(severity: "warning" | "error" | "fatal"): SeverityLevel {
     switch (severity) {
       case "fatal":
         return "fatal";
@@ -491,31 +397,31 @@ export function createSentryIntegration(config: SentryConfig): L0Sentry {
  * const result = await l0({
  *   stream: () => streamText({ model, prompt }),
  *   interceptors: [
- *     sentryInterceptor({ hub: Sentry })
+ *     sentryInterceptor({ sentry: Sentry })
  *   ]
  * });
  * ```
  */
 export function sentryInterceptor(config: SentryConfig) {
-  const sentry = createSentryIntegration(config);
+  const integration = createSentryIntegration(config);
 
   return {
     name: "sentry",
 
     before: async (options: any) => {
-      sentry.startExecution("l0.execution", options.monitoring?.metadata);
+      integration.startExecution("l0.execution", options.monitoring?.metadata);
       return options;
     },
 
     after: async (result: any) => {
       if (result.telemetry) {
-        sentry.completeExecution(result.telemetry);
+        integration.completeExecution(result.telemetry);
       }
       return result;
     },
 
     onError: async (error: Error, _options: any) => {
-      sentry.recordFailure(error);
+      integration.recordFailure(error);
     },
   };
 }
@@ -529,7 +435,7 @@ export function sentryInterceptor(config: SentryConfig) {
  * import { l0, withSentry } from 'l0';
  *
  * const result = await withSentry(
- *   { hub: Sentry },
+ *   { sentry: Sentry },
  *   () => l0({
  *     stream: () => streamText({ model, prompt }),
  *     monitoring: { enabled: true }
@@ -541,21 +447,24 @@ export async function withSentry<T>(
   config: SentryConfig,
   fn: () => Promise<T & { telemetry?: L0Telemetry }>,
 ): Promise<T> {
-  const sentry = createSentryIntegration(config);
-  sentry.startExecution();
+  const integration = createSentryIntegration(config);
+  integration.startExecution();
 
   try {
     const result = await fn();
 
     if (result.telemetry) {
-      sentry.completeExecution(result.telemetry);
+      integration.completeExecution(result.telemetry);
     }
 
     return result;
   } catch (error) {
-    sentry.recordFailure(
+    integration.recordFailure(
       error instanceof Error ? error : new Error(String(error)),
     );
     throw error;
   }
 }
+
+// Re-export useful Sentry types for convenience
+export type { SeverityLevel, Breadcrumb, Scope };

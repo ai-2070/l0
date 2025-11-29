@@ -169,16 +169,24 @@ export type { MonitoringConfig } from "./runtime/monitoring";
 
 // Prometheus metrics
 export {
+  // prom-client based (recommended)
+  L0PrometheusCollector,
+  createL0PrometheusCollector,
+  l0PrometheusMiddleware,
+  // Standalone (no dependency)
   PrometheusRegistry,
   PrometheusCollector,
   createPrometheusRegistry,
   createPrometheusCollector,
   prometheusMiddleware,
+  // Constants
   DEFAULT_BUCKETS,
   METRIC_NAMES,
 } from "./runtime/prometheus";
 
 export type {
+  PromClient,
+  PrometheusConfig,
   PrometheusMetricType,
   PrometheusMetric,
 } from "./runtime/prometheus";
@@ -191,15 +199,7 @@ export {
   withSentry,
 } from "./runtime/sentry";
 
-export type {
-  SentryHub,
-  SentrySeverity,
-  SentryBreadcrumb,
-  SentryTransactionContext,
-  SentryTransaction,
-  SentrySpan,
-  SentryConfig,
-} from "./runtime/sentry";
+export type { SentryClient, SentryConfig } from "./runtime/sentry";
 
 // Interceptors
 export {
