@@ -58,7 +58,7 @@ const result = await l0({
 Choose based on your use case:
 
 ```typescript
-import { RETRY_DEFAULTS } from "l0";
+import { RETRY_DEFAULTS } from "@ai2070/l0";
 
 // Exponential (default) - doubles delay each retry
 // Good for: Most production workloads

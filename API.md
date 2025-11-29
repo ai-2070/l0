@@ -25,7 +25,7 @@ Complete API reference for L0.
 Main streaming runtime with guardrails and retry logic.
 
 ```typescript
-import { l0 } from "l0";
+import { l0 } from "@ai2070/l0";
 
 const result = await l0({
   // Required: Stream factory
@@ -103,7 +103,7 @@ console.log(result.state.tokenCount);
 Guaranteed valid JSON matching a Zod schema.
 
 ```typescript
-import { structured } from "l0";
+import { structured } from "@ai2070/l0";
 import { z } from "zod";
 
 const schema = z.object({
@@ -143,7 +143,7 @@ console.log(result.raw);          // string - raw output
 Create a window for processing long documents.
 
 ```typescript
-import { createWindow } from "l0";
+import { createWindow } from "@ai2070/l0";
 
 const window = createWindow(longDocument, {
   size: 2000,           // Tokens per chunk
@@ -179,7 +179,7 @@ console.log(window.stats());
 Multi-generation consensus for high-confidence results.
 
 ```typescript
-import { consensus } from "l0";
+import { consensus } from "@ai2070/l0";
 
 const result = await consensus({
   streams: [
@@ -213,7 +213,7 @@ console.log(result.disagreements);  // Disagreement details
 Quick check if outputs agree.
 
 ```typescript
-import { quickConsensus } from "l0";
+import { quickConsensus } from "@ai2070/l0";
 
 const hasConsensus = quickConsensus(["A", "A", "B"], 0.6);  // true
 ```
@@ -223,7 +223,7 @@ const hasConsensus = quickConsensus(["A", "A", "B"], 0.6);  // true
 Get most common value from outputs.
 
 ```typescript
-import { getConsensusValue } from "l0";
+import { getConsensusValue } from "@ai2070/l0";
 
 const value = getConsensusValue(["A", "A", "B"]);  // "A"
 ```
@@ -243,7 +243,7 @@ import {
   zeroOutputRule,     // Zero/empty output detection
   patternRule,        // Known bad patterns
   customPatternRule   // Custom regex patterns
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ### Presets
@@ -256,7 +256,7 @@ import {
   jsonOnlyGuardrails,
   markdownOnlyGuardrails,
   latexOnlyGuardrails
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ### Custom Guardrails
@@ -284,7 +284,7 @@ const customRule: GuardrailRule = {
 ### GuardrailEngine
 
 ```typescript
-import { GuardrailEngine } from "l0";
+import { GuardrailEngine } from "@ai2070/l0";
 
 const engine = new GuardrailEngine({
   rules: [jsonRule(), markdownRule()],
@@ -310,13 +310,13 @@ import {
   minimalRetry,      // { maxAttempts: 1 }
   recommendedRetry,  // { maxAttempts: 2, backoff: "exponential" }
   strictRetry        // { maxAttempts: 3, backoff: "full-jitter" }
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ### Centralized Defaults
 
 ```typescript
-import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "l0";
+import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 // RETRY_DEFAULTS
 // { maxAttempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
@@ -350,7 +350,7 @@ const result = await l0({
 ### RetryManager
 
 ```typescript
-import { RetryManager } from "l0";
+import { RetryManager } from "@ai2070/l0";
 
 const manager = new RetryManager({
   maxAttempts: 3,
@@ -369,7 +369,7 @@ const result = await manager.execute(async () => {
 ### L0Error
 
 ```typescript
-import { isL0Error, L0Error } from "l0";
+import { isL0Error, L0Error } from "@ai2070/l0";
 
 try {
   await l0({ stream, guardrails });
@@ -403,7 +403,7 @@ try {
 ### Network Errors
 
 ```typescript
-import { isNetworkError, analyzeNetworkError, NetworkErrorType } from "l0";
+import { isNetworkError, analyzeNetworkError, NetworkErrorType } from "@ai2070/l0";
 
 if (isNetworkError(error)) {
   const analysis = analyzeNetworkError(error);
@@ -416,7 +416,7 @@ if (isNetworkError(error)) {
 ### Error Categories
 
 ```typescript
-import { ErrorCategory, getErrorCategory } from "l0";
+import { ErrorCategory, getErrorCategory } from "@ai2070/l0";
 
 const category = getErrorCategory(error);
 // ErrorCategory.NETWORK    - Retry forever
@@ -432,7 +432,7 @@ const category = getErrorCategory(error);
 ### Context
 
 ```typescript
-import { formatContext, formatDocument, formatInstructions } from "l0";
+import { formatContext, formatDocument, formatInstructions } from "@ai2070/l0";
 
 formatContext(content, { role: "user" });
 formatDocument(content, { title: "Doc", author: "Me" });
@@ -442,7 +442,7 @@ formatInstructions("Generate JSON only");
 ### Memory
 
 ```typescript
-import { formatMemory, createMemoryEntry } from "l0";
+import { formatMemory, createMemoryEntry } from "@ai2070/l0";
 
 const memory = [
   createMemoryEntry("user", "Hello"),
@@ -455,7 +455,7 @@ formatMemory(memory, { maxEntries: 10 });
 ### Output
 
 ```typescript
-import { formatJsonOutput, formatStructuredOutput, cleanOutput } from "l0";
+import { formatJsonOutput, formatStructuredOutput, cleanOutput } from "@ai2070/l0";
 
 formatJsonOutput({ strict: true });
 formatStructuredOutput("json", { schema: "..." });
@@ -465,7 +465,7 @@ cleanOutput("Sure! Here's the JSON: {...}");  // "{...}"
 ### Tools
 
 ```typescript
-import { formatTool, formatTools, createTool, createParameter } from "l0";
+import { formatTool, formatTools, createTool, createParameter } from "@ai2070/l0";
 
 const tool = createTool("search", "Search the web", [
   createParameter("query", "string", "Search query", true)
@@ -489,7 +489,7 @@ import {
   dedent,
   indent,
   trimText
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ### JSON Repair
@@ -502,7 +502,7 @@ import {
   extractJson,
   balanceBraces,
   balanceBrackets
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ### Token Utilities
@@ -514,7 +514,7 @@ import {
   countMeaningfulTokens,
   estimateTokenCount,
   detectRepeatedTokens
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ### Timer Utilities
@@ -527,7 +527,7 @@ import {
   linearBackoff,
   fullJitterBackoff,
   calculateBackoff
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ### Comparison
@@ -538,7 +538,7 @@ import {
   compareStrings,
   levenshteinSimilarity,
   cosineSimilarity
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ---
@@ -553,7 +553,7 @@ Wrap an OpenAI SDK stream for use with L0.
 
 ```typescript
 import OpenAI from "openai";
-import { l0, wrapOpenAIStream } from "l0";
+import { l0, wrapOpenAIStream } from "@ai2070/l0";
 
 const openai = new OpenAI();
 
@@ -583,7 +583,7 @@ Create a stream factory from OpenAI client and params.
 
 ```typescript
 import OpenAI from "openai";
-import { l0, openaiStream } from "l0";
+import { l0, openaiStream } from "@ai2070/l0";
 
 const openai = new OpenAI();
 
@@ -601,7 +601,7 @@ Simple text generation helper.
 
 ```typescript
 import OpenAI from "openai";
-import { l0, openaiText } from "l0";
+import { l0, openaiText } from "@ai2070/l0";
 
 const openai = new OpenAI();
 
@@ -624,7 +624,7 @@ JSON output with `response_format: { type: "json_object" }`.
 
 ```typescript
 import OpenAI from "openai";
-import { structured, openaiJSON } from "l0";
+import { structured, openaiJSON } from "@ai2070/l0";
 import { z } from "zod";
 
 const openai = new OpenAI();
@@ -641,7 +641,7 @@ Tool/function calling support.
 
 ```typescript
 import OpenAI from "openai";
-import { l0, openaiWithTools } from "l0";
+import { l0, openaiWithTools } from "@ai2070/l0";
 
 const openai = new OpenAI();
 
@@ -680,7 +680,7 @@ for await (const event of result.stream) {
 ### Utility Functions
 
 ```typescript
-import { isOpenAIChunk, extractOpenAIText } from "l0";
+import { isOpenAIChunk, extractOpenAIText } from "@ai2070/l0";
 
 // Type guard for OpenAI chunks
 if (isOpenAIChunk(chunk)) {
@@ -703,7 +703,7 @@ Wrap a Mastra stream result for use with L0.
 
 ```typescript
 import { Agent } from "@mastra/core/agent";
-import { l0, wrapMastraStream } from "l0";
+import { l0, wrapMastraStream } from "@ai2070/l0";
 
 const agent = new Agent({
   name: "my-agent",
@@ -733,7 +733,7 @@ Create a stream factory from a Mastra agent.
 
 ```typescript
 import { Agent } from "@mastra/core/agent";
-import { l0, mastraStream } from "l0";
+import { l0, mastraStream } from "@ai2070/l0";
 
 const agent = new Agent({
   name: "my-agent",
@@ -760,7 +760,7 @@ Simple text generation helper.
 
 ```typescript
 import { Agent } from "@mastra/core/agent";
-import { l0, mastraText } from "l0";
+import { l0, mastraText } from "@ai2070/l0";
 
 const agent = new Agent({ name: "writer", instructions: "...", model: "openai/gpt-4o" });
 
@@ -775,7 +775,7 @@ Structured output with schema validation.
 
 ```typescript
 import { Agent } from "@mastra/core/agent";
-import { structured, mastraStructured } from "l0";
+import { structured, mastraStructured } from "@ai2070/l0";
 import { z } from "zod";
 
 const agent = new Agent({ name: "extractor", instructions: "...", model: "openai/gpt-4o" });
@@ -792,7 +792,7 @@ Wrap Mastra's fullStream for complete control over all chunk types.
 
 ```typescript
 import { Agent } from "@mastra/core/agent";
-import { l0, wrapMastraFullStream } from "l0";
+import { l0, wrapMastraFullStream } from "@ai2070/l0";
 
 const agent = new Agent({ ... });
 
@@ -809,7 +809,7 @@ const result = await l0({
 ### Utility Functions
 
 ```typescript
-import { isMastraStream, extractMastraText, extractMastraObject } from "l0";
+import { isMastraStream, extractMastraText, extractMastraObject } from "@ai2070/l0";
 
 // Type guard for Mastra streams
 if (isMastraStream(stream)) {

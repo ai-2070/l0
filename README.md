@@ -13,7 +13,7 @@ npm install @ai2070/l0
 ### With Vercel AI SDK
 
 ```typescript
-import { l0, recommendedGuardrails, recommendedRetry } from "l0";
+import { l0, recommendedGuardrails, recommendedRetry } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -90,7 +90,7 @@ for await (const event of result.stream) {
 
 ```typescript
 import OpenAI from "openai";
-import { l0, openaiStream, recommendedGuardrails } from "l0";
+import { l0, openaiStream, recommendedGuardrails } from "@ai2070/l0";
 
 const openai = new OpenAI();
 
@@ -111,7 +111,7 @@ for await (const event of result.stream) {
 
 ```typescript
 import { Agent } from "@mastra/core/agent";
-import { l0, mastraStream, recommendedGuardrails } from "l0";
+import { l0, mastraStream, recommendedGuardrails } from "@ai2070/l0";
 
 const agent = new Agent({
   name: "haiku-writer",
@@ -192,7 +192,7 @@ import {
   zeroOutputRule,
   patternRule,
   customPatternRule 
-} from "l0";
+} from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
@@ -209,7 +209,7 @@ const result = await l0({
 ### Presets
 
 ```typescript
-import { minimalGuardrails, recommendedGuardrails, strictGuardrails } from "l0";
+import { minimalGuardrails, recommendedGuardrails, strictGuardrails } from "@ai2070/l0";
 
 // Minimal: JSON + zero output detection
 // Recommended: + Markdown, drift, patterns
@@ -223,7 +223,7 @@ import { minimalGuardrails, recommendedGuardrails, strictGuardrails } from "l0";
 Guaranteed valid JSON matching your Zod schema:
 
 ```typescript
-import { structured } from "l0";
+import { structured } from "@ai2070/l0";
 import { z } from "zod";
 
 const schema = z.object({
@@ -284,7 +284,7 @@ const result = await l0({
 Automatic detection and recovery from network failures:
 
 ```typescript
-import { isNetworkError, analyzeNetworkError } from "l0";
+import { isNetworkError, analyzeNetworkError } from "@ai2070/l0";
 
 try {
   await l0({ stream, retry: recommendedRetry });
@@ -307,7 +307,7 @@ Detected error types: connection dropped, fetch errors, ECONNRESET, ECONNREFUSED
 Process documents that exceed context limits:
 
 ```typescript
-import { createWindow } from "l0";
+import { createWindow } from "@ai2070/l0";
 
 const window = createWindow(longDocument, {
   size: 2000,           // Tokens per chunk
@@ -354,7 +354,7 @@ console.log(result.state.fallbackIndex); // 0 = primary, 1+ = fallback
 Multi-generation consensus for high-confidence results:
 
 ```typescript
-import { consensus } from "l0";
+import { consensus } from "@ai2070/l0";
 
 const result = await consensus({
   streams: [
@@ -381,7 +381,7 @@ Run multiple LLM calls concurrently with different patterns:
 ### Race - First Response Wins
 
 ```typescript
-import { race } from "l0";
+import { race } from "@ai2070/l0";
 
 const result = await race([
   { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
@@ -394,7 +394,7 @@ const result = await race([
 ### Parallel with Concurrency Control
 
 ```typescript
-import { parallel } from "l0";
+import { parallel } from "@ai2070/l0";
 
 const results = await parallel([
   { stream: () => streamText({ model, prompt: "Task 1" }) },
@@ -442,7 +442,7 @@ Built-in telemetry with Prometheus and Sentry integrations.
 ### Prometheus
 
 ```typescript
-import { l0, createPrometheusCollector, prometheusMiddleware } from "l0";
+import { l0, createPrometheusCollector, prometheusMiddleware } from "@ai2070/l0";
 import express from "express";
 
 const collector = createPrometheusCollector();
@@ -469,7 +469,7 @@ app.post("/chat", async (req, res) => {
 
 ```typescript
 import * as Sentry from "@sentry/node";
-import { l0, sentryInterceptor } from "l0";
+import { l0, sentryInterceptor } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
@@ -491,7 +491,7 @@ See [MONITORING.md](./MONITORING.md) for complete integration guides.
 L0 provides detailed error context for debugging and recovery:
 
 ```typescript
-import { isL0Error, L0Error } from "l0";
+import { isL0Error, L0Error } from "@ai2070/l0";
 
 try {
   await l0({ stream, guardrails });
@@ -514,7 +514,7 @@ Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `
 Utilities for context, memory, output instructions, and tool definitions:
 
 ```typescript
-import { formatContext, formatMemory, formatTool, formatJsonOutput } from "l0";
+import { formatContext, formatMemory, formatTool, formatJsonOutput } from "@ai2070/l0";
 
 // Wrap documents with XML/Markdown/bracket delimiters
 const context = formatContext(document, { label: "Documentation", delimiter: "xml" });

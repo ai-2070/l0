@@ -5,7 +5,7 @@ Automatic chunking and navigation for long documents.
 ## Quick Start
 
 ```typescript
-import { createWindow } from "l0";
+import { createWindow } from "@ai2070/l0";
 
 const window = createWindow(longDocument, {
   size: 2000,           // Tokens per chunk
@@ -151,7 +151,7 @@ const window = createWindow(document, {
 Auto-retry with adjacent chunks if drift detected:
 
 ```typescript
-import { l0WithWindow } from "l0";
+import { l0WithWindow } from "@ai2070/l0";
 
 const result = await l0WithWindow({
   window,
@@ -228,7 +228,7 @@ import {
   largeWindow,      // 4000 tokens, 400 overlap
   paragraphWindow,  // Paragraph-based
   sentenceWindow    // Sentence-based
-} from "l0";
+} from "@ai2070/l0";
 
 const window = createWindow(document, largeWindow);
 ```

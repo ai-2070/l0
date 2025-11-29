@@ -5,7 +5,7 @@ Multi-generation consensus for high-confidence results. Run multiple generations
 ## Quick Start
 
 ```typescript
-import { consensus } from "l0";
+import { consensus } from "@ai2070/l0";
 
 const result = await consensus({
   streams: [
@@ -60,7 +60,7 @@ await consensus({
 With Zod schema, consensus compares field-by-field:
 
 ```typescript
-import { consensus } from "l0";
+import { consensus } from "@ai2070/l0";
 import { z } from "zod";
 
 const schema = z.object({
@@ -182,7 +182,7 @@ import {
   standardConsensus, 
   lenientConsensus, 
   bestConsensus 
-} from "l0";
+} from "@ai2070/l0";
 
 // Strict: all must agree
 await consensus({ streams, ...strictConsensus });
@@ -208,7 +208,7 @@ await consensus({ streams, ...bestConsensus });
 ### Quick Consensus Check
 
 ```typescript
-import { quickConsensus } from "l0";
+import { quickConsensus } from "@ai2070/l0";
 
 const outputs = ["answer A", "answer A", "answer B"];
 quickConsensus(outputs);           // false (not 80% agreement)
@@ -218,7 +218,7 @@ quickConsensus(outputs, 0.6);      // true (66% >= 60%)
 ### Get Consensus Value
 
 ```typescript
-import { getConsensusValue } from "l0";
+import { getConsensusValue } from "@ai2070/l0";
 
 getConsensusValue(["A", "A", "B"]); // "A"
 getConsensusValue([1, 2, 1, 1]);    // 1
@@ -227,7 +227,7 @@ getConsensusValue([1, 2, 1, 1]);    // 1
 ### Validate Consensus
 
 ```typescript
-import { validateConsensus } from "l0";
+import { validateConsensus } from "@ai2070/l0";
 
 validateConsensus(result, 0.8, 0);  // minConfidence, maxDisagreements
 // Returns true if confidence >= 0.8 and no major/critical disagreements

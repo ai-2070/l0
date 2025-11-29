@@ -17,7 +17,7 @@ npm install ai @ai-sdk/openai
 ## Basic Usage
 
 ```typescript
-import { l0, recommendedGuardrails, recommendedRetry } from "l0";
+import { l0, recommendedGuardrails, recommendedRetry } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -52,7 +52,7 @@ You now have:
 ### Structured Output (Guaranteed JSON)
 
 ```typescript
-import { structured } from "l0";
+import { structured } from "@ai2070/l0";
 import { z } from "zod";
 
 const schema = z.object({
@@ -110,7 +110,7 @@ if (result.state.fallbackIndex > 0) {
 ### Custom Guardrails
 
 ```typescript
-import { customPatternRule, zeroOutputRule } from "l0";
+import { customPatternRule, zeroOutputRule } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
@@ -124,7 +124,7 @@ const result = await l0({
 ### Document Processing
 
 ```typescript
-import { createWindow } from "l0";
+import { createWindow } from "@ai2070/l0";
 
 const window = createWindow(longDocument, {
   size: 2000,
@@ -143,7 +143,7 @@ const results = await window.processAll((chunk) => ({
 ### Error Handling
 
 ```typescript
-import { isL0Error, isNetworkError } from "l0";
+import { isL0Error, isNetworkError } from "@ai2070/l0";
 
 try {
   const result = await l0({ stream, guardrails });
@@ -171,7 +171,7 @@ import {
   minimalGuardrails,      // JSON + zero output
   recommendedGuardrails,  // + Markdown, drift, patterns
   strictGuardrails        // + function calls, schema
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ### Retry
@@ -181,7 +181,7 @@ import {
   minimalRetry,      // 1 attempt
   recommendedRetry,  // 2 attempts, exponential backoff
   strictRetry        // 3 attempts, full-jitter
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ---

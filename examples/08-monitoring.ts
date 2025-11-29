@@ -112,7 +112,7 @@ async function sentryExample() {
   console.log("Example code:");
   console.log(`
   import * as Sentry from "@sentry/node";
-  import { l0, sentryInterceptor } from "l0";
+  import { l0, sentryInterceptor } from "@ai2070/l0";
 
   const result = await l0({
     stream: () => streamText({ model, prompt }),

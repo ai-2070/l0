@@ -23,7 +23,7 @@ L0 distinguishes between different error types for appropriate handling:
 Errors thrown by L0 itself, with rich context for debugging and recovery:
 
 ```typescript
-import { isL0Error, L0Error } from "l0";
+import { isL0Error, L0Error } from "@ai2070/l0";
 
 try {
   await l0({ stream, guardrails });
@@ -42,7 +42,7 @@ try {
 Transient failures from network issues:
 
 ```typescript
-import { isNetworkError, analyzeNetworkError } from "l0";
+import { isNetworkError, analyzeNetworkError } from "@ai2070/l0";
 
 try {
   await l0({ stream });
@@ -106,7 +106,7 @@ interface L0ErrorContext {
 ### Usage Example
 
 ```typescript
-import { isL0Error } from "l0";
+import { isL0Error } from "@ai2070/l0";
 
 try {
   const result = await l0({
@@ -153,7 +153,7 @@ L0 uses specific error codes for programmatic handling:
 ### Handling Specific Codes
 
 ```typescript
-import { isL0Error } from "l0";
+import { isL0Error } from "@ai2070/l0";
 
 try {
   await l0({ stream, guardrails });
@@ -194,7 +194,7 @@ try {
 L0's retry system categorizes errors for appropriate handling:
 
 ```typescript
-import { ErrorCategory, getErrorCategory } from "l0";
+import { ErrorCategory, getErrorCategory } from "@ai2070/l0";
 
 const category = getErrorCategory(error);
 
@@ -254,7 +254,7 @@ import {
   isNetworkError, 
   analyzeNetworkError,
   NetworkErrorType 
-} from "l0";
+} from "@ai2070/l0";
 
 if (isNetworkError(error)) {
   const analysis = analyzeNetworkError(error);
@@ -286,7 +286,7 @@ if (isNetworkError(error)) {
 ### Custom Delay by Error Type
 
 ```typescript
-import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "l0";
+import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),

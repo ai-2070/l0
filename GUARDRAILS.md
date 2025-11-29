@@ -5,7 +5,7 @@ Guardrails are pure functions that validate streaming output without rewriting i
 ## Quick Start
 
 ```typescript
-import { l0, recommendedGuardrails } from "l0";
+import { l0, recommendedGuardrails } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
@@ -23,7 +23,7 @@ import {
   jsonOnlyGuardrails,     // JSON + zero output
   markdownOnlyGuardrails, // Markdown + zero output
   latexOnlyGuardrails     // LaTeX + zero output
-} from "l0";
+} from "@ai2070/l0";
 ```
 
 ---
@@ -35,7 +35,7 @@ import {
 Validates JSON structure during streaming:
 
 ```typescript
-import { jsonRule, strictJsonRule } from "l0";
+import { jsonRule, strictJsonRule } from "@ai2070/l0";
 
 jsonRule()       // Balanced braces/brackets, streaming-aware
 strictJsonRule() // + Must be parseable, root must be object/array
@@ -52,7 +52,7 @@ strictJsonRule() // + Must be parseable, root must be object/array
 Validates Markdown structure:
 
 ```typescript
-import { markdownRule } from "l0";
+import { markdownRule } from "@ai2070/l0";
 
 markdownRule()
 ```
@@ -68,7 +68,7 @@ markdownRule()
 Validates LaTeX environments and math:
 
 ```typescript
-import { latexRule } from "l0";
+import { latexRule } from "@ai2070/l0";
 
 latexRule()
 ```
@@ -84,7 +84,7 @@ latexRule()
 Detects empty or meaningless output:
 
 ```typescript
-import { zeroOutputRule } from "l0";
+import { zeroOutputRule } from "@ai2070/l0";
 
 zeroOutputRule()
 ```
@@ -101,7 +101,7 @@ zeroOutputRule()
 Detects known bad patterns:
 
 ```typescript
-import { patternRule, customPatternRule } from "l0";
+import { patternRule, customPatternRule } from "@ai2070/l0";
 
 patternRule()  // All built-in patterns
 
@@ -149,7 +149,7 @@ interface GuardrailViolation {
 ### Simple Rule
 
 ```typescript
-import { GuardrailRule } from "l0";
+import { GuardrailRule } from "@ai2070/l0";
 
 const noSwearing: GuardrailRule = {
   name: "no-swearing",
@@ -220,7 +220,7 @@ interface GuardrailContext {
 For advanced use cases, use the engine directly:
 
 ```typescript
-import { GuardrailEngine, createGuardrailEngine, checkGuardrails } from "l0";
+import { GuardrailEngine, createGuardrailEngine, checkGuardrails } from "@ai2070/l0";
 
 // Create engine
 const engine = createGuardrailEngine(recommendedGuardrails, {
@@ -272,7 +272,7 @@ import {
   analyzeLatexStructure, looksLikeLatex,
   isZeroOutput, isNoiseOnly,
   findBadPatterns, BAD_PATTERNS
-} from "l0";
+} from "@ai2070/l0";
 
 // JSON analysis
 const json = analyzeJsonStructure('{"a": 1');

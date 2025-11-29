@@ -5,7 +5,7 @@ Guaranteed valid JSON matching your Zod schema.
 ## Quick Start
 
 ```typescript
-import { structured } from "l0";
+import { structured } from "@ai2070/l0";
 import { z } from "zod";
 
 const schema = z.object({

@@ -7,7 +7,7 @@ L0 provides utilities for formatting context, memory, output instructions, tool 
 Wrap documents and instructions with proper delimiters:
 
 ```typescript
-import { formatContext, formatDocument, formatInstructions } from "l0";
+import { formatContext, formatDocument, formatInstructions } from "@ai2070/l0";
 
 // XML delimiters (default)
 formatContext("User manual content", { label: "Documentation" });
@@ -38,7 +38,7 @@ formatInstructions("You are a helpful assistant.");
 ### Multiple Contexts
 
 ```typescript
-import { formatMultipleContexts } from "l0";
+import { formatMultipleContexts } from "@ai2070/l0";
 
 formatMultipleContexts([
   { content: "Document 1", label: "Doc1" },
@@ -51,7 +51,7 @@ formatMultipleContexts([
 Prevent injection attacks:
 
 ```typescript
-import { escapeDelimiters, unescapeDelimiters } from "l0";
+import { escapeDelimiters, unescapeDelimiters } from "@ai2070/l0";
 
 escapeDelimiters("<script>alert('xss')</script>", "xml");
 // &lt;script&gt;alert('xss')&lt;/script&gt;
@@ -67,7 +67,7 @@ unescapeDelimiters("&lt;div&gt;", "xml");
 Format conversation history for model context:
 
 ```typescript
-import { formatMemory, createMemoryEntry } from "l0";
+import { formatMemory, createMemoryEntry } from "@ai2070/l0";
 
 const memory = [
   { role: "user", content: "Hello" },
@@ -114,7 +114,7 @@ import {
   getLastNEntries,
   calculateMemorySize,
   truncateMemory
-} from "l0";
+} from "@ai2070/l0";
 
 // Create timestamped entry
 const entry = createMemoryEntry("user", "Hello", { source: "chat" });
@@ -142,7 +142,7 @@ const truncated = truncateMemory(memory, 10000); // max chars
 Generate instructions for requesting specific output formats:
 
 ```typescript
-import { formatJsonOutput, formatStructuredOutput } from "l0";
+import { formatJsonOutput, formatStructuredOutput } from "@ai2070/l0";
 
 // Strict JSON output
 formatJsonOutput({ strict: true });
@@ -164,7 +164,7 @@ formatStructuredOutput("plain");
 ### Output Constraints
 
 ```typescript
-import { formatOutputConstraints, createOutputFormatSection } from "l0";
+import { formatOutputConstraints, createOutputFormatSection } from "@ai2070/l0";
 
 formatOutputConstraints({
   maxLength: 500,
@@ -187,7 +187,7 @@ createOutputFormatSection("json", {
 ### Extract & Clean
 
 ```typescript
-import { extractJsonFromOutput, cleanOutput } from "l0";
+import { extractJsonFromOutput, cleanOutput } from "@ai2070/l0";
 
 // Extract JSON from model output with extra text
 extractJsonFromOutput('Here is the result: {"name": "John"}');
@@ -209,7 +209,7 @@ cleanOutput("Sure, here is the result:\n```json\n{}\n```");
 Format tool/function definitions for LLM consumption:
 
 ```typescript
-import { formatTool, createTool, createParameter } from "l0";
+import { formatTool, createTool, createParameter } from "@ai2070/l0";
 
 const tool = createTool("get_weather", "Get current weather", [
   createParameter("location", "string", "City name", true),
@@ -241,7 +241,7 @@ formatTool(tool, { style: "xml" });
 ### Multiple Tools
 
 ```typescript
-import { formatTools, validateTool } from "l0";
+import { formatTools, validateTool } from "@ai2070/l0";
 
 // Format array of tools
 formatTools([tool1, tool2], { style: "json-schema" });
@@ -256,7 +256,7 @@ if (errors.length > 0) {
 ### Parse Function Calls
 
 ```typescript
-import { parseFunctionCall, formatFunctionArguments } from "l0";
+import { parseFunctionCall, formatFunctionArguments } from "@ai2070/l0";
 
 // Parse from model output
 parseFunctionCall('get_weather({"location": "NYC"})');
@@ -279,7 +279,7 @@ import {
   escapeHtml, unescapeHtml, escapeRegex,
   sanitize, truncate, truncateWords,
   wrap, pad, removeAnsi
-} from "l0";
+} from "@ai2070/l0";
 
 // Escape special characters
 escape('Hello\n"World"');    // Hello\\n\\"World\\"

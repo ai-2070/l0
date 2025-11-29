@@ -5,7 +5,7 @@ L0 provides comprehensive network error detection and automatic recovery.
 ## Quick Start
 
 ```typescript
-import { l0, recommendedRetry } from "l0";
+import { l0, recommendedRetry } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
@@ -45,7 +45,7 @@ import {
   isNetworkError, 
   analyzeNetworkError,
   NetworkErrorType 
-} from "l0";
+} from "@ai2070/l0";
 
 try {
   await l0({ stream, retry: recommendedRetry });
@@ -70,7 +70,7 @@ import {
   isTimeoutError,
   isDNSError,
   isSSLError
-} from "l0";
+} from "@ai2070/l0";
 
 if (isConnectionDropped(error)) {
   // Connection was dropped mid-stream
@@ -198,7 +198,7 @@ import {
   suggestRetryDelay,    // Get recommended delay for error
   describeNetworkError, // Human-readable description
   isStreamInterrupted   // Check if stream was interrupted
-} from "l0";
+} from "@ai2070/l0";
 
 // Get suggested delay
 const delay = suggestRetryDelay(error, attemptNumber);
