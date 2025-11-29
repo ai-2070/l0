@@ -94,34 +94,41 @@ export function formatTool(
 
 /**
  * Format tool as JSON Schema (OpenAI function calling format)
+ * @param tool - Tool definition to format
+ * @param includeTypes - Whether to include type information (default: true)
  */
 function formatToolJsonSchema(
   tool: ToolDefinition,
-  _includeTypes?: boolean,
+  includeTypes: boolean = true,
 ): string {
   const properties: Record<string, any> = {};
   const required: string[] = [];
 
   for (const param of tool.parameters) {
-    properties[param.name] = {
-      type: param.type,
+    const propDef: Record<string, any> = {
       description: param.description || "",
     };
 
+    if (includeTypes) {
+      propDef.type = param.type;
+    }
+
     if (param.enum) {
-      properties[param.name].enum = param.enum;
+      propDef.enum = param.enum;
     }
 
     if (param.default !== undefined) {
-      properties[param.name].default = param.default;
+      propDef.default = param.default;
     }
+
+    properties[param.name] = propDef;
 
     if (param.required) {
       required.push(param.name);
     }
   }
 
-  const schema = {
+  const schema: Record<string, any> = {
     name: tool.name,
     description: tool.description,
     parameters: {

@@ -900,8 +900,7 @@ describe("Guardrail Presets", () => {
 describe("Helper Functions", () => {
   describe("createGuardrailEngine", () => {
     it("should create engine with config", () => {
-      const engine = createGuardrailEngine({
-        rules: [jsonRule()],
+      const engine = createGuardrailEngine([jsonRule()], {
         stopOnFatal: true,
       });
 
@@ -955,6 +954,7 @@ describe("Edge Cases", () => {
     const context: GuardrailContext = {
       content: longContent,
       completed: true,
+      tokenCount: 100000,
     };
 
     const result = engine.check(context);
@@ -1058,7 +1058,7 @@ describe("Integration", () => {
     const engine = new GuardrailEngine({
       rules: [
         jsonRule(),
-        patternRule(/forbidden/i, "Forbidden word"),
+        customPatternRule([/forbidden/i], "Forbidden word"),
         zeroOutputRule(),
       ],
     });

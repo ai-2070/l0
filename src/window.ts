@@ -463,12 +463,15 @@ export async function l0WithWindow(options: L0WindowOptions) {
             break;
 
           case "full":
-            // Get surrounding context (reserved for future use)
-            // const contextChunks = window.getRange(
-            //   Math.max(0, currentChunkIndex - 1),
-            //   Math.min(window.totalChunks, currentChunkIndex + 2),
-            // );
-            // Process with merged context
+            // Get surrounding context and merge chunks for expanded context
+            // This strategy works by getting adjacent chunks to provide more context
+            // The merged content is available via window.getContext()
+            // For restoration, we try the next chunk first, then previous
+            if (window.hasNext()) {
+              nextChunkIndex = currentChunkIndex + 1;
+            } else if (currentChunkIndex > 0) {
+              nextChunkIndex = currentChunkIndex - 1;
+            }
             break;
         }
 
