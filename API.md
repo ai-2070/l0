@@ -867,7 +867,10 @@ interface L0Options {
   stream: () => Promise<StreamTextResult>;
   fallbackStreams?: Array<() => Promise<StreamTextResult>>;
   guardrails?: GuardrailRule[];
-  retry?: Partial<RetryConfig>;
+  timeout?: {
+    initialToken?: number;
+    interToken?: number;
+  }
   initialToken?: number;
   interTokenTimeout?: number;
   checkIntervals?: {
