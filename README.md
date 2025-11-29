@@ -2,11 +2,33 @@
 
 **Tiny. Predictable. Streaming-first.**
 
-L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, or **Mastra AI** directly.
+L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, and **Mastra AI** directly.
 
 ```bash
 npm install @ai2070/l0
 ```
+
+## Features
+
+| Feature | Description |
+| --- | --- |
+| **🔁 Smart Retries** | Model-aware retries with exponential backoff. Free retries for zero-token output, network stalls, SSE disconnects, and provider overloads. |
+| **🌐 Network Protection** | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks. |
+| **🔀 Model Fallbacks** | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic. |
+| **💥 Zero-Token/Stall Protection** | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks. |
+| 📍 **Last-Known-Good Token Resumption** | When a stream interrupts, L0 resumes generation from the last structurally valid token (Opt-in). |
+| **🧠 Drift Detection** | Detects tone shifts, duplicated sentences, entropy spikes, markdown collapse, and meta-AI patterns before corruption. |
+| **🧱 Structured Output** | Guaranteed-valid JSON with optional Zod/JSON-schema validation. Auto-corrects missing braces, commas, and markdown fences. |
+| **🛡️ Guardrails** | JSON, Markdown, LaTeX, and tool-call validation. Catches malformed output, broken fences, drift, repetition, and hallucination patterns. |
+| **⚡ Race: Fastest-Model Wins** | Run multiple models or providers in parallel and return the fastest valid stream. Ideal for ultra-low-latency chat and high-availability systems. |
+| **🌿 Parallel: Fan-Out / Fan-In** | Start multiple streams simultaneously and collect structured or summarized results. Perfect for agent-style multi-model workflows. |
+| **🔗 Pipe: Streaming Pipelines** | Compose multiple streaming steps (e.g., summarize → refine → translate) with safe state passing and guardrails between each stage. |
+| **🧩 Consensus: Agreement Across Models** | Combine multiple model outputs using unanimous, weighted, or best-match consensus. Guarantees high-confidence generation for safety-critical tasks. |
+| **📄 Document Windows** | Built-in chunking (token, paragraph, sentence, character). Ideal for long documents, transcripts, or multi-page processing. |
+| **📊 Monitoring Hooks** | `onToken`, `onViolation`, `onRetry`, `onFallback`, and more - integrates with Prometheus, OTel, Sentry. |
+| **📡 Streaming-First Runtime** | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `done`) for easy UIs. |
+| **⛔ Safety-First Defaults** | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved. |
+| **⚡ Tiny & Explicit** | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior. |
 
 ## Quick Start
 
