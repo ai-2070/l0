@@ -373,42 +373,6 @@ See [FORMATTING.md](./FORMATTING.md) for complete API reference.
 
 ---
 
-### Checkpoint Validation
-
-Before using a checkpoint for continuation, L0 validates it:
-
-- **Guardrails**: All configured guardrails are run against the checkpoint content
-- **Drift Detection**: If enabled, checks for format drift in the checkpoint
-- **Fatal Violations**: If any guardrail returns a fatal violation, the checkpoint is discarded and retry starts fresh
-
-### Important Limitations
-
-> ⚠️ **Do NOT use `continueFromLastKnownGoodToken` with structured output or `streamObject()`.**
->
-> Continuation works by prepending checkpoint content to the next generation. For JSON/structured output, this can corrupt the data structure because:
-> - The model may not properly continue the JSON syntax
-> - Partial objects could result in invalid JSON
-> - Schema validation may fail on malformed output
->
-> For structured output, let L0 retry from scratch to ensure valid JSON.
-
-```typescript
-// ✅ GOOD - Text generation with continuation
-const result = await l0({
-  stream: () => streamText({ model, prompt: "Write an essay..." }),
-  continueFromLastKnownGoodToken: true,
-});
-
-// ❌ BAD - Do NOT use with structured output
-const result = await structured({
-  schema: mySchema,
-  stream: () => streamText({ model, prompt }),
-  continueFromLastKnownGoodToken: true, // DON'T DO THIS
-});
-```
-
----
-
 ## Last-Known-Good Token Resumption
 
 When a stream fails mid-generation, L0 can resume from the last known good checkpoint instead of starting over. This preserves already-generated content and reduces latency on retries.
@@ -486,6 +450,40 @@ if (result.telemetry?.continuation?.used) {
   console.log("\nResumed from checkpoint of length:", 
     result.telemetry.continuation.checkpointLength);
 }
+```
+
+### Checkpoint Validation
+
+Before using a checkpoint for continuation, L0 validates it:
+
+- **Guardrails**: All configured guardrails are run against the checkpoint content
+- **Drift Detection**: If enabled, checks for format drift in the checkpoint
+- **Fatal Violations**: If any guardrail returns a fatal violation, the checkpoint is discarded and retry starts fresh
+
+### Important Limitations
+
+> ⚠️ **Do NOT use `continueFromLastKnownGoodToken` with structured output or `streamObject()`.**
+>
+> Continuation works by prepending checkpoint content to the next generation. For JSON/structured output, this can corrupt the data structure because:
+> - The model may not properly continue the JSON syntax
+> - Partial objects could result in invalid JSON
+> - Schema validation may fail on malformed output
+>
+> For structured output, let L0 retry from scratch to ensure valid JSON.
+
+```typescript
+// ✅ GOOD - Text generation with continuation
+const result = await l0({
+  stream: () => streamText({ model, prompt: "Write an essay..." }),
+  continueFromLastKnownGoodToken: true,
+});
+
+// ❌ BAD - Do NOT use with structured output
+const result = await structured({
+  schema: mySchema,
+  stream: () => streamText({ model, prompt }),
+  continueFromLastKnownGoodToken: true, // DON'T DO THIS
+});
 ```
 
 ---
