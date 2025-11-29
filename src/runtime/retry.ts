@@ -42,6 +42,7 @@ export class RetryManager {
   constructor(config: Partial<RetryConfig> = {}) {
     this.config = {
       maxAttempts: config.maxAttempts ?? 2,
+      maxRetries: config.maxRetries,
       baseDelay: config.baseDelay ?? 1000,
       maxDelay: config.maxDelay ?? 10000,
       backoff: config.backoff ?? "exponential",
@@ -257,6 +258,21 @@ export class RetryManager {
         shouldRetry: false,
         delay: 0,
         reason: `Retry reason '${categorized.reason}' not in retryOn list`,
+        category: categorized.category,
+        countsTowardLimit: false,
+      };
+    }
+
+    // Check absolute maxRetries cap (applies to ALL error types including network)
+    if (
+      this.config.maxRetries !== undefined &&
+      this.getTotalRetries() >= this.config.maxRetries
+    ) {
+      this.state.limitReached = true;
+      return {
+        shouldRetry: false,
+        delay: 0,
+        reason: `Absolute maximum retries (${this.config.maxRetries}) reached`,
         category: categorized.category,
         countsTowardLimit: false,
       };

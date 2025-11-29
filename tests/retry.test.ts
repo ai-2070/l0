@@ -370,6 +370,132 @@ describe("RetryManager", () => {
     });
   });
 
+  describe("maxRetries Absolute Cap", () => {
+    it("should enforce maxRetries as absolute cap across all error types", async () => {
+      const manager = new RetryManager({
+        maxAttempts: 100, // High model retry limit
+        maxRetries: 3, // But absolute cap at 3
+        baseDelay: 10,
+      });
+
+      const error = new Error("ECONNREFUSED: Network error");
+
+      // Simulate multiple retries by recording them
+      for (let i = 0; i < 3; i++) {
+        const decision = manager.shouldRetry(error, "network_error");
+        expect(decision.shouldRetry).toBe(true);
+        await manager.recordRetry(
+          manager.categorizeError(error, "network_error"),
+          decision,
+        );
+      }
+
+      // 4th retry should be blocked by maxRetries
+      const finalDecision = manager.shouldRetry(error, "network_error");
+      expect(finalDecision.shouldRetry).toBe(false);
+      expect(finalDecision.reason).toContain("Absolute maximum retries");
+    });
+
+    it("should allow unlimited retries when maxRetries is not set", () => {
+      const manager = new RetryManager({
+        maxAttempts: 2,
+        // maxRetries not set - unlimited
+        baseDelay: 10,
+      });
+
+      const networkError = new Error("ECONNREFUSED: Network error");
+
+      // Manually update state to simulate many retries without actual delays
+      for (let i = 0; i < 50; i++) {
+        const decision = manager.shouldRetry(networkError, "network_error");
+        expect(decision.shouldRetry).toBe(true);
+        // Manually increment counters without calling recordRetry (which has delays)
+        const state = manager.getState();
+        (manager as any).state.networkRetries++;
+      }
+
+      // Still should be able to retry even after 50 retries
+      const decision = manager.shouldRetry(networkError, "network_error");
+      expect(decision.shouldRetry).toBe(true);
+    });
+
+    it("should block retries immediately when maxRetries is 0", () => {
+      const manager = new RetryManager({
+        maxAttempts: 5,
+        maxRetries: 0,
+        baseDelay: 10,
+      });
+
+      const error = new Error("Test error");
+      const decision = manager.shouldRetry(error, "network_error");
+
+      expect(decision.shouldRetry).toBe(false);
+      expect(decision.reason).toContain("Absolute maximum retries (0) reached");
+    });
+
+    it("should count all error types toward maxRetries", async () => {
+      const manager = new RetryManager({
+        maxAttempts: 100,
+        maxRetries: 3,
+        baseDelay: 10,
+      });
+
+      // Mix of network and model errors
+      const networkError = new Error("ECONNREFUSED");
+      const modelError = new Error("Zero tokens");
+
+      // 1st retry - network error
+      let decision = manager.shouldRetry(networkError, "network_error");
+      expect(decision.shouldRetry).toBe(true);
+      await manager.recordRetry(
+        manager.categorizeError(networkError, "network_error"),
+        decision,
+      );
+
+      // 2nd retry - model error
+      decision = manager.shouldRetry(modelError, "zero_output");
+      expect(decision.shouldRetry).toBe(true);
+      await manager.recordRetry(
+        manager.categorizeError(modelError, "zero_output"),
+        decision,
+      );
+
+      // 3rd retry - network error
+      decision = manager.shouldRetry(networkError, "network_error");
+      expect(decision.shouldRetry).toBe(true);
+      await manager.recordRetry(
+        manager.categorizeError(networkError, "network_error"),
+        decision,
+      );
+
+      // 4th retry should be blocked
+      decision = manager.shouldRetry(modelError, "zero_output");
+      expect(decision.shouldRetry).toBe(false);
+    });
+
+    it("should set limitReached when maxRetries is exceeded", async () => {
+      const manager = new RetryManager({
+        maxAttempts: 100,
+        maxRetries: 1,
+        baseDelay: 10,
+      });
+
+      const error = new Error("Test error");
+
+      // First retry
+      const decision1 = manager.shouldRetry(error, "network_error");
+      await manager.recordRetry(
+        manager.categorizeError(error, "network_error"),
+        decision1,
+      );
+
+      // Second retry should hit limit
+      manager.shouldRetry(error, "network_error");
+
+      expect(manager.hasReachedLimit()).toBe(true);
+    });
+  });
+
   describe("Configuration Variants", () => {
     it("should work with minimal configuration", () => {
       const minimal = new RetryManager({});

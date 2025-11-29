@@ -111,6 +111,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
   const retryManager = new RetryManager({
     maxAttempts: processedRetry.attempts ?? 2,
+    maxRetries: processedRetry.maxRetries,
     baseDelay: processedRetry.baseDelay ?? 1000,
     maxDelay: processedRetry.maxDelay ?? 10000,
     backoff: processedRetry.backoff ?? "exponential",
@@ -135,12 +136,13 @@ export async function l0(options: L0Options): Promise<L0Result> {
     while (fallbackIndex < allStreams.length) {
       const currentStreamFactory = allStreams[fallbackIndex];
       let retryAttempt = 0;
-      const maxRetries = processedRetry.attempts ?? 2;
+      // Model failure retry limit (network errors don't count toward this)
+      const modelRetryLimit = processedRetry.attempts ?? 2;
 
       // Update state with current fallback index
       state.fallbackIndex = fallbackIndex;
 
-      while (retryAttempt <= maxRetries) {
+      while (retryAttempt <= modelRetryLimit) {
         try {
           // Reset state for retry
           if (retryAttempt > 0) {
@@ -311,7 +313,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
             }
 
             // Check if should retry
-            if (result.shouldRetry && retryAttempt < maxRetries) {
+            if (result.shouldRetry && retryAttempt < modelRetryLimit) {
               const violation = result.violations[0];
               if (processedOnRetry) {
                 processedOnRetry(
@@ -335,7 +337,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
           // Check drift
           if (driftDetector) {
             const finalDrift = driftDetector.check(state.content);
-            if (finalDrift.detected && retryAttempt < maxRetries) {
+            if (finalDrift.detected && retryAttempt < modelRetryLimit) {
               state.driftDetected = true;
               monitor.recordDrift(true, finalDrift.types);
               if (processedOnRetry) {

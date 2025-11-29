@@ -371,6 +371,95 @@ describe("L0 Runtime", () => {
       expect(result.state.content).toBe("Hello");
     });
 
+    it("should support maxRetries as absolute cap", async () => {
+      const tokens = ["Hello"];
+      const result = await l0({
+        stream: createMockStreamFactory(tokens),
+        retry: { maxRetries: 10 },
+      });
+
+      for await (const event of result.stream) {
+        // Consume stream
+      }
+
+      expect(result.state.content).toBe("Hello");
+    });
+
+    it("should enforce maxRetries cap on all error types", async () => {
+      let attemptCount = 0;
+      const streamFactory = () => {
+        attemptCount++;
+        // Always fail with network error
+        return {
+          textStream: createMockStream(["fail"], {
+            shouldError: true,
+            errorAfter: 0,
+          }),
+        };
+      };
+
+      try {
+        const result = await l0({
+          stream: streamFactory,
+          retry: {
+            attempts: 100, // High model retry limit
+            maxRetries: 2, // But absolute cap at 2 retries
+            baseDelay: 10,
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        // Should not reach here
+        expect(true).toBe(false);
+      } catch (error) {
+        // Should fail after maxRetries cap is reached
+        expect(error).toBeDefined();
+        // Should have tried at most 3 times (initial + 2 retries)
+        expect(attemptCount).toBeLessThanOrEqual(3);
+      }
+    });
+
+    it("should work with maxRetries set to 0 (no retries)", async () => {
+      let attemptCount = 0;
+      const streamFactory = () => {
+        attemptCount++;
+        if (attemptCount === 1) {
+          return {
+            textStream: createMockStream(["fail"], {
+              shouldError: true,
+              errorAfter: 0,
+            }),
+          };
+        }
+        return {
+          textStream: createMockStream(["success"]),
+        };
+      };
+
+      try {
+        const result = await l0({
+          stream: streamFactory,
+          retry: { maxRetries: 0, baseDelay: 10 },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        // Should not reach here since first attempt fails and no retries allowed
+        expect(true).toBe(false);
+      } catch (error) {
+        // Should fail immediately with no retries
+        expect(error).toBeDefined();
+        expect(attemptCount).toBe(1);
+      }
+    });
+
     it("should retry on stream errors", async () => {
       let attempt = 0;
       const streamFactory = () => {
