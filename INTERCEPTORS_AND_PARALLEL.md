@@ -200,7 +200,7 @@ Try models one at a time, moving to next only if current exhausts retries:
 
 ```typescript
 const result = await l0({
-  stream: () => streamText({ model: openai("gpt-5.1"), prompt }),
+  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [
     () => streamText({ model: openai("gpt-5-mini"), prompt }),
     () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
@@ -242,7 +242,7 @@ const result = await race([
 const result = await l0({
   stream: async () =>
     race([
-      () => streamText({ model: openai("gpt-5.1"), prompt }),
+      () => streamText({ model: openai("gpt-5-mini"), prompt }),
       () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
     ]),
   fallbackStreams: [

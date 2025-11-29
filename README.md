@@ -54,7 +54,7 @@ const result = await l0({
   // Primary model stream
   stream: () =>
     streamText({
-      model: openai("gpt-5.1"),
+      model: openai("gpt-5-mini"),
       prompt: "Generate a haiku about coding",
     }),
 
