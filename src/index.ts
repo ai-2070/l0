@@ -167,6 +167,22 @@ export {
 
 export type { MonitoringConfig } from "./runtime/monitoring";
 
+// Prometheus metrics
+export {
+  PrometheusRegistry,
+  PrometheusCollector,
+  createPrometheusRegistry,
+  createPrometheusCollector,
+  prometheusMiddleware,
+  DEFAULT_BUCKETS,
+  METRIC_NAMES,
+} from "./runtime/prometheus";
+
+export type {
+  PrometheusMetricType,
+  PrometheusMetric,
+} from "./runtime/prometheus";
+
 // Interceptors
 export {
   InterceptorManager,

@@ -419,28 +419,21 @@ statsd.gauge('l0.network_errors', telemetry.network.errorCount);
 statsd.gauge('l0.retries', telemetry.metrics.totalRetries);
 ```
 
-### With Prometheus
+### With Prometheus (Built-in)
+
+L0 includes a native Prometheus exporter:
 
 ```typescript
-import { register, Gauge, Counter } from 'prom-client';
+import { l0, createPrometheusCollector, prometheusMiddleware } from 'l0';
+import express from 'express';
 
-// Define metrics
-const duration = new Gauge({
-  name: 'l0_duration_milliseconds',
-  help: 'L0 execution duration'
+// Create collector
+const collector = createPrometheusCollector({
+  prefix: 'l0',
+  defaultLabels: { service: 'my-app' }
 });
 
-const tokens = new Counter({
-  name: 'l0_tokens_total',
-  help: 'Total tokens processed'
-});
-
-const networkErrors = new Counter({
-  name: 'l0_network_errors_total',
-  help: 'Total network errors'
-});
-
-// After L0 execution
+// After each L0 execution, record telemetry
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: { enabled: true }
@@ -450,12 +443,16 @@ for await (const event of result.stream) {
   // Stream handling...
 }
 
-// Update metrics
-const telemetry = result.telemetry;
-duration.set(telemetry.duration);
-tokens.inc(telemetry.metrics.totalTokens);
-networkErrors.inc(telemetry.network.errorCount);
+// Record to Prometheus
+collector.record(result.telemetry, { model: 'gpt-4', endpoint: '/chat' });
+
+// Expose /metrics endpoint
+const app = express();
+app.get('/metrics', prometheusMiddleware(collector));
+app.listen(9090);
 ```
+
+See [Prometheus Integration](#prometheus-integration) for full details.
 
 ### With Custom Analytics
 
@@ -792,9 +789,198 @@ Monitoring overhead is minimal:
 
 Sampling reduces overhead proportionally.
 
+## Prometheus Integration
+
+L0 includes native Prometheus support with automatic metric generation.
+
+### Quick Start
+
+```typescript
+import { l0, createPrometheusCollector, prometheusMiddleware } from 'l0';
+import express from 'express';
+
+const collector = createPrometheusCollector();
+const app = express();
+
+// Expose metrics endpoint
+app.get('/metrics', prometheusMiddleware(collector));
+
+// Record telemetry after each request
+app.post('/chat', async (req, res) => {
+  const result = await l0({
+    stream: () => streamText({ model, prompt: req.body.prompt }),
+    monitoring: { enabled: true }
+  });
+
+  let response = '';
+  for await (const event of result.stream) {
+    if (event.type === 'token') response += event.value;
+  }
+
+  // Record to Prometheus
+  collector.record(result.telemetry, {
+    model: 'gpt-4',
+    endpoint: '/chat'
+  });
+
+  res.json({ response });
+});
+
+app.listen(3000);
+```
+
+### Configuration
+
+```typescript
+const collector = createPrometheusCollector({
+  prefix: 'l0',                    // Metric prefix (default: 'l0')
+  defaultLabels: {                 // Labels added to all metrics
+    service: 'my-app',
+    environment: 'production'
+  }
+});
+```
+
+### Exported Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `l0_requests_total` | Counter | Total L0 requests |
+| `l0_request_duration_seconds` | Histogram | Request duration |
+| `l0_tokens_total` | Counter | Total tokens generated |
+| `l0_tokens_per_second` | Gauge | Generation throughput |
+| `l0_time_to_first_token_seconds` | Histogram | Time to first token |
+| `l0_retries_total` | Counter | Total retry attempts |
+| `l0_retries_network_total` | Counter | Network retries |
+| `l0_retries_model_total` | Counter | Model retries |
+| `l0_network_errors_total` | Counter | Total network errors |
+| `l0_network_errors_by_type_total` | Counter | Errors by type |
+| `l0_guardrail_violations_total` | Counter | Total violations |
+| `l0_guardrail_violations_by_severity_total` | Counter | Violations by severity |
+| `l0_guardrail_violations_by_rule_total` | Counter | Violations by rule |
+| `l0_drift_detected_total` | Counter | Drift detection events |
+
+### Labels
+
+Add custom labels per request:
+
+```typescript
+collector.record(telemetry, {
+  model: 'gpt-4',
+  endpoint: '/chat',
+  user_tier: 'premium',
+  region: 'us-east-1'
+});
+```
+
+### Using the Registry Directly
+
+For more control, use `PrometheusRegistry`:
+
+```typescript
+import { createPrometheusRegistry } from 'l0';
+
+const registry = createPrometheusRegistry({
+  prefix: 'myapp_l0',
+  defaultLabels: { service: 'api' }
+});
+
+// Record telemetry
+registry.recordTelemetry(telemetry, { model: 'gpt-4' });
+
+// Or record custom metrics
+registry.incCounter('custom_events_total', 'Custom event count', 1, { type: 'special' });
+registry.setGauge('active_streams', 'Active streams', 5);
+registry.observeHistogram('custom_latency_seconds', 'Custom latency', 0.5);
+
+// Export
+console.log(registry.expose());
+```
+
+### Example Output
+
+```
+# HELP l0_requests_total Total L0 requests
+# TYPE l0_requests_total counter
+l0_requests_total{service="my-app",model="gpt-4"} 150
+
+# HELP l0_request_duration_seconds L0 request duration in seconds
+# TYPE l0_request_duration_seconds histogram
+l0_request_duration_seconds_bucket{service="my-app",model="gpt-4",le="+Inf"} 1.5
+l0_request_duration_seconds_sum{service="my-app",model="gpt-4"} 1.5
+l0_request_duration_seconds_count{service="my-app",model="gpt-4"} 1
+
+# HELP l0_tokens_total Total tokens generated
+# TYPE l0_tokens_total counter
+l0_tokens_total{service="my-app",model="gpt-4"} 1250
+
+# HELP l0_time_to_first_token_seconds Time to first token in seconds
+# TYPE l0_time_to_first_token_seconds histogram
+l0_time_to_first_token_seconds_bucket{service="my-app",model="gpt-4",le="+Inf"} 0.25
+l0_time_to_first_token_seconds_sum{service="my-app",model="gpt-4"} 0.25
+l0_time_to_first_token_seconds_count{service="my-app",model="gpt-4"} 1
+
+# HELP l0_network_errors_total Total network errors
+# TYPE l0_network_errors_total counter
+l0_network_errors_total{service="my-app",model="gpt-4"} 2
+
+# HELP l0_network_errors_by_type_total Network errors by type
+# TYPE l0_network_errors_by_type_total counter
+l0_network_errors_by_type_total{service="my-app",model="gpt-4",error_type="connection_dropped"} 1
+l0_network_errors_by_type_total{service="my-app",model="gpt-4",error_type="timeout"} 1
+```
+
+### Grafana Dashboard
+
+Example PromQL queries for Grafana:
+
+```promql
+# Request rate
+rate(l0_requests_total[5m])
+
+# Average duration
+rate(l0_request_duration_seconds_sum[5m]) / rate(l0_request_duration_seconds_count[5m])
+
+# Tokens per second (average)
+avg(l0_tokens_per_second)
+
+# Error rate
+rate(l0_network_errors_total[5m]) / rate(l0_requests_total[5m])
+
+# P99 time to first token
+histogram_quantile(0.99, rate(l0_time_to_first_token_seconds_bucket[5m]))
+
+# Guardrail violations by severity
+sum by (severity) (rate(l0_guardrail_violations_by_severity_total[5m]))
+```
+
+### With prom-client
+
+If you're already using `prom-client`, you can still use L0's exporter alongside:
+
+```typescript
+import { Registry } from 'prom-client';
+import { createPrometheusCollector } from 'l0';
+
+const promRegistry = new Registry();
+const l0Collector = createPrometheusCollector();
+
+// Combine metrics in your endpoint
+app.get('/metrics', async (req, res) => {
+  const promMetrics = await promRegistry.metrics();
+  const l0Metrics = l0Collector.expose();
+  
+  res.set('Content-Type', 'text/plain');
+  res.send(promMetrics + '\n' + l0Metrics);
+});
+```
+
+---
+
 ## Summary
 
 L0's built-in monitoring provides:
+- ✅ **Native Prometheus support** - built-in exporter with all metrics
 - ✅ **No external dependencies** - everything built-in
 - ✅ **Comprehensive metrics** - performance, errors, violations
 - ✅ **Flexible sampling** - control overhead
