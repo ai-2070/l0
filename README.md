@@ -506,7 +506,7 @@ OPENAI_API_KEY=sk-... npm run test:integration
 |---------|------------|-------------------|---------|
 | Vercel AI SDK | ✓ | ✓ | ^5.0.0 |
 | OpenAI SDK | ✓ | ✓ | ^4.0.0 \|\| ^5.0.0 \|\| ^6.0.0 |
-| Mastra AI | ✓ | ✓ | >=0.18.0 |
+| Mastra AI | ✓ | ✓ | >=0.24.0 |
 
 ### Feature Test Matrix
 
