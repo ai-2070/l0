@@ -399,15 +399,56 @@ export class PrometheusRegistry {
   }
 
   /**
-   * Register a metric
+   * Generate a unique key for a label set
+   */
+  private labelKey(labels?: Record<string, string>): string {
+    if (!labels || Object.keys(labels).length === 0) {
+      return "";
+    }
+    // Sort keys for consistent comparison
+    return Object.keys(labels)
+      .sort()
+      .map((k) => `${k}=${labels[k]}`)
+      .join(",");
+  }
+
+  /**
+   * Register a metric, accumulating counters and updating gauges
    */
   private register(metric: PrometheusMetric): void {
     const key = metric.name;
     const existing = this.metrics.get(key) || [];
-    existing.push({
-      ...metric,
-      labels: { ...this.defaultLabels, ...metric.labels },
-    });
+    const mergedLabels = { ...this.defaultLabels, ...metric.labels };
+    const labelKey = this.labelKey(mergedLabels);
+
+    // Find existing metric with same labels
+    const existingIndex = existing.findIndex(
+      (m) => this.labelKey(m.labels) === labelKey,
+    );
+
+    if (existingIndex >= 0) {
+      const existingMetric = existing[existingIndex]!;
+      if (metric.type === "counter") {
+        // Counters accumulate: add to existing value
+        existingMetric.value += metric.value;
+      } else if (metric.type === "gauge") {
+        // Gauges update: replace the existing value
+        existingMetric.value = metric.value;
+      } else {
+        // Histograms/summaries: push new observation
+        existing.push({
+          ...metric,
+          labels: mergedLabels,
+        });
+      }
+    } else {
+      // No existing metric with these labels, add new entry
+      existing.push({
+        ...metric,
+        labels: mergedLabels,
+      });
+    }
+
     this.metrics.set(key, existing);
   }
 
