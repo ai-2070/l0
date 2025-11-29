@@ -80,7 +80,7 @@ export interface StructuredOptions<T extends z.ZodTypeAny = z.ZodTypeAny> {
 
   /**
    * Detect zero-token outputs (likely API issues)
-   * @default true
+   * @default false
    */
   detectZeroTokens?: boolean;
 

@@ -85,7 +85,8 @@ function stripUnwantedFormatting(text: string): {
     // Try to extract content from embedded fence
     // Use greedy match but require the closing fence to be on its own line or at string end
     // This handles cases where JSON contains literal ``` sequences
-    const embeddedFenceRegex = /```(?:json)?\s*\n([\s\S]*?)\n```(?:\s*$|\n)/;
+    const embeddedFenceRegex =
+      /```(?:json)?\s*\n([\s\S]*?)\n[ \t]*```(?:\s*$|\n)/;
     const match = result.match(embeddedFenceRegex);
     if (match && match[1]) {
       result = match[1];

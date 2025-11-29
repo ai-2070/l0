@@ -66,6 +66,23 @@ describe("Auto-Correction Utilities", () => {
       expect(result.corrections).toContain("strip_markdown_fence");
     });
 
+    it("should remove indented markdown code fences", () => {
+      // Common in list-formatted Markdown where closing fence is indented
+      const input = '```json\n{"name": "John"}\n  ```';
+      const result = autoCorrectJSON(input);
+      expect(result.success).toBe(true);
+      expect(result.corrected).toBe('{"name": "John"}');
+      expect(result.corrections).toContain("strip_markdown_fence");
+    });
+
+    it("should remove tab-indented markdown code fences", () => {
+      const input = '```json\n{"items": [1, 2, 3]}\n\t```';
+      const result = autoCorrectJSON(input);
+      expect(result.success).toBe(true);
+      expect(result.corrected).toBe('{"items": [1, 2, 3]}');
+      expect(result.corrections).toContain("strip_markdown_fence");
+    });
+
     it("should close missing braces", () => {
       const input = '{"name": "John", "age": 30';
       const result = autoCorrectJSON(input);
