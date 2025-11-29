@@ -27,8 +27,8 @@ npm run test:coverage # Generate coverage report
 
 ## Current Test Status
 
-### Test Files: 9 passed (9)
-### Total Tests: 654 passed (654)
+### Test Files: 10 passed (10)
+### Total Tests: 770 passed (770)
 ### Success Rate: 100% ✅
 
 | Test File | Status | Tests | Description |
@@ -40,6 +40,8 @@ npm run test:coverage # Generate coverage report
 | `runtime.test.ts` | ✅ PASS | 52 | Comprehensive core runtime tests with mock streams |
 | `format.test.ts` | ✅ PASS | 158 | Comprehensive formatting utilities tests |
 | `structured.test.ts` | ✅ PASS | 93 | Comprehensive structured output and auto-correction tests |
+| `window.test.ts` | ✅ PASS | 87 | Comprehensive Document Window API tests |
+| `consensus.test.ts` | ✅ PASS | 116 | Comprehensive Consensus utilities and helper tests |
 | `monitoring.test.ts` | ✅ PASS | 3 | Monitoring utilities (placeholder) |
 
 ## Test Coverage by Module
@@ -414,6 +416,154 @@ npm run test:coverage # Generate coverage report
 
 **Status:** ✅ Complete (100% passing)
 
+### ✅ Document Windows (Comprehensive - 87 tests)
+**Coverage:**
+- DocumentWindow Core (40 tests)
+  - Initialization with default/custom options
+  - Navigation (current, next, prev, jump, reset)
+  - Chunk access (get, getAllChunks, getRange, getContext)
+  - Chunk properties (index, content, positions, counts, isFirst/isLast)
+  - Search and filter (findChunks, getChunksInRange)
+  - Statistics (totalChunks, totalChars, totalTokens, averages)
+- Chunking Strategies (8 tests)
+  - Token-based chunking with overlap
+  - Character-based chunking with overlap
+  - Paragraph-based chunking with max size
+  - Sentence-based chunking with max size
+- Batch Processing (11 tests)
+  - processAll (parallel processing)
+  - processSequential (ordered processing)
+  - processParallel with concurrency control
+  - Error handling and mixed success/failure
+  - Duration tracking
+- Helper Functions (12 tests)
+  - processWithWindow convenience function
+  - mergeResults for combining outputs
+  - getProcessingStats for analytics
+- Window Presets (6 tests)
+  - smallWindow, mediumWindow, largeWindow
+  - paragraphWindow, sentenceWindow
+  - Preset application to windows
+- Edge Cases (8 tests)
+  - Very long documents
+  - Special characters and unicode
+  - Whitespace-heavy documents
+  - Single word/long word documents
+  - Overlap edge cases (zero, larger than chunk)
+- Integration Scenarios (6 tests)
+  - Complete document workflow
+  - Search and filter workflow
+  - Mixed processing strategies
+  - Custom token estimator
+  - preserveParagraphs/preserveSentences options
+- Performance (3 tests)
+  - Moderate document efficiency
+  - Many chunks handling
+  - Navigation efficiency
+
+**Status:** ✅ Complete (100% passing)
+
+### ✅ Consensus Utilities (Comprehensive - 116 tests)
+**Coverage:**
+- Similarity Matrix (6 tests)
+  - Symmetric matrix creation
+  - Diagonal values (self-similarity)
+  - Identical output detection
+  - Different output detection
+  - Single output handling
+  - Empty outputs array handling
+- Output Similarity (5 tests)
+  - Identical text comparison
+  - Structured data comparison
+  - Partial match similarity
+  - Similar string comparison
+  - Completely different text
+- Structural Similarity (12 tests)
+  - Identical objects
+  - Different types
+  - Partial object similarity
+  - Nested objects
+  - Arrays
+  - Partial array similarity
+  - Empty arrays
+  - String similarity
+  - Number similarity
+  - Booleans
+  - Null values
+  - Missing keys
+- Find Agreements (6 tests)
+  - Text agreements
+  - Structured agreements
+  - Complete disagreement
+  - Exact agreements
+  - Threshold respect
+  - Single output handling
+- Find Disagreements (6 tests)
+  - Text disagreements
+  - Structured disagreements
+  - Complete agreement (no disagreements)
+  - Minor severity
+  - Critical severity
+  - Moderate severity
+- Field Consensus (6 tests)
+  - Per-field consensus calculation
+  - Agreed/disagreed fields identification
+  - Overall agreement
+  - Nested objects
+  - Vote tracking
+  - Missing fields handling
+- Resolve Majority (5 tests)
+  - Most similar output selection
+  - Field-by-field voting for structured
+  - Empty outputs error
+  - Weighted similarity calculation
+  - Single output handling
+- Resolve Best (4 tests)
+  - Highest weighted output
+  - Empty outputs error
+  - Output weight fallback
+  - Equal weights handling
+- Resolve Merge (6 tests)
+  - Text output merging
+  - Structured output merging
+  - Single output handling
+  - Empty outputs error
+  - Identical text deduplication
+  - Overlapping field handling
+- Meets Minimum Agreement (5 tests)
+  - Agreement threshold
+  - Below threshold
+  - Empty agreements
+  - Highest ratio selection
+  - Edge case at exact threshold
+- Helper Functions (24 tests)
+  - quickConsensus (9 tests)
+  - getConsensusValue (9 tests)
+  - validateConsensus (7 tests)
+- Consensus Presets (16 tests)
+  - strictConsensus (4 tests)
+  - standardConsensus (4 tests)
+  - lenientConsensus (4 tests)
+  - bestConsensus (4 tests)
+- Edge Cases (8 tests)
+  - Empty text outputs
+  - Whitespace outputs
+  - Unicode text
+  - Emoji handling
+  - Special symbols
+  - Many outputs
+  - Long text
+  - Deeply nested objects
+- Integration Scenarios (6 tests)
+  - quickConsensus usage
+  - getConsensusValue usage
+  - Combined workflow
+  - Structured consensus workflow
+  - Validation workflow
+  - Preset application
+
+**Status:** ✅ Complete (100% passing)
+
 ### ✅ Drift Detection (Comprehensive - 79 tests)
 **Coverage:**
 - DriftDetector Initialization (4 tests)
@@ -540,17 +690,17 @@ The following modules have placeholder tests and need comprehensive test suites:
   - Helper functions (structuredObject, structuredArray, structuredStream)
   - Edge cases and real-world scenarios
 
-- [ ] **Document Windows** (new file needed)
-  - Window creation
-  - Chunking strategies
-  - Context restoration
-  - Batch processing
+- [x] **Document Windows** (`window.test.ts`) - ✅ Complete (87 tests)
+  - Window creation and initialization
+  - Chunking strategies (token, char, paragraph, sentence)
+  - Batch processing (processAll, processSequential, processParallel)
+  - Navigation and chunk access
 
-- [ ] **Consensus Generation** (new file needed)
-  - Text consensus
-  - Structured consensus
-  - Voting strategies
-  - Conflict resolution
+- [x] **Consensus Generation** (`consensus.test.ts`) - ✅ Complete (116 tests)
+  - Similarity calculations (matrix, output, structural)
+  - Agreement/disagreement detection
+  - Resolution strategies (majority, best, merge)
+  - Helper functions and presets
 
 - [ ] **Parallel Operations** (new file needed)
   - Parallel execution
@@ -582,7 +732,11 @@ Target: **80%** across all metrics
   - ✅ `runtime/zeroToken.ts` - High coverage with 78 tests covering all detection functions (100% passing)
   - ✅ `runtime/drift.ts` - High coverage with 79 tests covering all drift detection types (100% passing)
   - ✅ `runtime/l0.ts` - Comprehensive coverage with 52 tests (100% passing)
-  - ⚠️ Other modules have minimal/no test coverage yet (formatting, utilities)
+  - ✅ `format/` - High coverage with 158 tests across context, memory, output, tools, utils (100% passing)
+  - ✅ `structured.ts` - Comprehensive coverage with 93 tests (100% passing)
+  - ✅ `window.ts` - Comprehensive coverage with 87 tests covering all window operations (100% passing)
+  - ✅ `consensus.ts` - Comprehensive coverage with 116 tests covering utilities, helpers, presets (100% passing)
+  - ⚠️ Remaining modules: parallel, interceptors (need tests)
 
 Run `npm run test:coverage` to generate detailed coverage report.
 View `coverage/html/index.html` for line-by-line analysis.
@@ -600,27 +754,24 @@ View `coverage/html/index.html` for line-by-line analysis.
 - ✅ Abort signal timeout (simplified test approach)
 
 ### Outstanding
-- None - all 316 tests passing!
+- None - all 770 tests passing!
 
 ## Next Steps
 
-### Immediate (Week 1)
+### Completed ✅
 1. ✅ **Guardrails Tests** - COMPLETE (68 tests covering all guardrail features)
 2. ✅ **Retry Manager Tests** - COMPLETE (36 tests covering all retry logic)
 3. ✅ **Zero Token Detection Tests** - COMPLETE (78 tests covering all detection scenarios)
 4. ✅ **Drift Detection Tests** - COMPLETE (79 tests covering all drift types and configurations)
 5. ✅ **Runtime Tests** - COMPLETE (52 tests covering streaming, guardrails, fallbacks, errors, callbacks, integration)
+6. ✅ **Format Utilities Tests** - COMPLETE (158 tests covering context, memory, output, tools, utils)
+7. ✅ **Structured Output Tests** - COMPLETE (93 tests covering schema validation, auto-correction, edge cases)
+8. ✅ **Document Windows Tests** - COMPLETE (87 tests covering chunking, navigation, batch processing)
+9. ✅ **Consensus Tests** - COMPLETE (116 tests covering similarity, agreements, resolution, helpers, presets)
 
-### Short-term (Week 2-3)
-6. **Structured Output Tests** - New feature validation
-7. **Formatting Tests** - Utility coverage
-8. **Token Utilities Tests** - Meaningful content analysis
-
-### Medium-term (Week 4+)
-7. **Document Windows Tests** - Complex feature
-8. **Consensus Tests** - New feature validation
-9. **Parallel Operations Tests** - Concurrency testing
-10. **Interceptors Tests** - Middleware testing
+### Remaining
+10. **Parallel Operations Tests** - Concurrency testing
+11. **Interceptors Tests** - Middleware testing
 
 ## Testing Best Practices
 
@@ -665,8 +816,8 @@ When adding tests:
 
 ---
 
-**Last Updated**: 2024-01-28
-**Status**: ✅ Vitest fully configured, 316/316 tests passing (100% SUCCESS RATE!)
-**Coverage**: Retry Manager (36), Guardrails (68), Zero Token (78), Drift Detection (79), Runtime (52), placeholders for others
-**Next Milestone**: Add formatting, token utilities, structured output, and document window tests
-**Achievement**: 🎉 ALL 5 CORE MODULES FULLY TESTED - 316 COMPREHENSIVE TESTS - 100% PASSING! 🎉
+**Last Updated**: 2025-11-29
+**Status**: ✅ Vitest fully configured, 770/770 tests passing (100% SUCCESS RATE!)
+**Coverage**: Retry Manager (36), Guardrails (68), Zero Token (78), Drift Detection (79), Runtime (52), Format Utilities (158), Structured Output (93), Document Windows (87), Consensus Utilities (116), Monitoring (3)
+**Next Milestone**: Add parallel operations and interceptor tests
+**Achievement**: 🎉 ALL 9 CORE MODULES FULLY TESTED - 770 COMPREHENSIVE TESTS - 100% PASSING! 🎉

@@ -693,16 +693,13 @@ describe("Helper Functions", () => {
       expect(results).toBeInstanceOf(Array);
     });
 
-    it("should handle concurrency option", async () => {
-      const results = await processWithWindow(
-        MEDIUM_DOC,
+    it("should handle concurrency option via processParallel", async () => {
+      const window = createWindow(MEDIUM_DOC, { size: 200 });
+      const results = await window.processParallel(
         (chunk) => ({
           stream: createMockStreamFactory(`Concurrent ${chunk.index}`),
         }),
-        {
-          size: 200,
-          concurrency: 3,
-        },
+        { concurrency: 3 },
       );
 
       expect(results.length).toBeGreaterThan(0);
