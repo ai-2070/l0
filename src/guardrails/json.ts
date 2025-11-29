@@ -98,7 +98,7 @@ export function looksLikeJson(content: string): boolean {
 export function validateJsonStructure(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check if content looks like JSON
@@ -109,7 +109,7 @@ export function validateJsonStructure(
   const structure = analyzeJsonStructure(content);
 
   // If streaming and not complete, only flag severe issues
-  if (!isComplete) {
+  if (!completed) {
     // Check for premature closing (more closes than opens)
     if (structure.closeBraces > structure.openBraces) {
       violations.push({
@@ -191,11 +191,11 @@ export function validateJsonChunks(
 export function validateJsonParseable(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only validate if complete and looks like JSON
-  if (!isComplete || !looksLikeJson(content)) {
+  if (!completed || !looksLikeJson(content)) {
     return violations;
   }
 
@@ -235,7 +235,7 @@ export function jsonRule(): GuardrailRule {
       violations.push(...validateJsonChunks(context));
 
       // If complete, check parseability
-      if (context.isComplete) {
+      if (context.completed) {
         violations.push(...validateJsonParseable(context));
       }
 
@@ -258,7 +258,7 @@ export function strictJsonRule(): GuardrailRule {
       const violations: GuardrailViolation[] = [];
 
       // Only run on complete output
-      if (!context.isComplete) {
+      if (!context.completed) {
         return violations;
       }
 

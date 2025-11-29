@@ -7,7 +7,8 @@ import { RetryManager } from "./retry";
 import { DriftDetector } from "./drift";
 import { detectZeroToken } from "./zeroToken";
 import { normalizeStreamEvent } from "./events";
-import { hasMeaningfulContent } from "../utils/tokens";
+// hasMeaningfulContent available for future use
+// import { hasMeaningfulContent } from "../utils/tokens";
 import { L0Monitor } from "./monitoring";
 import { isNetworkError } from "../utils/errors";
 import { InterceptorManager } from "./interceptors";
@@ -34,21 +35,7 @@ import { InterceptorManager } from "./interceptors";
  * ```
  */
 export async function l0(options: L0Options): Promise<L0Result> {
-  const {
-    stream: streamFactory,
-    fallbackStreams = [],
-    guardrails = [],
-    retry = {},
-    timeout = {},
-    signal: externalSignal,
-    monitoring,
-    detectDrift: enableDrift = false,
-    detectZeroTokens = true,
-    onEvent,
-    onViolation,
-    onRetry,
-    interceptors = [],
-  } = options;
+  const { signal: externalSignal, interceptors = [] } = options;
 
   // Initialize interceptor manager
   const interceptorManager = new InterceptorManager(interceptors);
@@ -134,7 +121,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
     // Try primary stream first, then fallbacks if exhausted
     while (fallbackIndex < allStreams.length) {
-      const currentStreamFactory = allStreams[fallbackIndex];
+      const currentStreamFactory = allStreams[fallbackIndex]!;
       let retryAttempt = 0;
       // Model failure retry limit (network errors don't count toward this)
       const modelRetryLimit = processedRetry.attempts ?? 2;
@@ -245,7 +232,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
                   checkpoint: state.checkpoint,
                   delta: token,
                   tokenCount: state.tokenCount,
-                  isComplete: false,
+                  completed: false,
                 };
 
                 const result = guardrailEngine.check(context);
@@ -303,7 +290,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
               content: state.content,
               checkpoint: state.checkpoint,
               tokenCount: state.tokenCount,
-              isComplete: true,
+              completed: true,
             };
 
             const result = guardrailEngine.check(context);
@@ -383,7 +370,6 @@ export async function l0(options: L0Options): Promise<L0Result> {
               err,
               decision.shouldRetry,
               decision.delay,
-              retryAttempt,
             );
           }
 
@@ -525,7 +511,7 @@ function createInitialState(): L0State {
  * Helper to consume stream and get final text
  */
 export async function getText(result: L0Result): Promise<string> {
-  for await (const event of result.stream) {
+  for await (const _event of result.stream) {
     // Just consume the stream
   }
   return result.state.content;

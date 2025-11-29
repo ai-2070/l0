@@ -1,6 +1,7 @@
 // Format tool/function call definitions for LLM consumption
 
-import { normalizeForModel } from "../utils/normalize";
+// normalizeForModel available for future use
+// import { normalizeForModel } from "../utils/normalize";
 
 /**
  * Tool parameter definition
@@ -74,7 +75,6 @@ export function formatTool(
   const {
     style = "json-schema",
     includeExamples = false,
-    normalize = true,
     includeTypes = true,
   } = options;
 
@@ -97,7 +97,7 @@ export function formatTool(
  */
 function formatToolJsonSchema(
   tool: ToolDefinition,
-  includeTypes: boolean,
+  _includeTypes?: boolean,
 ): string {
   const properties: Record<string, any> = {};
   const required: string[] = [];
@@ -348,7 +348,7 @@ export function validateTool(tool: ToolDefinition): string[] {
     errors.push("Tool parameters must be an array");
   } else {
     for (let i = 0; i < tool.parameters.length; i++) {
-      const param = tool.parameters[i];
+      const param = tool.parameters[i]!;
 
       if (!param.name || param.name.trim().length === 0) {
         errors.push(`Parameter ${i} is missing a name`);
@@ -446,7 +446,7 @@ export function parseFunctionCall(output: string): {
 
   for (const pattern of patterns) {
     const match = output.match(pattern);
-    if (match) {
+    if (match && match[1] && match[2]) {
       try {
         const name = match[1];
         const args = JSON.parse(match[2]);

@@ -16,20 +16,9 @@ import { calculateBackoff, sleep } from "../utils/timers";
 import {
   isNetworkError,
   analyzeNetworkError,
-  isConnectionDropped,
-  isFetchTypeError,
-  isECONNRESET,
-  isECONNREFUSED,
-  isSSEAborted,
-  isNoBytes,
-  isPartialChunks,
-  isRuntimeKilled,
-  isBackgroundThrottle,
-  isDNSError,
-  isSSLError,
   isTimeoutError,
-  NetworkErrorType,
   suggestRetryDelay,
+  NetworkErrorType,
 } from "../utils/errors";
 
 /**
@@ -98,7 +87,6 @@ export class RetryManager {
    */
   private classifyError(error: Error): ErrorClassification {
     const message = error.message?.toLowerCase() || "";
-    const name = error.name?.toLowerCase() || "";
 
     // Use enhanced network error detection from utils/errors
     const isNetwork = isNetworkError(error);
@@ -109,7 +97,7 @@ export class RetryManager {
     // Try to extract status code
     let statusCode: number | undefined;
     const statusMatch = message.match(/status\s*(?:code)?\s*:?\s*(\d{3})/i);
-    if (statusMatch) {
+    if (statusMatch && statusMatch[1]) {
       statusCode = parseInt(statusMatch[1], 10);
     }
 
@@ -307,7 +295,7 @@ export class RetryManager {
       this.config.errorTypeDelays &&
       isNetworkError(error)
     ) {
-      const analysis = analyzeNetworkError(error);
+      // Network error analysis available if needed
       const customDelayMap = this.mapErrorTypeDelays(
         this.config.errorTypeDelays,
       );

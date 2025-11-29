@@ -1,8 +1,8 @@
 // Built-in monitoring and telemetry system for L0
 
-import type { L0Telemetry, CategorizedNetworkError } from "../types/l0";
+import type { L0Telemetry } from "../types/l0";
 import type { GuardrailViolation } from "../types/guardrails";
-import { analyzeNetworkError, NetworkErrorType } from "../utils/errors";
+import { analyzeNetworkError } from "../utils/errors";
 
 /**
  * Monitoring configuration
@@ -117,12 +117,7 @@ export class L0Monitor {
   /**
    * Record a network error
    */
-  recordNetworkError(
-    error: Error,
-    retried: boolean,
-    delay?: number,
-    attempt?: number,
-  ): void {
+  recordNetworkError(error: Error, retried: boolean, delay?: number): void {
     if (!this.isEnabled()) return;
 
     const analysis = analyzeNetworkError(error);
@@ -141,7 +136,6 @@ export class L0Monitor {
         timestamp: Date.now(),
         retried,
         delay,
-        attempt,
       });
     }
   }
@@ -234,7 +228,7 @@ export class L0Monitor {
     const interTokenTimes: number[] = [];
     for (let i = 1; i < this.tokenTimestamps.length; i++) {
       interTokenTimes.push(
-        this.tokenTimestamps[i] - this.tokenTimestamps[i - 1],
+        this.tokenTimestamps[i]! - this.tokenTimestamps[i - 1]!,
       );
     }
 

@@ -8,7 +8,6 @@ import type {
   ConsensusAnalysis,
   Agreement,
   Disagreement,
-  ConflictResolution,
 } from "./types/consensus";
 import { l0 } from "./runtime/l0";
 import { structured } from "./structured";
@@ -101,23 +100,18 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
           monitoring,
         });
 
-        // Consume stream to get final content
-        let text = "";
-        for await (const event of result.stream) {
-          if (event.type === "token" && event.value) {
-            text += event.value;
-          }
-        }
+        // Structured result already has parsed data
+        const text = result.raw || JSON.stringify(result.data);
 
         return {
           index,
-          text: text || JSON.stringify(result.data),
+          text,
           data: result.data,
           l0Result: null as any, // Structured result doesn't have L0Result
           structuredResult: result,
           status: "success" as const,
           duration: Date.now() - outputStartTime,
-          weight: defaultWeights[index],
+          weight: defaultWeights[index] ?? 1.0,
         };
       } else {
         // Regular text output
@@ -142,7 +136,7 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
           l0Result: result,
           status: "success" as const,
           duration: Date.now() - outputStartTime,
-          weight: defaultWeights[index],
+          weight: defaultWeights[index] ?? 1.0,
         };
       }
     } catch (error) {
@@ -154,7 +148,7 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
         status: "error" as const,
         error: error instanceof Error ? error : new Error(String(error)),
         duration: Date.now() - outputStartTime,
-        weight: defaultWeights[index],
+        weight: defaultWeights[index] ?? 1.0,
       };
     }
   });
@@ -195,7 +189,7 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
 
   for (let i = 0; i < similarityMatrix.length; i++) {
     for (let j = i + 1; j < similarityMatrix.length; j++) {
-      const sim = similarityMatrix[i][j];
+      const sim = similarityMatrix[i]?.[j] ?? 0;
       totalSimilarity += sim;
       comparisons++;
       minSimilarity = Math.min(minSimilarity, sim);
@@ -203,14 +197,21 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
     }
   }
 
-  const averageSimilarity = comparisons > 0 ? totalSimilarity / comparisons : 1.0;
+  const averageSimilarity =
+    comparisons > 0 ? totalSimilarity / comparisons : 1.0;
 
   // Find agreements and disagreements
   const agreements = findAgreements(successfulOutputs, threshold);
   const disagreements = findDisagreements(successfulOutputs, threshold);
 
   // Check minimum agreement
-  if (!meetsMinimumAgreement(agreements, successfulOutputs.length, minimumAgreement)) {
+  if (
+    !meetsMinimumAgreement(
+      agreements,
+      successfulOutputs.length,
+      minimumAgreement,
+    )
+  ) {
     if (resolveConflicts === "fail") {
       throw new Error(
         `Consensus failed: agreement ratio ${agreements[0]?.ratio || 0} below minimum ${minimumAgreement}`,
@@ -234,7 +235,7 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
         }
         consensusOutput = resolveMajority(successfulOutputs, defaultWeights);
       } else {
-        consensusOutput = successfulOutputs[0];
+        consensusOutput = successfulOutputs[0]!;
       }
       break;
 
@@ -265,7 +266,9 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
         break;
 
       case "fail":
-        throw new Error(`Consensus failed: ${disagreements.length} disagreements found`);
+        throw new Error(
+          `Consensus failed: ${disagreements.length} disagreements found`,
+        );
     }
   }
 
@@ -276,7 +279,9 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
   });
 
   // Calculate field-level consensus for structured outputs
-  const fieldConsensus = schema ? calculateFieldConsensus(successfulOutputs) : undefined;
+  const fieldConsensus = schema
+    ? calculateFieldConsensus(successfulOutputs)
+    : undefined;
 
   // Calculate overall confidence
   const confidence = calculateConfidence(
@@ -381,7 +386,7 @@ function calculateConfidence(
 function countIdenticalOutputs(outputs: ConsensusOutput[]): number {
   if (outputs.length === 0) return 0;
 
-  const first = outputs[0].text;
+  const first = outputs[0]!.text;
   return outputs.filter((o) => o.text === first).length;
 }
 
@@ -398,7 +403,10 @@ function countIdenticalOutputs(outputs: ConsensusOutput[]): number {
  * const hasConsensus = quickConsensus(outputs); // false
  * ```
  */
-export function quickConsensus(outputs: string[], threshold: number = 0.8): boolean {
+export function quickConsensus(
+  outputs: string[],
+  threshold: number = 0.8,
+): boolean {
   if (outputs.length < 2) return true;
 
   // Check if majority agree
@@ -442,7 +450,7 @@ export function getConsensusValue<T = any>(outputs: T[]): T {
   });
 
   let maxCount = 0;
-  let consensusValue: T = outputs[0];
+  let consensusValue: T = outputs[0]!;
 
   for (const { value, count } of counts.values()) {
     if (count > maxCount) {

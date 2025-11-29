@@ -72,7 +72,7 @@ export class DocumentWindowImpl implements DocumentWindow {
     if (index < 0 || index >= this.chunks.length) {
       return null;
     }
-    return this.chunks[index];
+    return this.chunks[index] ?? null;
   }
 
   /**
@@ -215,7 +215,7 @@ export class DocumentWindowImpl implements DocumentWindow {
     let activeCount = 0;
     let index = 0;
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       const processNext = () => {
         while (activeCount < concurrency && queue.length > 0) {
           const chunk = queue.shift()!;
@@ -245,7 +245,8 @@ export class DocumentWindowImpl implements DocumentWindow {
                 chunk,
                 result: null as any,
                 status: "error",
-                error: error instanceof Error ? error : new Error(String(error)),
+                error:
+                  error instanceof Error ? error : new Error(String(error)),
                 duration: Date.now() - startTime,
               };
             } finally {
@@ -273,7 +274,8 @@ export class DocumentWindowImpl implements DocumentWindow {
     const avgChunkSize =
       this.chunks.reduce((sum, c) => sum + c.charCount, 0) / this.chunks.length;
     const avgChunkTokens =
-      this.chunks.reduce((sum, c) => sum + c.tokenCount, 0) / this.chunks.length;
+      this.chunks.reduce((sum, c) => sum + c.tokenCount, 0) /
+      this.chunks.length;
 
     return {
       totalChunks: this.chunks.length,
@@ -305,11 +307,16 @@ export class DocumentWindowImpl implements DocumentWindow {
   /**
    * Find chunks containing specific text
    */
-  findChunks(searchText: string, caseSensitive: boolean = false): DocumentChunk[] {
+  findChunks(
+    searchText: string,
+    caseSensitive: boolean = false,
+  ): DocumentChunk[] {
     const search = caseSensitive ? searchText : searchText.toLowerCase();
 
     return this.chunks.filter((chunk) => {
-      const content = caseSensitive ? chunk.content : chunk.content.toLowerCase();
+      const content = caseSensitive
+        ? chunk.content
+        : chunk.content.toLowerCase();
       return content.includes(search);
     });
   }
@@ -419,8 +426,12 @@ export async function l0WithWindow(options: L0WindowOptions) {
   }
 
   // Context restoration logic
-  const { enabled = true, strategy = "adjacent", maxAttempts = 2, onRestore } =
-    contextRestoration || {};
+  const {
+    enabled = true,
+    strategy = "adjacent",
+    maxAttempts = 2,
+    onRestore,
+  } = contextRestoration || {};
 
   let currentChunkIndex = chunkIndex;
   let attempts = 0;
@@ -452,11 +463,11 @@ export async function l0WithWindow(options: L0WindowOptions) {
             break;
 
           case "full":
-            // Get surrounding context
-            const contextChunks = window.getRange(
-              Math.max(0, currentChunkIndex - 1),
-              Math.min(window.totalChunks, currentChunkIndex + 2),
-            );
+            // Get surrounding context (reserved for future use)
+            // const contextChunks = window.getRange(
+            //   Math.max(0, currentChunkIndex - 1),
+            //   Math.min(window.totalChunks, currentChunkIndex + 2),
+            // );
             // Process with merged context
             break;
         }

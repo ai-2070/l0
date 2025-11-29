@@ -1,9 +1,7 @@
 // Stream normalization and handling for L0
 
 import type {
-  StreamEvent,
   StreamState,
-  StreamChunk,
   StreamError,
   StreamErrorType,
 } from "../types/stream";
@@ -164,7 +162,6 @@ export async function* normalizeStreamWithTimeout(
   const normalizer = new StreamNormalizer();
   let firstTokenReceived = false;
   let lastTokenTime = Date.now();
-  const startTime = Date.now();
 
   // Set initial timeout
   let initialTimeoutId: NodeJS.Timeout | null = null;

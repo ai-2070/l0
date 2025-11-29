@@ -27,11 +27,11 @@ export function analyzeLatexStructure(content: string): LatexStructure {
 
   let match;
   while ((match = beginPattern.exec(content)) !== null) {
-    begins.push({ env: match[1], pos: match.index });
+    begins.push({ env: match[1]!, pos: match.index });
   }
 
   while ((match = endPattern.exec(content)) !== null) {
-    ends.push({ env: match[1], pos: match.index });
+    ends.push({ env: match[1]!, pos: match.index });
   }
 
   // Merge and sort by position
@@ -115,7 +115,7 @@ export function looksLikeLatex(content: string): boolean {
 export function validateLatexEnvironments(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Skip if doesn't look like LaTeX
@@ -126,7 +126,7 @@ export function validateLatexEnvironments(
   const structure = analyzeLatexStructure(content);
 
   // If streaming and not complete, only warn about severe issues
-  if (!isComplete) {
+  if (!completed) {
     // Check for mismatched environments (not just unclosed)
     const mismatchIssues = structure.issues.filter((issue) =>
       issue.includes("mismatch"),
@@ -175,7 +175,7 @@ export function validateLatexEnvironments(
 export function validateLatexMath(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Skip if doesn't look like LaTeX
@@ -211,7 +211,7 @@ export function validateLatexMath(
   }
 
   // Check display math balance
-  if (isComplete) {
+  if (completed) {
     if (displayMathOpen !== displayMathClose) {
       violations.push({
         rule: "latex-math",
@@ -254,7 +254,7 @@ export function validateLatexMath(
 export function validateLatexCommon(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Skip if doesn't look like LaTeX
@@ -263,7 +263,7 @@ export function validateLatexCommon(
   }
 
   // Only check complete output for these
-  if (!isComplete) {
+  if (!completed) {
     return violations;
   }
 
@@ -327,7 +327,7 @@ export function latexRule(): GuardrailRule {
       violations.push(...validateLatexMath(context));
 
       // Check common errors (only on complete)
-      if (context.isComplete) {
+      if (context.completed) {
         violations.push(...validateLatexCommon(context));
       }
 

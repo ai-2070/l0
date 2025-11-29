@@ -89,7 +89,7 @@ export function fullJitterBackoff(
  * @param previousDelay - Previous delay value (for decorrelation)
  */
 export function decorrelatedJitterBackoff(
-  attempt: number,
+  _attempt: number,
   baseDelay: number = 1000,
   maxDelay: number = 10000,
   previousDelay?: number,

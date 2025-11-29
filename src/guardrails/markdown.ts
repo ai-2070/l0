@@ -22,7 +22,7 @@ export function analyzeMarkdownStructure(content: string): MarkdownStructure {
   let listDepth = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i]!;
 
     // Check for code fences (```)
     if (line.trimStart().startsWith("```")) {
@@ -42,13 +42,13 @@ export function analyzeMarkdownStructure(content: string): MarkdownStructure {
     // Check for headers (only outside fences)
     if (!inFence) {
       const headerMatch = line.match(/^(#{1,6})\s+/);
-      if (headerMatch) {
+      if (headerMatch && headerMatch[1]) {
         headers.push(headerMatch[1].length);
       }
 
       // Check list depth
       const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+/);
-      if (listMatch) {
+      if (listMatch && listMatch[1]) {
         const indent = listMatch[1].length;
         const currentDepth = Math.floor(indent / 2) + 1;
         listDepth = Math.max(listDepth, currentDepth);
@@ -102,13 +102,13 @@ export function looksLikeMarkdown(content: string): boolean {
 export function validateMarkdownFences(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   const structure = analyzeMarkdownStructure(content);
 
   // If streaming and not complete, only warn about imbalance
-  if (!isComplete && structure.inFence) {
+  if (!completed && structure.inFence) {
     // This is expected during streaming, only warn if excessive
     if (structure.openFences > 5) {
       violations.push({
@@ -118,7 +118,7 @@ export function validateMarkdownFences(
         recoverable: true,
       });
     }
-  } else if (isComplete && structure.openFences !== 0) {
+  } else if (completed && structure.openFences !== 0) {
     // Stream is complete but fences aren't balanced
     violations.push({
       rule: "markdown-fences",
@@ -140,26 +140,24 @@ export function validateMarkdownFences(
 export function validateMarkdownTables(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check complete output
-  if (!isComplete) {
+  if (!completed) {
     return violations;
   }
 
   const lines = content.split("\n");
   let inTable = false;
-  let tableStartLine = -1;
   let columnCount = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i]!;
 
     // Check for table separator line (|---|---|)
     if (/^\|?[\s-:|]+\|[\s-:|]*$/.test(line)) {
       inTable = true;
-      tableStartLine = i;
       columnCount = (line.match(/\|/g) || []).length;
       continue;
     }
@@ -194,11 +192,11 @@ export function validateMarkdownTables(
 export function validateMarkdownLists(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check complete output
-  if (!isComplete) {
+  if (!completed) {
     return violations;
   }
 
@@ -207,13 +205,12 @@ export function validateMarkdownLists(
   let lastIndent = -1;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i]!;
 
     // Check for unordered list
     const unorderedMatch = line.match(/^(\s*)([-*+])\s+/);
-    if (unorderedMatch) {
+    if (unorderedMatch && unorderedMatch[1] !== undefined) {
       const indent = unorderedMatch[1].length;
-      const marker = unorderedMatch[2];
 
       // Check for mixed list types at same level
       if (lastListType === "ordered" && lastIndent === indent) {
@@ -232,7 +229,7 @@ export function validateMarkdownLists(
 
     // Check for ordered list
     const orderedMatch = line.match(/^(\s*)(\d+)\.\s+/);
-    if (orderedMatch) {
+    if (orderedMatch && orderedMatch[1] !== undefined) {
       const indent = orderedMatch[1].length;
 
       // Check for mixed list types at same level
@@ -268,11 +265,11 @@ export function validateMarkdownLists(
 export function validateMarkdownComplete(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check when complete
-  if (!isComplete) {
+  if (!completed) {
     return violations;
   }
 
@@ -290,11 +287,10 @@ export function validateMarkdownComplete(
 
   // Check if ends mid-sentence (very basic heuristic)
   const trimmed = content.trim();
-  const lastChar = trimmed[trimmed.length - 1];
 
   // If last line looks like it's in the middle of something
   const lines = trimmed.split("\n");
-  const lastLine = lines[lines.length - 1];
+  const lastLine = lines[lines.length - 1] ?? "";
 
   // Check if last line ends abruptly without punctuation (but not in code)
   if (
@@ -338,7 +334,7 @@ export function markdownRule(): GuardrailRule {
       violations.push(...validateMarkdownFences(context));
 
       // Check tables (only on complete)
-      if (context.isComplete) {
+      if (context.completed) {
         violations.push(...validateMarkdownTables(context));
         violations.push(...validateMarkdownLists(context));
         violations.push(...validateMarkdownComplete(context));

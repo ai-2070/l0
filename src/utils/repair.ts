@@ -234,16 +234,13 @@ export function repairLatexEnvironments(latex: string): string {
   // Track unclosed environments
   const stack: string[] = [];
 
-  let beginIndex = 0;
-  let endIndex = 0;
-
   // Simple matching algorithm
   for (const begin of begins) {
-    stack.push(begin[1]);
+    stack.push(begin[1]!);
   }
 
   for (const end of ends) {
-    const env = end[1];
+    const env = end[1]!;
     const lastIndex = stack.lastIndexOf(env);
     if (lastIndex !== -1) {
       stack.splice(lastIndex, 1);

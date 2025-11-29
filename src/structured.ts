@@ -8,13 +8,9 @@ import type {
   StructuredTelemetry,
   CorrectionInfo,
 } from "./types/structured";
-import type { L0Options, L0Event, L0State } from "./types/l0";
+import type { L0Options, L0Event } from "./types/l0";
 import { l0 } from "./runtime/l0";
-import {
-  autoCorrectJSON,
-  safeJSONParse,
-  isValidJSON,
-} from "./utils/autoCorrect";
+import { autoCorrectJSON, isValidJSON } from "./utils/autoCorrect";
 
 /**
  * L0 Structured Output - Guaranteed valid JSON matching your schema
@@ -78,7 +74,6 @@ export async function structured<T extends z.ZodTypeAny>(
   const errors: Error[] = [];
 
   // Timing
-  const startTime = Date.now();
   let validationStartTime = 0;
   let validationEndTime = 0;
 
@@ -126,7 +121,7 @@ export async function structured<T extends z.ZodTypeAny>(
       {
         name: "json-structure",
         check: (context) => {
-          if (context.isComplete) {
+          if (context.completed) {
             // Check if output is valid JSON
             if (!isValidJSON(context.content)) {
               return [

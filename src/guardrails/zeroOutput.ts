@@ -59,12 +59,12 @@ export function isNoiseOnly(content: string): boolean {
 export function validateZeroOutput(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete, tokenCount } = context;
+  const { content, completed, tokenCount } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check if we have some indication of completion
   // or if we have tokens but no meaningful content
-  if (!isComplete && tokenCount < 5) {
+  if (!completed && tokenCount < 5) {
     return violations;
   }
 
@@ -93,7 +93,7 @@ export function validateZeroOutput(
   }
 
   // Check if stream finished instantly with very little content
-  if (isComplete && content.trim().length < 10) {
+  if (completed && content.trim().length < 10) {
     violations.push({
       rule: "zero-output",
       message: `Output too short: ${content.trim().length} characters`,
@@ -114,11 +114,11 @@ export function validateZeroOutput(
 export function validateInstantOutput(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { isComplete, tokenCount, metadata } = context;
+  const { completed, tokenCount, metadata } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check if complete
-  if (!isComplete) {
+  if (!completed) {
     return violations;
   }
 

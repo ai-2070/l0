@@ -1,6 +1,6 @@
 // Chunking utilities for document window API
 
-import type { ChunkStrategy, DocumentChunk, WindowOptions } from "../types/window";
+import type { DocumentChunk, WindowOptions } from "../types/window";
 
 /**
  * Chunk a document into pieces based on strategy
@@ -48,7 +48,6 @@ export function chunkByTokens(
 
     // Accumulate characters until we reach token limit
     while (endPos < document.length && currentTokens < size) {
-      const char = document[endPos];
       endPos++;
 
       // Rough estimate: 1 token ≈ 4 characters
@@ -91,7 +90,8 @@ export function chunkByTokens(
     const overlapChars = Math.floor(overlap * 4); // Convert token overlap to chars
     startPos = endPos - overlapChars;
 
-    if (startPos <= chunks[chunks.length - 1]?.startPos) {
+    const lastChunk = chunks[chunks.length - 1];
+    if (lastChunk && startPos <= lastChunk.startPos) {
       startPos = endPos;
     }
   }
@@ -153,7 +153,8 @@ export function chunkByChars(
     // Move start position with overlap
     startPos = endPos - overlap;
 
-    if (startPos <= chunks[chunks.length - 1]?.startPos) {
+    const lastChunk = chunks[chunks.length - 1];
+    if (lastChunk && startPos <= lastChunk.startPos) {
       startPos = endPos;
     }
   }
@@ -185,7 +186,7 @@ export function chunkByParagraphs(
   let currentStartPos = 0;
 
   for (let i = 0; i < paragraphs.length; i++) {
-    const para = paragraphs[i].trim();
+    const para = paragraphs[i]!.trim();
     const paraSize = estimateTokens(para);
 
     // If single paragraph exceeds size, split it
@@ -193,7 +194,16 @@ export function chunkByParagraphs(
       // Flush current chunk if any
       if (currentChunk.length > 0) {
         const content = currentChunk.join("\n\n");
-        chunks.push(createChunk(content, currentStartPos, document, chunks.length, estimateTokens, options.metadata));
+        chunks.push(
+          createChunk(
+            content,
+            currentStartPos,
+            document,
+            chunks.length,
+            estimateTokens,
+            options.metadata,
+          ),
+        );
         currentChunk = [];
         currentSize = 0;
       }
@@ -221,13 +231,22 @@ export function chunkByParagraphs(
     if (currentSize + paraSize > size && currentChunk.length > 0) {
       // Flush current chunk
       const content = currentChunk.join("\n\n");
-      chunks.push(createChunk(content, currentStartPos, document, chunks.length, estimateTokens, options.metadata));
+      chunks.push(
+        createChunk(
+          content,
+          currentStartPos,
+          document,
+          chunks.length,
+          estimateTokens,
+          options.metadata,
+        ),
+      );
 
       // Keep last paragraph for overlap
-      const overlapParas = [];
+      const overlapParas: string[] = [];
       let overlapSize = 0;
       for (let j = currentChunk.length - 1; j >= 0; j--) {
-        const p = currentChunk[j];
+        const p = currentChunk[j]!;
         const pSize = estimateTokens(p);
         if (overlapSize + pSize <= overlap) {
           overlapParas.unshift(p);
@@ -239,7 +258,10 @@ export function chunkByParagraphs(
 
       currentChunk = overlapParas;
       currentSize = overlapSize;
-      currentStartPos = document.indexOf(currentChunk[0] || para, currentStartPos);
+      currentStartPos = document.indexOf(
+        currentChunk[0] || para,
+        currentStartPos,
+      );
     }
 
     currentChunk.push(para);
@@ -249,7 +271,16 @@ export function chunkByParagraphs(
   // Flush remaining chunk
   if (currentChunk.length > 0) {
     const content = currentChunk.join("\n\n");
-    chunks.push(createChunk(content, currentStartPos, document, chunks.length, estimateTokens, options.metadata));
+    chunks.push(
+      createChunk(
+        content,
+        currentStartPos,
+        document,
+        chunks.length,
+        estimateTokens,
+        options.metadata,
+      ),
+    );
   }
 
   // Update totalChunks
@@ -287,7 +318,16 @@ export function chunkBySentences(
       // Flush current chunk if any
       if (currentChunk.length > 0) {
         const content = currentChunk.join(" ");
-        chunks.push(createChunk(content, currentStartPos, document, chunks.length, estimateTokens, options.metadata));
+        chunks.push(
+          createChunk(
+            content,
+            currentStartPos,
+            document,
+            chunks.length,
+            estimateTokens,
+            options.metadata,
+          ),
+        );
         currentChunk = [];
         currentSize = 0;
       }
@@ -307,7 +347,8 @@ export function chunkBySentences(
         });
       });
 
-      currentStartPos = document.indexOf(sentence, currentStartPos) + sentence.length;
+      currentStartPos =
+        document.indexOf(sentence, currentStartPos) + sentence.length;
       continue;
     }
 
@@ -315,13 +356,22 @@ export function chunkBySentences(
     if (currentSize + sentSize > size && currentChunk.length > 0) {
       // Flush current chunk
       const content = currentChunk.join(" ");
-      chunks.push(createChunk(content, currentStartPos, document, chunks.length, estimateTokens, options.metadata));
+      chunks.push(
+        createChunk(
+          content,
+          currentStartPos,
+          document,
+          chunks.length,
+          estimateTokens,
+          options.metadata,
+        ),
+      );
 
       // Keep last sentences for overlap
-      const overlapSents = [];
+      const overlapSents: string[] = [];
       let overlapSize = 0;
       for (let j = currentChunk.length - 1; j >= 0; j--) {
-        const s = currentChunk[j];
+        const s = currentChunk[j]!;
         const sSize = estimateTokens(s);
         if (overlapSize + sSize <= overlap) {
           overlapSents.unshift(s);
@@ -333,7 +383,10 @@ export function chunkBySentences(
 
       currentChunk = overlapSents;
       currentSize = overlapSize;
-      currentStartPos = document.indexOf(currentChunk[0] || sentence, currentStartPos);
+      currentStartPos = document.indexOf(
+        currentChunk[0] || sentence,
+        currentStartPos,
+      );
     }
 
     currentChunk.push(sentence);
@@ -343,7 +396,16 @@ export function chunkBySentences(
   // Flush remaining chunk
   if (currentChunk.length > 0) {
     const content = currentChunk.join(" ");
-    chunks.push(createChunk(content, currentStartPos, document, chunks.length, estimateTokens, options.metadata));
+    chunks.push(
+      createChunk(
+        content,
+        currentStartPos,
+        document,
+        chunks.length,
+        estimateTokens,
+        options.metadata,
+      ),
+    );
   }
 
   // Update totalChunks
@@ -369,7 +431,9 @@ export function splitIntoSentences(text: string): string[] {
   let match;
 
   while ((match = regex.exec(text)) !== null) {
-    const sentence = text.slice(lastIndex, match.index + match[0].length).trim();
+    const sentence = text
+      .slice(lastIndex, match.index + match[0].length)
+      .trim();
     if (sentence.length > 0) {
       sentences.push(sentence);
     }
@@ -404,7 +468,10 @@ function createChunk(
     index,
     content,
     startPos: actualStartPos !== -1 ? actualStartPos : startPos,
-    endPos: actualStartPos !== -1 ? actualStartPos + content.length : startPos + content.length,
+    endPos:
+      actualStartPos !== -1
+        ? actualStartPos + content.length
+        : startPos + content.length,
     tokenCount: estimateTokens(content),
     charCount: content.length,
     isFirst: index === 0,
@@ -472,18 +539,18 @@ export function mergeChunks(
   preserveOverlap: boolean = false,
 ): string {
   if (chunks.length === 0) return "";
-  if (chunks.length === 1) return chunks[0].content;
+  if (chunks.length === 1) return chunks[0]!.content;
 
   if (preserveOverlap) {
     return chunks.map((c) => c.content).join("\n\n");
   }
 
   // Remove overlap when merging
-  const result: string[] = [chunks[0].content];
+  const result: string[] = [chunks[0]!.content];
 
   for (let i = 1; i < chunks.length; i++) {
-    const prevChunk = chunks[i - 1];
-    const currentChunk = chunks[i];
+    const prevChunk = chunks[i - 1]!;
+    const currentChunk = chunks[i]!;
 
     const overlap = getChunkOverlap(prevChunk, currentChunk);
 

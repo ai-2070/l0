@@ -56,13 +56,13 @@ export class GuardrailEngine {
       if (
         rule.streaming &&
         !this.config.enableStreaming &&
-        !context.isComplete
+        !context.completed
       ) {
         continue;
       }
 
       // Skip non-streaming rules if streaming check
-      if (!rule.streaming && !context.isComplete) {
+      if (!rule.streaming && !context.completed) {
         continue;
       }
 

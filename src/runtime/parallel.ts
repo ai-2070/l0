@@ -162,7 +162,7 @@ export async function parallel(
       const result = await l0(item.op);
 
       // Consume the stream to completion
-      for await (const event of result.stream) {
+      for await (const _event of result.stream) {
         // Stream is being consumed
       }
 
@@ -294,13 +294,13 @@ export async function batched(
 
   // Process each batch
   for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-    const batch = batches[batchIndex];
+    const batch = batches[batchIndex]!;
 
     const result = await parallel(batch, {
       ...options,
       concurrency: batchSize,
       onProgress: options.onProgress
-        ? (completed, total) => {
+        ? (completed, _total) => {
             const overallCompleted = batchIndex * batchSize + completed;
             options.onProgress!(overallCompleted, operations.length);
           }
@@ -352,13 +352,13 @@ export async function race(
     ...op,
     retry: op.retry || sharedRetry,
     monitoring: op.monitoring || sharedMonitoring,
-    signal: controllers[index].signal,
+    signal: controllers[index]!.signal,
   }));
 
   const promises = mergedOperations.map(async (op) => {
     const result = await l0(op);
     // Consume stream
-    for await (const event of result.stream) {
+    for await (const _event of result.stream) {
       // Stream consumption
     }
     return result;
@@ -410,8 +410,7 @@ function aggregateTelemetry(results: L0Result[]): AggregatedTelemetry {
       totalDuration += result.telemetry.duration || 0;
       totalRetries += result.telemetry.metrics.totalRetries;
       totalNetworkErrors += result.telemetry.network.errorCount;
-      totalViolations +=
-        result.telemetry.guardrails?.violationCount || 0;
+      totalViolations += result.telemetry.guardrails?.violationCount || 0;
 
       if (result.telemetry.metrics.tokensPerSecond !== undefined) {
         sumTokensPerSecond += result.telemetry.metrics.tokensPerSecond;
@@ -431,8 +430,10 @@ function aggregateTelemetry(results: L0Result[]): AggregatedTelemetry {
     totalRetries,
     totalNetworkErrors,
     totalViolations,
-    avgTokensPerSecond: countWithTPS > 0 ? sumTokensPerSecond / countWithTPS : 0,
-    avgTimeToFirstToken: countWithTTFT > 0 ? sumTimeToFirstToken / countWithTTFT : 0,
+    avgTokensPerSecond:
+      countWithTPS > 0 ? sumTokensPerSecond / countWithTPS : 0,
+    avgTimeToFirstToken:
+      countWithTTFT > 0 ? sumTimeToFirstToken / countWithTTFT : 0,
   };
 }
 
@@ -488,15 +489,13 @@ export class OperationPool {
       const result = await l0(mergedOp);
 
       // Consume stream
-      for await (const event of result.stream) {
+      for await (const _event of result.stream) {
         // Stream consumption
       }
 
       item.resolve(result);
     } catch (error) {
-      item.reject(
-        error instanceof Error ? error : new Error(String(error)),
-      );
+      item.reject(error instanceof Error ? error : new Error(String(error)));
     } finally {
       this.activeWorkers--;
       this.processQueue();
