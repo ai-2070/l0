@@ -559,6 +559,74 @@ export async function l0(options: L0Options): Promise<L0Result> {
           const err = error instanceof Error ? error : new Error(String(error));
           errors.push(err);
 
+          // Run final guardrails on partial stream content before retry/fallback
+          // This validates the accumulated content and updates checkpoint if valid
+          if (guardrailEngine && state.tokenCount > 0) {
+            // Ensure content is up to date
+            if (tokenBuffer.length > 0) {
+              state.content = tokenBuffer.join("");
+            }
+
+            const partialContext: GuardrailContext = {
+              content: state.content,
+              checkpoint: state.checkpoint,
+              delta: "",
+              tokenCount: state.tokenCount,
+              completed: false, // Stream didn't complete normally
+            };
+
+            const partialResult = guardrailEngine.check(partialContext);
+            if (partialResult.violations.length > 0) {
+              state.violations.push(...partialResult.violations);
+              monitor.recordGuardrailViolations(partialResult.violations);
+
+              // Notify about violations
+              for (const violation of partialResult.violations) {
+                if (processedOnViolation) {
+                  processedOnViolation(violation);
+                }
+              }
+
+              // If fatal violation in partial content, clear checkpoint to prevent
+              // corrupted content from being used in continuation
+              const hasFatal = partialResult.violations.some(
+                (v) => v.severity === "fatal",
+              );
+              if (hasFatal) {
+                state.checkpoint = "";
+              }
+            }
+
+            // If no fatal violations and we have content, update checkpoint
+            // so continuation can use the validated partial content
+            if (
+              !partialResult.violations.some((v) => v.severity === "fatal") &&
+              state.content.length > 0
+            ) {
+              state.checkpoint = state.content;
+            }
+          }
+
+          // Run drift detection on partial content
+          if (driftDetector && state.tokenCount > 0) {
+            if (tokenBuffer.length > 0) {
+              state.content = tokenBuffer.join("");
+            }
+            const partialDrift = driftDetector.check(state.content);
+            if (partialDrift.detected) {
+              state.driftDetected = true;
+              monitor.recordDrift(true, partialDrift.types);
+              if (processedOnViolation) {
+                processedOnViolation({
+                  rule: "drift",
+                  severity: "warning",
+                  message: `Drift detected in partial stream: ${partialDrift.types.join(", ")}`,
+                  recoverable: true,
+                });
+              }
+            }
+          }
+
           // Categorize error
           const categorized = retryManager.categorizeError(err);
           const decision = retryManager.shouldRetry(err);
