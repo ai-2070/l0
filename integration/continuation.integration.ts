@@ -67,7 +67,61 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
 
   describe("Continuation on Retry", () => {
     it(
-      "should continue from checkpoint when primary fails and retries",
+      "should continue from checkpoint when stream fails mid-way and retries",
+      async () => {
+        let attemptCount = 0;
+        const tokensBeforeFailure = ["Hello", " ", "World", "!"];
+
+        const result = await l0({
+          stream: () => {
+            attemptCount++;
+            if (attemptCount === 1) {
+              // First attempt - stream some tokens then fail
+              return {
+                textStream: (async function* () {
+                  for (const token of tokensBeforeFailure) {
+                    yield token;
+                  }
+                  // Fail after streaming tokens to create a checkpoint
+                  throw new Error("Simulated mid-stream network error");
+                })(),
+              };
+            }
+            // Second attempt - succeed with continuation
+            return streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "Say: Continuation complete",
+            });
+          },
+          continueFromLastKnownGoodToken: true,
+          checkIntervals: {
+            checkpoint: 2, // Save checkpoint every 2 tokens
+          },
+          retry: {
+            attempts: 2,
+            baseDelay: 100,
+            retryOn: ["unknown", "network_error"],
+          },
+          monitoring: { enabled: true },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        expectValidResponse(result.state.content);
+        expect(attemptCount).toBe(2);
+        // Continuation should have been used since we had a checkpoint
+        expect(result.state.continuedFromCheckpoint).toBe(true);
+        expect(result.telemetry?.continuation?.enabled).toBe(true);
+        expect(result.telemetry?.continuation?.used).toBe(true);
+      },
+      LLM_TIMEOUT * 2,
+    );
+
+    it(
+      "should not use continuation when error occurs before any tokens",
       async () => {
         let attemptCount = 0;
 
@@ -75,7 +129,7 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
           stream: () => {
             attemptCount++;
             if (attemptCount === 1) {
-              // First attempt - throw error to trigger retry
+              // First attempt - throw error immediately before any tokens
               throw new Error("Simulated network error");
             }
             // Second attempt - succeed
@@ -100,6 +154,8 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
 
         expectValidResponse(result.state.content);
         expect(attemptCount).toBe(2);
+        // No continuation since no checkpoint existed
+        expect(result.state.continuedFromCheckpoint).toBe(false);
       },
       LLM_TIMEOUT * 2,
     );
@@ -171,17 +227,26 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
 
   describe("buildContinuationPrompt Callback", () => {
     it(
-      "should allow custom continuation prompt building",
+      "should call buildContinuationPrompt with checkpoint on retry",
       async () => {
         let attemptCount = 0;
         let continuationPromptCalled = false;
         let receivedCheckpoint = "";
+        const tokensBeforeFailure = ["The", " ", "quick", " ", "brown"];
 
         const result = await l0({
           stream: () => {
             attemptCount++;
             if (attemptCount === 1) {
-              throw new Error("Simulated failure");
+              // First attempt - stream tokens then fail
+              return {
+                textStream: (async function* () {
+                  for (const token of tokensBeforeFailure) {
+                    yield token;
+                  }
+                  throw new Error("Simulated mid-stream failure");
+                })(),
+              };
             }
             return streamText({
               model: openai("gpt-5-nano"),
@@ -189,6 +254,9 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
             });
           },
           continueFromLastKnownGoodToken: true,
+          checkIntervals: {
+            checkpoint: 2, // Save checkpoint every 2 tokens
+          },
           buildContinuationPrompt: (checkpoint) => {
             continuationPromptCalled = true;
             receivedCheckpoint = checkpoint;
@@ -209,8 +277,55 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
 
         expectValidResponse(result.state.content);
         expect(attemptCount).toBe(2);
-        // Note: continuationPromptCalled may be false if no checkpoint was saved before error
-        // This is expected behavior when the error happens before any tokens are received
+        // buildContinuationPrompt should have been called with the checkpoint
+        expect(continuationPromptCalled).toBe(true);
+        expect(receivedCheckpoint.length).toBeGreaterThan(0);
+        // Checkpoint should contain accumulated tokens before failure
+        expect(receivedCheckpoint).toContain("The");
+      },
+      LLM_TIMEOUT * 2,
+    );
+
+    it(
+      "should not call buildContinuationPrompt when no checkpoint exists",
+      async () => {
+        let attemptCount = 0;
+        let continuationPromptCalled = false;
+
+        const result = await l0({
+          stream: () => {
+            attemptCount++;
+            if (attemptCount === 1) {
+              // Fail immediately before any tokens
+              throw new Error("Simulated failure");
+            }
+            return streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "Say: Success",
+            });
+          },
+          continueFromLastKnownGoodToken: true,
+          buildContinuationPrompt: () => {
+            continuationPromptCalled = true;
+            return "Should not be called";
+          },
+          retry: {
+            attempts: 2,
+            baseDelay: 100,
+            retryOn: ["unknown", "network_error"],
+          },
+          monitoring: { enabled: true },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        expectValidResponse(result.state.content);
+        expect(attemptCount).toBe(2);
+        // buildContinuationPrompt should NOT have been called since no checkpoint
+        expect(continuationPromptCalled).toBe(false);
       },
       LLM_TIMEOUT * 2,
     );
