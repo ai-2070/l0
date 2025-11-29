@@ -201,6 +201,18 @@ export {
 
 export type { SentryClient, SentryConfig } from "./runtime/sentry";
 
+// OpenTelemetry integration
+export {
+  L0OpenTelemetry,
+  createOpenTelemetry,
+  openTelemetryInterceptor,
+  SemanticAttributes,
+  SpanStatusCode,
+  SpanKind,
+} from "./runtime/opentelemetry";
+
+export type { OpenTelemetryConfig } from "./runtime/opentelemetry";
+
 // Interceptors
 export {
   InterceptorManager,

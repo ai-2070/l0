@@ -161,7 +161,7 @@ for await (const event of result.stream) {
 | [Document Windows](#document-windows)       | Automatic chunking for long documents                           |
 | [Fallback Models](#fallback-models)         | Sequential fallback when primary model fails                    |
 | [Parallel Operations](#parallel-operations) | Race, batch, pool patterns for concurrent LLM calls             |
-| [Monitoring](#monitoring)                   | Built-in Prometheus and Sentry integrations                     |
+| [Monitoring](#monitoring)                   | Built-in Prometheus, OTel and Sentry integrations                     |
 
 ---
 
@@ -471,7 +471,7 @@ const result = await race([
 
 ## Monitoring
 
-Built-in telemetry with Prometheus and Sentry integrations.
+Built-in telemetry with Prometheus, OTel and Sentry integrations.
 
 ### Prometheus
 
@@ -519,6 +519,48 @@ const result = await l0({
 ```
 
 **Tracks:** Breadcrumbs for all events, network errors, guardrail violations, performance transactions with TTFT and token count.
+
+### OpenTelemetry
+
+```typescript
+import { trace, metrics } from "@opentelemetry/api";
+import { l0, L0OpenTelemetry } from "@ai2070/l0";
+
+const otel = new L0OpenTelemetry({
+  tracer: trace.getTracer("my-app"),
+  meter: metrics.getMeter("my-app"),
+});
+
+// Trace a stream operation
+const result = await otel.traceStream("chat-completion", async (span) => {
+  const res = await l0({
+    stream: () => streamText({ model, prompt }),
+    monitoring: { enabled: true },
+  });
+
+  for await (const event of res.stream) {
+    otel.recordToken(span);
+  }
+
+  otel.recordTelemetry(res.telemetry, span);
+  return res;
+});
+
+// Or use the interceptor for automatic tracing
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  interceptors: [
+    openTelemetryInterceptor({
+      tracer: trace.getTracer("my-app"),
+      meter: metrics.getMeter("my-app"),
+    }),
+  ],
+});
+```
+
+**Metrics:** `l0.requests`, `l0.tokens`, `l0.retries`, `l0.errors`, `l0.duration`, `l0.time_to_first_token`, `l0.active_streams`
+
+**Span attributes:** Follows [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) with `gen_ai.*` and `l0.*` attributes.
 
 See [MONITORING.md](./MONITORING.md) for complete integration guides.
 

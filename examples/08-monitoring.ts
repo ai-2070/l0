@@ -1,4 +1,4 @@
-// Monitoring Example (Prometheus + Sentry)
+// Monitoring Example (Prometheus + Sentry + OpenTelemetry)
 // Run: OPENAI_API_KEY=sk-... npx tsx examples/08-monitoring.ts
 
 import {
@@ -6,6 +6,8 @@ import {
   recommendedGuardrails,
   createPrometheusCollector,
   sentryInterceptor,
+  L0OpenTelemetry,
+  openTelemetryInterceptor,
 } from "../src/index";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -126,11 +128,104 @@ async function sentryExample() {
   `);
 }
 
+// Example 5: OpenTelemetry integration (requires @opentelemetry/api)
+async function openTelemetryExample() {
+  console.log("\n=== OpenTelemetry Integration ===\n");
+  console.log("(Requires @opentelemetry/api to be installed and configured)\n");
+
+  // Uncomment to use with OpenTelemetry:
+  // import { trace, metrics } from "@opentelemetry/api";
+  //
+  // const otel = new L0OpenTelemetry({
+  //   tracer: trace.getTracer("my-app"),
+  //   meter: metrics.getMeter("my-app"),
+  // });
+  //
+  // // Option 1: Manual tracing with full control
+  // const result = await otel.traceStream("chat-completion", async (span) => {
+  //   const res = await l0({
+  //     stream: () => streamText({ model: openai("gpt-4o-mini"), prompt: "Hello" }),
+  //     monitoring: { enabled: true },
+  //   });
+  //
+  //   for await (const event of res.stream) {
+  //     if (event.type === "token") {
+  //       otel.recordToken(span, event.value);
+  //     }
+  //   }
+  //
+  //   otel.recordTelemetry(res.telemetry!, span);
+  //   return res;
+  // });
+  //
+  // // Option 2: Use the interceptor for automatic tracing
+  // const result = await l0({
+  //   stream: () => streamText({ model: openai("gpt-4o-mini"), prompt: "Hello" }),
+  //   interceptors: [
+  //     openTelemetryInterceptor({
+  //       tracer: trace.getTracer("my-app"),
+  //       meter: metrics.getMeter("my-app"),
+  //     }),
+  //   ],
+  // });
+
+  console.log("Example code (manual tracing):");
+  console.log(`
+  import { trace, metrics } from "@opentelemetry/api";
+  import { l0, L0OpenTelemetry } from "@ai2070/l0";
+
+  const otel = new L0OpenTelemetry({
+    tracer: trace.getTracer("my-app"),
+    meter: metrics.getMeter("my-app"),
+  });
+
+  const result = await otel.traceStream("chat-completion", async (span) => {
+    const res = await l0({
+      stream: () => streamText({ model, prompt }),
+      monitoring: { enabled: true },
+    });
+
+    for await (const event of res.stream) {
+      otel.recordToken(span, event.value);
+    }
+
+    otel.recordTelemetry(res.telemetry, span);
+    return res;
+  });
+  `);
+
+  console.log("Example code (interceptor):");
+  console.log(`
+  import { trace, metrics } from "@opentelemetry/api";
+  import { l0, openTelemetryInterceptor } from "@ai2070/l0";
+
+  const result = await l0({
+    stream: () => streamText({ model, prompt }),
+    interceptors: [
+      openTelemetryInterceptor({
+        tracer: trace.getTracer("my-app"),
+        meter: metrics.getMeter("my-app"),
+      }),
+    ],
+  });
+  `);
+
+  console.log("Metrics exported:");
+  console.log("  - l0.requests (counter)");
+  console.log("  - l0.tokens (counter)");
+  console.log("  - l0.retries (counter)");
+  console.log("  - l0.errors (counter)");
+  console.log("  - l0.duration (histogram)");
+  console.log("  - l0.time_to_first_token (histogram)");
+  console.log("  - l0.active_streams (up-down counter)");
+}
+
 async function main() {
   await basicTelemetry();
   await prometheusMetrics();
   await customMetadata();
   await sentryExample();
+  await openTelemetryExample();
 }
 
 main().catch(console.error);
