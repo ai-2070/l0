@@ -17,6 +17,7 @@ export function createInitialState(): L0State {
     driftDetected: false,
     completed: false,
     networkErrors: [],
+    continuedFromCheckpoint: false,
   };
 }
 

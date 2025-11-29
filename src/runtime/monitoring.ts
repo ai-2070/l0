@@ -217,6 +217,35 @@ export class L0Monitor {
   }
 
   /**
+   * Record continuation from checkpoint
+   */
+  recordContinuation(
+    enabled: boolean,
+    used: boolean,
+    checkpointContent?: string,
+  ): void {
+    if (!this.isEnabled()) return;
+
+    if (!this.telemetry.continuation) {
+      this.telemetry.continuation = {
+        enabled,
+        used: false,
+        continuationCount: 0,
+      };
+    }
+
+    this.telemetry.continuation.enabled = enabled;
+
+    if (used && checkpointContent) {
+      this.telemetry.continuation.used = true;
+      this.telemetry.continuation.checkpointContent = checkpointContent;
+      this.telemetry.continuation.checkpointLength = checkpointContent.length;
+      this.telemetry.continuation.continuationCount =
+        (this.telemetry.continuation.continuationCount || 0) + 1;
+    }
+  }
+
+  /**
    * Log custom event (e.g., fallback, custom interceptor events)
    */
   logEvent(event: Record<string, any>): void {

@@ -135,6 +135,56 @@ export interface L0Options {
   detectZeroTokens?: boolean;
 
   /**
+   * Continue generation from the last known good checkpoint on retry/fallback.
+   *
+   * When enabled, if a stream fails (network error, timeout, guardrail violation),
+   * L0 will prepend the checkpoint content to the prompt for the retry/fallback,
+   * allowing the model to continue from where it left off.
+   *
+   * **Important:** This option is explicitly opt-in because:
+   * - It modifies your prompt by prepending checkpoint content
+   * - It may not work well with all prompt structures
+   * - Structured output (JSON) should NOT use this - use schema validation instead
+   *
+   * @default false
+   *
+   * @example
+   * ```typescript
+   * const result = await l0({
+   *   stream: () => streamText({
+   *     model: openai('gpt-4o'),
+   *     prompt: 'Write a long essay about climate change'
+   *   }),
+   *   continueFromLastKnownGoodToken: true,
+   *   retry: { attempts: 3 }
+   * });
+   * ```
+   */
+  continueFromLastKnownGoodToken?: boolean;
+
+  /**
+   * Custom function to build the continuation prompt.
+   * Only used when continueFromLastKnownGoodToken is true.
+   *
+   * @param checkpoint - The last known good content
+   * @param originalPrompt - The original prompt (if extractable)
+   * @returns The continuation prompt to use
+   *
+   * @default Prepends checkpoint with "Continue from:" prefix
+   *
+   * @example
+   * ```typescript
+   * continueFromLastKnownGoodToken: true,
+   * buildContinuationPrompt: (checkpoint, original) =>
+   *   `${original}\n\nPrevious output (continue from here):\n${checkpoint}`
+   * ```
+   */
+  buildContinuationPrompt?: (
+    checkpoint: string,
+    originalPrompt?: string,
+  ) => string;
+
+  /**
    * Optional callback for each event
    */
   onEvent?: (event: L0Event) => void;
@@ -285,6 +335,16 @@ export interface L0State {
    * Network errors encountered (categorized)
    */
   networkErrors: CategorizedNetworkError[];
+
+  /**
+   * Whether continuation from checkpoint was used
+   */
+  continuedFromCheckpoint: boolean;
+
+  /**
+   * The checkpoint content that was used for continuation (if any)
+   */
+  continuationCheckpoint?: string;
 }
 
 /**
@@ -422,6 +482,36 @@ export interface L0Telemetry {
      * Types of drift detected
      */
     types: string[];
+  };
+
+  /**
+   * Continuation from checkpoint data
+   */
+  continuation?: {
+    /**
+     * Whether continuation from checkpoint was enabled
+     */
+    enabled: boolean;
+
+    /**
+     * Whether continuation was actually used (checkpoint existed and was applied)
+     */
+    used: boolean;
+
+    /**
+     * The checkpoint content that was continued from (if used)
+     */
+    checkpointContent?: string;
+
+    /**
+     * Length of the checkpoint content in characters
+     */
+    checkpointLength?: number;
+
+    /**
+     * Number of times continuation was applied (across retries/fallbacks)
+     */
+    continuationCount?: number;
   };
 
   /**

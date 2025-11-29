@@ -65,6 +65,9 @@ export async function l0(options: L0Options): Promise<L0Result> {
     onEvent: processedOnEvent,
     onViolation: processedOnViolation,
     onRetry: processedOnRetry,
+    continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
+    // buildContinuationPrompt reserved for future use
+    // buildContinuationPrompt: processedBuildContinuationPrompt,
   } = processedOptions;
 
   // Configure check intervals with defaults
@@ -90,6 +93,9 @@ export async function l0(options: L0Options): Promise<L0Result> {
   });
 
   monitor.start();
+
+  // Record continuation setting in monitoring
+  monitor.recordContinuation(processedContinueFromCheckpoint, false);
 
   // Initialize engines
   const guardrailEngine =
@@ -128,6 +134,9 @@ export async function l0(options: L0Options): Promise<L0Result> {
     // Token buffer for O(n) accumulation instead of O(n²) string concatenation
     let tokenBuffer: string[] = [];
 
+    // Track checkpoint for continuation
+    let checkpointForContinuation = "";
+
     // Try primary stream first, then fallbacks if exhausted
     while (fallbackIndex < allStreams.length) {
       const currentStreamFactory = allStreams[fallbackIndex]!;
@@ -140,11 +149,39 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
       while (retryAttempt <= modelRetryLimit) {
         try {
-          // Reset state for retry
+          // Reset state for retry (but preserve checkpoint if continuation enabled)
           if (retryAttempt > 0) {
-            tokenBuffer = [];
-            state.content = "";
-            state.tokenCount = 0;
+            // Check if we should continue from checkpoint
+            if (
+              processedContinueFromCheckpoint &&
+              state.checkpoint.length > 0
+            ) {
+              checkpointForContinuation = state.checkpoint;
+              state.continuedFromCheckpoint = true;
+              state.continuationCheckpoint = checkpointForContinuation;
+
+              // Record continuation in monitoring
+              monitor.recordContinuation(true, true, checkpointForContinuation);
+
+              // Emit the checkpoint content as tokens first
+              // This ensures consumers see the full accumulated content
+              const checkpointEvent: L0Event = {
+                type: "token",
+                value: checkpointForContinuation,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(checkpointEvent);
+              yield checkpointEvent;
+
+              // Initialize token buffer with checkpoint
+              tokenBuffer = [checkpointForContinuation];
+              state.content = checkpointForContinuation;
+              state.tokenCount = 1; // Count checkpoint as one token
+            } else {
+              tokenBuffer = [];
+              state.content = "";
+              state.tokenCount = 0;
+            }
             state.violations = [];
             state.driftDetected = false;
           }
@@ -535,10 +572,33 @@ export async function l0(options: L0Options): Promise<L0Result> {
             processedOnRetry(0, fallbackMessage);
           }
 
-          // Reset state for fallback attempt
-          tokenBuffer = [];
-          state.content = "";
-          state.tokenCount = 0;
+          // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
+          if (processedContinueFromCheckpoint && state.checkpoint.length > 0) {
+            checkpointForContinuation = state.checkpoint;
+            state.continuedFromCheckpoint = true;
+            state.continuationCheckpoint = checkpointForContinuation;
+
+            // Record continuation in monitoring
+            monitor.recordContinuation(true, true, checkpointForContinuation);
+
+            // Emit the checkpoint content as tokens first
+            const checkpointEvent: L0Event = {
+              type: "token",
+              value: checkpointForContinuation,
+              timestamp: Date.now(),
+            };
+            if (processedOnEvent) processedOnEvent(checkpointEvent);
+            yield checkpointEvent;
+
+            // Initialize with checkpoint
+            tokenBuffer = [checkpointForContinuation];
+            state.content = checkpointForContinuation;
+            state.tokenCount = 1;
+          } else {
+            tokenBuffer = [];
+            state.content = "";
+            state.tokenCount = 0;
+          }
           state.violations = [];
           state.driftDetected = false;
           state.retryAttempts = 0;
@@ -612,6 +672,7 @@ function createInitialState(): L0State {
     driftDetected: false,
     completed: false,
     networkErrors: [],
+    continuedFromCheckpoint: false,
   };
 }
 
