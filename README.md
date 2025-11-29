@@ -208,75 +208,6 @@ console.log(result.state.checkpoint); // Last stable checkpoint
 
 ---
 
-## Guardrails
-
-Pure functions that validate streaming output without rewriting it:
-
-```typescript
-import {
-  jsonRule,
-  markdownRule,
-  zeroOutputRule,
-  patternRule,
-  customPatternRule,
-} from "@ai2070/l0";
-
-const result = await l0({
-  stream: () => streamText({ model, prompt }),
-  guardrails: [
-    jsonRule(), // Validates JSON structure
-    markdownRule(), // Validates Markdown fences/tables
-    zeroOutputRule(), // Detects empty output
-    patternRule(), // Detects "As an AI..." patterns
-    customPatternRule([/forbidden/i], "Custom violation"),
-  ],
-});
-```
-
-### Presets
-
-```typescript
-import {
-  minimalGuardrails,
-  recommendedGuardrails,
-  strictGuardrails,
-} from "@ai2070/l0";
-
-// Minimal: JSON + zero output detection
-// Recommended: + Markdown, drift, patterns
-// Strict: + function calls, schema validation
-```
-
----
-
-## Structured Output
-
-Guaranteed valid JSON matching your Zod schema:
-
-```typescript
-import { structured } from "@ai2070/l0";
-import { z } from "zod";
-
-const schema = z.object({
-  name: z.string(),
-  age: z.number(),
-  email: z.string().email(),
-});
-
-const result = await structured({
-  schema,
-  stream: () => streamText({ model, prompt: "Generate user data as JSON" }),
-  autoCorrect: true, // Fix trailing commas, missing braces, etc.
-});
-
-// Type-safe access
-console.log(result.data.name); // string
-console.log(result.data.age); // number
-console.log(result.corrected); // true if auto-corrected
-```
-
----
-
 ## Retry Logic
 
 Smart retry system that distinguishes network errors from model errors:
@@ -314,6 +245,163 @@ const result = await l0({
 | Malformed output     | Yes     | **Yes**             |
 | Drift detected       | Yes     | **Yes**             |
 | Auth error (401/403) | No      | -                   |
+
+---
+
+## Network Protection
+
+Automatic detection and recovery from network failures:
+
+```typescript
+import { isNetworkError, analyzeNetworkError } from "@ai2070/l0";
+
+try {
+  await l0({ stream, retry: recommendedRetry });
+} catch (error) {
+  if (isNetworkError(error)) {
+    const analysis = analyzeNetworkError(error);
+    console.log(analysis.type); // "connection_dropped", "timeout", etc.
+    console.log(analysis.retryable); // true/false
+    console.log(analysis.suggestion); // Recovery suggestion
+  }
+}
+```
+
+Detected error types: connection dropped, fetch errors, ECONNRESET, ECONNREFUSED, SSE aborted, DNS errors, timeouts, mobile background throttle, and more.
+
+---
+
+## Structured Output
+
+Guaranteed valid JSON matching your Zod schema:
+
+```typescript
+import { structured } from "@ai2070/l0";
+import { z } from "zod";
+
+const schema = z.object({
+  name: z.string(),
+  age: z.number(),
+  email: z.string().email(),
+});
+
+const result = await structured({
+  schema,
+  stream: () => streamText({ model, prompt: "Generate user data as JSON" }),
+  autoCorrect: true, // Fix trailing commas, missing braces, etc.
+});
+
+// Type-safe access
+console.log(result.data.name); // string
+console.log(result.data.age); // number
+console.log(result.corrected); // true if auto-corrected
+```
+
+---
+
+## Fallback Models
+
+Sequential fallback when primary model fails:
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
+  fallbackStreams: [
+    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
+  ],
+});
+
+// Check which model succeeded
+console.log(result.state.fallbackIndex); // 0 = primary, 1+ = fallback
+```
+
+---
+
+## Document Windows
+
+Process documents that exceed context limits:
+
+```typescript
+import { createWindow } from "@ai2070/l0";
+
+const window = createWindow(longDocument, {
+  size: 2000, // Tokens per chunk
+  overlap: 200, // Overlap between chunks
+  strategy: "paragraph", // or "token", "sentence", "char"
+});
+
+// Process all chunks
+const results = await window.processAll((chunk) => ({
+  stream: () =>
+    streamText({
+      model,
+      prompt: `Summarize: ${chunk.content}`,
+    }),
+}));
+
+// Or navigate manually
+const first = window.current();
+const next = window.next();
+```
+
+## Formatting Helpers
+
+Utilities for context, memory, output instructions, and tool definitions:
+
+```typescript
+import { formatContext, formatMemory, formatTool, formatJsonOutput } from "@ai2070/l0";
+
+// Wrap documents with XML/Markdown/bracket delimiters
+const context = formatContext(document, { label: "Documentation", delimiter: "xml" });
+
+// Format conversation history (conversational, structured, or compact)
+const memory = formatMemory(messages, { style: "conversational", maxEntries: 10 });
+
+// Define tools with JSON schema, TypeScript, or natural language
+const tool = formatTool({ name: "search", description: "Search", parameters: [...] });
+
+// Request strict JSON output
+const instruction = formatJsonOutput({ strict: true, schema: "..." });
+```
+
+See [FORMATTING.md](./FORMATTING.md) for complete API reference.
+
+---
+
+### Checkpoint Validation
+
+Before using a checkpoint for continuation, L0 validates it:
+
+- **Guardrails**: All configured guardrails are run against the checkpoint content
+- **Drift Detection**: If enabled, checks for format drift in the checkpoint
+- **Fatal Violations**: If any guardrail returns a fatal violation, the checkpoint is discarded and retry starts fresh
+
+### Important Limitations
+
+> ⚠️ **Do NOT use `continueFromLastKnownGoodToken` with structured output or `streamObject()`.**
+>
+> Continuation works by prepending checkpoint content to the next generation. For JSON/structured output, this can corrupt the data structure because:
+> - The model may not properly continue the JSON syntax
+> - Partial objects could result in invalid JSON
+> - Schema validation may fail on malformed output
+>
+> For structured output, let L0 retry from scratch to ensure valid JSON.
+
+```typescript
+// ✅ GOOD - Text generation with continuation
+const result = await l0({
+  stream: () => streamText({ model, prompt: "Write an essay..." }),
+  continueFromLastKnownGoodToken: true,
+});
+
+// ❌ BAD - Do NOT use with structured output
+const result = await structured({
+  schema: mySchema,
+  stream: () => streamText({ model, prompt }),
+  continueFromLastKnownGoodToken: true, // DON'T DO THIS
+});
+```
 
 ---
 
@@ -396,109 +484,45 @@ if (result.telemetry?.continuation?.used) {
 }
 ```
 
-### Checkpoint Validation
+---
 
-Before using a checkpoint for continuation, L0 validates it:
+## Guardrails
 
-- **Guardrails**: All configured guardrails are run against the checkpoint content
-- **Drift Detection**: If enabled, checks for format drift in the checkpoint
-- **Fatal Violations**: If any guardrail returns a fatal violation, the checkpoint is discarded and retry starts fresh
-
-### Important Limitations
-
-> ⚠️ **Do NOT use `continueFromLastKnownGoodToken` with structured output or `streamObject()`.**
->
-> Continuation works by prepending checkpoint content to the next generation. For JSON/structured output, this can corrupt the data structure because:
-> - The model may not properly continue the JSON syntax
-> - Partial objects could result in invalid JSON
-> - Schema validation may fail on malformed output
->
-> For structured output, let L0 retry from scratch to ensure valid JSON.
+Pure functions that validate streaming output without rewriting it:
 
 ```typescript
-// ✅ GOOD - Text generation with continuation
-const result = await l0({
-  stream: () => streamText({ model, prompt: "Write an essay..." }),
-  continueFromLastKnownGoodToken: true,
-});
+import {
+  jsonRule,
+  markdownRule,
+  zeroOutputRule,
+  patternRule,
+  customPatternRule,
+} from "@ai2070/l0";
 
-// ❌ BAD - Do NOT use with structured output
-const result = await structured({
-  schema: mySchema,
+const result = await l0({
   stream: () => streamText({ model, prompt }),
-  continueFromLastKnownGoodToken: true, // DON'T DO THIS
-});
-```
-
----
-
-## Network Protection
-
-Automatic detection and recovery from network failures:
-
-```typescript
-import { isNetworkError, analyzeNetworkError } from "@ai2070/l0";
-
-try {
-  await l0({ stream, retry: recommendedRetry });
-} catch (error) {
-  if (isNetworkError(error)) {
-    const analysis = analyzeNetworkError(error);
-    console.log(analysis.type); // "connection_dropped", "timeout", etc.
-    console.log(analysis.retryable); // true/false
-    console.log(analysis.suggestion); // Recovery suggestion
-  }
-}
-```
-
-Detected error types: connection dropped, fetch errors, ECONNRESET, ECONNREFUSED, SSE aborted, DNS errors, timeouts, mobile background throttle, and more.
-
----
-
-## Document Windows
-
-Process documents that exceed context limits:
-
-```typescript
-import { createWindow } from "@ai2070/l0";
-
-const window = createWindow(longDocument, {
-  size: 2000, // Tokens per chunk
-  overlap: 200, // Overlap between chunks
-  strategy: "paragraph", // or "token", "sentence", "char"
-});
-
-// Process all chunks
-const results = await window.processAll((chunk) => ({
-  stream: () =>
-    streamText({
-      model,
-      prompt: `Summarize: ${chunk.content}`,
-    }),
-}));
-
-// Or navigate manually
-const first = window.current();
-const next = window.next();
-```
-
----
-
-## Fallback Models
-
-Sequential fallback when primary model fails:
-
-```typescript
-const result = await l0({
-  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
-  fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-    () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
+  guardrails: [
+    jsonRule(), // Validates JSON structure
+    markdownRule(), // Validates Markdown fences/tables
+    zeroOutputRule(), // Detects empty output
+    patternRule(), // Detects "As an AI..." patterns
+    customPatternRule([/forbidden/i], "Custom violation"),
   ],
 });
+```
 
-// Check which model succeeded
-console.log(result.state.fallbackIndex); // 0 = primary, 1+ = fallback
+### Presets
+
+```typescript
+import {
+  minimalGuardrails,
+  recommendedGuardrails,
+  strictGuardrails,
+} from "@ai2070/l0";
+
+// Minimal: JSON + zero output detection
+// Recommended: + Markdown, drift, patterns
+// Strict: + function calls, schema validation
 ```
 
 ---
@@ -709,30 +733,6 @@ try {
 ```
 
 Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `ZERO_OUTPUT`, `GUARDRAIL_VIOLATION`, `FATAL_GUARDRAIL_VIOLATION`, `INVALID_STREAM`, `ALL_STREAMS_EXHAUSTED`, `NETWORK_ERROR`, `DRIFT_DETECTED`
-
----
-
-## Formatting Helpers
-
-Utilities for context, memory, output instructions, and tool definitions:
-
-```typescript
-import { formatContext, formatMemory, formatTool, formatJsonOutput } from "@ai2070/l0";
-
-// Wrap documents with XML/Markdown/bracket delimiters
-const context = formatContext(document, { label: "Documentation", delimiter: "xml" });
-
-// Format conversation history (conversational, structured, or compact)
-const memory = formatMemory(messages, { style: "conversational", maxEntries: 10 });
-
-// Define tools with JSON schema, TypeScript, or natural language
-const tool = formatTool({ name: "search", description: "Search", parameters: [...] });
-
-// Request strict JSON output
-const instruction = formatJsonOutput({ strict: true, schema: "..." });
-```
-
-See [FORMATTING.md](./FORMATTING.md) for complete API reference.
 
 ---
 
