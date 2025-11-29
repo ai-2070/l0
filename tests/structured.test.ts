@@ -881,6 +881,9 @@ describe("Structured Output Helpers", () => {
 
       expect(result.abort).toBeTypeOf("function");
       result.abort();
+
+      // Wait for the result promise to reject due to abort
+      await expect(result.result).rejects.toThrow();
     });
   });
 });
