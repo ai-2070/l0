@@ -258,13 +258,17 @@ export class L0OpenTelemetry {
 
   /**
    * Record telemetry from a completed L0 operation
+   *
+   * This is the primary method for recording metrics. All metric counters
+   * are updated here using the aggregated data from L0Monitor to ensure
+   * accurate counting without duplication.
    */
   recordTelemetry(telemetry: L0Telemetry, span?: Span): void {
     const attributes: Attributes = {
       [SemanticAttributes.L0_SESSION_ID]: telemetry.sessionId,
     };
 
-    // Record metrics
+    // Record metrics from aggregated telemetry (single source of truth)
     this.requestCounter?.add(1, { status: "completed" });
 
     if (telemetry.metrics.totalTokens > 0) {
@@ -275,6 +279,49 @@ export class L0OpenTelemetry {
       this.retryCounter?.add(telemetry.metrics.totalRetries, {
         ...attributes,
         type: "total",
+      });
+    }
+
+    // Record network retries separately for granularity
+    if (telemetry.metrics.networkRetries > 0) {
+      this.retryCounter?.add(telemetry.metrics.networkRetries, {
+        ...attributes,
+        type: "network",
+      });
+    }
+
+    // Record model retries separately for granularity
+    if (telemetry.metrics.modelRetries > 0) {
+      this.retryCounter?.add(telemetry.metrics.modelRetries, {
+        ...attributes,
+        type: "model",
+      });
+    }
+
+    // Record network errors
+    if (telemetry.network.errorCount > 0) {
+      this.errorCounter?.add(telemetry.network.errorCount, {
+        ...attributes,
+        type: "network",
+      });
+    }
+
+    // Record guardrail violations
+    if (
+      telemetry.guardrails?.violationCount &&
+      telemetry.guardrails.violationCount > 0
+    ) {
+      this.errorCounter?.add(telemetry.guardrails.violationCount, {
+        ...attributes,
+        type: "guardrail_violation",
+      });
+    }
+
+    // Record drift detection
+    if (telemetry.drift?.detected) {
+      this.errorCounter?.add(1, {
+        ...attributes,
+        type: "drift",
       });
     }
 
@@ -300,6 +347,17 @@ export class L0OpenTelemetry {
           telemetry.network.errorCount,
       });
 
+      if (telemetry.guardrails?.violationCount) {
+        span.setAttribute(
+          SemanticAttributes.L0_GUARDRAIL_VIOLATION_COUNT,
+          telemetry.guardrails.violationCount,
+        );
+      }
+
+      if (telemetry.drift?.detected) {
+        span.setAttribute(SemanticAttributes.L0_DRIFT_DETECTED, true);
+      }
+
       if (telemetry.metrics.timeToFirstToken) {
         span.setAttribute(
           SemanticAttributes.L0_TIME_TO_FIRST_TOKEN,
@@ -321,10 +379,15 @@ export class L0OpenTelemetry {
   }
 
   /**
-   * Record a token event
+   * Record a token event (span event only, metrics come from recordTelemetry)
+   *
+   * Note: This method only adds span events for tracing. Metric counters are
+   * updated via recordTelemetry() using aggregated data from L0Monitor to
+   * avoid double-counting.
    */
   recordToken(span?: Span, content?: string): void {
-    this.tokenCounter?.add(1);
+    // Don't increment tokenCounter here - it's recorded in recordTelemetry()
+    // from the aggregated L0Telemetry to avoid double-counting
 
     if (this.config.traceTokens && span?.isRecording()) {
       const eventAttributes: Attributes = {};
@@ -336,10 +399,15 @@ export class L0OpenTelemetry {
   }
 
   /**
-   * Record a retry attempt
+   * Record a retry attempt (span event only, metrics come from recordTelemetry)
+   *
+   * Note: This method only adds span events for tracing. Metric counters are
+   * updated via recordTelemetry() using aggregated data from L0Monitor to
+   * avoid double-counting.
    */
   recordRetry(reason: string, attempt: number, span?: Span): void {
-    this.retryCounter?.add(1, { reason });
+    // Don't increment retryCounter here - it's recorded in recordTelemetry()
+    // from the aggregated L0Telemetry to avoid double-counting
 
     if (span?.isRecording()) {
       span.addEvent("retry", {
@@ -350,10 +418,15 @@ export class L0OpenTelemetry {
   }
 
   /**
-   * Record a network error
+   * Record a network error (span event only, metrics come from recordTelemetry)
+   *
+   * Note: This method only adds span events for tracing. Metric counters are
+   * updated via recordTelemetry() using aggregated data from L0Monitor to
+   * avoid double-counting.
    */
   recordNetworkError(error: Error, errorType: string, span?: Span): void {
-    this.errorCounter?.add(1, { type: errorType });
+    // Don't increment errorCounter here - network errors are tracked in
+    // L0Telemetry.network.errorCount and recorded via recordTelemetry()
 
     if (span?.isRecording()) {
       span.addEvent("network_error", {
@@ -364,16 +437,17 @@ export class L0OpenTelemetry {
   }
 
   /**
-   * Record a guardrail violation
+   * Record a guardrail violation (span event only, metrics come from recordTelemetry)
+   *
+   * Note: This method only adds span events for tracing. Metric counters are
+   * updated via recordTelemetry() using aggregated data from L0Monitor to
+   * avoid double-counting.
    */
   recordGuardrailViolation(violation: GuardrailViolation, span?: Span): void {
     if (!this.config.recordGuardrailViolations) return;
 
-    this.errorCounter?.add(1, {
-      type: "guardrail_violation",
-      rule: violation.rule,
-      severity: violation.severity,
-    });
+    // Don't increment errorCounter here - violations are tracked in
+    // L0Telemetry.guardrails and recorded via recordTelemetry()
 
     if (span?.isRecording()) {
       span.addEvent("guardrail_violation", {
@@ -385,10 +459,15 @@ export class L0OpenTelemetry {
   }
 
   /**
-   * Record drift detection
+   * Record drift detection (span event only, metrics come from recordTelemetry)
+   *
+   * Note: This method only adds span events for tracing. Metric counters are
+   * updated via recordTelemetry() using aggregated data from L0Monitor to
+   * avoid double-counting.
    */
   recordDrift(driftType: string, confidence: number, span?: Span): void {
-    this.errorCounter?.add(1, { type: "drift", drift_type: driftType });
+    // Don't increment errorCounter here - drift is tracked in
+    // L0Telemetry.drift and recorded via recordTelemetry()
 
     if (span?.isRecording()) {
       span.setAttribute(SemanticAttributes.L0_DRIFT_DETECTED, true);
