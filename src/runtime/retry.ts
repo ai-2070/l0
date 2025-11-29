@@ -354,7 +354,7 @@ export class RetryManager {
       maxHistory !== undefined &&
       this.state.errorHistory.length > maxHistory
     ) {
-      this.state.errorHistory = this.state.errorHistory.slice(-maxHistory);
+      this.state.errorHistory = maxHistory > 0 ? this.state.errorHistory.slice(-maxHistory) : [];
     }
 
     this.state.totalDelay += decision.delay;
