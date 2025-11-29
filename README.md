@@ -776,7 +776,7 @@ Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `
 
 ## Testing
 
-L0 has comprehensive test coverage with both unit and integration tests.
+L0 ships with comprehensive test coverage across all core reliability systems - including streaming, guardrails, structured output, retry logic, fallbacks, pipelines, consensus, observability, and distributed tracing.
 
 ```bash
 # Run unit tests (fast, no API keys needed)
