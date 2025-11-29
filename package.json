@@ -1,9 +1,9 @@
 {
-  "name": "l0",
-  "version": "0.1.0",
-  "description": "The Missing Reliability Layer for AI",
+  "name": "@ai2070/l0",
+  "version": "0.9.0",
+  "description": "AI2070/L0: The Missing Reliability Layer for AI",
   "license": "MIT",
-  "author": "",
+  "author": "LZL0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -89,7 +89,7 @@
     "prettier": "^3.3.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "repository": {
     "type": "git",
