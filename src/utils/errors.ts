@@ -1,6 +1,27 @@
 // Network error detection utilities for L0
 
 /**
+ * Node.js style error with optional code property
+ */
+interface NodeError extends Error {
+  code?: string;
+}
+
+/**
+ * Type guard to check if error has a code property
+ */
+function hasErrorCode(error: Error): error is NodeError {
+  return "code" in error && typeof (error as NodeError).code === "string";
+}
+
+/**
+ * Get error code if present
+ */
+function getErrorCode(error: Error): string | undefined {
+  return hasErrorCode(error) ? error.code : undefined;
+}
+
+/**
  * Network error types that L0 can detect
  */
 export enum NetworkErrorType {
@@ -85,7 +106,7 @@ export function isECONNRESET(error: Error): boolean {
   return (
     message.includes("econnreset") ||
     message.includes("connection reset by peer") ||
-    (error as any).code === "ECONNRESET"
+    getErrorCode(error) === "ECONNRESET"
   );
 }
 
@@ -97,7 +118,7 @@ export function isECONNREFUSED(error: Error): boolean {
   return (
     message.includes("econnrefused") ||
     message.includes("connection refused") ||
-    (error as any).code === "ECONNREFUSED"
+    getErrorCode(error) === "ECONNREFUSED"
   );
 }
 
@@ -191,7 +212,7 @@ export function isDNSError(error: Error): boolean {
     message.includes("name resolution") ||
     message.includes("host not found") ||
     message.includes("getaddrinfo") ||
-    (error as any).code === "ENOTFOUND"
+    getErrorCode(error) === "ENOTFOUND"
   );
 }
 
@@ -223,7 +244,7 @@ export function isTimeoutError(error: Error): boolean {
     message.includes("time out") ||
     message.includes("deadline exceeded") ||
     message.includes("etimedout") ||
-    (error as any).code === "ETIMEDOUT"
+    getErrorCode(error) === "ETIMEDOUT"
   );
 }
 
