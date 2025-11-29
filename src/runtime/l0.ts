@@ -181,8 +181,11 @@ export async function l0(options: L0Options): Promise<L0Result> {
           let firstTokenReceived = false;
           let lastTokenTime = startTime;
 
+          const defaultInitialTokenTimeout = 5000;
+
           // Initial token timeout
-          const initialTimeout = processedTimeout.initialToken ?? 5000;
+          const initialTimeout =
+            processedTimeout.initialToken ?? defaultInitialTokenTimeout;
           let initialTimeoutId: NodeJS.Timeout | null = null;
           let initialTimeoutReached = false;
 
@@ -226,7 +229,10 @@ export async function l0(options: L0Options): Promise<L0Result> {
                 networkRetries: state.networkRetries,
                 fallbackIndex,
                 recoverable: true,
-                metadata: { timeout: processedTimeout.initialToken ?? 5000 },
+                metadata: {
+                  timeout:
+                    processedTimeout.initialToken ?? defaultInitialTokenTimeout,
+                },
               });
             }
 

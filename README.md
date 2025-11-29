@@ -639,7 +639,7 @@ OPENAI_API_KEY=sk-... npm run test:integration
 
 | Category          | Tests | Description                      |
 | ----------------- | ----- | -------------------------------- |
-| Unit Tests        | 1143  | Fast, mocked, no API calls       |
+| Unit Tests        | 1191  | Fast, mocked, no API calls       |
 | Integration Tests | 40+   | Real API calls, all SDK adapters |
 
 ### SDK Adapter Matrix
@@ -661,6 +661,7 @@ OPENAI_API_KEY=sk-... npm run test:integration
 | Network Errors    | ✓    | -           | 12+ error types           |
 | Fallback Models   | ✓    | ✓           | Sequential fallback       |
 | Parallel/Race     | ✓    | ✓           | Concurrency patterns      |
+| Pipeline          | ✓    | -           | Multi-step workflows      |
 | Consensus         | ✓    | ✓           | Voting strategies         |
 | Document Windows  | ✓    | -           | Chunking strategies       |
 | Monitoring        | ✓    | ✓           | Telemetry, Prometheus     |
