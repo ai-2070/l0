@@ -56,6 +56,7 @@ export async function structured<T extends z.ZodTypeAny>(
     timeout,
     signal,
     monitoring,
+    detectZeroTokens,
     onValidationError,
     onAutoCorrect,
     onRetry,
@@ -99,9 +100,9 @@ export async function structured<T extends z.ZodTypeAny>(
     },
     timeout,
     signal: signal || abortController.signal,
-    // Disable zero-token detection for structured output
-    // Short valid JSON (like "[]" or "{}") should not be rejected
-    detectZeroTokens: false,
+    // Default to disabled for structured output since short valid JSON
+    // (like "[]" or "{}") should not be rejected
+    detectZeroTokens: detectZeroTokens ?? false,
     monitoring: {
       enabled: monitoring?.enabled ?? false,
       sampleRate: monitoring?.sampleRate ?? 1.0,

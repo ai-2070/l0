@@ -79,6 +79,12 @@ export interface StructuredOptions<T extends z.ZodTypeAny = z.ZodTypeAny> {
   };
 
   /**
+   * Detect zero-token outputs (likely API issues)
+   * @default true
+   */
+  detectZeroTokens?: boolean;
+
+  /**
    * Optional callback for validation errors (before retry)
    */
   onValidationError?: (error: z.ZodError, attempt: number) => void;
