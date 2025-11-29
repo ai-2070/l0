@@ -314,7 +314,7 @@ describe("parallel()", () => {
       const operations = [createMockL0Options(1)];
       const sharedRetry = {
         maxRetries: 3,
-        initialDelay: 100,
+        baseDelay: 100,
         maxDelay: 1000,
       };
 
@@ -338,14 +338,14 @@ describe("parallel()", () => {
     it("should prefer operation-specific config over shared config", async () => {
       const operationWithRetry: L0Options = {
         ...createMockL0Options(1),
-        retry: { maxRetries: 5, initialDelay: 50, maxDelay: 500 },
+        retry: { maxRetries: 5, baseDelay: 50, maxDelay: 500 },
       };
       const operationWithoutRetry = createMockL0Options(2);
 
       const result = await parallel(
         [operationWithRetry, operationWithoutRetry],
         {
-          sharedRetry: { maxRetries: 1, initialDelay: 10, maxDelay: 100 },
+          sharedRetry: { maxRetries: 1, baseDelay: 10, maxDelay: 100 },
         },
       );
 
@@ -700,7 +700,7 @@ describe("race()", () => {
     const operations = [createMockL0Options(1), createMockL0Options(2)];
 
     const result = await race(operations, {
-      sharedRetry: { maxRetries: 2, initialDelay: 10, maxDelay: 100 },
+      sharedRetry: { maxRetries: 2, baseDelay: 10, maxDelay: 100 },
     });
 
     expect(result).toBeDefined();
@@ -729,7 +729,7 @@ describe("OperationPool", () => {
 
     it("should create pool with options", () => {
       const pool = createPool(3, {
-        sharedRetry: { maxRetries: 2, initialDelay: 100, maxDelay: 1000 },
+        sharedRetry: { maxRetries: 2, baseDelay: 100, maxDelay: 1000 },
       });
 
       expect(pool).toBeInstanceOf(OperationPool);
@@ -794,9 +794,9 @@ describe("OperationPool", () => {
     it("should reject on error", async () => {
       const pool = createPool(5);
 
-      await expect(pool.execute(createMockL0Options(1, 0, true))).rejects.toThrow(
-        "Operation 1 failed",
-      );
+      await expect(
+        pool.execute(createMockL0Options(1, 0, true)),
+      ).rejects.toThrow("Operation 1 failed");
     });
   });
 
@@ -865,7 +865,7 @@ describe("OperationPool", () => {
   describe("Shared Options", () => {
     it("should apply shared retry config", async () => {
       const pool = createPool(5, {
-        sharedRetry: { maxRetries: 3, initialDelay: 10, maxDelay: 100 },
+        sharedRetry: { maxRetries: 3, baseDelay: 10, maxDelay: 100 },
       });
 
       const result = await pool.execute(createMockL0Options(1));
@@ -885,12 +885,12 @@ describe("OperationPool", () => {
 
     it("should prefer operation-specific config", async () => {
       const pool = createPool(5, {
-        sharedRetry: { maxRetries: 1, initialDelay: 10, maxDelay: 100 },
+        sharedRetry: { maxRetries: 1, baseDelay: 10, maxDelay: 100 },
       });
 
       const opWithRetry: L0Options = {
         ...createMockL0Options(1),
-        retry: { maxRetries: 5, initialDelay: 50, maxDelay: 500 },
+        retry: { maxRetries: 5, baseDelay: 50, maxDelay: 500 },
       };
 
       const result = await pool.execute(opWithRetry);
