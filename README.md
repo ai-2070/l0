@@ -286,10 +286,17 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
     attempts: 2, // Model errors only
+    maxRetries: 10, // Absolute cap across all error types
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential", // or "linear", "fixed", "full-jitter"
-    retryOn: ["zero_output", "guardrail_violation", "drift"],
+    retryOn: ["zero_output", "guardrail_violation", "drift", "network_error", "timeout", "rate_limit"],
+    // Custom delays per error type (overrides baseDelay)
+    errorTypeDelays: {
+      connectionDropped: 2000,
+      timeout: 1500,
+      dnsError: 5000,
+    },
   },
 });
 ```

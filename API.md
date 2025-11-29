@@ -325,7 +325,7 @@ import {
 import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 // RETRY_DEFAULTS
-// { attemps: 2, baseDelay: 1000, maxDelay: 10000, ... }
+// { maxAttempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
 
 // ERROR_TYPE_DELAY_DEFAULTS
 // { connectionDropped: 1000, fetchError: 500, timeout: 1000, ... }
@@ -351,6 +351,36 @@ const result = await l0({
     },
   },
 });
+```
+
+### Error Type Delays
+
+Custom delays for specific network error types. Overrides `baseDelay` for fine-grained control.
+
+```typescript
+errorTypeDelays: {
+  // Connection errors
+  connectionDropped: 2000,  // Connection dropped mid-stream
+  econnreset: 1500,         // Connection reset by peer
+  econnrefused: 3000,       // Connection refused
+  
+  // Fetch/network errors
+  fetchError: 500,          // Generic fetch failure
+  dnsError: 5000,           // DNS resolution failed
+  timeout: 1500,            // Request timeout
+  
+  // Streaming errors
+  sseAborted: 1000,         // Server-sent events aborted
+  noBytes: 500,             // No bytes received
+  partialChunks: 1000,      // Incomplete chunks received
+  
+  // Runtime errors
+  runtimeKilled: 5000,      // Runtime process killed
+  backgroundThrottle: 2000, // Background tab throttling
+  
+  // Fallback
+  unknown: 1000,            // Unknown error type
+}
 ```
 
 ### RetryManager
@@ -864,28 +894,21 @@ const obj = await extractMastraObject<UserData>(stream);
 
 ### L0Options
 
+Configuration for the main `l0()` wrapper function.
+
 ```typescript
 interface L0Options {
   // Required: Stream factory function
-  stream: () => Promise<StreamTextResult>;
+  stream: () => Promise<StreamTextResult> | StreamTextResult;
   
   // Optional fallback streams (tried in order if primary fails)
-  fallbackStreams?: Array<() => Promise<StreamTextResult>>;
+  fallbackStreams?: Array<() => Promise<StreamTextResult> | StreamTextResult>;
   
   // Guardrail rules to apply during streaming
   guardrails?: GuardrailRule[];
   
   // Retry configuration
-  retry?: {
-    attempts?: number;        // Max retry attempts (default: 2)
-    maxRetries?: number;      // Absolute cap on all retries
-    baseDelay?: number;       // Base delay in ms (default: 1000)
-    maxDelay?: number;        // Max delay in ms (default: 10000)
-    backoff?: "exponential" | "linear" | "fixed" | "full-jitter";
-    retryOn?: Array<"zero_output" | "guardrail_violation" | "drift" | 
-                    "malformed" | "incomplete" | "network_error" | 
-                    "timeout" | "rate_limit">;
-  };
+  retry?: RetryOptions;
   
   // Timeout configuration (in milliseconds)
   timeout?: {
@@ -905,11 +928,11 @@ interface L0Options {
   
   // Built-in monitoring configuration
   monitoring?: {
-    enabled?: boolean;
-    sampleRate?: number;
-    includeNetworkDetails?: boolean;
-    includeTimings?: boolean;
-    metadata?: Record<string, any>;
+    enabled?: boolean;        // Enable telemetry collection (default: false)
+    sampleRate?: number;      // Sample rate 0-1 (default: 1.0)
+    includeNetworkDetails?: boolean;  // Include detailed network error info
+    includeTimings?: boolean; // Include timing metrics
+    metadata?: Record<string, any>;   // Custom metadata to attach
   };
   
   // Enable drift detection (default: false)
@@ -922,8 +945,11 @@ interface L0Options {
   // WARNING: Do not use with structured output/streamObject
   continueFromLastKnownGoodToken?: boolean;
   
-  // Interceptors for custom hooks
-  interceptors?: Interceptor[];
+  // Custom function to build continuation prompt (used with continueFromLastKnownGoodToken)
+  buildContinuationPrompt?: (checkpoint: string) => string;
+  
+  // Interceptors for preprocessing/postprocessing
+  interceptors?: L0Interceptor[];
   
   // Event callbacks
   onEvent?: (event: L0Event) => void;
@@ -932,24 +958,88 @@ interface L0Options {
 }
 ```
 
+### L0Result
+
+Result returned from `l0()` execution.
+
+```typescript
+interface L0Result {
+  // Async iterator for streaming events
+  stream: AsyncIterable<L0Event>;
+  
+  // Full accumulated text (available after stream completes)
+  text?: string;
+  
+  // State and metadata from the execution
+  state: L0State;
+  
+  // Any errors that occurred
+  errors: Error[];
+  
+  // Telemetry data (if monitoring enabled)
+  telemetry?: L0Telemetry;
+  
+  // Abort controller for canceling the stream
+  abort: () => void;
+}
+```
+
 ### L0State
+
+Internal state tracking for L0 runtime.
 
 ```typescript
 interface L0State {
+  // Current accumulated output
   content: string;
+  
+  // Last known good checkpoint
   checkpoint: string;
+  
+  // Total tokens received
   tokenCount: number;
-  completed: boolean;
+  
+  // Retry attempts made (only counts model failures)
   retryAttempts: number;
+  
+  // Network retry attempts (doesn't count toward limit)
   networkRetries: number;
+  
+  // Index of current fallback stream (0 = primary, 1+ = fallback)
   fallbackIndex: number;
+  
+  // Guardrail violations encountered
   violations: GuardrailViolation[];
+  
+  // Whether drift was detected
+  driftDetected: boolean;
+  
+  // Whether stream completed successfully
+  completed: boolean;
+  
+  // Timestamp of first token
   firstTokenAt?: number;
+  
+  // Timestamp of last token
   lastTokenAt?: number;
+  
+  // Total duration in milliseconds
+  duration?: number;
+  
+  // Network errors encountered (categorized)
+  networkErrors: CategorizedNetworkError[];
+  
+  // Whether continuation from checkpoint was used
+  continuedFromCheckpoint: boolean;
+  
+  // The checkpoint content used for continuation (if any)
+  continuationCheckpoint?: string;
 }
 ```
 
 ### L0Event
+
+Unified event format that L0 normalizes all streaming events into.
 
 ```typescript
 interface L0Event {
@@ -957,6 +1047,182 @@ interface L0Event {
   value?: string;
   role?: string;
   error?: Error;
+  timestamp?: number;
+}
+```
+
+### L0Telemetry
+
+Telemetry data collected during L0 execution.
+
+```typescript
+interface L0Telemetry {
+  sessionId: string;
+  startTime: number;
+  endTime?: number;
+  duration?: number;
+  
+  metrics: {
+    timeToFirstToken?: number;
+    avgInterTokenTime?: number;
+    tokensPerSecond?: number;
+    totalTokens: number;
+    totalRetries: number;
+    networkRetries: number;
+    modelRetries: number;
+  };
+  
+  network: {
+    errorCount: number;
+    errorsByType: Record<string, number>;
+    errors?: Array<{
+      type: string;
+      message: string;
+      timestamp: number;
+      retried: boolean;
+      delay?: number;
+    }>;
+  };
+  
+  guardrails?: {
+    violationCount: number;
+    violationsByRule: Record<string, number>;
+    violationsByRuleAndSeverity: Record<string, {
+      warning: number;
+      error: number;
+      fatal: number;
+    }>;
+    violationsBySeverity: {
+      warning: number;
+      error: number;
+      fatal: number;
+    };
+  };
+  
+  drift?: {
+    detected: boolean;
+    types: string[];
+  };
+  
+  continuation?: {
+    enabled: boolean;
+    used: boolean;
+    checkpointContent?: string;
+    checkpointLength?: number;
+    continuationCount?: number;
+  };
+  
+  metadata?: Record<string, any>;
+}
+```
+
+### L0Interceptor
+
+Interceptor for preprocessing and postprocessing L0 execution.
+
+```typescript
+interface L0Interceptor {
+  // Optional name for the interceptor
+  name?: string;
+  
+  // Before hook - runs before stream starts
+  // Can modify options, inject metadata, add authentication, etc.
+  before?: (options: L0Options) => L0Options | Promise<L0Options>;
+  
+  // After hook - runs after stream completes
+  // Can inspect output, post-process content, log results, etc.
+  after?: (result: L0Result) => L0Result | Promise<L0Result>;
+  
+  // Error hook - runs if an error occurs
+  onError?: (error: Error, options: L0Options) => void | Promise<void>;
+}
+```
+
+### RetryOptions
+
+Retry configuration options.
+
+```typescript
+interface RetryOptions {
+  // Max retry attempts for model failures (default: 2)
+  // Network and transient errors do not count toward this limit
+  attempts?: number;
+  
+  // Absolute maximum retries across ALL error types (default: unlimited)
+  // Hard cap including network errors, transient errors, and model errors
+  maxRetries?: number;
+  
+  // Backoff strategy
+  backoff?: "exponential" | "linear" | "fixed" | "full-jitter";
+  
+  // Base delay in milliseconds (default: 1000)
+  baseDelay?: number;
+  
+  // Maximum delay cap in milliseconds (default: 10000)
+  maxDelay?: number;
+  
+  // What types of errors to retry on
+  retryOn?: Array<
+    | "zero_output"
+    | "guardrail_violation"
+    | "drift"
+    | "malformed"
+    | "incomplete"
+    | "network_error"
+    | "timeout"
+    | "rate_limit"
+  >;
+  
+  // Custom delays for specific network error types
+  errorTypeDelays?: {
+    connectionDropped?: number;
+    fetchError?: number;
+    econnreset?: number;
+    econnrefused?: number;
+    sseAborted?: number;
+    noBytes?: number;
+    partialChunks?: number;
+    runtimeKilled?: number;
+    backgroundThrottle?: number;
+    dnsError?: number;
+    timeout?: number;
+    unknown?: number;
+  };
+}
+```
+
+### CategorizedNetworkError
+
+Categorized network error for telemetry.
+
+```typescript
+interface CategorizedNetworkError {
+  type: string;
+  message: string;
+  timestamp: number;
+  retried: boolean;
+  delay?: number;
+  attempt?: number;
+}
+```
+
+### CheckpointValidationResult
+
+Result of checkpoint validation for continuation.
+
+```typescript
+interface CheckpointValidationResult {
+  // Whether to skip continuation and start fresh
+  skipContinuation: boolean;
+  
+  // Guardrail violations found in checkpoint
+  violations: GuardrailViolation[];
+  
+  // Whether drift was detected
+  driftDetected: boolean;
+  
+  // Drift types if detected
+  driftTypes: string[];
 }
 ```
 
@@ -973,18 +1239,29 @@ interface GuardrailRule {
 }
 ```
 
-### RetryConfig
+### GuardrailContext
+
+Context passed to guardrail check functions.
 
 ```typescript
-interface RetryConfig {
-  maxAttempts: number;
-  maxRetries?: number;
-  baseDelay: number;
-  maxDelay?: number;
-  backoff: "exponential" | "linear" | "fixed" | "full-jitter";
-  retryOn: RetryReason[];
-  errorTypeDelays?: ErrorTypeDelays;
-  maxErrorHistory?: number;
+interface GuardrailContext {
+  content: string;      // Current accumulated content
+  checkpoint: string;   // Last checkpoint content
+  delta: string;        // New content since last check
+  tokenCount: number;   // Total tokens received
+  completed: boolean;   // Whether stream is complete
+}
+```
+
+### GuardrailViolation
+
+```typescript
+interface GuardrailViolation {
+  rule: string;
+  message: string;
+  severity: "warning" | "error" | "fatal";
+  recoverable: boolean;
+  context?: Record<string, any>;
 }
 ```
 
@@ -1000,6 +1277,18 @@ interface ConsensusResult<T> {
   analysis: ConsensusAnalysis;
   status: "success" | "partial" | "failed";
 }
+```
+
+### ErrorCategory
+
+Error classification for retry logic.
+
+```typescript
+type ErrorCategory =
+  | "network"    // Network failures - retry forever with backoff
+  | "transient"  // 429, 503, timeouts - retry forever with backoff
+  | "model"      // Model failures - count toward retry limit
+  | "fatal";     // Don't retry
 ```
 
 ---
