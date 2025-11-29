@@ -341,6 +341,61 @@ Suffix`;
       const result = extractJSON(text);
       expect(result).toBe('{"result": true}');
     });
+
+    // Tests for ignoring braces inside quoted prose before actual JSON
+    it("should ignore braces inside quoted strings in prose before JSON", () => {
+      const text =
+        'The user said "use {} for objects" and here is the data: {"name": "Alice"}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"name": "Alice"}');
+      expect(JSON.parse(result)).toEqual({ name: "Alice" });
+    });
+
+    it("should ignore brackets inside quoted strings in prose before JSON array", () => {
+      const text =
+        'Remember that "arrays use []" notation. Here is the list: [1, 2, 3]';
+      const result = extractJSON(text);
+      expect(result).toBe("[1, 2, 3]");
+      expect(JSON.parse(result)).toEqual([1, 2, 3]);
+    });
+
+    it("should handle multiple quoted braces in prose before JSON", () => {
+      const text =
+        'First "{}", then "[]", and finally "{nested: true}" - actual JSON: {"valid": true}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"valid": true}');
+    });
+
+    it("should handle escaped quotes within prose strings", () => {
+      const text =
+        'He said "the format is \\"{key: value}\\"" and the data is: {"result": 42}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"result": 42}');
+    });
+
+    it("should handle prose with explanations mentioning JSON syntax before actual JSON", () => {
+      // Note: bare {} in prose WILL be detected as JSON (it's valid JSON for empty object)
+      // This test shows the expected behavior when braces are inside quotes
+      const text = `In JavaScript, objects use "{}" braces and "[]" brackets.
+For example, an empty object looks like "{}".
+Here is your requested data:
+{"users": [{"id": 1, "name": "Bob"}]}`;
+      const result = extractJSON(text);
+      expect(result).toBe('{"users": [{"id": 1, "name": "Bob"}]}');
+      expect(JSON.parse(result)).toEqual({ users: [{ id: 1, name: "Bob" }] });
+    });
+
+    it("should correctly find JSON when prose contains unbalanced braces in quotes", () => {
+      const text = 'The pattern "{{" is invalid, use: {"key": "value"}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"key": "value"}');
+    });
+
+    it("should return original text when only braces inside quotes exist", () => {
+      const text = 'Just some text with "{}" in quotes and nothing else';
+      const result = extractJSON(text);
+      expect(result).toBe(text);
+    });
   });
 });
 

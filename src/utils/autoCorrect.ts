@@ -241,43 +241,66 @@ function fixQuotesAndEscapes(text: string): {
 }
 
 /**
+ * Find the first JSON delimiter ({ or [) that is NOT inside a quoted string
+ *
+ * @param text - Text to search
+ * @returns Object with startIndex, openChar, closeChar or null if not found
+ */
+function findFirstJSONDelimiter(
+  text: string,
+): { startIndex: number; openChar: string; closeChar: string } | null {
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    // Only consider delimiters outside of strings
+    if (!inString) {
+      if (char === "{") {
+        return { startIndex: i, openChar: "{", closeChar: "}" };
+      }
+      if (char === "[") {
+        return { startIndex: i, openChar: "[", closeChar: "]" };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Attempt to extract JSON from text that may contain other content
  * Uses balanced brace matching to find the first complete JSON object or array
+ * Correctly ignores braces that appear inside quoted strings in surrounding prose
  *
  * @param text - Text that may contain JSON
  * @returns Extracted JSON string or original text
  */
 export function extractJSON(text: string): string {
-  // Find the first { or [
-  const objectStart = text.indexOf("{");
-  const arrayStart = text.indexOf("[");
+  // Find the first { or [ that is NOT inside a quoted string
+  const delimiter = findFirstJSONDelimiter(text);
 
-  let startIndex: number;
-  let openChar: string;
-  let closeChar: string;
-
-  if (objectStart === -1 && arrayStart === -1) {
+  if (!delimiter) {
     return text;
-  } else if (objectStart === -1) {
-    startIndex = arrayStart;
-    openChar = "[";
-    closeChar = "]";
-  } else if (arrayStart === -1) {
-    startIndex = objectStart;
-    openChar = "{";
-    closeChar = "}";
-  } else {
-    // Both exist, use whichever comes first
-    if (objectStart < arrayStart) {
-      startIndex = objectStart;
-      openChar = "{";
-      closeChar = "}";
-    } else {
-      startIndex = arrayStart;
-      openChar = "[";
-      closeChar = "]";
-    }
   }
+
+  const { startIndex, openChar, closeChar } = delimiter;
 
   // Use balanced brace matching to find the end
   let depth = 0;
