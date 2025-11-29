@@ -790,8 +790,8 @@ OPENAI_API_KEY=sk-... npm run test:integration
 
 | Category          | Tests | Description                      |
 | ----------------- | ----- | -------------------------------- |
-| Unit Tests        | 1200+ | Fast, mocked, no API calls       |
-| Integration Tests | 40+   | Real API calls, all SDK adapters |
+| Unit Tests        | 1231  | Fast, mocked, no API calls       |
+| Integration Tests | 194   | Real API calls, all SDK adapters |
 
 ### SDK Adapter Matrix
 
@@ -803,21 +803,24 @@ OPENAI_API_KEY=sk-... npm run test:integration
 
 ### Feature Test Matrix
 
-| Feature           | Unit | Integration | Notes                     |
-| ----------------- | ---- | ----------- | ------------------------- |
-| Streaming         | ✓    | ✓           | Token events, completion  |
-| Guardrails        | ✓    | ✓           | All rules, presets        |
-| Structured Output | ✓    | ✓           | Zod schemas, auto-correct |
-| Retry Logic       | ✓    | ✓           | Backoff strategies        |
-| Network Errors    | ✓    | -           | 12+ error types           |
-| Fallback Models   | ✓    | ✓           | Sequential fallback       |
-| Parallel/Race     | ✓    | ✓           | Concurrency patterns      |
-| Pipeline          | ✓    | -           | Multi-step workflows      |
-| Consensus         | ✓    | ✓           | Voting strategies         |
-| Document Windows  | ✓    | -           | Chunking strategies       |
-| Monitoring        | ✓    | ✓           | Telemetry, Prometheus     |
-| Interceptors      | ✓    | -           | All built-in interceptors |
-| Drift Detection   | ✓    | -           | Pattern detection         |
+| Feature           | Unit | Integration | Notes                           |
+| ----------------- | ---- | ----------- | ------------------------------- |
+| Streaming         | ✓    | ✓           | Token events, completion        |
+| Guardrails        | ✓    | ✓           | All rules, presets              |
+| Structured Output | ✓    | ✓           | Zod schemas, auto-correct       |
+| Retry Logic       | ✓    | ✓           | Backoff strategies              |
+| Network Errors    | ✓    | -           | 12+ error types                 |
+| Fallback Models   | ✓    | ✓           | Sequential fallback             |
+| Parallel/Race     | ✓    | ✓           | Concurrency patterns            |
+| Pipeline          | ✓    | -           | Multi-step workflows            |
+| Consensus         | ✓    | ✓           | Voting strategies               |
+| Document Windows  | ✓    | ✓           | Chunking strategies             |
+| Continuation      | ✓    | ✓           | Last-known-good token resumption|
+| Monitoring        | ✓    | ✓           | Telemetry, Prometheus           |
+| Sentry            | ✓    | ✓           | Error tracking, breadcrumbs     |
+| OpenTelemetry     | ✓    | ✓           | Distributed tracing, GenAI      |
+| Interceptors      | ✓    | -           | All built-in interceptors       |
+| Drift Detection   | ✓    | -           | Pattern detection               |
 
 ---
 
