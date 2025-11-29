@@ -170,12 +170,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
     maxDelay: processedRetry.maxDelay ?? 10000,
     backoff: processedRetry.backoff ?? "exponential",
     retryOn: processedRetry.retryOn ?? [
-      "zero_output",
-      "guardrail_violation",
-      "drift",
-      "network_error",
-      "timeout",
-      "rate_limit",
+      "zero_output", "guardrail_violation", "drift", "malformed", "incomplete", "network_error", "timeout", "rate_limit", "server_error",
     ],
   });
 

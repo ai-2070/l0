@@ -1,6 +1,9 @@
 // Integration Test Setup
 // These tests require real API keys and make actual API calls
 
+import { config } from "dotenv";
+config(); // Load .env file
+
 import { describe, it, expect, beforeAll } from "vitest";
 
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;

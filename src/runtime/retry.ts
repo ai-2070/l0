@@ -191,6 +191,7 @@ export class RetryManager {
     if (classification.isTimeout) return "timeout";
     if (classification.isRateLimit) return "rate_limit";
     if (classification.isServerError) return "server_error";
+    // Unclassified errors default to malformed (bad/invalid response)
     return "malformed";
   }
 

@@ -136,23 +136,25 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
       "should handle markdown-wrapped JSON",
       async () => {
         const schema = z.object({
-          value: z.string(),
+          name: z.string(),
+          value: z.number(),
         });
 
-        // Ask for markdown-wrapped response
+        // Ask for JSON that might come wrapped in markdown code blocks
         const result = await structured({
           schema,
           stream: () =>
             streamText({
               model: openai("gpt-5-nano"),
               prompt:
-                'Return this exact text including the backticks: ```json\n{"value": "test"}\n```',
+                'Return a JSON object with "name" (string) and "value" (number) fields. Format it as a code block.',
             }),
           autoCorrect: true,
         });
 
-        // Should still parse correctly
-        expect(result.data.value).toBeDefined();
+        // Should still parse correctly even if wrapped in markdown
+        expect(result.data.name).toBeDefined();
+        expect(typeof result.data.value).toBe("number");
       },
       LLM_TIMEOUT,
     );

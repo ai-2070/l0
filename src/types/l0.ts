@@ -600,7 +600,8 @@ export interface RetryOptions {
   maxDelay?: number;
 
   /**
-   * What types of errors to retry on
+   * What types of errors to retry on.
+   * Default: all error types (zero_output, guardrail_violation, drift, malformed, incomplete, network_error, timeout, rate_limit, server_error)
    */
   retryOn?: Array<
     | "zero_output"
@@ -611,6 +612,7 @@ export interface RetryOptions {
     | "network_error"
     | "timeout"
     | "rate_limit"
+    | "server_error"
   >;
 
   /**
@@ -670,7 +672,9 @@ export const recommendedRetry: RetryOptions = {
   backoff: "exponential",
   baseDelay: 1000,
   maxDelay: 10000,
-  retryOn: ["zero_output", "guardrail_violation", "drift"],
+  retryOn: [
+      "zero_output", "guardrail_violation", "drift", "malformed", "incomplete", "network_error", "timeout", "rate_limit", "server_error",
+    ],
 };
 
 export const strictRetry: RetryOptions = {
@@ -678,5 +682,7 @@ export const strictRetry: RetryOptions = {
   backoff: "full-jitter",
   baseDelay: 1000,
   maxDelay: 10000,
-  retryOn: ["zero_output", "drift", "malformed", "incomplete"],
+  retryOn: [
+      "zero_output", "guardrail_violation", "drift", "malformed", "incomplete", "network_error", "timeout", "rate_limit", "server_error",
+    ],
 };

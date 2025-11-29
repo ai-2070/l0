@@ -129,8 +129,7 @@ export type RetryReason =
   | "network_error"
   | "timeout"
   | "rate_limit"
-  | "server_error"
-  | "pattern_violation";
+  | "server_error";
 
 /**
  * Centralized retry configuration defaults
@@ -152,9 +151,12 @@ export const RETRY_DEFAULTS = {
     "zero_output",
     "guardrail_violation",
     "drift",
+    "malformed",
+    "incomplete",
     "network_error",
     "timeout",
     "rate_limit",
+    "server_error",
   ] as RetryReason[],
 } as const;
 

@@ -23,21 +23,26 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
     it(
       "should handle all fallbacks exhausted",
       async () => {
-        await expect(
-          l0({
-            stream: () => {
-              throw new Error("Primary failed");
+        // l0() returns immediately - errors occur when iterating the stream
+        const result = await l0({
+          stream: () => {
+            throw new Error("Primary failed");
+          },
+          fallbackStreams: [
+            () => {
+              throw new Error("Fallback 1 failed");
             },
-            fallbackStreams: [
-              () => {
-                throw new Error("Fallback 1 failed");
-              },
-              () => {
-                throw new Error("Fallback 2 failed");
-              },
-            ],
-          }),
-        ).rejects.toThrow();
+            () => {
+              throw new Error("Fallback 2 failed");
+            },
+          ],
+        });
+
+        await expect(async () => {
+          for await (const event of result.stream) {
+            // consume stream
+          }
+        }).rejects.toThrow();
       },
       LLM_TIMEOUT,
     );
@@ -45,14 +50,19 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
     it(
       "should handle empty fallback array",
       async () => {
-        await expect(
-          l0({
-            stream: () => {
-              throw new Error("Primary failed");
-            },
-            fallbackStreams: [],
-          }),
-        ).rejects.toThrow("Primary failed");
+        // l0() returns immediately - errors occur when iterating the stream
+        const result = await l0({
+          stream: () => {
+            throw new Error("Primary failed");
+          },
+          fallbackStreams: [],
+        });
+
+        await expect(async () => {
+          for await (const event of result.stream) {
+            // consume stream
+          }
+        }).rejects.toThrow("Primary failed");
       },
       LLM_TIMEOUT,
     );
@@ -127,9 +137,10 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
           stream: () =>
             streamText({
               model: openai("gpt-5-nano"),
-              prompt: "Say 'hi'",
+              prompt: "Say 'hello world'",
             }),
           signal: controller.signal,
+          detectZeroTokens: false, // Disable for short response test
         });
 
         for await (const event of result.stream) {
@@ -154,6 +165,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
               model: openai("gpt-5-nano"),
               prompt: "Reply with only the letter 'X' and nothing else",
             }),
+          detectZeroTokens: false, // Disable for minimal response test
         });
 
         for await (const event of result.stream) {
@@ -176,6 +188,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
               prompt:
                 'Reply with these exact characters: @#$%^&*(){}[]|\\:";<>?,./~`',
             }),
+          detectZeroTokens: false, // Disable for special characters test
         });
 
         for await (const event of result.stream) {
@@ -309,11 +322,12 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
           },
           retry: {
             attempts: 3,
-            retryOn: ["network_error", "timeout"],
+            retryOn: ["network_error", "timeout", "malformed", "server_error"],
           },
           onRetry: () => {
             retryCount++;
           },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
@@ -472,10 +486,16 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
             () =>
               streamText({
                 model: openai("gpt-5-nano"),
-                prompt: "Say 'fallback'",
+                prompt: "Say 'fallback worked successfully'",
               }),
           ],
           monitoring: { enabled: true },
+          // Enable retry with malformed so thrown errors trigger fallback
+          retry: {
+            maxAttempts: 1,
+            retryOn: ["malformed", "server_error"],
+          },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {

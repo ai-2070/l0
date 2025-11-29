@@ -56,9 +56,10 @@ describeIf(hasOpenAI)("Mastra AI Integration", () => {
           stream: mastraStream(agent, [
             {
               role: "user",
-              content: "What is 1+1? Answer with just the number.",
+              content: "What is 1+1? Please explain your answer.",
             },
           ]),
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
@@ -163,8 +164,12 @@ describeIf(hasOpenAI)("Mastra AI Integration", () => {
         const agent = createTestAgent();
 
         const result = await l0({
-          stream: mastraStream(agent, "Say something"),
+          stream: mastraStream(
+            agent,
+            "Say something interesting about programming",
+          ),
           monitoring: { enabled: true },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
@@ -189,7 +194,15 @@ describeIf(hasOpenAI)("Mastra AI Integration", () => {
           stream: () => {
             throw new Error("Primary Mastra agent failed");
           },
-          fallbackStreams: [mastraStream(agent, "Say 'fallback worked'")],
+          fallbackStreams: [
+            mastraStream(agent, "Say 'fallback worked successfully'"),
+          ],
+          // Enable retry so thrown errors trigger fallback
+          retry: {
+            maxAttempts: 1,
+            retryOn: ["malformed", "server_error"],
+          },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {

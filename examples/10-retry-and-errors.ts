@@ -27,7 +27,19 @@ async function basicRetry() {
       baseDelay: 1000,
       maxDelay: 10000,
       backoff: "exponential",
-      retryOn: ["zero_output", "guardrail_violation", "network_error"],
+
+      // Optional: specify which error types to retry on, defaults to all recoverable errors
+      retryOn: [
+        "zero_output",
+        "guardrail_violation",
+        "drift",
+        "malformed",
+        "incomplete",
+        "network_error",
+        "timeout",
+        "rate_limit",
+        "server_error",
+      ],
     },
     onRetry: (attempt, reason) => {
       console.log(`Retry attempt ${attempt}: ${reason}`);

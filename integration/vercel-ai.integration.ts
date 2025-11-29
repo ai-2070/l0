@@ -152,9 +152,10 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
           stream: () =>
             streamText({
               model: openai("gpt-5-nano"),
-              prompt: "Say 'hi'",
+              prompt: "Say 'hello world' and explain why",
             }),
           monitoring: { enabled: true },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {

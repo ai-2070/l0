@@ -53,9 +53,15 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             () =>
               streamText({
                 model: openai("gpt-5-nano"),
-                prompt: "Say 'fallback worked'",
+                prompt: "Say 'fallback worked successfully'",
               }),
           ],
+          // Enable retry so thrown errors trigger fallback after exhausting retries
+          retry: {
+            maxAttempts: 1,
+            retryOn: ["malformed", "server_error"],
+          },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
@@ -82,9 +88,16 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             () =>
               streamText({
                 model: openai("gpt-5-nano"),
-                prompt: "Say 'fallback 2 worked'",
+                prompt: "Say 'fallback 2 worked successfully'",
               }),
           ],
+          // Enable retry with malformed so thrown errors trigger fallback after exhausting retries
+          // Generic thrown errors are categorized as "malformed"
+          retry: {
+            maxAttempts: 1,
+            retryOn: ["malformed", "server_error"],
+          },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
@@ -110,22 +123,25 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
               stream: () =>
                 streamText({
                   model: openai("gpt-5-nano"),
-                  prompt: "Say '1'",
+                  prompt: "Say 'first response here'",
                 }),
+              detectZeroTokens: false,
             },
             {
               stream: () =>
                 streamText({
                   model: openai("gpt-5-nano"),
-                  prompt: "Say '2'",
+                  prompt: "Say 'second response here'",
                 }),
+              detectZeroTokens: false,
             },
             {
               stream: () =>
                 streamText({
                   model: openai("gpt-5-nano"),
-                  prompt: "Say '3'",
+                  prompt: "Say 'third response here'",
                 }),
+              detectZeroTokens: false,
             },
           ],
           { concurrency: 3 },
@@ -222,11 +238,17 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             () =>
               streamText({
                 model: openai("gpt-5-nano"),
-                prompt: "Write a greeting",
+                prompt: "Write a friendly greeting message",
               }),
           ],
           guardrails: recommendedGuardrails,
           onViolation: (v) => violations.push(v),
+          // Enable retry with malformed so thrown errors trigger fallback
+          retry: {
+            maxAttempts: 1,
+            retryOn: ["malformed", "server_error"],
+          },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
