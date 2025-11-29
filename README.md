@@ -2,13 +2,15 @@
 
 **Tiny. Predictable. Streaming-first.**
 
-L0 adds guardrails, retry logic, and network protection on top of the Vercel AI SDK, turning raw LLM streams into production-grade outputs.
+L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK** or **OpenAI SDK** directly.
 
 ```bash
 npm install l0
 ```
 
 ## Quick Start
+
+### With Vercel AI SDK
 
 ```typescript
 import { l0, recommendedGuardrails, recommendedRetry } from "l0";
@@ -22,6 +24,27 @@ const result = await l0({
   }),
   guardrails: recommendedGuardrails,
   retry: recommendedRetry
+});
+
+for await (const event of result.stream) {
+  if (event.type === "token") process.stdout.write(event.value);
+}
+```
+
+### With OpenAI SDK
+
+```typescript
+import OpenAI from "openai";
+import { l0, openaiStream, recommendedGuardrails } from "l0";
+
+const openai = new OpenAI();
+
+const result = await l0({
+  stream: openaiStream(openai, {
+    model: "gpt-4o",
+    messages: [{ role: "user", content: "Generate a haiku about coding" }]
+  }),
+  guardrails: recommendedGuardrails
 });
 
 for await (const event of result.stream) {

@@ -388,3 +388,16 @@ export type {
   L0ErrorCode,
   L0ErrorContext,
 } from "./utils/errors";
+
+// SDK Adapters
+export {
+  wrapOpenAIStream,
+  openaiStream,
+  openaiText,
+  openaiJSON,
+  openaiWithTools,
+  isOpenAIChunk,
+  extractOpenAIText,
+} from "./adapters/openai";
+
+export type { OpenAIAdapterOptions } from "./adapters/openai";

@@ -13,6 +13,7 @@ Complete API reference for L0.
 - [Error Handling](#error-handling)
 - [Formatting Helpers](#formatting-helpers)
 - [Utility Functions](#utility-functions)
+- [OpenAI SDK Adapter](#openai-sdk-adapter)
 - [Types](#types)
 
 ---
@@ -536,6 +537,156 @@ import {
   levenshteinSimilarity,
   cosineSimilarity
 } from "l0";
+```
+
+---
+
+## OpenAI SDK Adapter
+
+L0 provides an adapter for using the OpenAI SDK directly instead of the Vercel AI SDK.
+
+### wrapOpenAIStream(stream, options?)
+
+Wrap an OpenAI SDK stream for use with L0.
+
+```typescript
+import OpenAI from "openai";
+import { l0, wrapOpenAIStream } from "l0";
+
+const openai = new OpenAI();
+
+const result = await l0({
+  stream: async () => {
+    const stream = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "Hello!" }],
+      stream: true
+    });
+    return wrapOpenAIStream(stream);
+  }
+});
+```
+
+**Options:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `includeUsage` | `boolean` | `true` | Include usage info in done event |
+| `includeToolCalls` | `boolean` | `true` | Include tool calls as events |
+| `emitFunctionCallsAsTokens` | `boolean` | `false` | Emit function call args as tokens |
+
+### openaiStream(client, params, options?)
+
+Create a stream factory from OpenAI client and params.
+
+```typescript
+import OpenAI from "openai";
+import { l0, openaiStream } from "l0";
+
+const openai = new OpenAI();
+
+const result = await l0({
+  stream: openaiStream(openai, {
+    model: "gpt-4o",
+    messages: [{ role: "user", content: "Hello!" }]
+  })
+});
+```
+
+### openaiText(client, model, prompt, options?)
+
+Simple text generation helper.
+
+```typescript
+import OpenAI from "openai";
+import { l0, openaiText } from "l0";
+
+const openai = new OpenAI();
+
+const result = await l0({
+  stream: openaiText(openai, "gpt-4o", "Write a haiku about coding")
+});
+
+// Or with messages array
+const result2 = await l0({
+  stream: openaiText(openai, "gpt-4o", [
+    { role: "system", content: "You are a poet." },
+    { role: "user", content: "Write a haiku." }
+  ])
+});
+```
+
+### openaiJSON(client, model, prompt, options?)
+
+JSON output with `response_format: { type: "json_object" }`.
+
+```typescript
+import OpenAI from "openai";
+import { structured, openaiJSON } from "l0";
+import { z } from "zod";
+
+const openai = new OpenAI();
+
+const result = await structured({
+  schema: z.object({ name: z.string(), age: z.number() }),
+  stream: openaiJSON(openai, "gpt-4o", "Generate user data as JSON")
+});
+```
+
+### openaiWithTools(client, model, messages, tools, options?)
+
+Tool/function calling support.
+
+```typescript
+import OpenAI from "openai";
+import { l0, openaiWithTools } from "l0";
+
+const openai = new OpenAI();
+
+const result = await l0({
+  stream: openaiWithTools(
+    openai,
+    "gpt-4o",
+    [{ role: "user", content: "What's the weather in Tokyo?" }],
+    [{
+      type: "function",
+      function: {
+        name: "get_weather",
+        description: "Get weather for a location",
+        parameters: {
+          type: "object",
+          properties: { location: { type: "string" } },
+          required: ["location"]
+        }
+      }
+    }]
+  )
+});
+
+// Tool calls appear as message events
+for await (const event of result.stream) {
+  if (event.type === "message") {
+    const data = JSON.parse(event.value);
+    if (data.type === "tool_calls") {
+      console.log(data.tool_calls);
+      // [{ id: "...", name: "get_weather", arguments: '{"location":"Tokyo"}' }]
+    }
+  }
+}
+```
+
+### Utility Functions
+
+```typescript
+import { isOpenAIChunk, extractOpenAIText } from "l0";
+
+// Type guard for OpenAI chunks
+if (isOpenAIChunk(chunk)) {
+  // chunk has choices[].delta structure
+}
+
+// Extract all text from a stream
+const text = await extractOpenAIText(stream);
 ```
 
 ---
