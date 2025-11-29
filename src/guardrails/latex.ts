@@ -192,12 +192,16 @@ export function validateLatexMath(
     return violations;
   }
 
-  // Count display math delimiters
-  const displayMathOpen = (content.match(/\\\[/g) || []).length;
-  const displayMathClose = (content.match(/\\\]/g) || []).length;
+  // Count display math delimiters - reset lastIndex for global patterns
+  DISPLAY_MATH_OPEN.lastIndex = 0;
+  DISPLAY_MATH_CLOSE.lastIndex = 0;
+  DOUBLE_DOLLAR.lastIndex = 0;
+
+  const displayMathOpen = (content.match(DISPLAY_MATH_OPEN) || []).length;
+  const displayMathClose = (content.match(DISPLAY_MATH_CLOSE) || []).length;
 
   // Count $$ delimiters (should be even)
-  const doubleDollar = (content.match(/\$\$/g) || []).length;
+  const doubleDollar = (content.match(DOUBLE_DOLLAR) || []).length;
 
   // Count inline math $ (should be even, but harder to detect due to escaping)
   let singleDollarCount = 0;
