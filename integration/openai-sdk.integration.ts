@@ -204,10 +204,9 @@ describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
         }
 
         // Usage should be present with stream_options
-        if (usage) {
-          expect(usage.prompt_tokens).toBeGreaterThan(0);
-          expect(usage.completion_tokens).toBeGreaterThan(0);
-        }
+        expect(usage).toBeDefined();
+        expect(usage.prompt_tokens).toBeGreaterThan(0);
+        expect(usage.completion_tokens).toBeGreaterThan(0);
       },
       LLM_TIMEOUT,
     );
