@@ -22,6 +22,7 @@ build/
 coverage/
 .nyc_output/
 *.lcov
+html/
 
 # Environment
 .env
