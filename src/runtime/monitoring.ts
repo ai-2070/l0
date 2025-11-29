@@ -241,10 +241,14 @@ export class L0Monitor {
       this.telemetry.continuation.continuationCount =
         (this.telemetry.continuation.continuationCount || 0) + 1;
 
-      // Only record content details if checkpoint content is provided
+      // Update content details - clear previous values if no content provided
       if (checkpointContent) {
         this.telemetry.continuation.checkpointContent = checkpointContent;
         this.telemetry.continuation.checkpointLength = checkpointContent.length;
+      } else {
+        // Clear stale checkpoint data to avoid leaking previous values
+        this.telemetry.continuation.checkpointContent = undefined;
+        this.telemetry.continuation.checkpointLength = undefined;
       }
     }
   }

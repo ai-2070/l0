@@ -395,6 +395,47 @@ describe("continueFromLastKnownGoodToken", () => {
 
       expect(result.telemetry?.continuation?.enabled).toBe(false);
     });
+
+    it("should clear stale checkpoint data when continuation used without content", async () => {
+      // This tests that previous checkpoint content doesn't leak into subsequent telemetry
+      // when recordContinuation is called with used=true but no checkpointContent
+      let attemptCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            // First attempt: produce tokens but fail before checkpoint interval
+            return {
+              textStream: createMockStream(["a", "b"], { shouldError: true }),
+            };
+          }
+          return {
+            textStream: createMockStream(["success"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["malformed", "network_error"],
+        },
+        checkIntervals: { checkpoint: 10 }, // High interval so no checkpoint is saved
+        monitoring: { enabled: true },
+        detectZeroTokens: false,
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      // No checkpoint was saved (only 2 tokens, interval is 10)
+      // So continuation should not have been used
+      expect(result.state.continuedFromCheckpoint).toBe(false);
+      // Telemetry should not have stale checkpoint content
+      expect(result.telemetry?.continuation?.checkpointContent).toBeUndefined();
+      expect(result.telemetry?.continuation?.checkpointLength).toBeUndefined();
+    });
   });
 
   describe("Edge Cases", () => {
