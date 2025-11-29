@@ -85,6 +85,8 @@ const result = await l0({
 });
 ```
 
+⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
+
 ### Fallback Models
 
 ```typescript

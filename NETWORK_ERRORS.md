@@ -152,6 +152,8 @@ const result = await l0({
 });
 ```
 
+⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
+
 ---
 
 ## Monitoring
@@ -229,6 +231,8 @@ const result = await l0({
   interTokenTimeout: 8000
 });
 ```
+
+⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
 
 ---
 
