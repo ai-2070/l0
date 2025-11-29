@@ -91,7 +91,7 @@ Configure different delays for each error type:
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     backoff: "exponential",
     errorTypeDelays: {
       connectionDropped: 2000, // 2s for connection drops
@@ -120,7 +120,7 @@ const result = await l0({
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     backoff: "full-jitter",
     errorTypeDelays: {
       backgroundThrottle: 15000, // Wait longer for mobile
@@ -145,7 +145,7 @@ const result = await l0({
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     backoff: "exponential",
     maxDelay: 5000, // Keep delays short
     errorTypeDelays: {
@@ -228,7 +228,7 @@ if (isStreamInterrupted(error, tokenCount)) {
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     backoff: "full-jitter",
     maxDelay: 10000,
     errorTypeDelays: {

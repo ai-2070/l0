@@ -62,7 +62,7 @@ const result = await l0({
 
   // Optional: Retry configuration
   retry: {
-    maxAttempts: 2,
+    attempts: 2,
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential",
@@ -284,7 +284,7 @@ Smart retry system that distinguishes network errors from model errors:
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 2, // Model errors only
+    attempts: 2, // Model errors only
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential", // or "linear", "fixed", "full-jitter"

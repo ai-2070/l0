@@ -39,7 +39,7 @@ const result = await l0({
 
   // Optional: Retry configuration
   retry: {
-    maxAttempts: 2,
+    attempts: 2,
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential",
@@ -313,9 +313,9 @@ const result = engine.check({
 
 ```typescript
 import {
-  minimalRetry, // { maxAttempts: 1 }
-  recommendedRetry, // { maxAttempts: 2, backoff: "exponential" }
-  strictRetry, // { maxAttempts: 3, backoff: "full-jitter" }
+  minimalRetry, // { attempts: 1 }
+  recommendedRetry, // { attempts: 2, backoff: "exponential" }
+  strictRetry, // { attempts: 3, backoff: "full-jitter" }
 } from "@ai2070/l0";
 ```
 
@@ -325,7 +325,7 @@ import {
 import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 // RETRY_DEFAULTS
-// { maxAttempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
+// { attempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
 
 // ERROR_TYPE_DELAY_DEFAULTS
 // { connectionDropped: 1000, fetchError: 500, timeout: 1000, ... }
@@ -337,7 +337,7 @@ import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 const result = await l0({
   stream,
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     maxRetries: 10, // Absolute cap (all error types)
     baseDelay: 1000,
     maxDelay: 10000,

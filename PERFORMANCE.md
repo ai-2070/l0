@@ -85,16 +85,16 @@ Balance reliability vs. latency:
 
 ```typescript
 // Conservative (fast failure)
-retry: { maxAttempts: 1 }
+retry: { attempts: 1 }
 
 // Balanced (recommended)
-retry: { maxAttempts: 2 }
+retry: { attempts: 2 }
 
 // Aggressive (high reliability)
-retry: { maxAttempts: 3 }
+retry: { attempts: 3 }
 
 // With absolute cap (prevents runaway retries)
-retry: { maxAttempts: 3, maxRetries: 10 }
+retry: { attempts: 3, maxRetries: 10 }
 ```
 
 ### Selective Retry Reasons
@@ -187,7 +187,7 @@ Prevent memory leaks in long-running processes:
 
 ```typescript
 retry: {
-  maxAttempts: 2,
+  attempts: 2,
   maxErrorHistory: 100  // Keep last 100 errors only
 }
 ```

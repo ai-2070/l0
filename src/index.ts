@@ -275,6 +275,31 @@ export {
   bestConsensus,
 } from "./types/consensus";
 
+// Pipeline
+export {
+  pipe,
+  createPipeline,
+  createStep,
+  chainPipelines,
+  parallelPipelines,
+  createBranchStep,
+} from "./pipeline";
+
+export type {
+  PipelineStep,
+  PipelineOptions,
+  PipelineResult,
+  StepContext,
+  StepResult,
+  Pipeline,
+} from "./types/pipeline";
+
+export {
+  fastPipeline,
+  reliablePipeline,
+  productionPipeline,
+} from "./types/pipeline";
+
 // Format helpers
 export {
   formatContext,

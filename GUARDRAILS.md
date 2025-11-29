@@ -321,7 +321,7 @@ await l0({
   stream,
   guardrails: recommendedGuardrails,
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     retryOn: ["guardrail_violation"], // Retry on recoverable violations
   },
 });
