@@ -481,6 +481,52 @@ See [FORMATTING.md](./FORMATTING.md) for complete API reference.
 
 ---
 
+## Testing
+
+L0 has comprehensive test coverage with both unit and integration tests.
+
+```bash
+# Run unit tests (fast, no API keys needed)
+npm test
+
+# Run integration tests (requires API keys)
+OPENAI_API_KEY=sk-... npm run test:integration
+```
+
+### Test Coverage
+
+| Category | Tests | Description |
+|----------|-------|-------------|
+| Unit Tests | 1143 | Fast, mocked, no API calls |
+| Integration Tests | 40+ | Real API calls, all SDK adapters |
+
+### SDK Adapter Matrix
+
+| Adapter | Unit Tests | Integration Tests | Version |
+|---------|------------|-------------------|---------|
+| Vercel AI SDK | ✓ | ✓ | ^5.0.0 |
+| OpenAI SDK | ✓ | ✓ | ^4.0.0 \|\| ^5.0.0 \|\| ^6.0.0 |
+| Mastra AI | ✓ | ✓ | >=0.18.0 |
+
+### Feature Test Matrix
+
+| Feature | Unit | Integration | Notes |
+|---------|------|-------------|-------|
+| Streaming | ✓ | ✓ | Token events, completion |
+| Guardrails | ✓ | ✓ | All rules, presets |
+| Structured Output | ✓ | ✓ | Zod schemas, auto-correct |
+| Retry Logic | ✓ | ✓ | Backoff strategies |
+| Network Errors | ✓ | - | 12+ error types |
+| Fallback Models | ✓ | ✓ | Sequential fallback |
+| Parallel/Race | ✓ | ✓ | Concurrency patterns |
+| Consensus | ✓ | ✓ | Voting strategies |
+| Document Windows | ✓ | - | Chunking strategies |
+| Monitoring | ✓ | ✓ | Telemetry, Prometheus |
+| Interceptors | ✓ | - | All built-in interceptors |
+| Drift Detection | ✓ | - | Pattern detection |
+
+---
+
 ## Documentation
 
 | Guide | Description |
