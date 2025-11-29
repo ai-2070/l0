@@ -48,7 +48,7 @@ export function analyzeMarkdownStructure(content: string): MarkdownStructure {
 
       // Check list depth
       const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+/);
-      if (listMatch && listMatch[1]) {
+      if (listMatch && listMatch[1] !== undefined) {
         const indent = listMatch[1].length;
         const currentDepth = Math.floor(indent / 2) + 1;
         listDepth = Math.max(listDepth, currentDepth);
