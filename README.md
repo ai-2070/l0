@@ -18,18 +18,73 @@ import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 const result = await l0({
-  stream: () => streamText({
-    model: openai("gpt-4o"),
-    prompt: "Generate a haiku about coding"
-  }),
+  // Primary model stream
+  stream: () =>
+    streamText({
+      model: openai("gpt-4o"),
+      prompt: "Generate a haiku about coding",
+    }),
+
+  // Optional: Fallback models
+  fallbackStreams: [
+    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+  ],
+
+  // Optional: Guardrails
   guardrails: recommendedGuardrails,
-  retry: recommendedRetry
+  // Other presets:
+  // minimalGuardrails       // JSON + zero output
+  // recommendedGuardrails   // + Markdown, patterns
+  // strictGuardrails        // + LaTeX, structure
+  // jsonOnlyGuardrails      // JSON only
+  // markdownOnlyGuardrails  // Markdown only
+  // latexOnlyGuardrails     // LaTeX only
+
+  // Optional: Retry configuration
+  retry: {
+    maxAttempts: 2,
+    baseDelay: 1000,
+    maxDelay: 10000,
+    backoff: "exponential",
+    retryOn: ["zero_output", "guardrail_violation"],
+  },
+  // Or simply:
+  // retry: recommendedRetry,
+
+  // Optional: Timeout configuration
+  timeout: {
+    initialToken: 5000,  // 5s to first token
+    interToken: 10000,   // 10s between tokens
+  },
+
+  // Optional: Guardrail check intervals
+  checkIntervals: {
+    guardrails: 5,   // Check every N tokens
+    drift: 10,
+    checkpoint: 10,
+  },
+
+  // Optional: Abort signal
+  signal: abortController.signal,
+
+  // Optional: Monitoring callbacks
+  monitoring: {
+    onToken: (token) => {},
+    onViolation: (violation) => {},
+    onRetry: (attempt, error) => {},
+    onFallback: (index) => {},
+  },
 });
 
+// Read the stream
 for await (const event of result.stream) {
-  if (event.type === "token") process.stdout.write(event.value);
+  if (event.type === "token") {
+    process.stdout.write(event.value);
+  }
 }
 ```
+
+**See Also: [API.md](./API.md) - Complete API reference**
 
 ### With OpenAI SDK
 
