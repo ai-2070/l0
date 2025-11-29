@@ -314,10 +314,14 @@ export {
 
 // Re-export commonly used types
 export type {
-  ErrorCategory,
   RetryReason,
   CategorizedError,
   ErrorTypeDelays,
+} from "./types/retry";
+export {
+  ErrorCategory,
+  RETRY_DEFAULTS,
+  ERROR_TYPE_DELAY_DEFAULTS,
 } from "./types/retry";
 export type { DriftResult, DriftType, DriftConfig } from "./runtime/drift";
 

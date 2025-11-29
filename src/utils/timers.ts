@@ -1,6 +1,7 @@
 // Backoff and timer helpers for L0
 
 import type { BackoffResult } from "../types/retry";
+import { RETRY_DEFAULTS } from "../types/retry";
 
 /**
  * Calculate exponential backoff delay
@@ -10,8 +11,8 @@ import type { BackoffResult } from "../types/retry";
  */
 export function exponentialBackoff(
   attempt: number,
-  baseDelay: number = 1000,
-  maxDelay: number = 10000,
+  baseDelay: number = RETRY_DEFAULTS.baseDelay,
+  maxDelay: number = RETRY_DEFAULTS.maxDelay,
 ): BackoffResult {
   const rawDelay = baseDelay * Math.pow(2, attempt);
   const delay = Math.min(rawDelay, maxDelay);
@@ -31,8 +32,8 @@ export function exponentialBackoff(
  */
 export function linearBackoff(
   attempt: number,
-  baseDelay: number = 1000,
-  maxDelay: number = 10000,
+  baseDelay: number = RETRY_DEFAULTS.baseDelay,
+  maxDelay: number = RETRY_DEFAULTS.maxDelay,
 ): BackoffResult {
   const rawDelay = baseDelay * (attempt + 1);
   const delay = Math.min(rawDelay, maxDelay);
@@ -48,7 +49,9 @@ export function linearBackoff(
  * Fixed backoff delay (same delay every time)
  * @param baseDelay - Delay in milliseconds (default: 1000)
  */
-export function fixedBackoff(baseDelay: number = 1000): BackoffResult {
+export function fixedBackoff(
+  baseDelay: number = RETRY_DEFAULTS.baseDelay,
+): BackoffResult {
   return {
     delay: baseDelay,
     cappedAtMax: false,
@@ -65,8 +68,8 @@ export function fixedBackoff(baseDelay: number = 1000): BackoffResult {
  */
 export function fullJitterBackoff(
   attempt: number,
-  baseDelay: number = 1000,
-  maxDelay: number = 10000,
+  baseDelay: number = RETRY_DEFAULTS.baseDelay,
+  maxDelay: number = RETRY_DEFAULTS.maxDelay,
 ): BackoffResult {
   const exponential = baseDelay * Math.pow(2, attempt);
   const cappedExponential = Math.min(exponential, maxDelay);
@@ -90,8 +93,8 @@ export function fullJitterBackoff(
  */
 export function decorrelatedJitterBackoff(
   attempt: number,
-  baseDelay: number = 1000,
-  maxDelay: number = 10000,
+  baseDelay: number = RETRY_DEFAULTS.baseDelay,
+  maxDelay: number = RETRY_DEFAULTS.maxDelay,
   previousDelay?: number,
 ): BackoffResult {
   // Use previousDelay if provided, otherwise scale baseDelay by attempt
@@ -116,8 +119,8 @@ export function decorrelatedJitterBackoff(
 export function calculateBackoff(
   strategy: "exponential" | "linear" | "fixed" | "full-jitter",
   attempt: number,
-  baseDelay: number = 1000,
-  maxDelay: number = 10000,
+  baseDelay: number = RETRY_DEFAULTS.baseDelay,
+  maxDelay: number = RETRY_DEFAULTS.maxDelay,
 ): BackoffResult {
   switch (strategy) {
     case "exponential":

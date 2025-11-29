@@ -15,6 +15,7 @@ import {
   estimateTokenCount,
   mergeChunks,
 } from "./utils/chunking";
+import { RETRY_DEFAULTS } from "./types/retry";
 
 /**
  * Default window options
@@ -429,7 +430,7 @@ export async function l0WithWindow(options: L0WindowOptions) {
   const {
     enabled = true,
     strategy = "adjacent",
-    maxAttempts = 2,
+    maxAttempts = RETRY_DEFAULTS.maxAttempts,
     onRestore,
   } = contextRestoration || {};
 

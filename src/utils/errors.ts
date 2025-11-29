@@ -1,5 +1,7 @@
 // Network error detection utilities for L0
 
+import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "../types/retry";
+
 /**
  * Error codes for L0 errors
  */
@@ -621,25 +623,27 @@ export function suggestRetryDelay(
   error: Error,
   attempt: number,
   customDelays?: Partial<Record<NetworkErrorType, number>>,
-  maxDelay: number = 30000,
+  maxDelay: number = RETRY_DEFAULTS.networkMaxDelay,
 ): number {
   const analysis = analyzeNetworkError(error);
 
-  // Default base delays for different error types
+  // Default base delays for different error types (from centralized config)
   const defaultDelays: Record<NetworkErrorType, number> = {
-    [NetworkErrorType.CONNECTION_DROPPED]: 1000,
-    [NetworkErrorType.FETCH_ERROR]: 500,
-    [NetworkErrorType.ECONNRESET]: 1000,
-    [NetworkErrorType.ECONNREFUSED]: 2000,
-    [NetworkErrorType.SSE_ABORTED]: 500,
-    [NetworkErrorType.NO_BYTES]: 500,
-    [NetworkErrorType.PARTIAL_CHUNKS]: 500,
-    [NetworkErrorType.RUNTIME_KILLED]: 2000,
-    [NetworkErrorType.BACKGROUND_THROTTLE]: 5000,
-    [NetworkErrorType.DNS_ERROR]: 3000,
-    [NetworkErrorType.SSL_ERROR]: 0, // Don't retry
-    [NetworkErrorType.TIMEOUT]: 1000,
-    [NetworkErrorType.UNKNOWN]: 1000,
+    [NetworkErrorType.CONNECTION_DROPPED]:
+      ERROR_TYPE_DELAY_DEFAULTS.connectionDropped,
+    [NetworkErrorType.FETCH_ERROR]: ERROR_TYPE_DELAY_DEFAULTS.fetchError,
+    [NetworkErrorType.ECONNRESET]: ERROR_TYPE_DELAY_DEFAULTS.econnreset,
+    [NetworkErrorType.ECONNREFUSED]: ERROR_TYPE_DELAY_DEFAULTS.econnrefused,
+    [NetworkErrorType.SSE_ABORTED]: ERROR_TYPE_DELAY_DEFAULTS.sseAborted,
+    [NetworkErrorType.NO_BYTES]: ERROR_TYPE_DELAY_DEFAULTS.noBytes,
+    [NetworkErrorType.PARTIAL_CHUNKS]: ERROR_TYPE_DELAY_DEFAULTS.partialChunks,
+    [NetworkErrorType.RUNTIME_KILLED]: ERROR_TYPE_DELAY_DEFAULTS.runtimeKilled,
+    [NetworkErrorType.BACKGROUND_THROTTLE]:
+      ERROR_TYPE_DELAY_DEFAULTS.backgroundThrottle,
+    [NetworkErrorType.DNS_ERROR]: ERROR_TYPE_DELAY_DEFAULTS.dnsError,
+    [NetworkErrorType.SSL_ERROR]: 0, // Don't retry SSL errors
+    [NetworkErrorType.TIMEOUT]: ERROR_TYPE_DELAY_DEFAULTS.timeout,
+    [NetworkErrorType.UNKNOWN]: ERROR_TYPE_DELAY_DEFAULTS.unknown,
   };
 
   // Use custom delay if provided, otherwise use default
