@@ -5,7 +5,7 @@ Get started with L0 in 5 minutes.
 ## Installation
 
 ```bash
-npm install l0
+npm install @ai2070/l0
 ```
 
 **Peer dependency:** Requires `ai` package (Vercel AI SDK)

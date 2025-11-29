@@ -1,11 +1,11 @@
-# L0 - Reliable LLM Streaming Runtime
+# AI2070/L0 - The Missing Reliability Layer for LLM Apps
 
 **Tiny. Predictable. Streaming-first.**
 
 L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, or **Mastra AI** directly.
 
 ```bash
-npm install l0
+npm install @ai2070/l0
 ```
 
 ## Quick Start

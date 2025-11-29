@@ -24,7 +24,7 @@ OPENAI_API_KEY=sk-... npx tsx examples/<filename>.ts
 ## Requirements
 
 ```bash
-npm install l0 ai @ai-sdk/openai zod
+npm install @ai2070/l0 ai @ai-sdk/openai zod
 ```
 
 Set your API key:
