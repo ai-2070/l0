@@ -210,6 +210,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
               model: openai("gpt-5-nano"),
               prompt: "Reply with 3 different emojis",
             }),
+          detectZeroTokens: false, // Emoji-only responses may trigger zero output detection
         });
 
         for await (const event of result.stream) {
