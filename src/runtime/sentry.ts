@@ -109,11 +109,12 @@ export class L0Sentry {
 
   /**
    * Start tracking an L0 execution
+   * Returns a span finish function if tracing is enabled
    */
   startExecution(
-    _name: string = "l0.execution",
+    name: string = "l0.execution",
     metadata?: Record<string, any>,
-  ): void {
+  ): (() => void) | undefined {
     // Add breadcrumb
     this.sentry.addBreadcrumb({
       type: "info",
@@ -123,6 +124,26 @@ export class L0Sentry {
       level: "info",
       timestamp: Date.now() / 1000,
     });
+
+    // Start span if tracing is enabled
+    if (this.config.enableTracing && this.sentry.startSpan) {
+      let finishSpan: (() => void) | undefined;
+
+      this.sentry.startSpan(
+        {
+          name,
+          op: "l0.execution",
+          attributes: metadata,
+        },
+        (span) => {
+          finishSpan = () => span?.end();
+        },
+      );
+
+      return finishSpan;
+    }
+
+    return undefined;
   }
 
   /**
@@ -404,12 +425,16 @@ export function createSentryIntegration(config: SentryConfig): L0Sentry {
  */
 export function sentryInterceptor(config: SentryConfig) {
   const integration = createSentryIntegration(config);
+  let finishSpan: (() => void) | undefined;
 
   return {
     name: "sentry",
 
     before: async (options: any) => {
-      integration.startExecution("l0.execution", options.monitoring?.metadata);
+      finishSpan = integration.startExecution(
+        "l0.execution",
+        options.monitoring?.metadata,
+      );
       return options;
     },
 
@@ -417,11 +442,15 @@ export function sentryInterceptor(config: SentryConfig) {
       if (result.telemetry) {
         integration.completeExecution(result.telemetry);
       }
+      // End span if it was started
+      finishSpan?.();
       return result;
     },
 
     onError: async (error: Error, _options: any) => {
       integration.recordFailure(error);
+      // End span on error too
+      finishSpan?.();
     },
   };
 }

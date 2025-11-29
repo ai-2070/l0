@@ -165,6 +165,7 @@ export class L0Monitor {
       this.telemetry.guardrails = {
         violationCount: 0,
         violationsByRule: {},
+        violationsByRuleAndSeverity: {},
         violationsBySeverity: {
           warning: 0,
           error: 0,
@@ -180,6 +181,23 @@ export class L0Monitor {
       // By rule
       this.telemetry.guardrails.violationsByRule[violation.rule] =
         (this.telemetry.guardrails.violationsByRule[violation.rule] || 0) + 1;
+
+      // By rule and severity
+      if (
+        !this.telemetry.guardrails.violationsByRuleAndSeverity[violation.rule]
+      ) {
+        this.telemetry.guardrails.violationsByRuleAndSeverity[violation.rule] =
+          {
+            warning: 0,
+            error: 0,
+            fatal: 0,
+          };
+      }
+      const ruleSeverity =
+        this.telemetry.guardrails.violationsByRuleAndSeverity[violation.rule];
+      if (ruleSeverity) {
+        ruleSeverity[violation.severity]++;
+      }
 
       // By severity
       this.telemetry.guardrails.violationsBySeverity[violation.severity]++;

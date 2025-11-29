@@ -387,9 +387,17 @@ export interface L0Telemetry {
     violationCount: number;
 
     /**
-     * Violations by rule
+     * Violations by rule (count only)
      */
     violationsByRule: Record<string, number>;
+
+    /**
+     * Violations by rule with severity breakdown
+     */
+    violationsByRuleAndSeverity: Record<
+      string,
+      { warning: number; error: number; fatal: number }
+    >;
 
     /**
      * Violations by severity

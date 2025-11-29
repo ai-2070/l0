@@ -234,17 +234,27 @@ export class L0PrometheusCollector {
 
     // Guardrail violations
     if (telemetry.guardrails && telemetry.guardrails.violationCount > 0) {
-      for (const [rule, count] of Object.entries(
-        telemetry.guardrails.violationsByRule,
-      )) {
-        // Get severity for this rule (default to "error")
-        const severity =
-          telemetry.guardrails.violationsBySeverity.fatal > 0
-            ? "fatal"
-            : telemetry.guardrails.violationsBySeverity.error > 0
-              ? "error"
-              : "warning";
-        this.guardrailViolationsTotal.inc({ rule, severity }, count);
+      // Use violationsByRuleAndSeverity if available for accurate per-rule severity
+      if (telemetry.guardrails.violationsByRuleAndSeverity) {
+        for (const [rule, severityCounts] of Object.entries(
+          telemetry.guardrails.violationsByRuleAndSeverity,
+        )) {
+          for (const [severity, count] of Object.entries(severityCounts)) {
+            if (count > 0) {
+              this.guardrailViolationsTotal.inc({ rule, severity }, count);
+            }
+          }
+        }
+      } else {
+        // Fallback: emit with "unknown" severity if detailed breakdown not available
+        for (const [rule, count] of Object.entries(
+          telemetry.guardrails.violationsByRule,
+        )) {
+          this.guardrailViolationsTotal.inc(
+            { rule, severity: "unknown" },
+            count,
+          );
+        }
       }
     }
 

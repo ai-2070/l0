@@ -35,6 +35,13 @@ export interface OpenAIAdapterOptions {
    * @default false
    */
   emitFunctionCallsAsTokens?: boolean;
+
+  /**
+   * Which choice index to use when n > 1
+   * Set to 'all' to emit events for all choices (prefixed with choice index)
+   * @default 0
+   */
+  choiceIndex?: number | "all";
 }
 
 /**
@@ -73,15 +80,34 @@ export async function* wrapOpenAIStream(
     includeUsage = true,
     includeToolCalls = true,
     emitFunctionCallsAsTokens = false,
+    choiceIndex = 0,
   } = options;
 
   let usage: ChatCompletionChunk["usage"];
-  let functionCallAccumulator: { name: string; arguments: string } | null =
-    null;
-  let toolCallsAccumulator: Map<
+
+  // Track state per choice index for n > 1 scenarios
+  const choiceState = new Map<
     number,
-    { id: string; name: string; arguments: string }
-  > = new Map();
+    {
+      functionCallAccumulator: { name: string; arguments: string } | null;
+      toolCallsAccumulator: Map<
+        number,
+        { id: string; name: string; arguments: string }
+      >;
+      finished: boolean;
+    }
+  >();
+
+  const getChoiceState = (index: number) => {
+    if (!choiceState.has(index)) {
+      choiceState.set(index, {
+        functionCallAccumulator: null,
+        toolCallsAccumulator: new Map(),
+        finished: false,
+      });
+    }
+    return choiceState.get(index)!;
+  };
 
   try {
     for await (const chunk of stream) {
@@ -91,110 +117,136 @@ export async function* wrapOpenAIStream(
         continue;
       }
 
-      const choice = choices[0];
-      if (!choice) continue;
-
       // Store usage if available
       if (chunk.usage) {
         usage = chunk.usage;
       }
 
-      const delta = choice.delta;
-      if (!delta) continue;
+      // Process each choice
+      for (const choice of choices) {
+        if (!choice) continue;
 
-      // Handle text content
-      if (delta.content) {
-        yield {
-          type: "token",
-          value: delta.content,
-          timestamp: Date.now(),
-        };
-      }
+        const idx = choice.index;
 
-      // Handle function calls (legacy)
-      if (delta.function_call) {
-        if (delta.function_call.name) {
-          functionCallAccumulator = {
-            name: delta.function_call.name,
-            arguments: delta.function_call.arguments || "",
-          };
-        } else if (delta.function_call.arguments && functionCallAccumulator) {
-          functionCallAccumulator.arguments += delta.function_call.arguments;
+        // Skip if not the requested choice index (unless 'all')
+        if (choiceIndex !== "all" && idx !== choiceIndex) {
+          continue;
         }
 
-        if (emitFunctionCallsAsTokens && delta.function_call.arguments) {
+        const state = getChoiceState(idx);
+        const delta = choice.delta;
+        if (!delta) continue;
+
+        // Prefix for multi-choice scenarios
+        const choicePrefix =
+          choiceIndex === "all" && choices.length > 1 ? `[choice:${idx}]` : "";
+
+        // Handle text content
+        if (delta.content) {
           yield {
             type: "token",
-            value: delta.function_call.arguments,
+            value: choicePrefix
+              ? `${choicePrefix}${delta.content}`
+              : delta.content,
             timestamp: Date.now(),
           };
         }
-      }
 
-      // Handle tool calls
-      if (delta.tool_calls && includeToolCalls) {
-        for (const toolCall of delta.tool_calls) {
-          const existing = toolCallsAccumulator.get(toolCall.index);
-
-          if (toolCall.id || toolCall.function?.name) {
-            // New tool call
-            toolCallsAccumulator.set(toolCall.index, {
-              id: toolCall.id || existing?.id || "",
-              name: toolCall.function?.name || existing?.name || "",
-              arguments: toolCall.function?.arguments || "",
-            });
-          } else if (toolCall.function?.arguments && existing) {
-            // Append to existing tool call
-            existing.arguments += toolCall.function.arguments;
+        // Handle function calls (legacy)
+        if (delta.function_call) {
+          if (delta.function_call.name) {
+            state.functionCallAccumulator = {
+              name: delta.function_call.name,
+              arguments: delta.function_call.arguments || "",
+            };
+          } else if (
+            delta.function_call.arguments &&
+            state.functionCallAccumulator
+          ) {
+            state.functionCallAccumulator.arguments +=
+              delta.function_call.arguments;
           }
 
-          if (emitFunctionCallsAsTokens && toolCall.function?.arguments) {
+          // Emit function call arguments as tokens (independent of includeToolCalls)
+          if (emitFunctionCallsAsTokens && delta.function_call.arguments) {
             yield {
               type: "token",
-              value: toolCall.function.arguments,
+              value: delta.function_call.arguments,
+              timestamp: Date.now(),
+            };
+          }
+        }
+
+        // Handle tool calls - always track them for emitFunctionCallsAsTokens
+        if (delta.tool_calls) {
+          for (const toolCall of delta.tool_calls) {
+            const existing = state.toolCallsAccumulator.get(toolCall.index);
+
+            if (toolCall.id || toolCall.function?.name) {
+              // New tool call
+              state.toolCallsAccumulator.set(toolCall.index, {
+                id: toolCall.id || existing?.id || "",
+                name: toolCall.function?.name || existing?.name || "",
+                arguments: toolCall.function?.arguments || "",
+              });
+            } else if (toolCall.function?.arguments && existing) {
+              // Append to existing tool call
+              existing.arguments += toolCall.function.arguments;
+            }
+
+            // Emit tool call arguments as tokens (independent of includeToolCalls)
+            if (emitFunctionCallsAsTokens && toolCall.function?.arguments) {
+              yield {
+                type: "token",
+                value: toolCall.function.arguments,
+                timestamp: Date.now(),
+              };
+            }
+          }
+        }
+
+        // Handle finish reason
+        if (choice.finish_reason && !state.finished) {
+          state.finished = true;
+
+          // Emit function call as message if present
+          if (state.functionCallAccumulator && includeToolCalls) {
+            yield {
+              type: "message",
+              value: JSON.stringify({
+                type: "function_call",
+                function_call: state.functionCallAccumulator,
+                ...(choiceIndex === "all" ? { choiceIndex: idx } : {}),
+              }),
+              role: "assistant",
+              timestamp: Date.now(),
+            };
+          }
+
+          // Emit tool calls as message if present
+          if (state.toolCallsAccumulator.size > 0 && includeToolCalls) {
+            const toolCalls = Array.from(state.toolCallsAccumulator.values());
+            yield {
+              type: "message",
+              value: JSON.stringify({
+                type: "tool_calls",
+                tool_calls: toolCalls,
+                ...(choiceIndex === "all" ? { choiceIndex: idx } : {}),
+              }),
+              role: "assistant",
               timestamp: Date.now(),
             };
           }
         }
       }
-
-      // Handle finish reason
-      if (choice.finish_reason) {
-        // Emit function call as message if present
-        if (functionCallAccumulator && includeToolCalls) {
-          yield {
-            type: "message",
-            value: JSON.stringify({
-              type: "function_call",
-              function_call: functionCallAccumulator,
-            }),
-            role: "assistant",
-            timestamp: Date.now(),
-          };
-        }
-
-        // Emit tool calls as message if present
-        if (toolCallsAccumulator.size > 0 && includeToolCalls) {
-          const toolCalls = Array.from(toolCallsAccumulator.values());
-          yield {
-            type: "message",
-            value: JSON.stringify({
-              type: "tool_calls",
-              tool_calls: toolCalls,
-            }),
-            role: "assistant",
-            timestamp: Date.now(),
-          };
-        }
-
-        // Emit done event with usage
-        yield {
-          type: "done",
-          timestamp: Date.now(),
-          ...(includeUsage && usage ? { usage } : {}),
-        } as L0Event;
-      }
     }
+
+    // Emit done event with usage (once, after all choices processed)
+    yield {
+      type: "done",
+      timestamp: Date.now(),
+      ...(includeUsage && usage ? { usage } : {}),
+    } as L0Event;
   } catch (error) {
     yield {
       type: "error",
