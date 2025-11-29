@@ -73,6 +73,7 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
     minimumAgreement = 0.6,
     timeout,
     signal,
+    detectZeroTokens = true,
     monitoring,
     onComplete,
     onConsensus,
@@ -98,6 +99,7 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
           schema,
           stream: streamFactory,
           monitoring,
+          detectZeroTokens,
         });
 
         // Structured result already has parsed data
@@ -119,6 +121,7 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
           stream: streamFactory,
           monitoring,
           signal,
+          detectZeroTokens,
         });
 
         // Consume stream

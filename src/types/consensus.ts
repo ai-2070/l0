@@ -12,7 +12,7 @@ export interface ConsensusOptions<T extends z.ZodTypeAny = z.ZodTypeAny> {
    * Stream factories to run for consensus
    * Each factory should return a stream (typically from streamText)
    */
-  streams: Array<() => Promise<any>>;
+  streams: Array<() => Promise<any> | any>;
 
   /**
    * Optional schema for structured consensus
@@ -59,6 +59,12 @@ export interface ConsensusOptions<T extends z.ZodTypeAny = z.ZodTypeAny> {
    * Abort signal for cancellation
    */
   signal?: AbortSignal;
+
+  /**
+   * Detect zero-token outputs (likely API issues)
+   * @default true
+   */
+  detectZeroTokens?: boolean;
 
   /**
    * Enable monitoring/telemetry
