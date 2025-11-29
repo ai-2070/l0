@@ -159,10 +159,14 @@ for await (const event of result.stream) {
 | [Structured Output](#structured-output)     | Guaranteed valid JSON with Zod schema validation                |
 | [Fallback Models](#fallback-models)         | Sequential fallback when primary model fails                    |
 | [Document Windows](#document-windows)       | Automatic chunking for long documents                           |
-| [Last-Known-Good Token Resumption](#token-resumption)       | Resume from last checkpoint on retry/fallback (opt-in)          |
+| [Formatting Helpers](#formatting-helpers)   | Context, memory, tools, and output formatting utilities         |
+| [Last-Known-Good Token Resumption](#last-known-good-token-resumption) | Resume from last checkpoint on retry/fallback (opt-in)          |
 | [Guardrails](#guardrails)                   | JSON, Markdown, LaTeX validation, pattern detection             |
+| [Consensus](#consensus)                     | Multi-model agreement with voting strategies                    |
 | [Parallel Operations](#parallel-operations) | Race, batch, pool patterns for concurrent LLM calls             |
 | [Monitoring](#monitoring)                   | Built-in Prometheus, OTel and Sentry integrations               |
+| [Error Handling](#error-handling)           | Typed errors with categorization and recovery hints             |
+| [Testing](#testing)                         | 1200+ tests covering all features and SDK adapters              |
 
 ---
 
