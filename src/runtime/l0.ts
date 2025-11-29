@@ -119,6 +119,9 @@ export async function l0(options: L0Options): Promise<L0Result> {
     let fallbackIndex = 0;
     const allStreams = [processedStream, ...processedFallbackStreams];
 
+    // Token buffer for O(n) accumulation instead of O(n²) string concatenation
+    let tokenBuffer: string[] = [];
+
     // Try primary stream first, then fallbacks if exhausted
     while (fallbackIndex < allStreams.length) {
       const currentStreamFactory = allStreams[fallbackIndex]!;
@@ -133,6 +136,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
         try {
           // Reset state for retry
           if (retryAttempt > 0) {
+            tokenBuffer = [];
             state.content = "";
             state.tokenCount = 0;
             state.violations = [];
@@ -204,11 +208,22 @@ export async function l0(options: L0Options): Promise<L0Result> {
                 state.firstTokenAt = Date.now();
               }
 
-              // Update state
-              state.content += token;
+              // Update state - use buffer for O(n) accumulation
+              tokenBuffer.push(token);
               state.tokenCount++;
               state.lastTokenAt = Date.now();
               lastTokenTime = state.lastTokenAt;
+
+              // Build content string only when needed (for guardrails/drift checks)
+              // This is O(n) total instead of O(n²) from repeated concatenation
+              const needsContent =
+                (guardrailEngine && state.tokenCount % 5 === 0) ||
+                (driftDetector && state.tokenCount % 10 === 0) ||
+                state.tokenCount % 10 === 0; // checkpoint
+
+              if (needsContent) {
+                state.content = tokenBuffer.join("");
+              }
 
               // Record token in monitoring
               monitor.recordToken(state.lastTokenAt);
@@ -278,6 +293,9 @@ export async function l0(options: L0Options): Promise<L0Result> {
           if (initialTimeoutId) {
             clearTimeout(initialTimeoutId);
           }
+
+          // Finalize content from buffer
+          state.content = tokenBuffer.join("");
 
           // Check for zero output
           if (processedDetectZeroTokens && detectZeroToken(state.content)) {
@@ -429,6 +447,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
           }
 
           // Reset state for fallback attempt
+          tokenBuffer = [];
           state.content = "";
           state.tokenCount = 0;
           state.violations = [];
