@@ -325,7 +325,7 @@ import {
 import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 // RETRY_DEFAULTS
-// { attempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
+// { maxAttempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
 
 // ERROR_TYPE_DELAY_DEFAULTS
 // { connectionDropped: 1000, fetchError: 500, timeout: 1000, ... }

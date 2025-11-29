@@ -435,24 +435,28 @@ export async function parallelPipelines<TInput = any, TOutput = any>(
  */
 export function createBranchStep<TInput = any>(
   name: string,
-  condition: (input: TInput, context: StepContext) => boolean | Promise<boolean>,
+  condition: (
+    input: TInput,
+    context: StepContext,
+  ) => boolean | Promise<boolean>,
   ifTrue: PipelineStep<TInput>,
   ifFalse: PipelineStep<TInput>,
 ): PipelineStep<TInput> {
+  // Track which branch was taken to avoid re-evaluating condition in transform
+  let lastBranchTaken: PipelineStep<TInput> | null = null;
+
   return {
     name,
     fn: async (input: TInput, context: StepContext) => {
       const result = await condition(input, context);
       const step = result ? ifTrue : ifFalse;
+      lastBranchTaken = step;
       return step.fn(input, context);
     },
     transform: async (result, context) => {
-      // Use the appropriate transform based on which branch was taken
-      const conditionResult = await condition(
-        context.previousResults[context.stepIndex - 1]?.output,
-        context,
-      );
-      const step = conditionResult ? ifTrue : ifFalse;
+      // Use the branch that was taken in fn (avoid re-evaluating condition
+      // which would fail when this is the first pipeline step)
+      const step = lastBranchTaken ?? ifTrue;
       if (step.transform) {
         return step.transform(result, context);
       }

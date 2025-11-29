@@ -772,6 +772,38 @@ describe("createBranchStep()", () => {
 
     expect(receivedInput).toBe("hello world");
   });
+
+  it("should work as first pipeline step with transform", async () => {
+    // This tests the fix for the bug where transform re-evaluated condition
+    // with undefined when branch step was first in pipeline
+    const trueStep: PipelineStep = {
+      name: "true-step",
+      fn: () => ({ stream: createMockStreamFactory("true-output") }),
+      transform: (result) => `transformed:${result.state.content}`,
+    };
+
+    const falseStep: PipelineStep = {
+      name: "false-step",
+      fn: () => ({ stream: createMockStreamFactory("false-output") }),
+      transform: (result) => `transformed:${result.state.content}`,
+    };
+
+    // Branch as first step - condition uses actual input
+    const branchStep = createBranchStep(
+      "branch",
+      (input: string) => input === "use-true",
+      trueStep,
+      falseStep,
+    );
+
+    // Test true branch
+    const trueResult = await pipe([branchStep], "use-true");
+    expect(trueResult.output).toBe("transformed:true-output");
+
+    // Test false branch
+    const falseResult = await pipe([branchStep], "use-false");
+    expect(falseResult.output).toBe("transformed:false-output");
+  });
 });
 
 // ============================================================================
