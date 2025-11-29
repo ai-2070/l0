@@ -866,22 +866,68 @@ const obj = await extractMastraObject<UserData>(stream);
 
 ```typescript
 interface L0Options {
+  // Required: Stream factory function
   stream: () => Promise<StreamTextResult>;
+  
+  // Optional fallback streams (tried in order if primary fails)
   fallbackStreams?: Array<() => Promise<StreamTextResult>>;
+  
+  // Guardrail rules to apply during streaming
   guardrails?: GuardrailRule[];
-  timeout?: {
-    initialToken?: number;
-    interToken?: number;
-  }
-  initialToken?: number;
-  interTokenTimeout?: number;
-  checkIntervals?: {
-    guardrails?: number;
-    drift?: number;
-    checkpoint?: number;
+  
+  // Retry configuration
+  retry?: {
+    attempts?: number;        // Max retry attempts (default: 2)
+    maxRetries?: number;      // Absolute cap on all retries
+    baseDelay?: number;       // Base delay in ms (default: 1000)
+    maxDelay?: number;        // Max delay in ms (default: 10000)
+    backoff?: "exponential" | "linear" | "fixed" | "full-jitter";
+    retryOn?: Array<"network_error" | "timeout" | "zero_output" | 
+                    "guardrail_violation" | "drift" | "malformed">;
   };
+  
+  // Timeout configuration (in milliseconds)
+  timeout?: {
+    initialToken?: number;    // Max wait for first token (default: 5000)
+    interToken?: number;      // Max wait between tokens (default: 10000)
+  };
+  
+  // Check intervals (in tokens)
+  checkIntervals?: {
+    guardrails?: number;      // Run guardrails every N tokens (default: 5)
+    drift?: number;           // Run drift detection every N tokens (default: 10)
+    checkpoint?: number;      // Save checkpoint every N tokens (default: 10)
+  };
+  
+  // Abort signal for cancellation
   signal?: AbortSignal;
-  monitoring?: MonitoringCallbacks;
+  
+  // Built-in monitoring configuration
+  monitoring?: {
+    enabled?: boolean;
+    sampleRate?: number;
+    includeNetworkDetails?: boolean;
+    includeTimings?: boolean;
+    metadata?: Record<string, any>;
+  };
+  
+  // Enable drift detection (default: false)
+  detectDrift?: boolean;
+  
+  // Enable zero-token detection (default: true)
+  detectZeroTokens?: boolean;
+  
+  // Continue from checkpoint on retry/fallback (default: false)
+  // WARNING: Do not use with structured output/streamObject
+  continueFromLastKnownGoodToken?: boolean;
+  
+  // Interceptors for custom hooks
+  interceptors?: Interceptor[];
+  
+  // Event callbacks
+  onEvent?: (event: L0Event) => void;
+  onViolation?: (violation: GuardrailViolation) => void;
+  onRetry?: (attempt: number, reason: string) => void;
 }
 ```
 
