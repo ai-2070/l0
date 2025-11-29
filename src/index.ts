@@ -183,6 +183,24 @@ export type {
   PrometheusMetric,
 } from "./runtime/prometheus";
 
+// Sentry integration
+export {
+  L0Sentry,
+  createSentryIntegration,
+  sentryInterceptor,
+  withSentry,
+} from "./runtime/sentry";
+
+export type {
+  SentryHub,
+  SentrySeverity,
+  SentryBreadcrumb,
+  SentryTransactionContext,
+  SentryTransaction,
+  SentrySpan,
+  SentryConfig,
+} from "./runtime/sentry";
+
 // Interceptors
 export {
   InterceptorManager,

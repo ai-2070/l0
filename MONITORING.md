@@ -977,10 +977,178 @@ app.get('/metrics', async (req, res) => {
 
 ---
 
+## Sentry Integration
+
+L0 includes native Sentry support for error tracking and performance monitoring.
+
+### Quick Start
+
+```typescript
+import * as Sentry from '@sentry/node';
+import { l0, sentryInterceptor } from 'l0';
+
+Sentry.init({ dsn: 'your-sentry-dsn' });
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  monitoring: { enabled: true },
+  interceptors: [
+    sentryInterceptor({ hub: Sentry })
+  ]
+});
+```
+
+### Using withSentry Wrapper
+
+```typescript
+import * as Sentry from '@sentry/node';
+import { l0, withSentry } from 'l0';
+
+const result = await withSentry(
+  { hub: Sentry },
+  () => l0({
+    stream: () => streamText({ model, prompt }),
+    monitoring: { enabled: true }
+  })
+);
+```
+
+### Configuration
+
+```typescript
+import { sentryInterceptor } from 'l0';
+
+sentryInterceptor({
+  hub: Sentry,                        // Required: Sentry instance
+  captureNetworkErrors: true,         // Capture network failures (default: true)
+  captureGuardrailViolations: true,   // Capture guardrail violations (default: true)
+  minGuardrailSeverity: 'error',      // Min severity to capture (default: 'error')
+  breadcrumbsForTokens: false,        // Add breadcrumb per token (default: false)
+  enableTracing: true,                // Enable performance tracing (default: true)
+  tags: {                             // Custom tags for all events
+    model: 'gpt-4',
+    environment: 'production'
+  }
+});
+```
+
+### What Gets Tracked
+
+**Breadcrumbs:**
+- L0 execution start/complete
+- Stream start/complete
+- First token (TTFT)
+- Network errors
+- Retry attempts
+- Guardrail violations
+- Drift detection
+
+**Errors Captured:**
+- Network errors (final failures, not retried)
+- Guardrail violations (error/fatal severity)
+- Execution failures
+
+**Performance Transactions:**
+- `l0.execution` - Full execution span
+- `l0.stream.consume` - Stream consumption span
+- Token count, duration, TTFT as span data
+
+### Manual Integration
+
+For fine-grained control:
+
+```typescript
+import * as Sentry from '@sentry/node';
+import { l0, createSentryIntegration } from 'l0';
+
+const sentry = createSentryIntegration({ hub: Sentry });
+
+// Start tracking
+sentry.startExecution('my-chat-request', { user_id: '123' });
+sentry.startStream();
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  monitoring: { enabled: true }
+});
+
+let tokenCount = 0;
+for await (const event of result.stream) {
+  if (event.type === 'token') {
+    tokenCount++;
+    if (tokenCount === 1) {
+      sentry.recordFirstToken(result.telemetry?.metrics.timeToFirstToken ?? 0);
+    }
+    sentry.recordToken(event.value);
+  }
+}
+
+// Complete tracking
+sentry.completeStream(tokenCount);
+sentry.completeExecution(result.telemetry);
+```
+
+### Error Handling
+
+```typescript
+const sentry = createSentryIntegration({ hub: Sentry });
+sentry.startExecution();
+
+try {
+  const result = await l0({ stream, monitoring: { enabled: true } });
+  
+  for await (const event of result.stream) {
+    // ...
+  }
+  
+  sentry.completeExecution(result.telemetry);
+} catch (error) {
+  sentry.recordFailure(error, result?.telemetry);
+  throw error;
+}
+```
+
+### Telemetry Context
+
+L0 automatically sets Sentry context with telemetry data:
+
+```typescript
+// Automatically set on completion:
+Sentry.setContext('l0_telemetry', {
+  session_id: 'l0_123...',
+  duration_ms: 1500,
+  tokens: 250,
+  tokens_per_second: 166,
+  ttft_ms: 280,
+  retries: 1,
+  network_errors: 0,
+  guardrail_violations: 0
+});
+```
+
+### Example Sentry Dashboard
+
+Events you'll see in Sentry:
+
+```
+[ERROR] Network error: connection_dropped
+  Tags: error_type=connection_dropped, component=l0.network
+  
+[WARNING] Guardrail violation: json-structure
+  Message: Unbalanced braces: 2 open, 1 close
+
+[TRANSACTION] l0.execution (1.5s)
+  └── l0.stream.consume (1.2s)
+      Data: tokens=250, ttft_ms=280
+```
+
+---
+
 ## Summary
 
 L0's built-in monitoring provides:
 - ✅ **Native Prometheus support** - built-in exporter with all metrics
+- ✅ **Native Sentry support** - error tracking and performance monitoring
 - ✅ **No external dependencies** - everything built-in
 - ✅ **Comprehensive metrics** - performance, errors, violations
 - ✅ **Flexible sampling** - control overhead
