@@ -328,10 +328,13 @@ See [FORMATTING.md](./FORMATTING.md) for complete API reference.
 |-------|-------------|
 | [QUICKSTART.md](./QUICKSTART.md) | 5-minute getting started |
 | [API.md](./API.md) | Complete API reference |
+| [GUARDRAILS.md](./GUARDRAILS.md) | Guardrails and validation |
 | [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md) | Structured output guide |
+| [CONSENSUS.md](./CONSENSUS.md) | Multi-generation consensus |
 | [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md) | Document chunking guide |
 | [NETWORK_ERRORS.md](./NETWORK_ERRORS.md) | Network error handling |
 | [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Parallel operations |
+| [MONITORING.md](./MONITORING.md) | Telemetry and metrics |
 | [FORMATTING.md](./FORMATTING.md) | Formatting helpers |
 
 ---
