@@ -786,41 +786,38 @@ npm test
 OPENAI_API_KEY=sk-... npm run test:integration
 ```
 
-### Test Coverage
-
-| Category          | Tests | Description                      |
-| ----------------- | ----- | -------------------------------- |
-| Unit Tests        | 1231  | Fast, mocked, no API calls       |
-| Integration Tests | 194   | Real API calls, all SDK adapters |
-
 ### SDK Adapter Matrix
 
-| Adapter       | Unit Tests | Integration Tests | Version                        |
-| ------------- | ---------- | ----------------- | ------------------------------ |
-| Vercel AI SDK | ✓          | ✓                 | ^5.0.0                         |
-| OpenAI SDK    | ✓          | ✓                 | ^4.0.0 \|\| ^5.0.0 \|\| ^6.0.0 |
-| Mastra AI     | ✓          | ✓                 | >=0.24.0                       |
+L0 supports all major provider SDKs with full end-to-end testing:
+
+| Adapter | Integration | Version Range |
+| --- | --- | --- |
+| **Vercel AI SDK** | ✓ | `^5.0.0` |
+| **OpenAI SDK** | ✓ | `^4.0.0` · `^5.0.0` · `^6.0.0` |
+| **Mastra AI** | ✓ | `>= 0.24.0` |
 
 ### Feature Test Matrix
 
-| Feature           | Unit | Integration | Notes                           |
-| ----------------- | ---- | ----------- | ------------------------------- |
-| Streaming         | ✓    | ✓           | Token events, completion        |
-| Guardrails        | ✓    | ✓           | All rules, presets              |
-| Structured Output | ✓    | ✓           | Zod schemas, auto-correct       |
-| Retry Logic       | ✓    | ✓           | Backoff strategies              |
-| Network Errors    | ✓    | -           | 12+ error types                 |
-| Fallback Models   | ✓    | ✓           | Sequential fallback             |
-| Parallel/Race     | ✓    | ✓           | Concurrency patterns            |
-| Pipeline          | ✓    | -           | Multi-step workflows            |
-| Consensus         | ✓    | ✓           | Voting strategies               |
-| Document Windows  | ✓    | ✓           | Chunking strategies             |
-| Continuation      | ✓    | ✓           | Last-known-good token resumption|
-| Monitoring        | ✓    | ✓           | Telemetry, Prometheus           |
-| Sentry            | ✓    | ✓           | Error tracking, breadcrumbs     |
-| OpenTelemetry     | ✓    | ✓           | Distributed tracing, GenAI      |
-| Interceptors      | ✓    | -           | All built-in interceptors       |
-| Drift Detection   | ✓    | -           | Pattern detection               |
+Every major reliability feature in L0 has dedicated test suites:
+
+| Feature | Unit | Integration | Notes |
+| --- | --- | --- | --- |
+| **Streaming** | ✓ | ✓ | Token events, completion |
+| **Guardrails** | ✓ | ✓ | JSON/Markdown/LaTeX, patterns, drift |
+| **Structured Output** | ✓ | ✓ | Zod schemas, auto-correction |
+| **Retry Logic** | ✓ | ✓ | Backoff, error classification |
+| **Network Errors** | ✓ | – | 12+ simulated error types |
+| **Fallback Models** | ✓ | ✓ | Sequential fallthrough |
+| **Parallel / Race** | ✓ | ✓ | Concurrency, cancellation |
+| **Pipeline** | ✓ | – | Multi-step streaming workflows |
+| **Consensus** | ✓ | ✓ | Unanimous, weighted, best-match |
+| **Document Windows** | ✓ | ✓ | Token, paragraph, sentence chunking |
+| **Continuation** | ✓ | ✓ | Last-known-good token resumption |
+| **Monitoring** | ✓ | ✓ | Prometheus, metrics, tokens, retries |
+| **Sentry** | ✓ | ✓ | Error tagging, breadcrumbs, performance |
+| **OpenTelemetry** | ✓ | ✓ | GenAI semantic conventions, spans, TTFT |
+| **Interceptors** | ✓ | – | All built-in interceptors validated |
+| **Drift Detection** | ✓ | – | Pattern detection, entropy, format drift |
 
 ---
 
