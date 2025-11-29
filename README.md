@@ -310,7 +310,7 @@ const result = await l0({
 
 ---
 
-## Token Resumption
+## Last-Known-Good Token Resumption
 
 When a stream fails mid-generation, L0 can resume from the last known good checkpoint instead of starting over. This preserves already-generated content and reduces latency on retries.
 
