@@ -40,6 +40,8 @@ for await (const event of result.stream) {
 | [Network Protection](#network-protection) | Auto-recovery from 12+ network failure types |
 | [Document Windows](#document-windows) | Automatic chunking for long documents |
 | [Fallback Models](#fallback-models) | Sequential fallback when primary model fails |
+| [Parallel Operations](#parallel-operations) | Race, batch, pool patterns for concurrent LLM calls |
+| [Monitoring](#monitoring) | Built-in Prometheus and Sentry integrations |
 
 ---
 
@@ -262,6 +264,118 @@ console.log(result.confidence);   // 0-1 confidence score
 console.log(result.agreements);   // What they agreed on
 console.log(result.disagreements); // Where they differed
 ```
+
+---
+
+## Parallel Operations
+
+Run multiple LLM calls concurrently with different patterns:
+
+### Race - First Response Wins
+
+```typescript
+import { race } from "l0";
+
+const result = await race([
+  { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
+  { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
+  { stream: () => streamText({ model: google("gemini-pro"), prompt }) }
+]);
+// Returns first successful response, cancels others
+```
+
+### Parallel with Concurrency Control
+
+```typescript
+import { parallel } from "l0";
+
+const results = await parallel([
+  { stream: () => streamText({ model, prompt: "Task 1" }) },
+  { stream: () => streamText({ model, prompt: "Task 2" }) },
+  { stream: () => streamText({ model, prompt: "Task 3" }) }
+], {
+  concurrency: 2,  // Max 2 concurrent
+  failFast: false  // Continue on errors
+});
+
+console.log(results.successCount);
+console.log(results.results[0]?.state.content);
+```
+
+### Fall-Through vs Race
+
+| Pattern | Execution | Cost | Best For |
+|---------|-----------|------|----------|
+| Fall-through | Sequential, next on failure | Low (pay for 1) | High availability, cost-sensitive |
+| Race | Parallel, first wins | High (pay for all) | Low latency, speed-critical |
+
+```typescript
+// Fall-through: Try models sequentially
+const result = await l0({
+  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
+  fallbackStreams: [
+    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: anthropic("claude-3-haiku"), prompt })
+  ]
+});
+
+// Race: All models simultaneously, first wins
+const result = await race([
+  { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
+  { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) }
+]);
+```
+
+---
+
+## Monitoring
+
+Built-in telemetry with Prometheus and Sentry integrations.
+
+### Prometheus
+
+```typescript
+import { l0, createPrometheusCollector, prometheusMiddleware } from "l0";
+import express from "express";
+
+const collector = createPrometheusCollector();
+const app = express();
+
+app.get("/metrics", prometheusMiddleware(collector));
+
+app.post("/chat", async (req, res) => {
+  const result = await l0({
+    stream: () => streamText({ model, prompt: req.body.prompt }),
+    monitoring: { enabled: true }
+  });
+
+  for await (const event of result.stream) { /* ... */ }
+
+  collector.record(result.telemetry, { model: "gpt-4" });
+  res.json({ response: result.state.content });
+});
+```
+
+**Exported metrics:** `l0_requests_total`, `l0_request_duration_seconds`, `l0_tokens_total`, `l0_time_to_first_token_seconds`, `l0_network_errors_total`, `l0_guardrail_violations_total`
+
+### Sentry
+
+```typescript
+import * as Sentry from "@sentry/node";
+import { l0, sentryInterceptor } from "l0";
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  monitoring: { enabled: true },
+  interceptors: [
+    sentryInterceptor({ hub: Sentry })
+  ]
+});
+```
+
+**Tracks:** Breadcrumbs for all events, network errors, guardrail violations, performance transactions with TTFT and token count.
+
+See [MONITORING.md](./MONITORING.md) for complete integration guides.
 
 ---
 
