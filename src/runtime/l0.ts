@@ -157,6 +157,62 @@ export async function l0(options: L0Options): Promise<L0Result> {
               state.checkpoint.length > 0
             ) {
               checkpointForContinuation = state.checkpoint;
+
+              // Run guardrails on checkpoint content before using for continuation
+              // This ensures all protections apply to the resumed content
+              if (guardrailEngine) {
+                const checkpointContext: GuardrailContext = {
+                  content: checkpointForContinuation,
+                  checkpoint: "",
+                  delta: checkpointForContinuation,
+                  tokenCount: 1,
+                  completed: false,
+                };
+                const checkpointResult =
+                  guardrailEngine.check(checkpointContext);
+                if (checkpointResult.violations.length > 0) {
+                  // Record violations but don't block continuation
+                  // The checkpoint was already validated during initial streaming
+                  state.violations.push(...checkpointResult.violations);
+                  monitor.recordGuardrailViolations(
+                    checkpointResult.violations,
+                  );
+
+                  // Check for fatal violations - if any, don't continue from checkpoint
+                  const hasFatal = checkpointResult.violations.some(
+                    (v) => v.severity === "fatal",
+                  );
+                  if (hasFatal) {
+                    // Don't use checkpoint, start fresh
+                    tokenBuffer = [];
+                    state.content = "";
+                    state.tokenCount = 0;
+                    state.violations = [];
+                    state.driftDetected = false;
+                    continue;
+                  }
+                }
+              }
+
+              // Run drift detection on checkpoint content
+              if (driftDetector) {
+                const driftResult = driftDetector.check(
+                  checkpointForContinuation,
+                );
+                if (driftResult.detected) {
+                  state.driftDetected = true;
+                  monitor.recordDrift(true, driftResult.types);
+                  if (processedOnViolation) {
+                    processedOnViolation({
+                      rule: "drift",
+                      severity: "warning",
+                      message: `Drift detected in checkpoint: ${driftResult.types.join(", ")}`,
+                      recoverable: true,
+                    });
+                  }
+                }
+              }
+
               state.continuedFromCheckpoint = true;
               state.continuationCheckpoint = checkpointForContinuation;
 
@@ -575,25 +631,79 @@ export async function l0(options: L0Options): Promise<L0Result> {
           // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
           if (processedContinueFromCheckpoint && state.checkpoint.length > 0) {
             checkpointForContinuation = state.checkpoint;
-            state.continuedFromCheckpoint = true;
-            state.continuationCheckpoint = checkpointForContinuation;
 
-            // Record continuation in monitoring
-            monitor.recordContinuation(true, true, checkpointForContinuation);
+            // Run guardrails on checkpoint content before using for continuation
+            // This ensures all protections apply to the resumed content
+            let skipContinuation = false;
+            if (guardrailEngine) {
+              const checkpointContext: GuardrailContext = {
+                content: checkpointForContinuation,
+                checkpoint: "",
+                delta: checkpointForContinuation,
+                tokenCount: 1,
+                completed: false,
+              };
+              const checkpointResult = guardrailEngine.check(checkpointContext);
+              if (checkpointResult.violations.length > 0) {
+                // Record violations
+                state.violations.push(...checkpointResult.violations);
+                monitor.recordGuardrailViolations(checkpointResult.violations);
 
-            // Emit the checkpoint content as tokens first
-            const checkpointEvent: L0Event = {
-              type: "token",
-              value: checkpointForContinuation,
-              timestamp: Date.now(),
-            };
-            if (processedOnEvent) processedOnEvent(checkpointEvent);
-            yield checkpointEvent;
+                // Check for fatal violations - if any, don't continue from checkpoint
+                const hasFatal = checkpointResult.violations.some(
+                  (v) => v.severity === "fatal",
+                );
+                if (hasFatal) {
+                  skipContinuation = true;
+                }
+              }
+            }
 
-            // Initialize with checkpoint
-            tokenBuffer = [checkpointForContinuation];
-            state.content = checkpointForContinuation;
-            state.tokenCount = 1;
+            // Run drift detection on checkpoint content
+            if (!skipContinuation && driftDetector) {
+              const driftResult = driftDetector.check(
+                checkpointForContinuation,
+              );
+              if (driftResult.detected) {
+                state.driftDetected = true;
+                monitor.recordDrift(true, driftResult.types);
+                if (processedOnViolation) {
+                  processedOnViolation({
+                    rule: "drift",
+                    severity: "warning",
+                    message: `Drift detected in checkpoint: ${driftResult.types.join(", ")}`,
+                    recoverable: true,
+                  });
+                }
+              }
+            }
+
+            if (!skipContinuation) {
+              state.continuedFromCheckpoint = true;
+              state.continuationCheckpoint = checkpointForContinuation;
+
+              // Record continuation in monitoring
+              monitor.recordContinuation(true, true, checkpointForContinuation);
+
+              // Emit the checkpoint content as tokens first
+              const checkpointEvent: L0Event = {
+                type: "token",
+                value: checkpointForContinuation,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(checkpointEvent);
+              yield checkpointEvent;
+
+              // Initialize with checkpoint
+              tokenBuffer = [checkpointForContinuation];
+              state.content = checkpointForContinuation;
+              state.tokenCount = 1;
+            } else {
+              // Fatal violation in checkpoint, start fresh
+              tokenBuffer = [];
+              state.content = "";
+              state.tokenCount = 0;
+            }
           } else {
             tokenBuffer = [];
             state.content = "";

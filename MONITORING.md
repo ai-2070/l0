@@ -179,6 +179,15 @@ interface L0Telemetry {
     types: string[];
   };
 
+  // Continuation tracking (when continueFromLastKnownGoodToken is enabled)
+  continuation?: {
+    enabled: boolean;              // Whether continuation was enabled
+    used: boolean;                 // Whether continuation was actually used
+    checkpointContent?: string;    // The checkpoint content used for continuation
+    checkpointLength?: number;     // Length of checkpoint in characters
+    continuationCount?: number;    // Number of times continuation was triggered
+  };
+
   // Custom metadata
   metadata?: Record<string, any>;
 }
@@ -264,6 +273,23 @@ console.log(
 );
 console.log("  Tokens per second:", telemetry.metrics.tokensPerSecond);
 console.log("  Total duration:", telemetry.duration, "ms");
+```
+
+### Continuation Analysis
+
+```typescript
+// Check if continuation was used
+if (telemetry.continuation) {
+  console.log("Continuation enabled:", telemetry.continuation.enabled);
+  console.log("Continuation used:", telemetry.continuation.used);
+  
+  if (telemetry.continuation.used) {
+    console.log("Resumed from checkpoint:");
+    console.log("  Length:", telemetry.continuation.checkpointLength, "chars");
+    console.log("  Times continued:", telemetry.continuation.continuationCount);
+    // Note: checkpointContent available for debugging but may be large
+  }
+}
 ```
 
 ## Exporting Telemetry
@@ -645,6 +671,10 @@ monitor.recordToken();
 monitor.recordToken();
 monitor.recordNetworkError(error, true, 1000, 1);
 monitor.recordRetry(true);
+
+// Record continuation events
+monitor.recordContinuation(true, false);  // Enabled but not used yet
+monitor.recordContinuation(true, true, "checkpoint content");  // Used with checkpoint
 
 monitor.complete();
 

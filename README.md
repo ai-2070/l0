@@ -157,11 +157,12 @@ for await (const event of result.stream) {
 | [Guardrails](#guardrails)                   | JSON, Markdown, LaTeX validation, pattern detection             |
 | [Structured Output](#structured-output)     | Guaranteed valid JSON with Zod schema validation                |
 | [Retry Logic](#retry-logic)                 | Smart retries with backoff, network vs model error distinction  |
+| [Token Resumption](#token-resumption)       | Resume from last checkpoint on retry/fallback (opt-in)          |
 | [Network Protection](#network-protection)   | Auto-recovery from 12+ network failure types                    |
 | [Document Windows](#document-windows)       | Automatic chunking for long documents                           |
 | [Fallback Models](#fallback-models)         | Sequential fallback when primary model fails                    |
 | [Parallel Operations](#parallel-operations) | Race, batch, pool patterns for concurrent LLM calls             |
-| [Monitoring](#monitoring)                   | Built-in Prometheus, OTel and Sentry integrations                     |
+| [Monitoring](#monitoring)                   | Built-in Prometheus, OTel and Sentry integrations               |
 
 ---
 
@@ -306,6 +307,88 @@ const result = await l0({
 | Malformed output     | Yes     | **Yes**             |
 | Drift detected       | Yes     | **Yes**             |
 | Auth error (401/403) | No      | -                   |
+
+---
+
+## Token Resumption
+
+When a stream fails mid-generation, L0 can resume from the last known good checkpoint instead of starting over. This preserves already-generated content and reduces latency on retries.
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  retry: { attempts: 2 },
+  
+  // Enable continuation from last checkpoint (opt-in)
+  continueFromLastKnownGoodToken: true,
+});
+
+// Check if continuation was used
+console.log(result.state.continuedFromCheckpoint); // true if resumed
+console.log(result.state.continuationCheckpoint);  // The checkpoint content
+```
+
+### How It Works
+
+1. L0 maintains a checkpoint of successfully received tokens
+2. When a retry or fallback is triggered, the checkpoint content is emitted first
+3. The model continues generation from where it left off
+4. Telemetry tracks whether continuation was enabled and used
+
+### Example: Resuming After Network Error
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ 
+    model: openai("gpt-4o"), 
+    prompt: "Write a detailed analysis of..." 
+  }),
+  fallbackStreams: [
+    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+  ],
+  retry: { attempts: 2 },
+  continueFromLastKnownGoodToken: true,
+  monitoring: { enabled: true },
+});
+
+for await (const event of result.stream) {
+  if (event.type === "token") {
+    process.stdout.write(event.value);
+  }
+}
+
+// Check telemetry for continuation usage
+if (result.telemetry?.continuation?.used) {
+  console.log("\nResumed from checkpoint of length:", 
+    result.telemetry.continuation.checkpointLength);
+}
+```
+
+### Important Limitations
+
+> ⚠️ **Do NOT use `continueFromLastKnownGoodToken` with structured output or `streamObject()`.**
+>
+> Continuation works by prepending checkpoint content to the next generation. For JSON/structured output, this can corrupt the data structure because:
+> - The model may not properly continue the JSON syntax
+> - Partial objects could result in invalid JSON
+> - Schema validation may fail on malformed output
+>
+> For structured output, let L0 retry from scratch to ensure valid JSON.
+
+```typescript
+// ✅ GOOD - Text generation with continuation
+const result = await l0({
+  stream: () => streamText({ model, prompt: "Write an essay..." }),
+  continueFromLastKnownGoodToken: true,
+});
+
+// ❌ BAD - Do NOT use with structured output
+const result = await structured({
+  schema: mySchema,
+  stream: () => streamText({ model, prompt }),
+  continueFromLastKnownGoodToken: true, // DON'T DO THIS
+});
+```
 
 ---
 
@@ -639,7 +722,7 @@ OPENAI_API_KEY=sk-... npm run test:integration
 
 | Category          | Tests | Description                      |
 | ----------------- | ----- | -------------------------------- |
-| Unit Tests        | 1191  | Fast, mocked, no API calls       |
+| Unit Tests        | 1206  | Fast, mocked, no API calls       |
 | Integration Tests | 40+   | Real API calls, all SDK adapters |
 
 ### SDK Adapter Matrix
