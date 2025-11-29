@@ -360,15 +360,30 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
     );
 
     it(
-      "should track continuation count in telemetry when retries occur",
+      "should track continuation count in telemetry when retries occur with checkpoint",
       async () => {
         let attemptCount = 0;
+        const tokensBeforeFailure = [
+          "Testing",
+          " ",
+          "continuation",
+          " ",
+          "tracking",
+        ];
 
         const result = await l0({
           stream: () => {
             attemptCount++;
-            if (attemptCount <= 1) {
-              throw new Error("Simulated error");
+            if (attemptCount === 1) {
+              // First attempt - stream tokens then fail to create checkpoint
+              return {
+                textStream: (async function* () {
+                  for (const token of tokensBeforeFailure) {
+                    yield token;
+                  }
+                  throw new Error("Simulated mid-stream error");
+                })(),
+              };
             }
             return streamText({
               model: openai("gpt-5-nano"),
@@ -376,6 +391,9 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
             });
           },
           continueFromLastKnownGoodToken: true,
+          checkIntervals: {
+            checkpoint: 2, // Save checkpoint every 2 tokens
+          },
           retry: {
             attempts: 3,
             baseDelay: 100,
@@ -391,10 +409,12 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
 
         expectValidResponse(result.state.content);
         expect(result.telemetry?.continuation?.enabled).toBe(true);
-        // Continuation count tracks how many times we attempted to continue
+        // Continuation was actually used since we had tokens before failure
+        expect(result.telemetry?.continuation?.used).toBe(true);
+        // Continuation count should be at least 1
         expect(
           result.telemetry?.continuation?.continuationCount,
-        ).toBeGreaterThanOrEqual(0);
+        ).toBeGreaterThanOrEqual(1);
       },
       LLM_TIMEOUT * 2,
     );

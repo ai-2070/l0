@@ -31,8 +31,10 @@ describeIf(hasOpenAI)("Rate Limiting Integration", () => {
         }
 
         expectValidResponse(result.state.content);
-        // Verify retry config includes rate_limit by default
+        // Verify telemetry is tracked
         expect(result.telemetry).toBeDefined();
+        // Note: Default retry reasons include rate_limit - verified in unit tests
+        // This integration test verifies the stream completes successfully with defaults
       },
       LLM_TIMEOUT,
     );
@@ -183,8 +185,21 @@ describeIf(hasOpenAI)("Rate Limiting Integration", () => {
         );
 
         expect(results.results.length).toBe(4);
-        // With concurrency of 2, operations should be batched
         expect(startTimes.length).toBe(4);
+
+        // With concurrency of 2, we expect two batches
+        // First two should start at nearly the same time
+        // Last two should start after the first batch completes
+        // Sort times and check that there's a gap between batch 1 and batch 2
+        const sortedTimes = [...startTimes].sort((a, b) => a - b);
+        const firstBatchEnd = Math.max(sortedTimes[0]!, sortedTimes[1]!);
+        const secondBatchStart = Math.min(sortedTimes[2]!, sortedTimes[3]!);
+
+        // The second batch should start after or around the same time as first batch
+        // (accounting for fast API responses where batches may overlap slightly)
+        // At minimum, verify the first two started close together
+        const firstTwoDiff = Math.abs(sortedTimes[1]! - sortedTimes[0]!);
+        expect(firstTwoDiff).toBeLessThan(1000); // First two should start within 1s of each other
       },
       LLM_TIMEOUT * 3,
     );

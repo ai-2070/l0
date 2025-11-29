@@ -2,7 +2,12 @@
 // Run: OPENAI_API_KEY=sk-... npm run test:integration
 
 import { describe, it, expect } from "vitest";
-import { describeIf, hasOpenAI, LLM_TIMEOUT, expectValidResponse } from "./setup";
+import {
+  describeIf,
+  hasOpenAI,
+  LLM_TIMEOUT,
+  expectValidResponse,
+} from "./setup";
 import {
   consensus,
   quickConsensus,
@@ -473,9 +478,10 @@ describeIf(hasOpenAI)("Consensus Integration", () => {
 
   describe("Utility Functions", () => {
     it("quickConsensus should check agreement", () => {
-      expect(quickConsensus(["A", "A", "A"])).toBe(true);
-      expect(quickConsensus(["A", "A", "B"])).toBe(true); // 2/3 = 0.66 > 0.5 default
-      expect(quickConsensus(["A", "B", "C"], 0.9)).toBe(false);
+      expect(quickConsensus(["A", "A", "A"])).toBe(true); // 3/3 = 1.0 >= 0.8 default
+      expect(quickConsensus(["A", "A", "B"])).toBe(false); // 2/3 = 0.66 < 0.8 default
+      expect(quickConsensus(["A", "A", "B"], 0.5)).toBe(true); // 2/3 = 0.66 > 0.5 threshold
+      expect(quickConsensus(["A", "B", "C"], 0.9)).toBe(false); // 1/3 = 0.33 < 0.9
     });
 
     it("getConsensusValue should return most common value", () => {
