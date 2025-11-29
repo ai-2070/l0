@@ -322,7 +322,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
           },
           retry: {
             attempts: 3,
-            retryOn: ["network_error", "timeout", "malformed", "server_error"],
+            retryOn: ["network_error", "timeout", "unknown", "server_error"],
           },
           onRetry: () => {
             retryCount++;
@@ -490,10 +490,10 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
               }),
           ],
           monitoring: { enabled: true },
-          // Enable retry with malformed so thrown errors trigger fallback
+          // Enable retry with unknown so thrown errors trigger fallback
           retry: {
             attempts: 1,
-            retryOn: ["malformed", "server_error"],
+            retryOn: ["unknown", "server_error"],
           },
           detectZeroTokens: false,
         });

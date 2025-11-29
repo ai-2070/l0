@@ -601,13 +601,14 @@ export interface RetryOptions {
 
   /**
    * What types of errors to retry on.
-   * Default: all error types (zero_output, guardrail_violation, drift, malformed, incomplete, network_error, timeout, rate_limit, server_error)
+   * Default: zero_output, guardrail_violation, drift, incomplete, network_error, timeout, rate_limit, server_error
+   * Note: "unknown" errors are NOT retried by default (opt-in only)
    */
   retryOn?: Array<
     | "zero_output"
     | "guardrail_violation"
     | "drift"
-    | "malformed"
+    | "unknown"
     | "incomplete"
     | "network_error"
     | "timeout"
@@ -673,8 +674,15 @@ export const recommendedRetry: RetryOptions = {
   baseDelay: 1000,
   maxDelay: 10000,
   retryOn: [
-      "zero_output", "guardrail_violation", "drift", "malformed", "incomplete", "network_error", "timeout", "rate_limit", "server_error",
-    ],
+    "zero_output",
+    "guardrail_violation",
+    "drift",
+    "incomplete",
+    "network_error",
+    "timeout",
+    "rate_limit",
+    "server_error",
+  ],
 };
 
 export const strictRetry: RetryOptions = {
@@ -683,6 +691,13 @@ export const strictRetry: RetryOptions = {
   baseDelay: 1000,
   maxDelay: 10000,
   retryOn: [
-      "zero_output", "guardrail_violation", "drift", "malformed", "incomplete", "network_error", "timeout", "rate_limit", "server_error",
-    ],
+    "zero_output",
+    "guardrail_violation",
+    "drift",
+    "incomplete",
+    "network_error",
+    "timeout",
+    "rate_limit",
+    "server_error",
+  ],
 };

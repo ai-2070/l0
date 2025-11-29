@@ -94,12 +94,7 @@ export async function structured<T extends z.ZodTypeAny>(
       backoff: retry.backoff ?? "exponential",
       baseDelay: retry.baseDelay ?? 1000,
       maxDelay: retry.maxDelay ?? 5000,
-      retryOn: [
-        ...(retry.retryOn || []),
-        "guardrail_violation",
-        "malformed",
-        "incomplete",
-      ],
+      retryOn: [...(retry.retryOn || []), "guardrail_violation", "incomplete"],
       errorTypeDelays: retry.errorTypeDelays,
     },
     timeout,

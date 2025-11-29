@@ -59,7 +59,7 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
           // Enable retry so thrown errors trigger fallback after exhausting retries
           retry: {
             attempts: 1,
-            retryOn: ["malformed", "server_error"],
+            retryOn: ["unknown", "server_error"],
           },
           detectZeroTokens: false,
         });
@@ -91,11 +91,11 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
                 prompt: "Say 'fallback 2 worked successfully'",
               }),
           ],
-          // Enable retry with malformed so thrown errors trigger fallback after exhausting retries
-          // Generic thrown errors are categorized as "malformed"
+          // Enable retry with unknown so thrown errors trigger fallback after exhausting retries
+          // Generic thrown errors are categorized as "unknown"
           retry: {
             attempts: 1,
-            retryOn: ["malformed", "server_error"],
+            retryOn: ["unknown", "server_error"],
           },
           detectZeroTokens: false,
         });
@@ -243,10 +243,10 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
           ],
           guardrails: recommendedGuardrails,
           onViolation: (v) => violations.push(v),
-          // Enable retry with malformed so thrown errors trigger fallback
+          // Enable retry with unknown so thrown errors trigger fallback
           retry: {
             attempts: 1,
-            retryOn: ["malformed", "server_error"],
+            retryOn: ["unknown", "server_error"],
           },
           detectZeroTokens: false,
         });

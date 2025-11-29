@@ -97,7 +97,7 @@ describe("RetryManager", () => {
         retryOn: ["network_error"],
       });
       const error = new Error("Invalid API key");
-      const decision = limitedManager.shouldRetry(error, "malformed");
+      const decision = limitedManager.shouldRetry(error, "unknown");
 
       expect(decision.shouldRetry).toBe(false);
     });

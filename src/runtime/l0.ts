@@ -173,7 +173,6 @@ export async function l0(options: L0Options): Promise<L0Result> {
       "zero_output",
       "guardrail_violation",
       "drift",
-      "malformed",
       "incomplete",
       "network_error",
       "timeout",

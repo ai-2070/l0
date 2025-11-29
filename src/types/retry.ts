@@ -124,7 +124,7 @@ export type RetryReason =
   | "zero_output"
   | "guardrail_violation"
   | "drift"
-  | "malformed"
+  | "unknown"
   | "incomplete"
   | "network_error"
   | "timeout"
@@ -146,12 +146,11 @@ export const RETRY_DEFAULTS = {
   networkMaxDelay: 30000,
   /** Default backoff strategy */
   backoff: "exponential" as const,
-  /** Default retry reasons */
+  /** Default retry reasons (unknown errors are not retried by default) */
   retryOn: [
     "zero_output",
     "guardrail_violation",
     "drift",
-    "malformed",
     "incomplete",
     "network_error",
     "timeout",
