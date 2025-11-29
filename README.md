@@ -154,13 +154,13 @@ for await (const event of result.stream) {
 | Feature                                     | Description                                                     |
 | ------------------------------------------- | --------------------------------------------------------------- |
 | [Streaming Runtime](#streaming-runtime)     | Token-by-token normalization, checkpoints, resumable generation |
-| [Guardrails](#guardrails)                   | JSON, Markdown, LaTeX validation, pattern detection             |
-| [Structured Output](#structured-output)     | Guaranteed valid JSON with Zod schema validation                |
 | [Retry Logic](#retry-logic)                 | Smart retries with backoff, network vs model error distinction  |
-| [Token Resumption](#token-resumption)       | Resume from last checkpoint on retry/fallback (opt-in)          |
 | [Network Protection](#network-protection)   | Auto-recovery from 12+ network failure types                    |
-| [Document Windows](#document-windows)       | Automatic chunking for long documents                           |
+| [Structured Output](#structured-output)     | Guaranteed valid JSON with Zod schema validation                |
 | [Fallback Models](#fallback-models)         | Sequential fallback when primary model fails                    |
+| [Document Windows](#document-windows)       | Automatic chunking for long documents                           |
+| [Last-Known-Good Token Resumption](#token-resumption)       | Resume from last checkpoint on retry/fallback (opt-in)          |
+| [Guardrails](#guardrails)                   | JSON, Markdown, LaTeX validation, pattern detection             |
 | [Parallel Operations](#parallel-operations) | Race, batch, pool patterns for concurrent LLM calls             |
 | [Monitoring](#monitoring)                   | Built-in Prometheus, OTel and Sentry integrations               |
 
