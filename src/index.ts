@@ -389,7 +389,7 @@ export type {
   L0ErrorContext,
 } from "./utils/errors";
 
-// SDK Adapters
+// SDK Adapters - OpenAI
 export {
   wrapOpenAIStream,
   openaiStream,
@@ -401,3 +401,20 @@ export {
 } from "./adapters/openai";
 
 export type { OpenAIAdapterOptions } from "./adapters/openai";
+
+// SDK Adapters - Mastra
+export {
+  wrapMastraStream,
+  wrapMastraFullStream,
+  mastraStream,
+  mastraText,
+  mastraStructured,
+  isMastraStream,
+  extractMastraText,
+  extractMastraObject,
+} from "./adapters/mastra";
+
+export type {
+  MastraAdapterOptions,
+  MastraMessageInput,
+} from "./adapters/mastra";

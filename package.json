@@ -42,12 +42,16 @@
     "anthropic"
   ],
   "peerDependencies": {
+    "@mastra/core": ">=0.24.0",
+    "@sentry/node": "^10.0.0",
     "ai": "^5.0.0",
     "openai": "^4.0.0 || ^5.0.0 || ^6.0.0",
-    "@sentry/node": "^10.0.0",
     "prom-client": "^15.0.0"
   },
   "peerDependenciesMeta": {
+    "@mastra/core": {
+      "optional": true
+    },
     "ai": {
       "optional": true
     },
@@ -62,6 +66,7 @@
     }
   },
   "devDependencies": {
+    "@mastra/core": "^0.24.0",
     "@sentry/node": "^10.27.0",
     "@sentry/types": "^10.27.0",
     "@types/node": "^20.0.0",

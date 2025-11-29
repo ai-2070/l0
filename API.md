@@ -691,6 +691,138 @@ const text = await extractOpenAIText(stream);
 
 ---
 
+## Mastra Adapter
+
+L0 provides an adapter for using Mastra agents directly. Requires `@mastra/core` v0.18+.
+
+### wrapMastraStream(streamResult, options?)
+
+Wrap a Mastra stream result for use with L0.
+
+```typescript
+import { Agent } from "@mastra/core/agent";
+import { l0, wrapMastraStream } from "l0";
+
+const agent = new Agent({
+  name: "my-agent",
+  instructions: "You are helpful",
+  model: "openai/gpt-4o"
+});
+
+const result = await l0({
+  stream: async () => {
+    const stream = await agent.stream("Hello!");
+    return wrapMastraStream(stream);
+  }
+});
+```
+
+**Options:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `includeUsage` | `boolean` | `true` | Include usage info in done event |
+| `includeToolCalls` | `boolean` | `true` | Include tool calls as events |
+| `includeReasoning` | `boolean` | `false` | Include reasoning content |
+
+### mastraStream(agent, messages, streamOptions?, adapterOptions?)
+
+Create a stream factory from a Mastra agent.
+
+```typescript
+import { Agent } from "@mastra/core/agent";
+import { l0, mastraStream } from "l0";
+
+const agent = new Agent({
+  name: "my-agent",
+  instructions: "You are helpful",
+  model: "openai/gpt-4o"
+});
+
+const result = await l0({
+  stream: mastraStream(agent, "Hello!")
+});
+
+// With messages array
+const result2 = await l0({
+  stream: mastraStream(agent, [
+    { role: "system", content: "You are a poet." },
+    { role: "user", content: "Write a haiku." }
+  ])
+});
+```
+
+### mastraText(agent, prompt, options?)
+
+Simple text generation helper.
+
+```typescript
+import { Agent } from "@mastra/core/agent";
+import { l0, mastraText } from "l0";
+
+const agent = new Agent({ name: "writer", instructions: "...", model: "openai/gpt-4o" });
+
+const result = await l0({
+  stream: mastraText(agent, "Write a haiku about coding")
+});
+```
+
+### mastraStructured(agent, prompt, schema, options?)
+
+Structured output with schema validation.
+
+```typescript
+import { Agent } from "@mastra/core/agent";
+import { structured, mastraStructured } from "l0";
+import { z } from "zod";
+
+const agent = new Agent({ name: "extractor", instructions: "...", model: "openai/gpt-4o" });
+
+const result = await structured({
+  schema: z.object({ name: z.string(), age: z.number() }),
+  stream: mastraStructured(agent, "Generate user data", userSchema)
+});
+```
+
+### wrapMastraFullStream(streamResult, options?)
+
+Wrap Mastra's fullStream for complete control over all chunk types.
+
+```typescript
+import { Agent } from "@mastra/core/agent";
+import { l0, wrapMastraFullStream } from "l0";
+
+const agent = new Agent({ ... });
+
+const result = await l0({
+  stream: async () => {
+    const stream = await agent.stream("Hello!");
+    return wrapMastraFullStream(stream);
+  }
+});
+
+// Handles all chunk types: text-delta, tool-call, tool-result, reasoning, finish
+```
+
+### Utility Functions
+
+```typescript
+import { isMastraStream, extractMastraText, extractMastraObject } from "l0";
+
+// Type guard for Mastra streams
+if (isMastraStream(stream)) {
+  // stream is MastraModelOutput
+}
+
+// Extract text from stream result
+const text = await extractMastraText(stream);
+
+// Extract structured output
+const obj = await extractMastraObject<UserData>(stream);
+```
+
+---
+
 ## Types
 
 ### L0Options

@@ -2,7 +2,7 @@
 
 **Tiny. Predictable. Streaming-first.**
 
-L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK** or **OpenAI SDK** directly.
+L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, or **Mastra AI** directly.
 
 ```bash
 npm install l0
@@ -44,6 +44,28 @@ const result = await l0({
     model: "gpt-4o",
     messages: [{ role: "user", content: "Generate a haiku about coding" }]
   }),
+  guardrails: recommendedGuardrails
+});
+
+for await (const event of result.stream) {
+  if (event.type === "token") process.stdout.write(event.value);
+}
+```
+
+### With Mastra AI
+
+```typescript
+import { Agent } from "@mastra/core/agent";
+import { l0, mastraStream, recommendedGuardrails } from "l0";
+
+const agent = new Agent({
+  name: "haiku-writer",
+  instructions: "You are a poet who writes haikus",
+  model: "openai/gpt-4o"
+});
+
+const result = await l0({
+  stream: mastraStream(agent, "Generate a haiku about coding"),
   guardrails: recommendedGuardrails
 });
 
