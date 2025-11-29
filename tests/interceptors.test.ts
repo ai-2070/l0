@@ -15,7 +15,12 @@ import {
   transformInterceptor,
   analyticsInterceptor,
 } from "../src/runtime/interceptors";
-import type { L0Options, L0Result, L0Interceptor, L0State } from "../src/types/l0";
+import type {
+  L0Options,
+  L0Result,
+  L0Interceptor,
+  L0State,
+} from "../src/types/l0";
 
 // Helper to create mock L0Options
 function createMockL0Options(overrides: Partial<L0Options> = {}): L0Options {
@@ -212,8 +217,10 @@ describe("InterceptorManager", () => {
         },
       ]);
 
-      await expect(manager.executeBefore(createMockL0Options())).rejects.toThrow(
-        'Interceptor "failing-hook" before hook failed: Before hook error'
+      await expect(
+        manager.executeBefore(createMockL0Options()),
+      ).rejects.toThrow(
+        'Interceptor "failing-hook" before hook failed: Before hook error',
       );
     });
 
@@ -342,14 +349,20 @@ describe("InterceptorManager", () => {
           name: "first",
           after: async (result) => ({
             ...result,
-            state: { ...result.state, content: result.state.content + " modified" },
+            state: {
+              ...result.state,
+              content: result.state.content + " modified",
+            },
           }),
         },
         {
           name: "second",
           after: async (result) => ({
             ...result,
-            state: { ...result.state, content: result.state.content + " again" },
+            state: {
+              ...result.state,
+              content: result.state.content + " again",
+            },
           }),
         },
       ]);
@@ -403,7 +416,7 @@ describe("InterceptorManager", () => {
       ]);
 
       await expect(manager.executeAfter(createMockL0Result())).rejects.toThrow(
-        'Interceptor "failing-hook" after hook failed: After hook error'
+        'Interceptor "failing-hook" after hook failed: After hook error',
       );
     });
   });
@@ -449,7 +462,9 @@ describe("InterceptorManager", () => {
     });
 
     it("should continue executing error hooks even if one fails", async () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       const hook2 = vi.fn();
 
       const manager = new InterceptorManager([
@@ -535,7 +550,11 @@ describe("InterceptorManager", () => {
 
       const contexts = manager.getContexts();
       expect(contexts.length).toBe(3);
-      expect(contexts.map((c) => c.phase)).toEqual(["before", "after", "error"]);
+      expect(contexts.map((c) => c.phase)).toEqual([
+        "before",
+        "after",
+        "error",
+      ]);
     });
   });
 
@@ -578,7 +597,9 @@ describe("createInterceptorManager()", () => {
 
   it("should create manager with provided interceptors", async () => {
     const beforeHook = vi.fn((opts: L0Options) => opts);
-    const manager = createInterceptorManager([{ name: "test", before: beforeHook }]);
+    const manager = createInterceptorManager([
+      { name: "test", before: beforeHook },
+    ]);
 
     await manager.executeBefore(createMockL0Options());
 
@@ -605,7 +626,10 @@ describe("loggingInterceptor()", () => {
 
     await interceptor.before!(createMockL0Options({ guardrails: [] }));
 
-    expect(logger.info).toHaveBeenCalledWith("L0 execution starting", expect.any(Object));
+    expect(logger.info).toHaveBeenCalledWith(
+      "L0 execution starting",
+      expect.any(Object),
+    );
   });
 
   it("should log on after hook", async () => {
@@ -622,7 +646,7 @@ describe("loggingInterceptor()", () => {
       expect.objectContaining({
         completed: true,
         tokens: 10,
-      })
+      }),
     );
   });
 
@@ -637,7 +661,7 @@ describe("loggingInterceptor()", () => {
 
     expect(logger.error).toHaveBeenCalledWith(
       "L0 execution failed",
-      expect.objectContaining({ error: "Test error" })
+      expect.objectContaining({ error: "Test error" }),
     );
   });
 
@@ -658,12 +682,12 @@ describe("loggingInterceptor()", () => {
     await interceptor.before!(
       createMockL0Options({
         guardrails: [{ name: "test", check: () => [] }],
-      })
+      }),
     );
 
     expect(logger.info).toHaveBeenCalledWith(
       "L0 execution starting",
-      expect.objectContaining({ hasGuardrails: true })
+      expect.objectContaining({ hasGuardrails: true }),
     );
   });
 
@@ -675,7 +699,7 @@ describe("loggingInterceptor()", () => {
 
     expect(logger.info).toHaveBeenCalledWith(
       "L0 execution starting",
-      expect.objectContaining({ hasRetry: true })
+      expect.objectContaining({ hasRetry: true }),
     );
   });
 
@@ -684,12 +708,12 @@ describe("loggingInterceptor()", () => {
     const interceptor = loggingInterceptor(logger);
 
     await interceptor.before!(
-      createMockL0Options({ monitoring: { enabled: true } })
+      createMockL0Options({ monitoring: { enabled: true } }),
     );
 
     expect(logger.info).toHaveBeenCalledWith(
       "L0 execution starting",
-      expect.objectContaining({ hasMonitoring: true })
+      expect.objectContaining({ hasMonitoring: true }),
     );
   });
 
@@ -711,7 +735,7 @@ describe("loggingInterceptor()", () => {
           completed: true,
           networkErrors: [],
         },
-      })
+      }),
     );
 
     expect(logger.info).toHaveBeenCalledWith(
@@ -719,7 +743,7 @@ describe("loggingInterceptor()", () => {
       expect.objectContaining({
         retries: 2,
         networkRetries: 3,
-      })
+      }),
     );
   });
 
@@ -737,18 +761,23 @@ describe("loggingInterceptor()", () => {
           networkRetries: 0,
           fallbackIndex: 0,
           violations: [
-            { rule: "test", message: "violation", severity: "warning", recoverable: true },
+            {
+              rule: "test",
+              message: "violation",
+              severity: "warning",
+              recoverable: true,
+            },
           ],
           driftDetected: false,
           completed: true,
           networkErrors: [],
         },
-      })
+      }),
     );
 
     expect(logger.info).toHaveBeenCalledWith(
       "L0 execution completed",
-      expect.objectContaining({ violations: 1 })
+      expect.objectContaining({ violations: 1 }),
     );
   });
 });
@@ -760,7 +789,10 @@ describe("metadataInterceptor()", () => {
   });
 
   it("should inject metadata into monitoring", async () => {
-    const interceptor = metadataInterceptor({ user_id: "123", request_id: "abc" });
+    const interceptor = metadataInterceptor({
+      user_id: "123",
+      request_id: "abc",
+    });
 
     const result = await interceptor.before!(createMockL0Options());
 
@@ -776,7 +808,7 @@ describe("metadataInterceptor()", () => {
     const result = await interceptor.before!(
       createMockL0Options({
         monitoring: { enabled: true, metadata: { existing: "data" } },
-      })
+      }),
     );
 
     expect(result.monitoring?.metadata).toEqual({
@@ -797,7 +829,7 @@ describe("metadataInterceptor()", () => {
     const interceptor = metadataInterceptor({ key: "value" });
 
     const result = await interceptor.before!(
-      createMockL0Options({ monitoring: { enabled: false } })
+      createMockL0Options({ monitoring: { enabled: false } }),
     );
 
     expect(result.monitoring?.enabled).toBe(false);
@@ -843,7 +875,7 @@ describe("authInterceptor()", () => {
     const result = await interceptor.before!(
       createMockL0Options({
         monitoring: { metadata: { user_id: "123" } },
-      })
+      }),
     );
 
     expect(result.monitoring?.metadata).toEqual({
@@ -906,7 +938,7 @@ describe("validationInterceptor()", () => {
     const interceptor = validationInterceptor(() => false);
 
     await expect(interceptor.after!(createMockL0Result())).rejects.toThrow(
-      "Output validation failed"
+      "Output validation failed",
     );
   });
 
@@ -935,10 +967,12 @@ describe("validationInterceptor()", () => {
   });
 
   it("should validate based on content", async () => {
-    const interceptor = validationInterceptor((content) => content.length >= 100);
+    const interceptor = validationInterceptor(
+      (content) => content.length >= 100,
+    );
 
     await expect(interceptor.after!(createMockL0Result())).rejects.toThrow(
-      "Output validation failed"
+      "Output validation failed",
     );
   });
 
@@ -987,7 +1021,7 @@ describe("rateLimitInterceptor()", () => {
 
     // Fourth request should fail
     await expect(interceptor.before!(options)).rejects.toThrow(
-      /Rate limit exceeded/
+      /Rate limit exceeded/,
     );
   });
 
@@ -998,7 +1032,7 @@ describe("rateLimitInterceptor()", () => {
     await interceptor.before!(options);
 
     await expect(interceptor.before!(options)).rejects.toThrow(
-      /Wait \d+ms before retrying/
+      /Wait \d+ms before retrying/,
     );
   });
 
@@ -1034,7 +1068,9 @@ describe("transformInterceptor()", () => {
   });
 
   it("should transform content with sync function", async () => {
-    const interceptor = transformInterceptor((content) => content.toUpperCase());
+    const interceptor = transformInterceptor((content) =>
+      content.toUpperCase(),
+    );
 
     const result = await interceptor.after!(createMockL0Result());
 
@@ -1104,7 +1140,7 @@ describe("analyticsInterceptor()", () => {
       expect.objectContaining({
         timestamp: expect.any(Number),
         hasGuardrails: false,
-      })
+      }),
     );
   });
 
@@ -1122,7 +1158,7 @@ describe("analyticsInterceptor()", () => {
         tokens: 10,
         retries: 0,
         completed: true,
-      })
+      }),
     );
   });
 
@@ -1138,7 +1174,7 @@ describe("analyticsInterceptor()", () => {
       expect.objectContaining({
         duration: expect.any(Number),
         error: "Test error",
-      })
+      }),
     );
   });
 
@@ -1318,8 +1354,10 @@ describe("Edge Cases", () => {
         },
       ]);
 
-      await expect(manager.executeBefore(createMockL0Options())).rejects.toThrow(
-        'Interceptor "string-throw" before hook failed: string error'
+      await expect(
+        manager.executeBefore(createMockL0Options()),
+      ).rejects.toThrow(
+        'Interceptor "string-throw" before hook failed: string error',
       );
     });
 
@@ -1376,7 +1414,9 @@ describe("Edge Cases", () => {
   describe("Mixed Hook Types", () => {
     it("should handle interceptor with only onError hook", async () => {
       const errorHook = vi.fn();
-      const manager = new InterceptorManager([{ name: "error-only", onError: errorHook }]);
+      const manager = new InterceptorManager([
+        { name: "error-only", onError: errorHook },
+      ]);
 
       // Before and after should work
       const options = await manager.executeBefore(createMockL0Options());

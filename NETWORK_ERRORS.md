@@ -5,11 +5,11 @@ L0 provides comprehensive network error detection and automatic recovery.
 ## Quick Start
 
 ```typescript
-import { l0, recommendedRetry } from "l0";
+import { l0, recommendedRetry } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  retry: recommendedRetry  // Handles all network errors automatically
+  retry: recommendedRetry, // Handles all network errors automatically
 });
 
 console.log("Network retries:", result.state.networkRetries);
@@ -19,20 +19,20 @@ console.log("Network retries:", result.state.networkRetries);
 
 ## Supported Error Types
 
-| Error Type | Description | Retries | Base Delay |
-|------------|-------------|---------|------------|
-| Connection Dropped | Connection lost mid-stream | Yes | 1000ms |
-| fetch() TypeError | Fetch API failure | Yes | 500ms |
-| ECONNRESET | Connection reset by peer | Yes | 1000ms |
-| ECONNREFUSED | Server refused connection | Yes | 2000ms |
-| SSE Aborted | Server-sent events aborted | Yes | 500ms |
-| No Bytes | Server sent no data | Yes | 500ms |
-| Partial Chunks | Incomplete data received | Yes | 500ms |
-| Runtime Killed | Lambda/Edge timeout | Yes | 2000ms |
-| Background Throttle | Mobile tab backgrounded | Yes | 5000ms |
-| DNS Error | Host not found | Yes | 3000ms |
-| SSL Error | Certificate/TLS error | **No** | - |
-| Timeout | Request timed out | Yes | 1000ms |
+| Error Type          | Description                | Retries | Base Delay |
+| ------------------- | -------------------------- | ------- | ---------- |
+| Connection Dropped  | Connection lost mid-stream | Yes     | 1000ms     |
+| fetch() TypeError   | Fetch API failure          | Yes     | 500ms      |
+| ECONNRESET          | Connection reset by peer   | Yes     | 1000ms     |
+| ECONNREFUSED        | Server refused connection  | Yes     | 2000ms     |
+| SSE Aborted         | Server-sent events aborted | Yes     | 500ms      |
+| No Bytes            | Server sent no data        | Yes     | 500ms      |
+| Partial Chunks      | Incomplete data received   | Yes     | 500ms      |
+| Runtime Killed      | Lambda/Edge timeout        | Yes     | 2000ms     |
+| Background Throttle | Mobile tab backgrounded    | Yes     | 5000ms     |
+| DNS Error           | Host not found             | Yes     | 3000ms     |
+| SSL Error           | Certificate/TLS error      | **No**  | -          |
+| Timeout             | Request timed out          | Yes     | 1000ms     |
 
 **Key:** Network errors do NOT count toward the retry limit.
 
@@ -41,18 +41,18 @@ console.log("Network retries:", result.state.networkRetries);
 ## Error Detection
 
 ```typescript
-import { 
-  isNetworkError, 
+import {
+  isNetworkError,
   analyzeNetworkError,
-  NetworkErrorType 
-} from "l0";
+  NetworkErrorType,
+} from "@ai2070/l0";
 
 try {
   await l0({ stream, retry: recommendedRetry });
 } catch (error) {
   if (isNetworkError(error)) {
     const analysis = analyzeNetworkError(error);
-    console.log("Type:", analysis.type);         // NetworkErrorType
+    console.log("Type:", analysis.type); // NetworkErrorType
     console.log("Retryable:", analysis.retryable);
     console.log("Suggestion:", analysis.suggestion);
   }
@@ -69,8 +69,8 @@ import {
   isSSEAborted,
   isTimeoutError,
   isDNSError,
-  isSSLError
-} from "l0";
+  isSSLError,
+} from "@ai2070/l0";
 
 if (isConnectionDropped(error)) {
   // Connection was dropped mid-stream
@@ -91,22 +91,22 @@ Configure different delays for each error type:
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     backoff: "exponential",
     errorTypeDelays: {
-      connectionDropped: 2000,     // 2s for connection drops
-      fetchError: 500,             // 0.5s for fetch errors
-      econnreset: 1500,            // 1.5s for ECONNRESET
-      econnrefused: 3000,          // 3s for ECONNREFUSED
-      sseAborted: 1000,            // 1s for SSE aborted
-      noBytes: 500,                // 0.5s for no bytes
-      partialChunks: 750,          // 0.75s for partial chunks
-      runtimeKilled: 5000,         // 5s for runtime kills
-      backgroundThrottle: 10000,   // 10s for background throttle
-      dnsError: 4000,              // 4s for DNS errors
-      timeout: 2000                // 2s for timeouts
-    }
-  }
+      connectionDropped: 2000, // 2s for connection drops
+      fetchError: 500, // 0.5s for fetch errors
+      econnreset: 1500, // 1.5s for ECONNRESET
+      econnrefused: 3000, // 3s for ECONNREFUSED
+      sseAborted: 1000, // 1s for SSE aborted
+      noBytes: 500, // 0.5s for no bytes
+      partialChunks: 750, // 0.75s for partial chunks
+      runtimeKilled: 5000, // 5s for runtime kills
+      backgroundThrottle: 10000, // 10s for background throttle
+      dnsError: 4000, // 4s for DNS errors
+      timeout: 2000, // 2s for timeouts
+    },
+  },
 });
 ```
 
@@ -120,18 +120,24 @@ const result = await l0({
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     backoff: "full-jitter",
     errorTypeDelays: {
-      backgroundThrottle: 15000,   // Wait longer for mobile
-      timeout: 3000,               // More lenient timeouts
-      connectionDropped: 2500      // Mobile networks unstable
-    }
+      backgroundThrottle: 15000, // Wait longer for mobile
+      timeout: 3000, // More lenient timeouts
+      connectionDropped: 2500, // Mobile networks unstable
+    },
   },
-  initialTokenTimeout: 10000,      // Longer for mobile
-  interTokenTimeout: 15000
+
+  // Optional: Timeouts (ms)
+  timeout: {
+    initialToken: 5000, // 5s to first token
+    interToken: 10000, // 10s between tokens
+  },
 });
 ```
+
+⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
 
 ### Edge Runtime
 
@@ -139,18 +145,24 @@ const result = await l0({
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     backoff: "exponential",
-    maxDelay: 5000,                // Keep delays short
+    maxDelay: 5000, // Keep delays short
     errorTypeDelays: {
-      runtimeKilled: 2000,         // Quick retry on timeout
-      timeout: 1500
-    }
+      runtimeKilled: 2000, // Quick retry on timeout
+      timeout: 1500,
+    },
   },
-  initialTokenTimeout: 3000,
-  interTokenTimeout: 5000
+
+  // Optional: Timeouts (ms)
+  timeout: {
+    initialToken: 5000, // 5s to first token
+    interToken: 10000, // 10s between tokens
+  },
 });
 ```
+
+⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
 
 ---
 
@@ -165,11 +177,11 @@ const result = await l0({
       if (isNetworkError(error)) {
         logger.warn("Network retry", {
           attempt,
-          type: analyzeNetworkError(error).type
+          type: analyzeNetworkError(error).type,
         });
       }
-    }
-  }
+    },
+  },
 });
 
 // After completion
@@ -183,10 +195,10 @@ console.log("Model retries:", result.state.retryAttempts);
 
 ```typescript
 import {
-  suggestRetryDelay,    // Get recommended delay for error
+  suggestRetryDelay, // Get recommended delay for error
   describeNetworkError, // Human-readable description
-  isStreamInterrupted   // Check if stream was interrupted
-} from "l0";
+  isStreamInterrupted, // Check if stream was interrupted
+} from "@ai2070/l0";
 
 // Get suggested delay
 const delay = suggestRetryDelay(error, attemptNumber);
@@ -216,19 +228,25 @@ if (isStreamInterrupted(error, tokenCount)) {
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 3,
+    attempts: 3,
     backoff: "full-jitter",
     maxDelay: 10000,
     errorTypeDelays: {
       connectionDropped: 1000,
       runtimeKilled: 3000,
-      backgroundThrottle: 10000
-    }
+      backgroundThrottle: 10000,
+    },
   },
-  initialTokenTimeout: 5000,
-  interTokenTimeout: 8000
+
+  // Optional: Timeouts (ms)
+  timeout: {
+    initialToken: 5000, // 5s to first token
+    interToken: 10000, // 10s between tokens
+  },
 });
 ```
+
+⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
 
 ---
 

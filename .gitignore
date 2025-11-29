@@ -17,11 +17,13 @@ build/
 *.swo
 *~
 .DS_Store
+.claude/
 
 # Testing
 coverage/
 .nyc_output/
 *.lcov
+html/
 
 # Environment
 .env

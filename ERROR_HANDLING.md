@@ -23,7 +23,7 @@ L0 distinguishes between different error types for appropriate handling:
 Errors thrown by L0 itself, with rich context for debugging and recovery:
 
 ```typescript
-import { isL0Error, L0Error } from "l0";
+import { isL0Error, L0Error } from "@ai2070/l0";
 
 try {
   await l0({ stream, guardrails });
@@ -42,16 +42,16 @@ try {
 Transient failures from network issues:
 
 ```typescript
-import { isNetworkError, analyzeNetworkError } from "l0";
+import { isNetworkError, analyzeNetworkError } from "@ai2070/l0";
 
 try {
   await l0({ stream });
 } catch (error) {
   if (isNetworkError(error)) {
     const analysis = analyzeNetworkError(error);
-    console.log(analysis.type);        // NetworkErrorType
-    console.log(analysis.retryable);   // boolean
-    console.log(analysis.suggestion);  // string
+    console.log(analysis.type); // NetworkErrorType
+    console.log(analysis.retryable); // boolean
+    console.log(analysis.suggestion); // string
   }
 }
 ```
@@ -92,13 +92,13 @@ class L0Error extends Error {
 ```typescript
 interface L0ErrorContext {
   code: L0ErrorCode;
-  checkpoint?: string;       // Last good content
-  tokenCount?: number;       // Tokens before failure
-  contentLength?: number;    // Content length before failure
-  retryAttempts?: number;    // Retry attempts made
-  networkRetries?: number;   // Network retries made
-  fallbackIndex?: number;    // Which fallback was tried
-  recoverable?: boolean;     // Can be retried
+  checkpoint?: string; // Last good content
+  tokenCount?: number; // Tokens before failure
+  contentLength?: number; // Content length before failure
+  retryAttempts?: number; // Retry attempts made
+  networkRetries?: number; // Network retries made
+  fallbackIndex?: number; // Which fallback was tried
+  recoverable?: boolean; // Can be retried
   metadata?: Record<string, unknown>;
 }
 ```
@@ -106,12 +106,12 @@ interface L0ErrorContext {
 ### Usage Example
 
 ```typescript
-import { isL0Error } from "l0";
+import { isL0Error } from "@ai2070/l0";
 
 try {
   const result = await l0({
     stream: () => streamText({ model, prompt }),
-    guardrails: strictGuardrails
+    guardrails: strictGuardrails,
   });
 } catch (error) {
   if (isL0Error(error)) {
@@ -137,23 +137,23 @@ try {
 
 L0 uses specific error codes for programmatic handling:
 
-| Code | Description | Recoverable |
-|------|-------------|-------------|
-| `STREAM_ABORTED` | Stream was aborted (user cancellation or timeout) | Sometimes |
-| `INITIAL_TOKEN_TIMEOUT` | First token didn't arrive in time | Yes |
-| `INTER_TOKEN_TIMEOUT` | Gap between tokens exceeded limit | Yes |
-| `ZERO_OUTPUT` | Stream produced no meaningful output | Yes |
-| `GUARDRAIL_VIOLATION` | Content violated a guardrail rule | Yes |
-| `FATAL_GUARDRAIL_VIOLATION` | Content violated a fatal guardrail | No |
-| `INVALID_STREAM` | Stream factory returned invalid stream | No |
-| `ALL_STREAMS_EXHAUSTED` | All streams (primary + fallbacks) failed | No |
-| `NETWORK_ERROR` | Network-level failure | Yes |
-| `DRIFT_DETECTED` | Output drifted from expected behavior | Yes |
+| Code                        | Description                                       | Recoverable |
+| --------------------------- | ------------------------------------------------- | ----------- |
+| `STREAM_ABORTED`            | Stream was aborted (user cancellation or timeout) | Sometimes   |
+| `INITIAL_TOKEN_TIMEOUT`     | First token didn't arrive in time                 | Yes         |
+| `INTER_TOKEN_TIMEOUT`       | Gap between tokens exceeded limit                 | Yes         |
+| `ZERO_OUTPUT`               | Stream produced no meaningful output              | Yes         |
+| `GUARDRAIL_VIOLATION`       | Content violated a guardrail rule                 | Yes         |
+| `FATAL_GUARDRAIL_VIOLATION` | Content violated a fatal guardrail                | No          |
+| `INVALID_STREAM`            | Stream factory returned invalid stream            | No          |
+| `ALL_STREAMS_EXHAUSTED`     | All streams (primary + fallbacks) failed          | No          |
+| `NETWORK_ERROR`             | Network-level failure                             | Yes         |
+| `DRIFT_DETECTED`            | Output drifted from expected behavior             | Yes         |
 
 ### Handling Specific Codes
 
 ```typescript
-import { isL0Error } from "l0";
+import { isL0Error } from "@ai2070/l0";
 
 try {
   await l0({ stream, guardrails });
@@ -194,7 +194,7 @@ try {
 L0's retry system categorizes errors for appropriate handling:
 
 ```typescript
-import { ErrorCategory, getErrorCategory } from "l0";
+import { ErrorCategory, getErrorCategory } from "@ai2070/l0";
 
 const category = getErrorCategory(error);
 
@@ -220,6 +220,7 @@ switch (category) {
 ### Category Breakdown
 
 **NETWORK (retry forever, no count)**
+
 - Connection dropped
 - fetch() TypeError
 - ECONNRESET / ECONNREFUSED
@@ -227,17 +228,20 @@ switch (category) {
 - DNS errors
 
 **TRANSIENT (retry forever, no count)**
+
 - 429 rate limit
 - 503 server overload
 - Timeouts
 
 **MODEL (retry with limit)**
+
 - Guardrail violations
 - Malformed output
 - Drift detected
 - Incomplete structure
 
 **FATAL (no retry)**
+
 - 401/403 auth errors
 - Invalid request
 - SSL errors
@@ -250,54 +254,54 @@ switch (category) {
 L0 provides detailed network error analysis:
 
 ```typescript
-import { 
-  isNetworkError, 
+import {
+  isNetworkError,
   analyzeNetworkError,
-  NetworkErrorType 
-} from "l0";
+  NetworkErrorType,
+} from "@ai2070/l0";
 
 if (isNetworkError(error)) {
   const analysis = analyzeNetworkError(error);
-  
-  console.log(analysis.type);        // NetworkErrorType enum
-  console.log(analysis.retryable);   // boolean
-  console.log(analysis.suggestion);  // Human-readable suggestion
+
+  console.log(analysis.type); // NetworkErrorType enum
+  console.log(analysis.retryable); // boolean
+  console.log(analysis.suggestion); // Human-readable suggestion
 }
 ```
 
 ### Network Error Types
 
-| Type | Description | Retryable |
-|------|-------------|-----------|
-| `CONNECTION_DROPPED` | Connection closed unexpectedly | Yes |
-| `FETCH_ERROR` | fetch() failed | Yes |
-| `ECONNRESET` | Connection reset by peer | Yes |
-| `ECONNREFUSED` | Connection refused | Yes |
-| `SSE_ABORTED` | Server-sent events aborted | Yes |
-| `NO_BYTES` | No data received | Yes |
-| `PARTIAL_CHUNKS` | Incomplete data received | Yes |
-| `RUNTIME_KILLED` | Runtime terminated (Lambda/Vercel) | Yes |
-| `BACKGROUND_THROTTLE` | Mobile tab backgrounded | Yes |
-| `DNS_ERROR` | DNS resolution failed | Yes |
-| `SSL_ERROR` | SSL/TLS error | No |
-| `TIMEOUT` | Request timed out | Yes |
-| `UNKNOWN` | Unknown network error | Yes |
+| Type                  | Description                        | Retryable |
+| --------------------- | ---------------------------------- | --------- |
+| `CONNECTION_DROPPED`  | Connection closed unexpectedly     | Yes       |
+| `FETCH_ERROR`         | fetch() failed                     | Yes       |
+| `ECONNRESET`          | Connection reset by peer           | Yes       |
+| `ECONNREFUSED`        | Connection refused                 | Yes       |
+| `SSE_ABORTED`         | Server-sent events aborted         | Yes       |
+| `NO_BYTES`            | No data received                   | Yes       |
+| `PARTIAL_CHUNKS`      | Incomplete data received           | Yes       |
+| `RUNTIME_KILLED`      | Runtime terminated (Lambda/Vercel) | Yes       |
+| `BACKGROUND_THROTTLE` | Mobile tab backgrounded            | Yes       |
+| `DNS_ERROR`           | DNS resolution failed              | Yes       |
+| `SSL_ERROR`           | SSL/TLS error                      | No        |
+| `TIMEOUT`             | Request timed out                  | Yes       |
+| `UNKNOWN`             | Unknown network error              | Yes       |
 
 ### Custom Delay by Error Type
 
 ```typescript
-import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "l0";
+import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
     ...RETRY_DEFAULTS,
     errorTypeDelays: {
-      connectionDropped: 2000,  // Wait longer for connection issues
-      timeout: 500,             // Retry faster on timeouts
-      dnsError: 5000            // DNS needs more time
-    }
-  }
+      connectionDropped: 2000, // Wait longer for connection issues
+      timeout: 500, // Retry faster on timeouts
+      dnsError: 5000, // DNS needs more time
+    },
+  },
 });
 ```
 
@@ -320,13 +324,14 @@ try {
 } catch (error) {
   if (isL0Error(error)) {
     checkpoint = error.getCheckpoint() ?? "";
-    
+
     // Retry with checkpoint context
     const result = await l0({
-      stream: () => streamText({
-        model,
-        prompt: `Continue from: ${checkpoint}\n\nOriginal prompt: ${prompt}`
-      })
+      stream: () =>
+        streamText({
+          model,
+          prompt: `Continue from: ${checkpoint}\n\nOriginal prompt: ${prompt}`,
+        }),
     });
   }
 }
@@ -341,8 +346,8 @@ const result = await l0({
   stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [
     () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-    () => streamText({ model: anthropic("claude-3-haiku"), prompt })
-  ]
+    () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
+  ],
 });
 
 // Check which model succeeded
@@ -362,7 +367,7 @@ async function generateWithFallback(prompt: string) {
     return await l0({
       stream: () => streamText({ model, prompt }),
       guardrails: strictGuardrails,
-      retry: recommendedRetry
+      retry: recommendedRetry,
     });
   } catch (error) {
     if (isL0Error(error) && error.code === "ALL_STREAMS_EXHAUSTED") {
@@ -444,7 +449,7 @@ button.onclick = () => controller.abort();
 try {
   await l0({
     stream: () => streamText({ model, prompt }),
-    signal: controller.signal
+    signal: controller.signal,
   });
 } catch (error) {
   if (isL0Error(error) && error.code === "STREAM_ABORTED") {
@@ -466,8 +471,9 @@ describe("Error handling", () => {
       // Emit nothing
     };
 
-    await expect(l0({ stream: () => mockStream() }))
-      .rejects.toThrow("ZERO_OUTPUT");
+    await expect(l0({ stream: () => mockStream() })).rejects.toThrow(
+      "ZERO_OUTPUT",
+    );
   });
 
   it("handles network errors", async () => {
@@ -476,10 +482,12 @@ describe("Error handling", () => {
     };
 
     // Should retry automatically
-    await expect(l0({ 
-      stream: () => mockStream(),
-      retry: { maxRetries: 1 }
-    })).rejects.toThrow();
+    await expect(
+      l0({
+        stream: () => mockStream(),
+        retry: { maxRetries: 1 },
+      }),
+    ).rejects.toThrow();
   });
 });
 ```

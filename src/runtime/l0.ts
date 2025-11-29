@@ -1,6 +1,12 @@
 // Main L0 runtime wrapper - streaming, guardrails, retry, and reliability layer
 
-import type { L0Options, L0Result, L0State, L0Event } from "../types/l0";
+import type {
+  L0Options,
+  L0Result,
+  L0State,
+  L0Event,
+  CheckpointValidationResult,
+} from "../types/l0";
 import type { GuardrailContext } from "../types/guardrails";
 import { GuardrailEngine } from "../guardrails/engine";
 import { RetryManager } from "./retry";
@@ -12,6 +18,56 @@ import { normalizeStreamEvent } from "./events";
 import { L0Monitor } from "./monitoring";
 import { isNetworkError, L0Error } from "../utils/errors";
 import { InterceptorManager } from "./interceptors";
+
+/**
+ * Validate checkpoint content before using for continuation
+ * This ensures all protections apply to the resumed content
+ */
+function validateCheckpointForContinuation(
+  checkpointContent: string,
+  guardrailEngine: GuardrailEngine | null,
+  driftDetector: DriftDetector | null,
+): CheckpointValidationResult {
+  const result: CheckpointValidationResult = {
+    skipContinuation: false,
+    violations: [],
+    driftDetected: false,
+    driftTypes: [],
+  };
+
+  // Run guardrails on checkpoint content
+  if (guardrailEngine) {
+    const checkpointContext: GuardrailContext = {
+      content: checkpointContent,
+      checkpoint: "",
+      delta: checkpointContent,
+      tokenCount: 1,
+      completed: false,
+    };
+    const checkpointResult = guardrailEngine.check(checkpointContext);
+    if (checkpointResult.violations.length > 0) {
+      result.violations = checkpointResult.violations;
+      // Check for fatal violations - if any, skip continuation
+      const hasFatal = checkpointResult.violations.some(
+        (v) => v.severity === "fatal",
+      );
+      if (hasFatal) {
+        result.skipContinuation = true;
+      }
+    }
+  }
+
+  // Run drift detection on checkpoint content (only if not already skipping)
+  if (!result.skipContinuation && driftDetector) {
+    const driftResult = driftDetector.check(checkpointContent);
+    if (driftResult.detected) {
+      result.driftDetected = true;
+      result.driftTypes = driftResult.types;
+    }
+  }
+
+  return result;
+}
 
 /**
  * Main L0 wrapper function
@@ -65,6 +121,8 @@ export async function l0(options: L0Options): Promise<L0Result> {
     onEvent: processedOnEvent,
     onViolation: processedOnViolation,
     onRetry: processedOnRetry,
+    continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
+    buildContinuationPrompt: processedBuildContinuationPrompt,
   } = processedOptions;
 
   // Configure check intervals with defaults
@@ -90,6 +148,9 @@ export async function l0(options: L0Options): Promise<L0Result> {
   });
 
   monitor.start();
+
+  // Record continuation setting in monitoring
+  monitor.recordContinuation(processedContinueFromCheckpoint, false);
 
   // Initialize engines
   const guardrailEngine =
@@ -128,6 +189,9 @@ export async function l0(options: L0Options): Promise<L0Result> {
     // Token buffer for O(n) accumulation instead of O(n²) string concatenation
     let tokenBuffer: string[] = [];
 
+    // Track checkpoint for continuation
+    let checkpointForContinuation = "";
+
     // Try primary stream first, then fallbacks if exhausted
     while (fallbackIndex < allStreams.length) {
       const currentStreamFactory = allStreams[fallbackIndex]!;
@@ -140,11 +204,82 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
       while (retryAttempt <= modelRetryLimit) {
         try {
-          // Reset state for retry
+          // Reset state for retry (but preserve checkpoint if continuation enabled)
           if (retryAttempt > 0) {
-            tokenBuffer = [];
-            state.content = "";
-            state.tokenCount = 0;
+            // Check if we should continue from checkpoint
+            if (
+              processedContinueFromCheckpoint &&
+              state.checkpoint.length > 0
+            ) {
+              checkpointForContinuation = state.checkpoint;
+
+              // Validate checkpoint content before continuation
+              const validation = validateCheckpointForContinuation(
+                checkpointForContinuation,
+                guardrailEngine,
+                driftDetector,
+              );
+
+              // Record any violations found
+              if (validation.violations.length > 0) {
+                state.violations.push(...validation.violations);
+                monitor.recordGuardrailViolations(validation.violations);
+              }
+
+              // Record drift if detected
+              if (validation.driftDetected) {
+                state.driftDetected = true;
+                monitor.recordDrift(true, validation.driftTypes);
+                if (processedOnViolation) {
+                  processedOnViolation({
+                    rule: "drift",
+                    severity: "warning",
+                    message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
+                    recoverable: true,
+                  });
+                }
+              }
+
+              if (validation.skipContinuation) {
+                // Fatal violation in checkpoint, start fresh
+                tokenBuffer = [];
+                state.content = "";
+                state.tokenCount = 0;
+                state.violations = [];
+                state.driftDetected = false;
+                continue;
+              }
+
+              state.continuedFromCheckpoint = true;
+              state.continuationCheckpoint = checkpointForContinuation;
+
+              // Call buildContinuationPrompt if provided (allows user to update prompt for retry)
+              if (processedBuildContinuationPrompt) {
+                processedBuildContinuationPrompt(checkpointForContinuation);
+              }
+
+              // Record continuation in monitoring
+              monitor.recordContinuation(true, true, checkpointForContinuation);
+
+              // Emit the checkpoint content as tokens first
+              // This ensures consumers see the full accumulated content
+              const checkpointEvent: L0Event = {
+                type: "token",
+                value: checkpointForContinuation,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(checkpointEvent);
+              yield checkpointEvent;
+
+              // Initialize token buffer with checkpoint
+              tokenBuffer = [checkpointForContinuation];
+              state.content = checkpointForContinuation;
+              state.tokenCount = 1; // Count checkpoint as one token
+            } else {
+              tokenBuffer = [];
+              state.content = "";
+              state.tokenCount = 0;
+            }
             state.violations = [];
             state.driftDetected = false;
           }
@@ -181,8 +316,11 @@ export async function l0(options: L0Options): Promise<L0Result> {
           let firstTokenReceived = false;
           let lastTokenTime = startTime;
 
+          const defaultInitialTokenTimeout = 5000;
+
           // Initial token timeout
-          const initialTimeout = processedTimeout.initialToken ?? 2000;
+          const initialTimeout =
+            processedTimeout.initialToken ?? defaultInitialTokenTimeout;
           let initialTimeoutId: NodeJS.Timeout | null = null;
           let initialTimeoutReached = false;
 
@@ -226,7 +364,10 @@ export async function l0(options: L0Options): Promise<L0Result> {
                 networkRetries: state.networkRetries,
                 fallbackIndex,
                 recoverable: true,
-                metadata: { timeout: processedTimeout.initialToken ?? 2000 },
+                metadata: {
+                  timeout:
+                    processedTimeout.initialToken ?? defaultInitialTokenTimeout,
+                },
               });
             }
 
@@ -265,7 +406,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
               monitor.recordToken(state.lastTokenAt);
 
               // Check inter-token timeout
-              const interTimeout = processedTimeout.interToken ?? 5000;
+              const interTimeout = processedTimeout.interToken ?? 10000;
               const timeSinceLastToken = Date.now() - lastTokenTime;
               if (timeSinceLastToken > interTimeout) {
                 throw new L0Error("Inter-token timeout reached", {
@@ -460,6 +601,74 @@ export async function l0(options: L0Options): Promise<L0Result> {
           const err = error instanceof Error ? error : new Error(String(error));
           errors.push(err);
 
+          // Run final guardrails on partial stream content before retry/fallback
+          // This validates the accumulated content and updates checkpoint if valid
+          if (guardrailEngine && state.tokenCount > 0) {
+            // Ensure content is up to date
+            if (tokenBuffer.length > 0) {
+              state.content = tokenBuffer.join("");
+            }
+
+            const partialContext: GuardrailContext = {
+              content: state.content,
+              checkpoint: state.checkpoint,
+              delta: "",
+              tokenCount: state.tokenCount,
+              completed: false, // Stream didn't complete normally
+            };
+
+            const partialResult = guardrailEngine.check(partialContext);
+            if (partialResult.violations.length > 0) {
+              state.violations.push(...partialResult.violations);
+              monitor.recordGuardrailViolations(partialResult.violations);
+
+              // Notify about violations
+              for (const violation of partialResult.violations) {
+                if (processedOnViolation) {
+                  processedOnViolation(violation);
+                }
+              }
+
+              // If fatal violation in partial content, clear checkpoint to prevent
+              // corrupted content from being used in continuation
+              const hasFatal = partialResult.violations.some(
+                (v) => v.severity === "fatal",
+              );
+              if (hasFatal) {
+                state.checkpoint = "";
+              }
+            }
+
+            // If no fatal violations and we have content, update checkpoint
+            // so continuation can use the validated partial content
+            if (
+              !partialResult.violations.some((v) => v.severity === "fatal") &&
+              state.content.length > 0
+            ) {
+              state.checkpoint = state.content;
+            }
+          }
+
+          // Run drift detection on partial content
+          if (driftDetector && state.tokenCount > 0) {
+            if (tokenBuffer.length > 0) {
+              state.content = tokenBuffer.join("");
+            }
+            const partialDrift = driftDetector.check(state.content);
+            if (partialDrift.detected) {
+              state.driftDetected = true;
+              monitor.recordDrift(true, partialDrift.types);
+              if (processedOnViolation) {
+                processedOnViolation({
+                  rule: "drift",
+                  severity: "warning",
+                  message: `Drift detected in partial stream: ${partialDrift.types.join(", ")}`,
+                  recoverable: true,
+                });
+              }
+            }
+          }
+
           // Categorize error
           const categorized = retryManager.categorizeError(err);
           const decision = retryManager.shouldRetry(err);
@@ -529,10 +738,73 @@ export async function l0(options: L0Options): Promise<L0Result> {
             processedOnRetry(0, fallbackMessage);
           }
 
-          // Reset state for fallback attempt
-          tokenBuffer = [];
-          state.content = "";
-          state.tokenCount = 0;
+          // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
+          if (processedContinueFromCheckpoint && state.checkpoint.length > 0) {
+            checkpointForContinuation = state.checkpoint;
+
+            // Validate checkpoint content before continuation
+            const validation = validateCheckpointForContinuation(
+              checkpointForContinuation,
+              guardrailEngine,
+              driftDetector,
+            );
+
+            // Record any violations found
+            if (validation.violations.length > 0) {
+              state.violations.push(...validation.violations);
+              monitor.recordGuardrailViolations(validation.violations);
+            }
+
+            // Record drift if detected
+            if (validation.driftDetected) {
+              state.driftDetected = true;
+              monitor.recordDrift(true, validation.driftTypes);
+              if (processedOnViolation) {
+                processedOnViolation({
+                  rule: "drift",
+                  severity: "warning",
+                  message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
+                  recoverable: true,
+                });
+              }
+            }
+
+            if (!validation.skipContinuation) {
+              state.continuedFromCheckpoint = true;
+              state.continuationCheckpoint = checkpointForContinuation;
+
+              // Call buildContinuationPrompt if provided (allows user to update prompt for fallback)
+              if (processedBuildContinuationPrompt) {
+                processedBuildContinuationPrompt(checkpointForContinuation);
+              }
+
+              // Record continuation in monitoring
+              monitor.recordContinuation(true, true, checkpointForContinuation);
+
+              // Emit the checkpoint content as tokens first
+              const checkpointEvent: L0Event = {
+                type: "token",
+                value: checkpointForContinuation,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(checkpointEvent);
+              yield checkpointEvent;
+
+              // Initialize with checkpoint
+              tokenBuffer = [checkpointForContinuation];
+              state.content = checkpointForContinuation;
+              state.tokenCount = 1;
+            } else {
+              // Fatal violation in checkpoint, start fresh
+              tokenBuffer = [];
+              state.content = "";
+              state.tokenCount = 0;
+            }
+          } else {
+            tokenBuffer = [];
+            state.content = "";
+            state.tokenCount = 0;
+          }
           state.violations = [];
           state.driftDetected = false;
           state.retryAttempts = 0;
@@ -606,6 +878,7 @@ function createInitialState(): L0State {
     driftDetected: false,
     completed: false,
     networkErrors: [],
+    continuedFromCheckpoint: false,
   };
 }
 

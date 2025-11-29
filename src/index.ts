@@ -1,4 +1,4 @@
-// L0 - A Lightweight Runtime for Reliable LLM Apps
+// L0 - The Missing Reliability Layer for AI
 // Main entry point
 
 // Core runtime
@@ -93,6 +93,7 @@ export type {
   CategorizedNetworkError,
   L0Interceptor,
   RetryOptions,
+  CheckpointValidationResult,
   GuardrailRule,
   GuardrailViolation,
   GuardrailContext,
@@ -167,6 +168,52 @@ export {
 
 export type { MonitoringConfig } from "./runtime/monitoring";
 
+// Prometheus metrics
+export {
+  // prom-client based (recommended)
+  L0PrometheusCollector,
+  createL0PrometheusCollector,
+  l0PrometheusMiddleware,
+  // Standalone (no dependency)
+  PrometheusRegistry,
+  PrometheusCollector,
+  createPrometheusRegistry,
+  createPrometheusCollector,
+  prometheusMiddleware,
+  // Constants
+  DEFAULT_BUCKETS,
+  METRIC_NAMES,
+} from "./runtime/prometheus";
+
+export type {
+  PromClient,
+  PrometheusConfig,
+  PrometheusMetricType,
+  PrometheusMetric,
+} from "./runtime/prometheus";
+
+// Sentry integration
+export {
+  L0Sentry,
+  createSentryIntegration,
+  sentryInterceptor,
+  withSentry,
+} from "./runtime/sentry";
+
+export type { SentryClient, SentryConfig } from "./runtime/sentry";
+
+// OpenTelemetry integration
+export {
+  L0OpenTelemetry,
+  createOpenTelemetry,
+  openTelemetryInterceptor,
+  SemanticAttributes,
+  SpanStatusCode,
+  SpanKind,
+} from "./runtime/opentelemetry";
+
+export type { OpenTelemetryConfig } from "./runtime/opentelemetry";
+
 // Interceptors
 export {
   InterceptorManager,
@@ -200,6 +247,59 @@ export type {
   ParallelResult,
   AggregatedTelemetry,
 } from "./runtime/parallel";
+
+// Consensus
+export {
+  consensus,
+  quickConsensus,
+  getConsensusValue,
+  validateConsensus,
+} from "./consensus";
+
+export type {
+  ConsensusOptions,
+  ConsensusResult,
+  ConsensusOutput,
+  ConsensusAnalysis,
+  ConsensusStrategy,
+  ConflictResolution,
+  Agreement,
+  Disagreement,
+  FieldConsensus,
+  FieldAgreement,
+} from "./types/consensus";
+
+export {
+  strictConsensus,
+  standardConsensus,
+  lenientConsensus,
+  bestConsensus,
+} from "./types/consensus";
+
+// Pipeline
+export {
+  pipe,
+  createPipeline,
+  createStep,
+  chainPipelines,
+  parallelPipelines,
+  createBranchStep,
+} from "./pipeline";
+
+export type {
+  PipelineStep,
+  PipelineOptions,
+  PipelineResult,
+  StepContext,
+  StepResult,
+  Pipeline,
+} from "./types/pipeline";
+
+export {
+  fastPipeline,
+  reliablePipeline,
+  productionPipeline,
+} from "./types/pipeline";
 
 // Format helpers
 export {
@@ -354,3 +454,33 @@ export type {
   L0ErrorCode,
   L0ErrorContext,
 } from "./utils/errors";
+
+// SDK Adapters - OpenAI
+export {
+  wrapOpenAIStream,
+  openaiStream,
+  openaiText,
+  openaiJSON,
+  openaiWithTools,
+  isOpenAIChunk,
+  extractOpenAIText,
+} from "./adapters/openai";
+
+export type { OpenAIAdapterOptions } from "./adapters/openai";
+
+// SDK Adapters - Mastra
+export {
+  wrapMastraStream,
+  wrapMastraFullStream,
+  mastraStream,
+  mastraText,
+  mastraStructured,
+  isMastraStream,
+  extractMastraText,
+  extractMastraObject,
+} from "./adapters/mastra";
+
+export type {
+  MastraAdapterOptions,
+  MastraMessageInput,
+} from "./adapters/mastra";

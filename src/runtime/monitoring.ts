@@ -165,6 +165,7 @@ export class L0Monitor {
       this.telemetry.guardrails = {
         violationCount: 0,
         violationsByRule: {},
+        violationsByRuleAndSeverity: {},
         violationsBySeverity: {
           warning: 0,
           error: 0,
@@ -181,6 +182,23 @@ export class L0Monitor {
       this.telemetry.guardrails.violationsByRule[violation.rule] =
         (this.telemetry.guardrails.violationsByRule[violation.rule] || 0) + 1;
 
+      // By rule and severity
+      if (
+        !this.telemetry.guardrails.violationsByRuleAndSeverity[violation.rule]
+      ) {
+        this.telemetry.guardrails.violationsByRuleAndSeverity[violation.rule] =
+          {
+            warning: 0,
+            error: 0,
+            fatal: 0,
+          };
+      }
+      const ruleSeverity =
+        this.telemetry.guardrails.violationsByRuleAndSeverity[violation.rule];
+      if (ruleSeverity) {
+        ruleSeverity[violation.severity]++;
+      }
+
       // By severity
       this.telemetry.guardrails.violationsBySeverity[violation.severity]++;
     }
@@ -196,6 +214,43 @@ export class L0Monitor {
       detected,
       types,
     };
+  }
+
+  /**
+   * Record continuation from checkpoint
+   */
+  recordContinuation(
+    enabled: boolean,
+    used: boolean,
+    checkpointContent?: string,
+  ): void {
+    if (!this.isEnabled()) return;
+
+    if (!this.telemetry.continuation) {
+      this.telemetry.continuation = {
+        enabled,
+        used: false,
+        continuationCount: 0,
+      };
+    }
+
+    this.telemetry.continuation.enabled = enabled;
+
+    if (used) {
+      this.telemetry.continuation.used = true;
+      this.telemetry.continuation.continuationCount =
+        (this.telemetry.continuation.continuationCount || 0) + 1;
+
+      // Update content details - clear previous values if no content provided
+      if (checkpointContent) {
+        this.telemetry.continuation.checkpointContent = checkpointContent;
+        this.telemetry.continuation.checkpointLength = checkpointContent.length;
+      } else {
+        // Clear stale checkpoint data to avoid leaking previous values
+        this.telemetry.continuation.checkpointContent = undefined;
+        this.telemetry.continuation.checkpointLength = undefined;
+      }
+    }
   }
 
   /**

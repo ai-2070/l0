@@ -6,6 +6,20 @@ import type { GuardrailRule, GuardrailViolation } from "./guardrails";
 export type { GuardrailRule, GuardrailViolation } from "./guardrails";
 
 /**
+ * Result of checkpoint validation for continuation
+ */
+export interface CheckpointValidationResult {
+  /** Whether to skip continuation and start fresh */
+  skipContinuation: boolean;
+  /** Guardrail violations found in checkpoint */
+  violations: GuardrailViolation[];
+  /** Whether drift was detected */
+  driftDetected: boolean;
+  /** Drift types if detected */
+  driftTypes: string[];
+}
+
+/**
  * Unified event format that L0 normalizes all streaming events into
  */
 export interface L0Event {
@@ -57,11 +71,11 @@ export interface L0Options {
    */
   timeout?: {
     /**
-     * Maximum time to wait for the first token (default: 2000ms)
+     * Maximum time to wait for the first token (default: 5000ms)
      */
     initialToken?: number;
     /**
-     * Maximum time between tokens (default: 5000ms)
+     * Maximum time between tokens (default: 10,000ms)
      */
     interToken?: number;
   };
@@ -133,6 +147,67 @@ export interface L0Options {
    * Enable zero-token detection and auto-retry
    */
   detectZeroTokens?: boolean;
+
+  /**
+   * Continue generation from the last known good checkpoint on retry/fallback.
+   *
+   * When enabled, if a stream fails (network error, timeout, guardrail violation),
+   * L0 will prepend the checkpoint content to the prompt for the retry/fallback,
+   * allowing the model to continue from where it left off.
+   *
+   * **Important:** This option is explicitly opt-in because:
+   * - It modifies your prompt by prepending checkpoint content
+   * - It may not work well with all prompt structures
+   * - Structured output (JSON) should NOT use this - use schema validation instead
+   *
+   * @default false
+   *
+   * @example
+   * ```typescript
+   * const result = await l0({
+   *   stream: () => streamText({
+   *     model: openai('gpt-4o'),
+   *     prompt: 'Write a long essay about climate change'
+   *   }),
+   *   continueFromLastKnownGoodToken: true,
+   *   retry: { attempts: 3 }
+   * });
+   * ```
+   */
+  continueFromLastKnownGoodToken?: boolean;
+
+  /**
+   * Custom function to build the continuation prompt.
+   * Only used when continueFromLastKnownGoodToken is true.
+   *
+   * When a retry or fallback occurs with a checkpoint, this function is called
+   * to build a prompt that tells the LLM to continue from where it left off.
+   * The returned string should be used as the new prompt for the retry.
+   *
+   * Note: Since L0 receives stream factories (not prompts directly), you must
+   * provide a stream factory that uses this modified prompt. The onContinuation
+   * callback can be used to update external state before the retry.
+   *
+   * @param checkpoint - The last known good content to continue from
+   * @returns The continuation prompt to use for the retry
+   *
+   * @example
+   * ```typescript
+   * let continuationPrompt = "";
+   * const result = await l0({
+   *   stream: () => streamText({
+   *     model,
+   *     prompt: continuationPrompt || originalPrompt,
+   *   }),
+   *   continueFromLastKnownGoodToken: true,
+   *   buildContinuationPrompt: (checkpoint) => {
+   *     continuationPrompt = `${originalPrompt}\n\nContinue from:\n${checkpoint}`;
+   *     return continuationPrompt;
+   *   },
+   * });
+   * ```
+   */
+  buildContinuationPrompt?: (checkpoint: string) => string;
 
   /**
    * Optional callback for each event
@@ -285,6 +360,16 @@ export interface L0State {
    * Network errors encountered (categorized)
    */
   networkErrors: CategorizedNetworkError[];
+
+  /**
+   * Whether continuation from checkpoint was used
+   */
+  continuedFromCheckpoint: boolean;
+
+  /**
+   * The checkpoint content that was used for continuation (if any)
+   */
+  continuationCheckpoint?: string;
 }
 
 /**
@@ -387,9 +472,17 @@ export interface L0Telemetry {
     violationCount: number;
 
     /**
-     * Violations by rule
+     * Violations by rule (count only)
      */
     violationsByRule: Record<string, number>;
+
+    /**
+     * Violations by rule with severity breakdown
+     */
+    violationsByRuleAndSeverity: Record<
+      string,
+      { warning: number; error: number; fatal: number }
+    >;
 
     /**
      * Violations by severity
@@ -414,6 +507,36 @@ export interface L0Telemetry {
      * Types of drift detected
      */
     types: string[];
+  };
+
+  /**
+   * Continuation from checkpoint data
+   */
+  continuation?: {
+    /**
+     * Whether continuation from checkpoint was enabled
+     */
+    enabled: boolean;
+
+    /**
+     * Whether continuation was actually used (checkpoint existed and was applied)
+     */
+    used: boolean;
+
+    /**
+     * The checkpoint content that was continued from (if used)
+     */
+    checkpointContent?: string;
+
+    /**
+     * Length of the checkpoint content in characters
+     */
+    checkpointLength?: number;
+
+    /**
+     * Number of times continuation was applied (across retries/fallbacks)
+     */
+    continuationCount?: number;
   };
 
   /**
