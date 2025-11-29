@@ -501,46 +501,262 @@ const snapshot = await store.getSnapshot("my-stream");
 const snapshotBefore = await store.getSnapshotBefore("my-stream", 150);
 ```
 
-## Custom Event Stores
+## Storage Adapters
 
-Implement `L0EventStore` for persistence:
+L0 provides a pluggable storage adapter system. Register custom adapters or use built-in ones.
+
+### Built-in Adapters
+
+| Adapter | Type | Use Case |
+|---------|------|----------|
+| `memory` | InMemoryEventStore | Testing, short-lived sessions |
+| `file` | FileEventStore | Local persistence (Node.js) |
+| `localStorage` | LocalStorageEventStore | Browser persistence |
+
+### Using Built-in Adapters
 
 ```typescript
-import type { L0EventStore, L0EventEnvelope, L0RecordedEvent } from "l0";
+import { createEventStore } from "l0";
 
-class PostgresEventStore implements L0EventStore {
+// In-memory (default)
+const memStore = await createEventStore({ type: "memory" });
+
+// File-based persistence
+const fileStore = await createEventStore({
+  type: "file",
+  connection: "./my-events",  // Base path
+  prefix: "l0",
+  ttl: 7 * 24 * 60 * 60 * 1000,  // 7 days
+});
+
+// Browser localStorage
+const browserStore = await createEventStore({
+  type: "localStorage",
+  prefix: "myapp_l0",
+});
+```
+
+### Registering Custom Adapters
+
+```typescript
+import {
+  registerStorageAdapter,
+  BaseEventStore,
+  createEventStore,
+} from "l0";
+
+// Register a Redis adapter
+registerStorageAdapter("redis", async (config) => {
+  const client = createRedisClient(config.connection);
+  return new RedisEventStore(client, config);
+});
+
+// Use it
+const store = await createEventStore({
+  type: "redis",
+  connection: "redis://localhost:6379",
+  prefix: "l0_events",
+  ttl: 86400000,  // 24 hours
+});
+```
+
+### Extending BaseEventStore
+
+Use `BaseEventStore` for easier implementation:
+
+```typescript
+import { BaseEventStore } from "l0";
+import type { L0RecordedEvent, L0EventEnvelope, StorageAdapterConfig } from "l0";
+
+class RedisEventStore extends BaseEventStore {
+  private client: RedisClient;
+
+  constructor(client: RedisClient, config: StorageAdapterConfig) {
+    super(config);
+    this.client = client;
+  }
+
+  async append(streamId: string, event: L0RecordedEvent): Promise<void> {
+    const key = this.getStreamKey(streamId);  // Uses prefix automatically
+    const seq = await this.client.llen(key);
+    const envelope = { streamId, seq, event };
+    await this.client.rpush(key, JSON.stringify(envelope));
+    
+    if (this.ttl > 0) {
+      await this.client.expire(key, this.ttl / 1000);
+    }
+  }
+
+  async getEvents(streamId: string): Promise<L0EventEnvelope[]> {
+    const key = this.getStreamKey(streamId);
+    const items = await this.client.lrange(key, 0, -1);
+    return items.map(item => JSON.parse(item));
+  }
+
+  async exists(streamId: string): Promise<boolean> {
+    const key = this.getStreamKey(streamId);
+    return (await this.client.exists(key)) > 0;
+  }
+
+  async delete(streamId: string): Promise<void> {
+    await this.client.del(this.getStreamKey(streamId));
+  }
+
+  async listStreams(): Promise<string[]> {
+    const pattern = `${this.prefix}:stream:*`;
+    const keys = await this.client.keys(pattern);
+    return keys.map(k => k.replace(`${this.prefix}:stream:`, ""));
+  }
+}
+```
+
+### Composite Stores
+
+Write to multiple backends simultaneously (write-through cache, redundancy):
+
+```typescript
+import { createCompositeStore, createInMemoryEventStore, FileEventStore } from "l0";
+
+// Write-through: memory cache + file persistence
+const store = createCompositeStore([
+  createInMemoryEventStore(),  // Primary (reads come from here)
+  new FileEventStore({ type: "file", connection: "./events" }),
+]);
+
+// Writes go to both stores
+await store.append("stream-1", event);
+
+// Reads come from primary (memory - fast!)
+const events = await store.getEvents("stream-1");
+```
+
+### TTL Wrapper
+
+Add expiration to any store:
+
+```typescript
+import { withTTL, createInMemoryEventStore } from "l0";
+
+// Events expire after 24 hours
+const store = withTTL(createInMemoryEventStore(), 24 * 60 * 60 * 1000);
+
+// Old events are filtered out on read
+const events = await store.getEvents("stream-1");  // Only non-expired events
+```
+
+### Full PostgreSQL Example
+
+```typescript
+import { BaseEventStoreWithSnapshots, registerStorageAdapter } from "l0";
+import type { L0RecordedEvent, L0EventEnvelope, L0Snapshot, StorageAdapterConfig } from "l0";
+
+class PostgresEventStore extends BaseEventStoreWithSnapshots {
+  private pool: Pool;
+
+  constructor(config: StorageAdapterConfig) {
+    super(config);
+    this.pool = new Pool({ connectionString: config.connection });
+  }
+
   async append(streamId: string, event: L0RecordedEvent): Promise<void> {
     const seq = await this.getNextSeq(streamId);
-    await this.db.query(
-      "INSERT INTO l0_events (stream_id, seq, event) VALUES ($1, $2, $3)",
+    await this.pool.query(
+      `INSERT INTO ${this.prefix}_events (stream_id, seq, event, created_at) 
+       VALUES ($1, $2, $3, NOW())`,
       [streamId, seq, JSON.stringify(event)]
     );
   }
 
   async getEvents(streamId: string): Promise<L0EventEnvelope[]> {
-    const rows = await this.db.query(
-      "SELECT * FROM l0_events WHERE stream_id = $1 ORDER BY seq",
+    const result = await this.pool.query(
+      `SELECT * FROM ${this.prefix}_events 
+       WHERE stream_id = $1 
+       ${this.ttl > 0 ? `AND created_at > NOW() - INTERVAL '${this.ttl}ms'` : ''}
+       ORDER BY seq`,
       [streamId]
     );
-    return rows.map(r => ({
+    return result.rows.map(r => ({
       streamId: r.stream_id,
       seq: r.seq,
-      event: JSON.parse(r.event),
+      event: r.event,
     }));
   }
 
-  // ... implement other methods
+  async exists(streamId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `SELECT 1 FROM ${this.prefix}_events WHERE stream_id = $1 LIMIT 1`,
+      [streamId]
+    );
+    return result.rows.length > 0;
+  }
+
+  async delete(streamId: string): Promise<void> {
+    await this.pool.query(
+      `DELETE FROM ${this.prefix}_events WHERE stream_id = $1`,
+      [streamId]
+    );
+    await this.pool.query(
+      `DELETE FROM ${this.prefix}_snapshots WHERE stream_id = $1`,
+      [streamId]
+    );
+  }
+
+  async listStreams(): Promise<string[]> {
+    const result = await this.pool.query(
+      `SELECT DISTINCT stream_id FROM ${this.prefix}_events`
+    );
+    return result.rows.map(r => r.stream_id);
+  }
+
+  async saveSnapshot(snapshot: L0Snapshot): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO ${this.prefix}_snapshots (stream_id, seq, data) 
+       VALUES ($1, $2, $3)
+       ON CONFLICT (stream_id) DO UPDATE SET seq = $2, data = $3`,
+      [snapshot.streamId, snapshot.seq, JSON.stringify(snapshot)]
+    );
+  }
+
+  async getSnapshot(streamId: string): Promise<L0Snapshot | null> {
+    const result = await this.pool.query(
+      `SELECT data FROM ${this.prefix}_snapshots WHERE stream_id = $1`,
+      [streamId]
+    );
+    return result.rows[0]?.data ?? null;
+  }
+
+  private async getNextSeq(streamId: string): Promise<number> {
+    const result = await this.pool.query(
+      `SELECT COALESCE(MAX(seq), -1) + 1 as next_seq 
+       FROM ${this.prefix}_events WHERE stream_id = $1`,
+      [streamId]
+    );
+    return result.rows[0].next_seq;
+  }
 }
+
+// Register the adapter
+registerStorageAdapter("postgres", (config) => new PostgresEventStore(config));
+
+// Use it
+const store = await createEventStore({
+  type: "postgres",
+  connection: "postgresql://user:pass@localhost/mydb",
+  prefix: "l0",
+  ttl: 30 * 24 * 60 * 60 * 1000,  // 30 days
+});
 ```
 
-### Store Options
+### Store Comparison
 
 | Store | Use Case | Tradeoffs |
 |-------|----------|-----------|
-| InMemory | Testing, short-lived | Fast, no persistence |
-| SQLite | Local apps | Simple, single-node |
-| Redis Streams | Distributed | Fast, TTL support |
-| PostgreSQL | Production | ACID, queryable |
+| `memory` | Testing, short-lived | Fast, no persistence |
+| `file` | Local apps, dev | Simple, single-node |
+| `localStorage` | Browser apps | Limited size (~5MB) |
+| Redis | Distributed cache | Fast, TTL, volatile |
+| PostgreSQL | Production | ACID, queryable, durable |
+| SQLite | Embedded apps | Simple, single-file |
 | Kafka | High-scale | Durable, partitioned |
 | S3/GCS | Archive | Cheap, slow reads |
 

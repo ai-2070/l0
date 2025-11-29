@@ -536,3 +536,24 @@ export {
   deserializeError,
   generateStreamId,
 } from "./types/events";
+
+// Storage Adapters
+export {
+  registerStorageAdapter,
+  unregisterStorageAdapter,
+  getRegisteredAdapters,
+  createEventStore,
+  BaseEventStore,
+  BaseEventStoreWithSnapshots,
+  FileEventStore,
+  LocalStorageEventStore,
+  CompositeEventStore,
+  TTLEventStore,
+  createCompositeStore,
+  withTTL,
+} from "./runtime/storageAdapters";
+
+export type {
+  StorageAdapterConfig,
+  StorageAdapterFactory,
+} from "./runtime/storageAdapters";
