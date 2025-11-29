@@ -346,7 +346,7 @@ export class DriftDetector {
     const stdDev = Math.sqrt(variance);
 
     // Check if last value is significantly higher
-    const last = this.history.entropy[this.history.entropy.length - 1];
+    const last = this.history.entropy[this.history.entropy.length - 1] ?? 0;
     return last > mean + this.config.entropyThreshold! * stdDev;
   }
 
@@ -412,7 +412,7 @@ export class DriftDetector {
       /^absolutely!?\s*$/im,
     ];
 
-    const firstLine = content.trim().split("\n")[0];
+    const firstLine = content.trim().split("\n")[0] ?? "";
     return hedgingPatterns.some((pattern) => pattern.test(firstLine));
   }
 

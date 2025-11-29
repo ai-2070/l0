@@ -63,7 +63,7 @@ export interface GuardrailContext {
   /**
    * Whether stream is complete
    */
-  isComplete: boolean;
+  completed: boolean;
 
   /**
    * Stream metadata

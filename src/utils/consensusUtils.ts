@@ -9,7 +9,7 @@ import type {
   FieldAgreement,
   FieldConsensus,
 } from "../types/consensus";
-import { compareStrings, deepEqual, getType } from "./comparison";
+import { compareStrings, deepEqual } from "./comparison";
 
 /**
  * Calculate pairwise similarity matrix for all outputs
@@ -17,19 +17,21 @@ import { compareStrings, deepEqual, getType } from "./comparison";
  * @param outputs - Array of consensus outputs
  * @returns Similarity matrix (NxN)
  */
-export function calculateSimilarityMatrix(outputs: ConsensusOutput[]): number[][] {
+export function calculateSimilarityMatrix(
+  outputs: ConsensusOutput[],
+): number[][] {
   const n = outputs.length;
   const matrix: number[][] = Array(n)
     .fill(0)
     .map(() => Array(n).fill(0));
 
   for (let i = 0; i < n; i++) {
-    matrix[i][i] = 1.0; // Self-similarity
+    matrix[i]![i] = 1.0; // Self-similarity
 
     for (let j = i + 1; j < n; j++) {
-      const similarity = calculateOutputSimilarity(outputs[i], outputs[j]);
-      matrix[i][j] = similarity;
-      matrix[j][i] = similarity;
+      const similarity = calculateOutputSimilarity(outputs[i]!, outputs[j]!);
+      matrix[i]![j] = similarity;
+      matrix[j]![i] = similarity;
     }
   }
 
@@ -62,66 +64,95 @@ export function calculateOutputSimilarity(
 
 /**
  * Calculate structural similarity between two objects
+ * Optimized with early termination for identical values
  *
  * @param a - First object
  * @param b - Second object
  * @returns Similarity score (0-1)
  */
 export function calculateStructuralSimilarity(a: any, b: any): number {
-  if (deepEqual(a, b)) return 1.0;
+  // Fast path: reference equality
+  if (a === b) return 1.0;
 
-  const typeA = getType(a);
-  const typeB = getType(b);
+  // Fast path: null/undefined
+  if (a === null || a === undefined)
+    return b === null || b === undefined ? 1.0 : 0.0;
+  if (b === null || b === undefined) return 0.0;
 
+  const typeA = typeof a;
+  const typeB = typeof b;
+
+  // Type mismatch - early termination
   if (typeA !== typeB) return 0.0;
 
-  if (typeA === "object") {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    const allKeys = new Set([...keysA, ...keysB]);
-
-    let matches = 0;
-    let total = allKeys.size;
-
-    for (const key of allKeys) {
-      if (key in a && key in b) {
-        const similarity = calculateStructuralSimilarity(a[key], b[key]);
-        matches += similarity;
-      }
+  // Primitives
+  if (typeA !== "object") {
+    if (typeA === "string") {
+      // Fast path: identical strings
+      if (a === b) return 1.0;
+      return compareStrings(a, b, {
+        caseSensitive: false,
+        normalizeWhitespace: true,
+      });
     }
 
-    return total > 0 ? matches / total : 0;
+    if (typeA === "number") {
+      if (a === b) return 1.0;
+      const maxDiff = Math.max(Math.abs(a), Math.abs(b));
+      if (maxDiff === 0) return 1.0;
+      return 1 - Math.abs(a - b) / maxDiff;
+    }
+
+    // boolean or other primitives
+    return a === b ? 1.0 : 0.0;
   }
 
-  if (typeA === "array") {
+  // Array comparison
+  const isArrayA = Array.isArray(a);
+  const isArrayB = Array.isArray(b);
+
+  if (isArrayA !== isArrayB) return 0.0;
+
+  if (isArrayA) {
     const lengthA = a.length;
     const lengthB = b.length;
     const maxLength = Math.max(lengthA, lengthB);
 
     if (maxLength === 0) return 1.0;
 
+    // Fast path: check if arrays are deeply equal first
+    if (lengthA === lengthB && deepEqual(a, b)) return 1.0;
+
     let matches = 0;
-    for (let i = 0; i < Math.min(lengthA, lengthB); i++) {
+    const minLength = Math.min(lengthA, lengthB);
+    for (let i = 0; i < minLength; i++) {
       matches += calculateStructuralSimilarity(a[i], b[i]);
     }
 
     return matches / maxLength;
   }
 
-  if (typeA === "string") {
-    return compareStrings(a, b, {
-      caseSensitive: false,
-      normalizeWhitespace: true,
-    });
+  // Object comparison
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+
+  // Fast path: check if objects are deeply equal first
+  if (keysA.length === keysB.length && deepEqual(a, b)) return 1.0;
+
+  const allKeys = new Set([...keysA, ...keysB]);
+  const total = allKeys.size;
+
+  if (total === 0) return 1.0;
+
+  let matches = 0;
+  for (const key of allKeys) {
+    if (key in a && key in b) {
+      matches += calculateStructuralSimilarity(a[key], b[key]);
+    }
+    // Keys only in one object contribute 0 to matches (implicitly)
   }
 
-  if (typeA === "number") {
-    const maxDiff = Math.max(Math.abs(a), Math.abs(b));
-    if (maxDiff === 0) return 1.0;
-    return 1 - Math.abs(a - b) / maxDiff;
-  }
-
-  return a === b ? 1.0 : 0.0;
+  return matches / total;
 }
 
 /**
@@ -172,7 +203,7 @@ function findTextAgreements(
     for (let j = i + 1; j < outputs.length; j++) {
       if (used.has(j)) continue;
 
-      const similarity = calculateOutputSimilarity(outputs[i], outputs[j]);
+      const similarity = calculateOutputSimilarity(outputs[i]!, outputs[j]!);
       if (similarity >= threshold) {
         group.push(j);
         used.add(j);
@@ -186,8 +217,9 @@ function findTextAgreements(
 
   // Create agreements from groups
   for (const group of groups) {
-    const content = outputs[group[0]].text;
-    const type: AgreementType = group.length === outputs.length ? "exact" : "similar";
+    const content = outputs[group[0]!]!.text;
+    const type: AgreementType =
+      group.length === outputs.length ? "exact" : "similar";
 
     agreements.push({
       content,
@@ -280,7 +312,10 @@ export function findDisagreements(
 
   // For structured outputs
   if (outputs[0]?.data) {
-    const structuredDisagreements = findStructuredDisagreements(outputs, threshold);
+    const structuredDisagreements = findStructuredDisagreements(
+      outputs,
+      threshold,
+    );
     disagreements.push(...structuredDisagreements);
   } else {
     // For text outputs
@@ -324,11 +359,13 @@ function findTextDisagreements(
 
   // If more than one group, it's a disagreement
   if (valueCounts.size > 1) {
-    const values = Array.from(valueCounts.entries()).map(([value, indices]) => ({
-      value,
-      count: indices.length,
-      indices,
-    }));
+    const values = Array.from(valueCounts.entries()).map(
+      ([value, indices]) => ({
+        value,
+        count: indices.length,
+        indices,
+      }),
+    );
 
     const severity = calculateDisagreementSeverity(values, outputs.length);
 
@@ -343,6 +380,8 @@ function findTextDisagreements(
 
 /**
  * Find structured disagreements (field-by-field)
+ * @param outputs - Array of consensus outputs to compare
+ * @param threshold - Agreement threshold; fields where majority agrees above this are not considered disagreements
  */
 function findStructuredDisagreements(
   outputs: ConsensusOutput[],
@@ -376,7 +415,7 @@ function findStructuredDisagreements(
       valueCounts.get(key)!.push(index);
     });
 
-    // If more than one value, it's a disagreement
+    // If more than one value, check if it's a significant disagreement
     if (valueCounts.size > 1) {
       const distinctValues = Array.from(valueCounts.entries()).map(
         ([value, indices]) => ({
@@ -386,7 +425,19 @@ function findStructuredDisagreements(
         }),
       );
 
-      const severity = calculateDisagreementSeverity(distinctValues, outputs.length);
+      // Find the majority agreement ratio
+      const maxCount = Math.max(...distinctValues.map((v) => v.count));
+      const majorityRatio = maxCount / outputs.length;
+
+      // Skip if majority agrees above threshold (not a significant disagreement)
+      if (majorityRatio >= threshold) {
+        continue;
+      }
+
+      const severity = calculateDisagreementSeverity(
+        distinctValues,
+        outputs.length,
+      );
 
       disagreements.push({
         path,
@@ -427,7 +478,9 @@ function calculateDisagreementSeverity(
  * @param outputs - Array of consensus outputs
  * @returns Field consensus information
  */
-export function calculateFieldConsensus(outputs: ConsensusOutput[]): FieldConsensus {
+export function calculateFieldConsensus(
+  outputs: ConsensusOutput[],
+): FieldConsensus {
   const fields: Record<string, FieldAgreement> = {};
 
   // Get all field paths
@@ -482,8 +535,10 @@ export function calculateFieldConsensus(outputs: ConsensusOutput[]): FieldConsen
   }
 
   // Calculate overall metrics
-  const agreedFields = Object.keys(fields).filter((k) => fields[k].unanimous);
-  const disagreedFields = Object.keys(fields).filter((k) => !fields[k].unanimous);
+  const agreedFields = Object.keys(fields).filter((k) => fields[k]!.unanimous);
+  const disagreedFields = Object.keys(fields).filter(
+    (k) => !fields[k]!.unanimous,
+  );
   const overallAgreement =
     Object.values(fields).reduce((sum, f) => sum + f.agreement, 0) /
     Object.keys(fields).length;
@@ -553,10 +608,10 @@ export function resolveMajority(
   }
 
   // Use weights if provided
-  const outputWeights = weights || outputs.map((o) => o.weight || 1);
+  const outputWeights = weights || outputs.map((o) => o.weight ?? 1);
 
   // For structured outputs, do field-by-field voting
-  if (outputs[0].data) {
+  if (outputs[0]!.data) {
     const fieldConsensus = calculateFieldConsensus(outputs);
     const consensusData: any = {};
 
@@ -565,7 +620,8 @@ export function resolveMajority(
     }
 
     return {
-      ...outputs[0],
+      ...outputs[0]!,
+      index: outputs[0]!.index ?? 0,
       data: consensusData,
       text: JSON.stringify(consensusData),
     };
@@ -579,8 +635,8 @@ export function resolveMajority(
     let score = 0;
     for (let j = 0; j < outputs.length; j++) {
       if (i !== j) {
-        const similarity = calculateOutputSimilarity(outputs[i], outputs[j]);
-        score += similarity * outputWeights[j];
+        const similarity = calculateOutputSimilarity(outputs[i]!, outputs[j]!);
+        score += similarity * (outputWeights[j] ?? 1);
       }
     }
 
@@ -590,7 +646,7 @@ export function resolveMajority(
     }
   }
 
-  return outputs[bestIndex];
+  return outputs[bestIndex]!;
 }
 
 /**
@@ -608,20 +664,20 @@ export function resolveBest(
     throw new Error("No outputs to resolve");
   }
 
-  const outputWeights = weights || outputs.map((o) => o.weight || 1);
+  const outputWeights = weights || outputs.map((o) => o.weight ?? 1);
 
   // Find output with highest weight
   let bestIndex = 0;
-  let bestWeight = outputWeights[0];
+  let bestWeight = outputWeights[0] ?? 1;
 
   for (let i = 1; i < outputs.length; i++) {
-    if (outputWeights[i] > bestWeight) {
-      bestWeight = outputWeights[i];
+    if ((outputWeights[i] ?? 1) > bestWeight) {
+      bestWeight = outputWeights[i] ?? 1;
       bestIndex = i;
     }
   }
 
-  return outputs[bestIndex];
+  return outputs[bestIndex]!;
 }
 
 /**
@@ -636,11 +692,11 @@ export function resolveMerge(outputs: ConsensusOutput[]): ConsensusOutput {
   }
 
   if (outputs.length === 1) {
-    return outputs[0];
+    return outputs[0]!;
   }
 
   // For structured outputs, merge field by field
-  if (outputs[0].data) {
+  if (outputs[0]!.data) {
     const merged: any = {};
     const allPaths = new Set<string>();
 
@@ -662,7 +718,8 @@ export function resolveMerge(outputs: ConsensusOutput[]): ConsensusOutput {
     }
 
     return {
-      ...outputs[0],
+      ...outputs[0]!,
+      index: outputs[0]!.index ?? 0,
       data: merged,
       text: JSON.stringify(merged),
     };
@@ -670,11 +727,12 @@ export function resolveMerge(outputs: ConsensusOutput[]): ConsensusOutput {
 
   // For text outputs, concatenate unique parts
   const uniqueTexts = Array.from(new Set(outputs.map((o) => o.text.trim())));
-  const merged = uniqueTexts.join("\n\n");
+  const mergedText = uniqueTexts.join("\n\n");
 
   return {
-    ...outputs[0],
-    text: merged,
+    ...outputs[0]!,
+    index: outputs[0]!.index ?? 0,
+    text: mergedText,
   };
 }
 
@@ -686,14 +744,14 @@ function setValueAtPath(obj: any, path: string, value: any): void {
   let current = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
-    const part = parts[i];
+    const part = parts[i]!;
     if (!(part in current)) {
       current[part] = {};
     }
     current = current[part];
   }
 
-  current[parts[parts.length - 1]] = value;
+  current[parts[parts.length - 1]!] = value;
 }
 
 /**
@@ -711,7 +769,7 @@ export function meetsMinimumAgreement(
 ): boolean {
   if (agreements.length === 0) return false;
 
-  // Find highest agreement ratio
-  const maxRatio = Math.max(...agreements.map((a) => a.ratio));
+  // Find highest agreement ratio (use count/outputs for accuracy)
+  const maxRatio = Math.max(...agreements.map((a) => a.count / outputs));
   return maxRatio >= threshold;
 }

@@ -212,7 +212,7 @@ export function startsWithMeaningfulToken(content: string): boolean {
  */
 export function getFirstMeaningfulToken(content: string): string | null {
   const tokens = extractMeaningfulTokens(content);
-  return tokens.length > 0 ? tokens[0] : null;
+  return tokens.length > 0 ? (tokens[0] ?? null) : null;
 }
 
 /**
@@ -222,7 +222,7 @@ export function getFirstMeaningfulToken(content: string): string | null {
  */
 export function getLastMeaningfulToken(content: string): string | null {
   const tokens = extractMeaningfulTokens(content);
-  return tokens.length > 0 ? tokens[tokens.length - 1] : null;
+  return tokens.length > 0 ? (tokens[tokens.length - 1] ?? null) : null;
 }
 
 /**
@@ -237,7 +237,6 @@ export function endsAbruptly(content: string): boolean {
   }
 
   const trimmed = content.trim();
-  const lastChar = trimmed[trimmed.length - 1];
 
   // Check if ends with sentence-ending punctuation
   const endsWithPunctuation = /[.!?;:]$/.test(trimmed);

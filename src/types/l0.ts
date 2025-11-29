@@ -1,5 +1,10 @@
 // Top-level L0 runtime types
 
+import type { GuardrailRule, GuardrailViolation } from "./guardrails";
+
+// Re-export for convenience
+export type { GuardrailRule, GuardrailViolation } from "./guardrails";
+
 /**
  * Unified event format that L0 normalizes all streaming events into
  */
@@ -94,6 +99,29 @@ export interface L0Options {
      * Custom metadata to attach to all events
      */
     metadata?: Record<string, any>;
+  };
+
+  /**
+   * Configure check intervals for streaming operations
+   */
+  checkIntervals?: {
+    /**
+     * Run guardrail checks every N tokens (default: 5)
+     * Lower values = more frequent checks, higher CPU usage
+     * Higher values = less frequent checks, potential for more content before violation detected
+     */
+    guardrails?: number;
+
+    /**
+     * Run drift detection every N tokens (default: 10)
+     */
+    drift?: number;
+
+    /**
+     * Save checkpoint every N tokens (default: 10)
+     * Checkpoints are used for recovery if a violation is detected
+     */
+    checkpoint?: number;
   };
 
   /**
@@ -499,25 +527,6 @@ export type ErrorCategory =
   | "transient" // 429, 503, timeouts - retry forever with backoff
   | "model" // Model failures - count toward retry limit
   | "fatal"; // Don't retry
-
-/**
- * Guardrail rule interface
- */
-export interface GuardrailRule {
-  name: string;
-  check: (state: L0State) => GuardrailViolation[];
-}
-
-/**
- * Guardrail violation
- */
-export interface GuardrailViolation {
-  rule: string;
-  message: string;
-  severity: "warning" | "error" | "fatal";
-  position?: number;
-  recoverable: boolean;
-}
 
 /**
  * Preset guardrail configurations

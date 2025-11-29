@@ -1,6 +1,7 @@
 // Format tool/function call definitions for LLM consumption
 
-import { normalizeForModel } from "../utils/normalize";
+// normalizeForModel available for future use
+// import { normalizeForModel } from "../utils/normalize";
 
 /**
  * Tool parameter definition
@@ -74,7 +75,6 @@ export function formatTool(
   const {
     style = "json-schema",
     includeExamples = false,
-    normalize = true,
     includeTypes = true,
   } = options;
 
@@ -94,34 +94,41 @@ export function formatTool(
 
 /**
  * Format tool as JSON Schema (OpenAI function calling format)
+ * @param tool - Tool definition to format
+ * @param includeTypes - Whether to include type information (default: true)
  */
 function formatToolJsonSchema(
   tool: ToolDefinition,
-  includeTypes: boolean,
+  includeTypes: boolean = true,
 ): string {
   const properties: Record<string, any> = {};
   const required: string[] = [];
 
   for (const param of tool.parameters) {
-    properties[param.name] = {
-      type: param.type,
+    const propDef: Record<string, any> = {
       description: param.description || "",
     };
 
+    if (includeTypes) {
+      propDef.type = param.type;
+    }
+
     if (param.enum) {
-      properties[param.name].enum = param.enum;
+      propDef.enum = param.enum;
     }
 
     if (param.default !== undefined) {
-      properties[param.name].default = param.default;
+      propDef.default = param.default;
     }
+
+    properties[param.name] = propDef;
 
     if (param.required) {
       required.push(param.name);
     }
   }
 
-  const schema = {
+  const schema: Record<string, any> = {
     name: tool.name,
     description: tool.description,
     parameters: {
@@ -348,7 +355,7 @@ export function validateTool(tool: ToolDefinition): string[] {
     errors.push("Tool parameters must be an array");
   } else {
     for (let i = 0; i < tool.parameters.length; i++) {
-      const param = tool.parameters[i];
+      const param = tool.parameters[i]!;
 
       if (!param.name || param.name.trim().length === 0) {
         errors.push(`Parameter ${i} is missing a name`);
@@ -446,7 +453,7 @@ export function parseFunctionCall(output: string): {
 
   for (const pattern of patterns) {
     const match = output.match(pattern);
-    if (match) {
+    if (match && match[1] && match[2]) {
       try {
         const name = match[1];
         const args = JSON.parse(match[2]);

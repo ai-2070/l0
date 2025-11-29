@@ -184,9 +184,9 @@ export interface ConsensusOutput {
   data?: any;
 
   /**
-   * L0 result
+   * L0 result (undefined for structured results or errors)
    */
-  l0Result: L0Result;
+  l0Result?: L0Result;
 
   /**
    * Structured result (if schema provided)

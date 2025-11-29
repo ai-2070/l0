@@ -1,6 +1,7 @@
 // Format JSON output and other output types
 
-import { normalizeForModel } from "../utils/normalize";
+// normalizeForModel available for future use
+// import { normalizeForModel } from "../utils/normalize";
 
 /**
  * Options for formatting JSON output
@@ -260,13 +261,13 @@ export function extractJsonFromOutput(output: string): string | null {
 
   // Try to find JSON in code blocks first
   const codeBlockMatch = output.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (codeBlockMatch) {
+  if (codeBlockMatch && codeBlockMatch[1]) {
     return codeBlockMatch[1].trim();
   }
 
   // Try to find JSON by looking for { or [
   const jsonMatch = output.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-  if (jsonMatch) {
+  if (jsonMatch && jsonMatch[1]) {
     return jsonMatch[1].trim();
   }
 

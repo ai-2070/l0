@@ -7,6 +7,11 @@ import type {
 } from "../types/guardrails";
 import { hasMeaningfulContent } from "../utils/tokens";
 
+// Pre-compiled regex patterns for performance
+const PUNCTUATION_ONLY = /^[^\w\s]+$/;
+const REPEATED_CHARS = /^(.)\1+$/;
+const ALPHANUMERIC = /[a-zA-Z0-9]/;
+
 /**
  * Check if content is empty or only whitespace
  * @param content - Content to check
@@ -34,17 +39,17 @@ export function isNoiseOnly(content: string): boolean {
   const trimmed = content.trim();
 
   // Check for only punctuation
-  if (/^[^\w\s]+$/.test(trimmed)) {
+  if (PUNCTUATION_ONLY.test(trimmed)) {
     return true;
   }
 
   // Check for only repeated characters
-  if (/^(.)\1+$/.test(trimmed)) {
+  if (REPEATED_CHARS.test(trimmed)) {
     return true;
   }
 
   // Check for very short meaningless content
-  if (trimmed.length < 3 && !/[a-zA-Z0-9]/.test(trimmed)) {
+  if (trimmed.length < 3 && !ALPHANUMERIC.test(trimmed)) {
     return true;
   }
 
@@ -59,12 +64,12 @@ export function isNoiseOnly(content: string): boolean {
 export function validateZeroOutput(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete, tokenCount } = context;
+  const { content, completed, tokenCount } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check if we have some indication of completion
   // or if we have tokens but no meaningful content
-  if (!isComplete && tokenCount < 5) {
+  if (!completed && tokenCount < 5) {
     return violations;
   }
 
@@ -93,7 +98,7 @@ export function validateZeroOutput(
   }
 
   // Check if stream finished instantly with very little content
-  if (isComplete && content.trim().length < 10) {
+  if (completed && content.trim().length < 10) {
     violations.push({
       rule: "zero-output",
       message: `Output too short: ${content.trim().length} characters`,
@@ -114,11 +119,11 @@ export function validateZeroOutput(
 export function validateInstantOutput(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { isComplete, tokenCount, metadata } = context;
+  const { completed, tokenCount, metadata } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check if complete
-  if (!isComplete) {
+  if (!completed) {
     return violations;
   }
 

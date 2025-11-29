@@ -57,7 +57,7 @@ describe("GuardrailEngine", () => {
     it("should check content against rules", () => {
       const context: GuardrailContext = {
         content: '{"valid": "json"}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -69,7 +69,7 @@ describe("GuardrailEngine", () => {
     it("should detect violations", () => {
       const context: GuardrailContext = {
         content: '{"unclosed": "json"',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -81,7 +81,7 @@ describe("GuardrailEngine", () => {
     it("should track violation count", () => {
       const context: GuardrailContext = {
         content: '{"bad": json}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -113,7 +113,7 @@ describe("GuardrailEngine", () => {
 
       const context: GuardrailContext = {
         content: "test",
-        isComplete: true,
+        completed: true,
         tokenCount: 5,
       };
 
@@ -158,7 +158,7 @@ describe("GuardrailEngine", () => {
 
       const context: GuardrailContext = {
         content: "test",
-        isComplete: true,
+        completed: true,
         tokenCount: 5,
       };
 
@@ -209,7 +209,7 @@ describe("GuardrailEngine", () => {
 
       const context: GuardrailContext = {
         content: "test",
-        isComplete: true,
+        completed: true,
         tokenCount: 5,
       };
 
@@ -238,7 +238,7 @@ describe("GuardrailEngine", () => {
 
       const context: GuardrailContext = {
         content: "test",
-        isComplete: false,
+        completed: false,
         tokenCount: 5,
       };
 
@@ -270,7 +270,7 @@ describe("GuardrailEngine", () => {
 
       const context: GuardrailContext = {
         content: "test",
-        isComplete: false,
+        completed: false,
         tokenCount: 5,
       };
 
@@ -297,7 +297,7 @@ describe("GuardrailEngine", () => {
 
       const context: GuardrailContext = {
         content: "test",
-        isComplete: false,
+        completed: false,
         tokenCount: 5,
       };
 
@@ -329,7 +329,7 @@ describe("GuardrailEngine", () => {
 
       const context: GuardrailContext = {
         content: "test",
-        isComplete: true,
+        completed: true,
         tokenCount: 5,
       };
 
@@ -342,7 +342,7 @@ describe("GuardrailEngine", () => {
     it("should reset state", () => {
       const context: GuardrailContext = {
         content: '{"bad": json}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -357,7 +357,7 @@ describe("GuardrailEngine", () => {
     it("should track violations by rule", () => {
       const context: GuardrailContext = {
         content: '{"unclosed": "json"',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -370,7 +370,7 @@ describe("GuardrailEngine", () => {
     it("should provide violation tracking", () => {
       const context: GuardrailContext = {
         content: '{"bad": json}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -401,7 +401,7 @@ describe("GuardrailEngine", () => {
 
       const context: GuardrailContext = {
         content: "test",
-        isComplete: true,
+        completed: true,
         tokenCount: 5,
       };
 
@@ -418,7 +418,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: '{"valid": "json", "number": 42}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -430,7 +430,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: '{"unclosed": "json"',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -443,7 +443,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: '["unclosed"',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -455,7 +455,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: '{"invalid": value}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -468,7 +468,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: '{"key":, "value": 1}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
         delta: ", ",
       };
@@ -481,7 +481,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: '{"streaming": "in progress"',
-        isComplete: false,
+        completed: false,
         tokenCount: 10,
       };
 
@@ -494,7 +494,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: "{",
-        isComplete: false,
+        completed: false,
         tokenCount: 5,
       };
 
@@ -507,7 +507,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: "This is plain text, not JSON",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -520,7 +520,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: '{"key": "unclosed string',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -532,7 +532,7 @@ describe("JSON Guardrails", () => {
       const rule = jsonRule();
       const context: GuardrailContext = {
         content: '{"key": "value with \\"escaped\\" quotes"}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -546,7 +546,7 @@ describe("JSON Guardrails", () => {
       const rule = strictJsonRule();
       const context: GuardrailContext = {
         content: '{"valid": true}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -558,7 +558,7 @@ describe("JSON Guardrails", () => {
       const rule = strictJsonRule();
       const context: GuardrailContext = {
         content: "[1, 2, 3]",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -570,7 +570,7 @@ describe("JSON Guardrails", () => {
       const rule = strictJsonRule();
       const context: GuardrailContext = {
         content: "Plain text",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -583,7 +583,7 @@ describe("JSON Guardrails", () => {
       const rule = strictJsonRule();
       const context: GuardrailContext = {
         content: '"just a string"',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -595,7 +595,7 @@ describe("JSON Guardrails", () => {
       const rule = strictJsonRule();
       const context: GuardrailContext = {
         content: '{"incomplete"',
-        isComplete: false,
+        completed: false,
         tokenCount: 10,
       };
 
@@ -611,7 +611,7 @@ describe("Pattern Guardrails", () => {
       const rule = patternRule();
       const context: GuardrailContext = {
         content: "As an AI language model, I think this is interesting",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -623,7 +623,7 @@ describe("Pattern Guardrails", () => {
       const rule = patternRule();
       const context: GuardrailContext = {
         content: "This is clean, normal content without any bad patterns.",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -635,7 +635,7 @@ describe("Pattern Guardrails", () => {
       const rule = patternRule();
       const context: GuardrailContext = {
         content: "[system] You are a helpful assistant",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -657,7 +657,7 @@ describe("Pattern Guardrails", () => {
 
       const context: GuardrailContext = {
         content: "Contact us at test@example.com",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -674,7 +674,7 @@ describe("Pattern Guardrails", () => {
 
       const context: GuardrailContext = {
         content: "This is critical",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -690,7 +690,7 @@ describe("Zero Output Guardrail", () => {
       const rule = zeroOutputRule();
       const context: GuardrailContext = {
         content: "",
-        isComplete: true,
+        completed: true,
         tokenCount: 0,
       };
 
@@ -703,7 +703,7 @@ describe("Zero Output Guardrail", () => {
       const rule = zeroOutputRule();
       const context: GuardrailContext = {
         content: "   \n\t  ",
-        isComplete: true,
+        completed: true,
         tokenCount: 5,
       };
 
@@ -715,7 +715,7 @@ describe("Zero Output Guardrail", () => {
       const rule = zeroOutputRule();
       const context: GuardrailContext = {
         content: "Actual content here",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -727,7 +727,7 @@ describe("Zero Output Guardrail", () => {
       const rule = zeroOutputRule();
       const context: GuardrailContext = {
         content: "in",
-        isComplete: false,
+        completed: false,
         tokenCount: 1,
       };
 
@@ -743,7 +743,7 @@ describe("Markdown Guardrails", () => {
       const rule = markdownRule();
       const context: GuardrailContext = {
         content: "# Title\n\nSome **bold** text\n\n```js\ncode\n```",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -755,7 +755,7 @@ describe("Markdown Guardrails", () => {
       const rule = markdownRule();
       const context: GuardrailContext = {
         content: "```javascript\nconst x = 1;",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -767,7 +767,7 @@ describe("Markdown Guardrails", () => {
       const rule = markdownRule();
       const context: GuardrailContext = {
         content: "```javascript\nconst x = 1",
-        isComplete: false,
+        completed: false,
         tokenCount: 10,
       };
 
@@ -784,7 +784,7 @@ describe("LaTeX Guardrails", () => {
       const rule = latexRule();
       const context: GuardrailContext = {
         content: "\\begin{equation}x = y\\end{equation}",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -796,7 +796,7 @@ describe("LaTeX Guardrails", () => {
       const rule = latexRule();
       const context: GuardrailContext = {
         content: "\\begin{equation}x = y",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -808,7 +808,7 @@ describe("LaTeX Guardrails", () => {
       const rule = latexRule();
       const context: GuardrailContext = {
         content: "Regular text without LaTeX",
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -829,7 +829,7 @@ describe("Guardrail Presets", () => {
       const engine = new GuardrailEngine({ rules: minimalGuardrails });
       const context: GuardrailContext = {
         content: "",
-        isComplete: true,
+        completed: true,
         tokenCount: 0,
       };
 
@@ -849,7 +849,7 @@ describe("Guardrail Presets", () => {
       const engine = new GuardrailEngine({ rules: recommendedGuardrails });
       const context: GuardrailContext = {
         content: '{"invalid": json}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
 
@@ -900,8 +900,7 @@ describe("Guardrail Presets", () => {
 describe("Helper Functions", () => {
   describe("createGuardrailEngine", () => {
     it("should create engine with config", () => {
-      const engine = createGuardrailEngine({
-        rules: [jsonRule()],
+      const engine = createGuardrailEngine([jsonRule()], {
         stopOnFatal: true,
       });
 
@@ -914,7 +913,7 @@ describe("Helper Functions", () => {
     it("should check content with rules", () => {
       const context: GuardrailContext = {
         content: '{"valid": "json"}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
       const result = checkGuardrails(context, [jsonRule()]);
@@ -925,7 +924,7 @@ describe("Helper Functions", () => {
     it("should detect violations", () => {
       const context: GuardrailContext = {
         content: '{"invalid": json}',
-        isComplete: true,
+        completed: true,
         tokenCount: 10,
       };
       const result = checkGuardrails(context, [jsonRule()]);
@@ -941,7 +940,7 @@ describe("Edge Cases", () => {
     const engine = new GuardrailEngine({ rules: [jsonRule()] });
     const context: GuardrailContext = {
       content: "",
-      isComplete: true,
+      completed: true,
       tokenCount: 0,
     };
 
@@ -954,7 +953,8 @@ describe("Edge Cases", () => {
     const longContent = '{"key": "' + "x".repeat(100000) + '"}';
     const context: GuardrailContext = {
       content: longContent,
-      isComplete: true,
+      completed: true,
+      tokenCount: 100000,
     };
 
     const result = engine.check(context);
@@ -965,7 +965,7 @@ describe("Edge Cases", () => {
     const engine = new GuardrailEngine({ rules: [jsonRule()] });
     const context: GuardrailContext = {
       content: '{"unicode": "😀🎉✨", "escaped": "\\n\\t\\r"}',
-      isComplete: true,
+      completed: true,
       tokenCount: 10,
     };
 
@@ -977,7 +977,7 @@ describe("Edge Cases", () => {
     const engine = new GuardrailEngine({ rules: [jsonRule()] });
     const context: GuardrailContext = {
       content: '{"a": {"b": {"c": {"d": "deep"}}}}',
-      isComplete: true,
+      completed: true,
       tokenCount: 10,
     };
 
@@ -989,7 +989,7 @@ describe("Edge Cases", () => {
     const engine = new GuardrailEngine({ rules: [jsonRule()] });
     const context: GuardrailContext = {
       content: '{"items": [1, 2, {"nested": [3, 4]}]}',
-      isComplete: true,
+      completed: true,
       tokenCount: 10,
     };
 
@@ -1003,7 +1003,7 @@ describe("Edge Cases", () => {
     });
     const context: GuardrailContext = {
       content: "",
-      isComplete: true,
+      completed: true,
       tokenCount: 0,
     };
 
@@ -1015,7 +1015,7 @@ describe("Edge Cases", () => {
     const engine = new GuardrailEngine({ rules: [jsonRule()] });
     const context: GuardrailContext = {
       content: '{"key": "value"}',
-      isComplete: false,
+      completed: false,
       delta: '"value"',
       tokenCount: 10,
     };
@@ -1028,7 +1028,7 @@ describe("Edge Cases", () => {
     const engine = new GuardrailEngine({ rules: [jsonRule()] });
     const context: GuardrailContext = {
       content: '{"key": "value"}',
-      isComplete: false,
+      completed: false,
       delta: undefined,
       tokenCount: 10,
     };
@@ -1046,7 +1046,7 @@ describe("Integration", () => {
 
     const context: GuardrailContext = {
       content: '{"valid": "json"}',
-      isComplete: true,
+      completed: true,
       tokenCount: 10,
     };
 
@@ -1058,14 +1058,14 @@ describe("Integration", () => {
     const engine = new GuardrailEngine({
       rules: [
         jsonRule(),
-        patternRule(/forbidden/i, "Forbidden word"),
+        customPatternRule([/forbidden/i], "Forbidden word"),
         zeroOutputRule(),
       ],
     });
 
     const context: GuardrailContext = {
       content: "",
-      isComplete: true,
+      completed: true,
       tokenCount: 0,
     };
 
@@ -1080,7 +1080,7 @@ describe("Integration", () => {
 
     const context: GuardrailContext = {
       content: '{"bad": json} ```unclosed',
-      isComplete: true,
+      completed: true,
       tokenCount: 10,
     };
 

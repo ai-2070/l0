@@ -314,10 +314,14 @@ export {
 
 // Re-export commonly used types
 export type {
-  ErrorCategory,
   RetryReason,
   CategorizedError,
   ErrorTypeDelays,
+} from "./types/retry";
+export {
+  ErrorCategory,
+  RETRY_DEFAULTS,
+  ERROR_TYPE_DELAY_DEFAULTS,
 } from "./types/retry";
 export type { DriftResult, DriftType, DriftConfig } from "./runtime/drift";
 
@@ -341,6 +345,12 @@ export {
   isStreamInterrupted,
   describeNetworkError,
   suggestRetryDelay,
+  L0Error,
+  isL0Error,
 } from "./utils/errors";
 
-export type { NetworkErrorAnalysis } from "./utils/errors";
+export type {
+  NetworkErrorAnalysis,
+  L0ErrorCode,
+  L0ErrorContext,
+} from "./utils/errors";

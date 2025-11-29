@@ -87,7 +87,6 @@ export function normalizeIndentation(
       .join("\n");
   } else {
     // Convert spaces to tabs
-    const spacePattern = new RegExp(`^ {${spacesPerTab}}`, "gm");
     return lines
       .map((line) => {
         let converted = line;
@@ -171,12 +170,12 @@ export function trimText(text: string): string {
   const lines = normalizeNewlines(text).split("\n");
 
   // Remove leading empty lines
-  while (lines.length > 0 && lines[0].trim().length === 0) {
+  while (lines.length > 0 && lines[0]!.trim().length === 0) {
     lines.shift();
   }
 
   // Remove trailing empty lines
-  while (lines.length > 0 && lines[lines.length - 1].trim().length === 0) {
+  while (lines.length > 0 && lines[lines.length - 1]!.trim().length === 0) {
     lines.pop();
   }
 
@@ -327,7 +326,7 @@ export function getLine(text: string, lineIndex: number): string | null {
     return null;
   }
 
-  return lines[lineIndex];
+  return lines[lineIndex] ?? null;
 }
 
 /**

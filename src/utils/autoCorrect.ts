@@ -20,13 +20,11 @@ export function autoCorrectJSON(
   const {
     structural = true,
     stripFormatting = true,
-    schemaBased = false,
-    strict = false,
+    // schemaBased and strict reserved for future use
   } = options;
 
   let corrected = raw;
   const corrections: CorrectionType[] = [];
-  let success = false;
 
   try {
     // Step 1: Strip formatting (markdown, prefixes, suffixes)
@@ -51,7 +49,6 @@ export function autoCorrectJSON(
 
     // Step 4: Validate JSON
     JSON.parse(corrected);
-    success = true;
 
     return {
       corrected,
@@ -138,9 +135,7 @@ function stripUnwantedFormatting(text: string): {
 
   // Remove C-style comments (some models add them)
   if (/\/\*[\s\S]*?\*\/|\/\/.*$/gm.test(result)) {
-    result = result
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/\/\/.*$/gm, "");
+    result = result.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
     applied.push("remove_comments");
   }
 
@@ -219,7 +214,7 @@ function fixQuotesAndEscapes(text: string): {
       // Escape newlines, tabs, etc. in string values
       result = result.replace(
         /"([^"\\]*(?:\\.[^"\\]*)*)"/g,
-        (match, content) => {
+        (_match, content) => {
           const escaped = content
             .replace(/\n/g, "\\n")
             .replace(/\r/g, "\\r")
@@ -349,7 +344,9 @@ export function repairJSON(text: string): string {
     return finalResult.corrected;
   }
 
-  throw new Error(`Unable to repair JSON: ${describeJSONError(finalResult.error!)}`);
+  throw new Error(
+    `Unable to repair JSON: ${describeJSONError(finalResult.error!)}`,
+  );
 }
 
 /**
@@ -374,6 +371,8 @@ export function safeJSONParse<T = any>(
       const data = JSON.parse(result.corrected);
       return { data, corrected: true, corrections: result.corrections };
     }
-    throw new Error(`Failed to parse JSON: ${describeJSONError(result.error!)}`);
+    throw new Error(
+      `Failed to parse JSON: ${describeJSONError(result.error!)}`,
+    );
   }
 }

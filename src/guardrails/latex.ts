@@ -7,6 +7,30 @@ import type {
   LatexStructure,
 } from "../types/guardrails";
 
+// Pre-compiled regex patterns for performance
+const BEGIN_PATTERN = /\\begin\{(\w+)\}/g;
+const END_PATTERN = /\\end\{(\w+)\}/g;
+const DISPLAY_MATH_OPEN = /\\\[/g;
+const DISPLAY_MATH_CLOSE = /\\\]/g;
+const DOUBLE_DOLLAR = /\$\$/g;
+
+// LaTeX detection patterns
+const LATEX_PATTERNS = [
+  /\\begin\{/,
+  /\\end\{/,
+  /\\\[/, // Display math
+  /\\\]/, // Display math
+  /\$\$/, // Display math
+  /\\[a-zA-Z]+\{/, // Commands with arguments
+  /\\section/,
+  /\\subsection/,
+  /\\textbf/,
+  /\\textit/,
+  /\\frac/,
+  /\\sum/,
+  /\\int/,
+];
+
 /**
  * Analyze LaTeX structure in content
  * @param content - Content to analyze
@@ -18,20 +42,21 @@ export function analyzeLatexStructure(content: string): LatexStructure {
   const envStack: string[] = [];
 
   // Match \begin{env} and \end{env}
-  const beginPattern = /\\begin\{(\w+)\}/g;
-  const endPattern = /\\end\{(\w+)\}/g;
+  // Reset lastIndex for global patterns
+  BEGIN_PATTERN.lastIndex = 0;
+  END_PATTERN.lastIndex = 0;
 
   // Find all begins and ends with positions
   const begins: Array<{ env: string; pos: number }> = [];
   const ends: Array<{ env: string; pos: number }> = [];
 
   let match;
-  while ((match = beginPattern.exec(content)) !== null) {
-    begins.push({ env: match[1], pos: match.index });
+  while ((match = BEGIN_PATTERN.exec(content)) !== null) {
+    begins.push({ env: match[1]!, pos: match.index });
   }
 
-  while ((match = endPattern.exec(content)) !== null) {
-    ends.push({ env: match[1], pos: match.index });
+  while ((match = END_PATTERN.exec(content)) !== null) {
+    ends.push({ env: match[1]!, pos: match.index });
   }
 
   // Merge and sort by position
@@ -88,23 +113,7 @@ export function looksLikeLatex(content: string): boolean {
   if (!content) return false;
 
   // Check for common LaTeX patterns
-  const latexPatterns = [
-    /\\begin\{/,
-    /\\end\{/,
-    /\\\[/, // Display math
-    /\\\]/, // Display math
-    /\$\$/, // Display math
-    /\\[a-zA-Z]+\{/, // Commands with arguments
-    /\\section/,
-    /\\subsection/,
-    /\\textbf/,
-    /\\textit/,
-    /\\frac/,
-    /\\sum/,
-    /\\int/,
-  ];
-
-  return latexPatterns.some((pattern) => pattern.test(content));
+  return LATEX_PATTERNS.some((pattern) => pattern.test(content));
 }
 
 /**
@@ -115,7 +124,7 @@ export function looksLikeLatex(content: string): boolean {
 export function validateLatexEnvironments(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Skip if doesn't look like LaTeX
@@ -126,7 +135,7 @@ export function validateLatexEnvironments(
   const structure = analyzeLatexStructure(content);
 
   // If streaming and not complete, only warn about severe issues
-  if (!isComplete) {
+  if (!completed) {
     // Check for mismatched environments (not just unclosed)
     const mismatchIssues = structure.issues.filter((issue) =>
       issue.includes("mismatch"),
@@ -175,7 +184,7 @@ export function validateLatexEnvironments(
 export function validateLatexMath(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Skip if doesn't look like LaTeX
@@ -183,12 +192,16 @@ export function validateLatexMath(
     return violations;
   }
 
-  // Count display math delimiters
-  const displayMathOpen = (content.match(/\\\[/g) || []).length;
-  const displayMathClose = (content.match(/\\\]/g) || []).length;
+  // Count display math delimiters - reset lastIndex for global patterns
+  DISPLAY_MATH_OPEN.lastIndex = 0;
+  DISPLAY_MATH_CLOSE.lastIndex = 0;
+  DOUBLE_DOLLAR.lastIndex = 0;
+
+  const displayMathOpen = (content.match(DISPLAY_MATH_OPEN) || []).length;
+  const displayMathClose = (content.match(DISPLAY_MATH_CLOSE) || []).length;
 
   // Count $$ delimiters (should be even)
-  const doubleDollar = (content.match(/\$\$/g) || []).length;
+  const doubleDollar = (content.match(DOUBLE_DOLLAR) || []).length;
 
   // Count inline math $ (should be even, but harder to detect due to escaping)
   let singleDollarCount = 0;
@@ -211,7 +224,7 @@ export function validateLatexMath(
   }
 
   // Check display math balance
-  if (isComplete) {
+  if (completed) {
     if (displayMathOpen !== displayMathClose) {
       violations.push({
         rule: "latex-math",
@@ -254,7 +267,7 @@ export function validateLatexMath(
 export function validateLatexCommon(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Skip if doesn't look like LaTeX
@@ -263,7 +276,7 @@ export function validateLatexCommon(
   }
 
   // Only check complete output for these
-  if (!isComplete) {
+  if (!completed) {
     return violations;
   }
 
@@ -327,7 +340,7 @@ export function latexRule(): GuardrailRule {
       violations.push(...validateLatexMath(context));
 
       // Check common errors (only on complete)
-      if (context.isComplete) {
+      if (context.completed) {
         violations.push(...validateLatexCommon(context));
       }
 

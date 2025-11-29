@@ -108,6 +108,13 @@ export interface RetryConfig {
    * Overrides baseDelay for specific network errors
    */
   errorTypeDelays?: ErrorTypeDelays;
+
+  /**
+   * Maximum number of errors to keep in history (default: unlimited)
+   * Set this to a number (e.g., 100) to prevent memory leaks in long-running
+   * processes with many retries. Older errors are evicted when limit is reached.
+   */
+  maxErrorHistory?: number;
 }
 
 /**
@@ -124,6 +131,50 @@ export type RetryReason =
   | "rate_limit"
   | "server_error"
   | "pattern_violation";
+
+/**
+ * Centralized retry configuration defaults
+ * All retry-related code should import these constants instead of hardcoding values
+ */
+export const RETRY_DEFAULTS = {
+  /** Maximum retry attempts for model failures */
+  maxAttempts: 2,
+  /** Base delay in milliseconds */
+  baseDelay: 1000,
+  /** Maximum delay cap in milliseconds */
+  maxDelay: 10000,
+  /** Maximum delay for network error suggestions */
+  networkMaxDelay: 30000,
+  /** Default backoff strategy */
+  backoff: "exponential" as const,
+  /** Default retry reasons */
+  retryOn: [
+    "zero_output",
+    "guardrail_violation",
+    "drift",
+    "network_error",
+    "timeout",
+    "rate_limit",
+  ] as RetryReason[],
+} as const;
+
+/**
+ * Default error-type-specific delays for network errors (milliseconds)
+ */
+export const ERROR_TYPE_DELAY_DEFAULTS: Required<ErrorTypeDelays> = {
+  connectionDropped: 1000,
+  fetchError: 500,
+  econnreset: 1000,
+  econnrefused: 2000,
+  sseAborted: 500,
+  noBytes: 500,
+  partialChunks: 500,
+  runtimeKilled: 2000,
+  backgroundThrottle: 5000,
+  dnsError: 3000,
+  timeout: 1000,
+  unknown: 1000,
+};
 
 /**
  * Error categories for retry decision-making

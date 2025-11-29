@@ -11,12 +11,10 @@ import type {
   Difference,
   ComparisonType,
   SchemaValidationResult,
-  StringComparisonOptions,
   ObjectComparisonOptions,
 } from "./types/evaluate";
 import {
   compareStrings,
-  compareObjects,
   compareValues,
   deepEqual,
   calculateSimilarityScore,
@@ -108,11 +106,15 @@ export function evaluate<T = any>(
 
       if (expectedType === "string" && actualType === "string") {
         comparisonType = "fuzzy";
-        contentSimilarity = compareStrings(expected as string, actual as string, {
-          caseSensitive: true,
-          normalizeWhitespace: true,
-          algorithm: "levenshtein",
-        });
+        contentSimilarity = compareStrings(
+          expected as string,
+          actual as string,
+          {
+            caseSensitive: true,
+            normalizeWhitespace: true,
+            algorithm: "levenshtein",
+          },
+        );
         fieldsCompared = 1;
         fieldsMatched = contentSimilarity >= threshold ? 1 : 0;
 
@@ -130,7 +132,8 @@ export function evaluate<T = any>(
       } else if (expectedType === "number" && actualType === "number") {
         comparisonType = "numeric";
         const numericMatch =
-          Math.abs((expected as number) - (actual as number)) <= numericTolerance;
+          Math.abs((expected as number) - (actual as number)) <=
+          numericTolerance;
         contentSimilarity = numericMatch ? 1.0 : 0;
         fieldsCompared = 1;
         fieldsMatched = numericMatch ? 1 : 0;
@@ -167,7 +170,10 @@ export function evaluate<T = any>(
         fieldsMatched = fieldsCompared - errorDiffs.length;
 
         structureMatch = errorDiffs.length === 0;
-        contentSimilarity = calculateSimilarityScore(differences, fieldsCompared);
+        contentSimilarity = calculateSimilarityScore(
+          differences,
+          fieldsCompared,
+        );
       } else {
         comparisonType = "mixed";
         differences.push({

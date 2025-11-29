@@ -6,386 +6,203 @@ Get started with L0 in 5 minutes.
 
 ```bash
 npm install l0
-# or
-yarn add l0
-# or
-pnpm add l0
+```
+
+**Peer dependency:** Requires `ai` package (Vercel AI SDK)
+
+```bash
+npm install ai @ai-sdk/openai
 ```
 
 ## Basic Usage
 
 ```typescript
-import { l0, recommendedGuardrails, recommendedRetry } from 'l0';
-import { streamText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { l0, recommendedGuardrails, recommendedRetry } from "l0";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
 
-// Create an L0-wrapped stream
 const result = await l0({
   stream: () => streamText({
-    model: openai('gpt-4o-mini'),
-    prompt: 'Write a haiku about coding'
+    model: openai("gpt-4o"),
+    prompt: "Write a haiku about coding"
   }),
   guardrails: recommendedGuardrails,
   retry: recommendedRetry
 });
 
-// Consume the stream
 for await (const event of result.stream) {
-  if (event.type === 'token') {
-    process.stdout.write(event.value || '');
+  if (event.type === "token") {
+    process.stdout.write(event.value);
   }
 }
+
+console.log("\n\nTokens:", result.state.tokenCount);
 ```
 
-That's it! You now have:
-- ✅ Streaming with automatic retry on failures
-- ✅ Guardrails detecting malformed output
-- ✅ Network failure protection
-- ✅ Zero-token detection
-- ✅ Unified event format
+You now have:
+- Automatic retry on network failures
+- Guardrails detecting malformed output
+- Zero-token detection
+- Unified event format
+
+---
 
 ## Common Patterns
 
-### 1. JSON Output with Validation
+### Structured Output (Guaranteed JSON)
 
 ```typescript
-import { l0, jsonOnlyGuardrails, formatJsonOutput } from 'l0';
+import { structured } from "l0";
+import { z } from "zod";
 
-const result = await l0({
+const schema = z.object({
+  name: z.string(),
+  age: z.number(),
+  email: z.string().email()
+});
+
+const result = await structured({
+  schema,
   stream: () => streamText({
-    model: openai('gpt-4o-mini'),
-    prompt: `
-      ${formatJsonOutput({ strict: true })}
-      
-      Generate a user profile with name, age, and email.
-    `
-  }),
-  guardrails: jsonOnlyGuardrails,
-  retry: { attempts: 3, retryOn: ['guardrail_violation', 'malformed'] }
+    model: openai("gpt-4o"),
+    prompt: "Generate a user profile as JSON"
+  })
 });
 
-let json = '';
-for await (const event of result.stream) {
-  if (event.type === 'token') json += event.value;
-}
-
-const parsed = JSON.parse(json);
-console.log(parsed);
+// Type-safe access
+console.log(result.data.name);  // string
+console.log(result.data.age);   // number
 ```
 
-### 2. Custom Retry Delays
-
-Configure different delays for each network error type:
+### Timeout Protection
 
 ```typescript
 const result = await l0({
-  stream: () => streamText({ /* ... */ }),
-  guardrails: recommendedGuardrails,
-  retry: {
-    attempts: 3,
-    backoff: "exponential",
-    errorTypeDelays: {
-      connectionDropped: 2000,      // 2s for connection drops
-      fetchError: 500,              // 0.5s for fetch errors
-      runtimeKilled: 5000,          // 5s for runtime timeouts
-      timeout: 1500,                // 1.5s for timeouts
-      backgroundThrottle: 10000     // 10s for mobile background
-    }
-  }
+  stream: () => streamText({ model, prompt }),
+  initialTokenTimeout: 3000,  // 3s for first token
+  interTokenTimeout: 1000,    // 1s max gap between tokens
+  guardrails: recommendedGuardrails
 });
 ```
 
-### 3. With Timeout Protection
+### Fallback Models
 
 ```typescript
 const result = await l0({
-  stream: () => streamText({ /* ... */ }),
-  guardrails: recommendedGuardrails,
-  retry: recommendedRetry,
-  timeout: {
-    initialToken: 2000,  // 2 seconds for first token
-    interToken: 5000     // 5 seconds between tokens
-  }
-});
-```
-
-### 4. With Callbacks
-
-```typescript
-const result = await l0({
-  stream: () => streamText({ /* ... */ }),
-  guardrails: recommendedGuardrails,
-  retry: recommendedRetry,
-  
-  onEvent: (event) => {
-    console.log('Event:', event.type);
-  },
-  
-  onViolation: (violation) => {
-    console.warn('⚠️', violation.message);
-  },
-  
-  onRetry: (attempt, reason) => {
-    console.log(`Retry ${attempt}: ${reason}`);
-  }
-});
-```
-
-### 5. Drift Detection
-
-```typescript
-const result = await l0({
-  stream: () => streamText({ /* ... */ }),
-  guardrails: recommendedGuardrails,
-  retry: recommendedRetry,
-  detectDrift: true  // Detect model derailment
+  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
+  fallbackStreams: [
+    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: anthropic("claude-3-haiku"), prompt })
+  ]
 });
 
-// After consuming stream
-if (result.state.driftDetected) {
-  console.warn('Model output drifted from expected behavior');
+if (result.state.fallbackIndex > 0) {
+  console.log("Used fallback model");
 }
 ```
 
-### 6. Custom Guardrails
+### Custom Guardrails
 
 ```typescript
-const customRule = {
-  name: 'custom-length',
-  check: (context) => {
-    if (context.isComplete && context.content.length < 100) {
-      return [{
-        rule: 'custom-length',
-        message: 'Output too short',
-        severity: 'error' as const,
-        recoverable: true
-      }];
-    }
-    return [];
-  }
-};
+import { customPatternRule, zeroOutputRule } from "l0";
 
 const result = await l0({
-  stream: () => streamText({ /* ... */ }),
-  guardrails: [customRule, ...recommendedGuardrails],
-  retry: recommendedRetry
+  stream: () => streamText({ model, prompt }),
+  guardrails: [
+    zeroOutputRule(),
+    customPatternRule([/forbidden/i], "Contains forbidden word")
+  ]
 });
 ```
 
-## Preset Configurations
+### Document Processing
 
-L0 includes several presets for common scenarios:
+```typescript
+import { createWindow } from "l0";
 
-### Guardrail Presets
+const window = createWindow(longDocument, {
+  size: 2000,
+  overlap: 200,
+  strategy: "paragraph"
+});
+
+const results = await window.processAll((chunk) => ({
+  stream: () => streamText({
+    model,
+    prompt: `Summarize: ${chunk.content}`
+  })
+}));
+```
+
+### Error Handling
+
+```typescript
+import { isL0Error, isNetworkError } from "l0";
+
+try {
+  const result = await l0({ stream, guardrails });
+  for await (const event of result.stream) {
+    // Process events
+  }
+} catch (error) {
+  if (isL0Error(error)) {
+    console.log("Error code:", error.code);
+    console.log("Checkpoint:", error.getCheckpoint());
+  } else if (isNetworkError(error)) {
+    console.log("Network issue - will auto-retry");
+  }
+}
+```
+
+---
+
+## Presets
+
+### Guardrails
 
 ```typescript
 import {
-  minimalGuardrails,      // JSON + zero-output only
-  recommendedGuardrails,  // Balanced for most cases
-  strictGuardrails,       // All rules enabled
-  jsonOnlyGuardrails,     // JSON-specific
-  markdownOnlyGuardrails  // Markdown-specific
-} from 'l0';
+  minimalGuardrails,      // JSON + zero output
+  recommendedGuardrails,  // + Markdown, drift, patterns
+  strictGuardrails        // + function calls, schema
+} from "l0";
 ```
 
-### Retry Presets
+### Retry
 
 ```typescript
 import {
   minimalRetry,      // 1 attempt
   recommendedRetry,  // 2 attempts, exponential backoff
-  strictRetry        // 3 attempts, full-jitter backoff
-} from 'l0';
+  strictRetry        // 3 attempts, full-jitter
+} from "l0";
 ```
-
-## Format Helpers
-
-L0 includes helpers to format your prompts consistently:
-
-```typescript
-import {
-  formatContext,
-  formatMemory,
-  formatJsonOutput,
-  formatTool
-} from 'l0';
-
-const prompt = `
-${formatContext(documentContent, { label: 'Documentation' })}
-
-${formatMemory(conversationHistory)}
-
-${formatJsonOutput({ strict: true })}
-`;
-```
-
-## Utility Functions
-
-### Text Normalization
-
-```typescript
-import { normalizeForModel, dedent } from 'l0';
-
-const normalized = normalizeForModel(userInput);
-const dedented = dedent(`
-  Some indented
-  text here
-`);
-```
-
-### JSON Repair
-
-```typescript
-import { repairJson, isValidJson } from 'l0';
-
-let json = '{"name": "Alice", "age": 30';  // Missing closing brace
-json = repairJson(json);
-
-if (isValidJson(json)) {
-  console.log('Fixed!');
-}
-```
-
-### Token Analysis
-
-```typescript
-import { hasMeaningfulContent, estimateTokenCount } from 'l0';
-
-if (hasMeaningfulContent(output)) {
-  const tokens = estimateTokenCount(output);
-  console.log(`Estimated ${tokens} tokens`);
-}
-```
-
-## Error Handling
-
-L0 automatically categorizes errors:
-
-```typescript
-try {
-  const result = await l0({
-    stream: () => streamText({ /* ... */ }),
-    guardrails: recommendedGuardrails,
-    retry: recommendedRetry
-  });
-  
-  for await (const event of result.stream) {
-    // Handle events
-  }
-} catch (error) {
-  // Only fatal errors or max retries reached
-  console.error('L0 error:', error);
-}
-```
-
-Error categories:
-- **Network errors**: Retry forever (doesn't count toward limit)
-- **Transient errors** (429, 503): Retry forever (doesn't count)
-- **Model errors**: Count toward retry limit
-- **Fatal errors**: No retry (auth, invalid request)
-
-## Get Full Text
-
-If you just want the final text without streaming:
-
-```typescript
-import { l0, getText } from 'l0';
-
-const result = await l0({ /* ... */ });
-const text = await getText(result);
-console.log(text);
-```
-
-Or with a callback:
-
-```typescript
-import { consumeStream } from 'l0';
-
-const text = await consumeStream(result, (token) => {
-  process.stdout.write(token);
-});
-```
-
-## Check Results
-
-After consuming the stream, inspect the state:
-
-```typescript
-console.log({
-  tokenCount: result.state.tokenCount,
-  retries: result.state.retryAttempts,
-  networkRetries: result.state.networkRetries,
-  completed: result.state.completed,
-  violations: result.state.violations,
-  driftDetected: result.state.driftDetected
-});
-```
-
-## Next Steps
-
-- Read the [API Reference](./API.md) for complete documentation
-- Check out [examples](./examples/) for more patterns
-- Learn about [custom guardrails](./API.md#custom-guardrails)
-- Explore [format helpers](./API.md#format-helpers)
-- Configure [custom delays](./CUSTOM_DELAYS.md) for network errors
-- Review [network error handling](./NETWORK_ERRORS.md)
-
-## Common Issues
-
-### "Maximum retry attempts reached"
-
-Increase retry attempts or adjust guardrails:
-
-```typescript
-retry: { attempts: 5 }
-```
-
-### "Initial token timeout"
-
-Increase timeout for slow models:
-
-```typescript
-timeout: { initialToken: 5000 }
-```
-
-### Too many violations
-
-Use more lenient guardrails:
-
-```typescript
-guardrails: minimalGuardrails
-```
-
-### Need custom validation
-
-Add your own guardrail:
-
-```typescript
-guardrails: [
-  {
-    name: 'my-rule',
-    check: (context) => { /* validation logic */ }
-  },
-  ...recommendedGuardrails
-]
-```
-
-## Tips
-
-1. **Start with presets**: Use `recommendedGuardrails` and `recommendedRetry`
-2. **Enable callbacks**: Monitor violations and retries in development
-3. **Set timeouts**: Prevent hanging on slow/stalled streams
-4. **Use format helpers**: Consistent prompts lead to better outputs
-5. **Check state**: Inspect `result.state` after completion
-6. **Tune delays**: Customize `errorTypeDelays` for your infrastructure
-7. **Monitor retries**: Track `networkRetries` to identify patterns
-
-## Support
-
-- [GitHub Issues](https://github.com/yourusername/l0/issues)
-- [Documentation](./README.md)
-- [API Reference](./API.md)
 
 ---
 
-**Ready to build reliable LLM apps!** 🚀
+## Result State
+
+After consuming the stream:
+
+```typescript
+console.log({
+  content: result.state.content,        // Full output
+  tokenCount: result.state.tokenCount,  // Token count
+  completed: result.state.completed,    // Stream finished
+  retryAttempts: result.state.retryAttempts,
+  fallbackIndex: result.state.fallbackIndex
+});
+```
+
+---
+
+## Next Steps
+
+| Guide | Description |
+|-------|-------------|
+| [API.md](./API.md) | Complete API reference |
+| [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md) | Guaranteed JSON with schemas |
+| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md) | Processing long documents |
+| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md) | Network error handling |
+| [PERFORMANCE.md](./PERFORMANCE.md) | Performance tuning |
+| [ERROR_HANDLING.md](./ERROR_HANDLING.md) | Error codes and recovery |

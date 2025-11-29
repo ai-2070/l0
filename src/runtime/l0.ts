@@ -7,9 +7,10 @@ import { RetryManager } from "./retry";
 import { DriftDetector } from "./drift";
 import { detectZeroToken } from "./zeroToken";
 import { normalizeStreamEvent } from "./events";
-import { hasMeaningfulContent } from "../utils/tokens";
+// hasMeaningfulContent available for future use
+// import { hasMeaningfulContent } from "../utils/tokens";
 import { L0Monitor } from "./monitoring";
-import { isNetworkError } from "../utils/errors";
+import { isNetworkError, L0Error } from "../utils/errors";
 import { InterceptorManager } from "./interceptors";
 
 /**
@@ -34,21 +35,7 @@ import { InterceptorManager } from "./interceptors";
  * ```
  */
 export async function l0(options: L0Options): Promise<L0Result> {
-  const {
-    stream: streamFactory,
-    fallbackStreams = [],
-    guardrails = [],
-    retry = {},
-    timeout = {},
-    signal: externalSignal,
-    monitoring,
-    detectDrift: enableDrift = false,
-    detectZeroTokens = true,
-    onEvent,
-    onViolation,
-    onRetry,
-    interceptors = [],
-  } = options;
+  const { signal: externalSignal, interceptors = [] } = options;
 
   // Initialize interceptor manager
   const interceptorManager = new InterceptorManager(interceptors);
@@ -74,10 +61,16 @@ export async function l0(options: L0Options): Promise<L0Result> {
     monitoring: processedMonitoring,
     detectDrift: processedDetectDrift = false,
     detectZeroTokens: processedDetectZeroTokens = true,
+    checkIntervals: processedCheckIntervals = {},
     onEvent: processedOnEvent,
     onViolation: processedOnViolation,
     onRetry: processedOnRetry,
   } = processedOptions;
+
+  // Configure check intervals with defaults
+  const guardrailCheckInterval = processedCheckIntervals.guardrails ?? 5;
+  const driftCheckInterval = processedCheckIntervals.drift ?? 10;
+  const checkpointInterval = processedCheckIntervals.checkpoint ?? 10;
 
   // Initialize state
   const state: L0State = createInitialState();
@@ -132,9 +125,12 @@ export async function l0(options: L0Options): Promise<L0Result> {
     let fallbackIndex = 0;
     const allStreams = [processedStream, ...processedFallbackStreams];
 
+    // Token buffer for O(n) accumulation instead of O(n²) string concatenation
+    let tokenBuffer: string[] = [];
+
     // Try primary stream first, then fallbacks if exhausted
     while (fallbackIndex < allStreams.length) {
-      const currentStreamFactory = allStreams[fallbackIndex];
+      const currentStreamFactory = allStreams[fallbackIndex]!;
       let retryAttempt = 0;
       // Model failure retry limit (network errors don't count toward this)
       const modelRetryLimit = processedRetry.attempts ?? 2;
@@ -146,6 +142,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
         try {
           // Reset state for retry
           if (retryAttempt > 0) {
+            tokenBuffer = [];
             state.content = "";
             state.tokenCount = 0;
             state.violations = [];
@@ -164,7 +161,16 @@ export async function l0(options: L0Options): Promise<L0Result> {
           } else if (Symbol.asyncIterator in streamResult) {
             sourceStream = streamResult;
           } else {
-            throw new Error("Invalid stream result - no iterable stream found");
+            throw new L0Error(
+              "Invalid stream result - no iterable stream found",
+              {
+                code: "INVALID_STREAM",
+                retryAttempts: state.retryAttempts,
+                networkRetries: state.networkRetries,
+                fallbackIndex,
+                recoverable: true,
+              },
+            );
           }
 
           // Track timing
@@ -190,7 +196,16 @@ export async function l0(options: L0Options): Promise<L0Result> {
           for await (const chunk of sourceStream) {
             // Check abort signal
             if (signal?.aborted) {
-              throw new Error("Stream aborted by signal");
+              throw new L0Error("Stream aborted by signal", {
+                code: "STREAM_ABORTED",
+                checkpoint: state.checkpoint,
+                tokenCount: state.tokenCount,
+                contentLength: state.content.length,
+                retryAttempts: state.retryAttempts,
+                networkRetries: state.networkRetries,
+                fallbackIndex,
+                recoverable: state.checkpoint.length > 0,
+              });
             }
 
             // Clear initial timeout on first chunk
@@ -202,7 +217,17 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
             // Check initial timeout
             if (initialTimeoutReached && !firstTokenReceived) {
-              throw new Error("Initial token timeout reached");
+              throw new L0Error("Initial token timeout reached", {
+                code: "INITIAL_TOKEN_TIMEOUT",
+                checkpoint: state.checkpoint,
+                tokenCount: 0,
+                contentLength: 0,
+                retryAttempts: state.retryAttempts,
+                networkRetries: state.networkRetries,
+                fallbackIndex,
+                recoverable: true,
+                metadata: { timeout: processedTimeout.initialToken ?? 2000 },
+              });
             }
 
             // Normalize event
@@ -217,11 +242,24 @@ export async function l0(options: L0Options): Promise<L0Result> {
                 state.firstTokenAt = Date.now();
               }
 
-              // Update state
-              state.content += token;
+              // Update state - use buffer for O(n) accumulation
+              tokenBuffer.push(token);
               state.tokenCount++;
               state.lastTokenAt = Date.now();
               lastTokenTime = state.lastTokenAt;
+
+              // Build content string only when needed (for guardrails/drift checks)
+              // This is O(n) total instead of O(n²) from repeated concatenation
+              const needsContent =
+                (guardrailEngine &&
+                  state.tokenCount % guardrailCheckInterval === 0) ||
+                (driftDetector &&
+                  state.tokenCount % driftCheckInterval === 0) ||
+                state.tokenCount % checkpointInterval === 0; // checkpoint
+
+              if (needsContent) {
+                state.content = tokenBuffer.join("");
+              }
 
               // Record token in monitoring
               monitor.recordToken(state.lastTokenAt);
@@ -230,22 +268,35 @@ export async function l0(options: L0Options): Promise<L0Result> {
               const interTimeout = processedTimeout.interToken ?? 5000;
               const timeSinceLastToken = Date.now() - lastTokenTime;
               if (timeSinceLastToken > interTimeout) {
-                throw new Error("Inter-token timeout reached");
+                throw new L0Error("Inter-token timeout reached", {
+                  code: "INTER_TOKEN_TIMEOUT",
+                  checkpoint: state.checkpoint,
+                  tokenCount: state.tokenCount,
+                  contentLength: state.content.length,
+                  retryAttempts: state.retryAttempts,
+                  networkRetries: state.networkRetries,
+                  fallbackIndex,
+                  recoverable: state.checkpoint.length > 0,
+                  metadata: { timeout: interTimeout, timeSinceLastToken },
+                });
               }
 
               // Update checkpoint periodically
-              if (state.tokenCount % 10 === 0) {
+              if (state.tokenCount % checkpointInterval === 0) {
                 state.checkpoint = state.content;
               }
 
               // Run streaming guardrails
-              if (guardrailEngine && state.tokenCount % 5 === 0) {
+              if (
+                guardrailEngine &&
+                state.tokenCount % guardrailCheckInterval === 0
+              ) {
                 const context: GuardrailContext = {
                   content: state.content,
                   checkpoint: state.checkpoint,
                   delta: token,
                   tokenCount: state.tokenCount,
-                  isComplete: false,
+                  completed: false,
                 };
 
                 const result = guardrailEngine.check(context);
@@ -256,14 +307,28 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
                 // Check for fatal violations
                 if (result.shouldHalt) {
-                  throw new Error(
+                  throw new L0Error(
                     `Fatal guardrail violation: ${result.violations[0]?.message}`,
+                    {
+                      code: "FATAL_GUARDRAIL_VIOLATION",
+                      checkpoint: state.checkpoint,
+                      tokenCount: state.tokenCount,
+                      contentLength: state.content.length,
+                      retryAttempts: state.retryAttempts,
+                      networkRetries: state.networkRetries,
+                      fallbackIndex,
+                      recoverable: false,
+                      metadata: { violation: result.violations[0] },
+                    },
                   );
                 }
               }
 
               // Check drift
-              if (driftDetector && state.tokenCount % 10 === 0) {
+              if (
+                driftDetector &&
+                state.tokenCount % driftCheckInterval === 0
+              ) {
                 const drift = driftDetector.check(state.content, token);
                 if (drift.detected) {
                   state.driftDetected = true;
@@ -292,9 +357,21 @@ export async function l0(options: L0Options): Promise<L0Result> {
             clearTimeout(initialTimeoutId);
           }
 
+          // Finalize content from buffer
+          state.content = tokenBuffer.join("");
+
           // Check for zero output
           if (processedDetectZeroTokens && detectZeroToken(state.content)) {
-            throw new Error("Zero output detected - no meaningful content");
+            throw new L0Error("Zero output detected - no meaningful content", {
+              code: "ZERO_OUTPUT",
+              checkpoint: state.checkpoint,
+              tokenCount: state.tokenCount,
+              contentLength: state.content.length,
+              retryAttempts: state.retryAttempts,
+              networkRetries: state.networkRetries,
+              fallbackIndex,
+              recoverable: true,
+            });
           }
 
           // Run final guardrails
@@ -303,7 +380,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
               content: state.content,
               checkpoint: state.checkpoint,
               tokenCount: state.tokenCount,
-              isComplete: true,
+              completed: true,
             };
 
             const result = guardrailEngine.check(context);
@@ -328,8 +405,19 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
             // Fatal violations
             if (result.shouldHalt) {
-              throw new Error(
+              throw new L0Error(
                 `Fatal guardrail violation: ${result.violations[0]?.message}`,
+                {
+                  code: "FATAL_GUARDRAIL_VIOLATION",
+                  checkpoint: state.checkpoint,
+                  tokenCount: state.tokenCount,
+                  contentLength: state.content.length,
+                  retryAttempts: state.retryAttempts,
+                  networkRetries: state.networkRetries,
+                  fallbackIndex,
+                  recoverable: false,
+                  metadata: { violation: result.violations[0] },
+                },
               );
             }
           }
@@ -383,7 +471,6 @@ export async function l0(options: L0Options): Promise<L0Result> {
               err,
               decision.shouldRetry,
               decision.delay,
-              retryAttempt,
             );
           }
 
@@ -443,6 +530,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
           }
 
           // Reset state for fallback attempt
+          tokenBuffer = [];
           state.content = "";
           state.tokenCount = 0;
           state.violations = [];
@@ -525,7 +613,7 @@ function createInitialState(): L0State {
  * Helper to consume stream and get final text
  */
 export async function getText(result: L0Result): Promise<string> {
-  for await (const event of result.stream) {
+  for await (const _event of result.stream) {
     // Just consume the stream
   }
   return result.state.content;

@@ -134,10 +134,10 @@ export function detectExcessiveHedging(
   const violations: GuardrailViolation[] = [];
 
   // Check if content starts with hedging
-  const firstLine = content.trim().split("\n")[0];
+  const firstLine = content.trim().split("\n")[0] ?? "";
   const matches = findBadPatterns(firstLine, BAD_PATTERNS.EXCESSIVE_HEDGING);
 
-  if (matches.length > 0) {
+  if (matches.length > 0 && matches[0]) {
     violations.push({
       rule: "pattern-hedging",
       message: `Excessive hedging at start: "${matches[0].match}"`,
@@ -211,11 +211,11 @@ export function detectInstructionLeakage(
 export function detectPlaceholders(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check complete output
-  if (!isComplete) {
+  if (!completed) {
     return violations;
   }
 
@@ -250,7 +250,7 @@ export function detectFormatCollapse(
   const firstLines = content.split("\n").slice(0, 3).join("\n");
   const matches = findBadPatterns(firstLines, BAD_PATTERNS.FORMAT_COLLAPSE);
 
-  if (matches.length > 0) {
+  if (matches.length > 0 && matches[0]) {
     violations.push({
       rule: "pattern-format-collapse",
       message: `Format collapse detected: "${matches[0].match}"`,
@@ -273,11 +273,11 @@ export function detectRepetition(
   context: GuardrailContext,
   threshold: number = 2,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check complete output
-  if (!isComplete) {
+  if (!completed) {
     return violations;
   }
 
@@ -317,11 +317,11 @@ export function detectRepetition(
 export function detectFirstLastDuplicate(
   context: GuardrailContext,
 ): GuardrailViolation[] {
-  const { content, isComplete } = context;
+  const { content, completed } = context;
   const violations: GuardrailViolation[] = [];
 
   // Only check complete output with sufficient content
-  if (!isComplete || content.length < 100) {
+  if (!completed || content.length < 100) {
     return violations;
   }
 
@@ -334,8 +334,8 @@ export function detectFirstLastDuplicate(
     return violations;
   }
 
-  const first = sentences[0].toLowerCase();
-  const last = sentences[sentences.length - 1].toLowerCase();
+  const first = sentences[0]!.toLowerCase();
+  const last = sentences[sentences.length - 1]!.toLowerCase();
 
   if (first === last) {
     violations.push({
@@ -353,7 +353,7 @@ export function detectFirstLastDuplicate(
 /**
  * Create pattern-based guardrail rule
  */
-export function patternRule(config?: Partial<PatternConfig>): GuardrailRule {
+export function patternRule(_config?: Partial<PatternConfig>): GuardrailRule {
   return {
     name: "pattern-detection",
     description: "Detects known bad patterns in model output",

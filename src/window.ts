@@ -15,6 +15,7 @@ import {
   estimateTokenCount,
   mergeChunks,
 } from "./utils/chunking";
+import { RETRY_DEFAULTS } from "./types/retry";
 
 /**
  * Default window options
@@ -72,7 +73,7 @@ export class DocumentWindowImpl implements DocumentWindow {
     if (index < 0 || index >= this.chunks.length) {
       return null;
     }
-    return this.chunks[index];
+    return this.chunks[index] ?? null;
   }
 
   /**
@@ -191,7 +192,7 @@ export class DocumentWindowImpl implements DocumentWindow {
       } catch (error) {
         results.push({
           chunk,
-          result: null as any,
+          result: undefined,
           status: "error",
           error: error instanceof Error ? error : new Error(String(error)),
           duration: Date.now() - startTime,
@@ -215,7 +216,7 @@ export class DocumentWindowImpl implements DocumentWindow {
     let activeCount = 0;
     let index = 0;
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       const processNext = () => {
         while (activeCount < concurrency && queue.length > 0) {
           const chunk = queue.shift()!;
@@ -243,9 +244,10 @@ export class DocumentWindowImpl implements DocumentWindow {
             } catch (error) {
               results[chunkIndex] = {
                 chunk,
-                result: null as any,
+                result: undefined,
                 status: "error",
-                error: error instanceof Error ? error : new Error(String(error)),
+                error:
+                  error instanceof Error ? error : new Error(String(error)),
                 duration: Date.now() - startTime,
               };
             } finally {
@@ -273,7 +275,8 @@ export class DocumentWindowImpl implements DocumentWindow {
     const avgChunkSize =
       this.chunks.reduce((sum, c) => sum + c.charCount, 0) / this.chunks.length;
     const avgChunkTokens =
-      this.chunks.reduce((sum, c) => sum + c.tokenCount, 0) / this.chunks.length;
+      this.chunks.reduce((sum, c) => sum + c.tokenCount, 0) /
+      this.chunks.length;
 
     return {
       totalChunks: this.chunks.length,
@@ -305,11 +308,16 @@ export class DocumentWindowImpl implements DocumentWindow {
   /**
    * Find chunks containing specific text
    */
-  findChunks(searchText: string, caseSensitive: boolean = false): DocumentChunk[] {
+  findChunks(
+    searchText: string,
+    caseSensitive: boolean = false,
+  ): DocumentChunk[] {
     const search = caseSensitive ? searchText : searchText.toLowerCase();
 
     return this.chunks.filter((chunk) => {
-      const content = caseSensitive ? chunk.content : chunk.content.toLowerCase();
+      const content = caseSensitive
+        ? chunk.content
+        : chunk.content.toLowerCase();
       return content.includes(search);
     });
   }
@@ -419,8 +427,12 @@ export async function l0WithWindow(options: L0WindowOptions) {
   }
 
   // Context restoration logic
-  const { enabled = true, strategy = "adjacent", maxAttempts = 2, onRestore } =
-    contextRestoration || {};
+  const {
+    enabled = true,
+    strategy = "adjacent",
+    maxAttempts = RETRY_DEFAULTS.maxAttempts,
+    onRestore,
+  } = contextRestoration || {};
 
   let currentChunkIndex = chunkIndex;
   let attempts = 0;
@@ -452,12 +464,15 @@ export async function l0WithWindow(options: L0WindowOptions) {
             break;
 
           case "full":
-            // Get surrounding context
-            const contextChunks = window.getRange(
-              Math.max(0, currentChunkIndex - 1),
-              Math.min(window.totalChunks, currentChunkIndex + 2),
-            );
-            // Process with merged context
+            // Get surrounding context and merge chunks for expanded context
+            // This strategy works by getting adjacent chunks to provide more context
+            // The merged content is available via window.getContext()
+            // For restoration, we try the next chunk first, then previous
+            if (window.hasNext()) {
+              nextChunkIndex = currentChunkIndex + 1;
+            } else if (currentChunkIndex > 0) {
+              nextChunkIndex = currentChunkIndex - 1;
+            }
             break;
         }
 
@@ -498,7 +513,7 @@ export function mergeResults(
 ): string {
   return results
     .filter((r) => r.status === "success" && r.result?.state?.content)
-    .map((r) => r.result.state.content)
+    .map((r) => r.result!.state.content)
     .join(separator);
 }
 

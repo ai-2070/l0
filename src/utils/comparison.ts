@@ -2,8 +2,6 @@
 
 import type {
   Difference,
-  DifferenceType,
-  DifferenceSeverity,
   StringComparisonOptions,
   ObjectComparisonOptions,
 } from "../types/evaluate";
@@ -82,25 +80,25 @@ export function levenshteinDistance(a: string, b: string): number {
   }
 
   for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
+    matrix[0]![j] = j;
   }
 
   // Fill matrix
   for (let i = 1; i <= b.length; i++) {
     for (let j = 1; j <= a.length; j++) {
       if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
+        matrix[i]![j] = matrix[i - 1]![j - 1]!;
       } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1, // insertion
-          matrix[i - 1][j] + 1, // deletion
+        matrix[i]![j] = Math.min(
+          matrix[i - 1]![j - 1]! + 1, // substitution
+          matrix[i]![j - 1]! + 1, // insertion
+          matrix[i - 1]![j]! + 1, // deletion
         );
       }
     }
   }
 
-  return matrix[b.length][a.length];
+  return matrix[b.length]![a.length]!;
 }
 
 /**
@@ -561,31 +559,56 @@ export function getType(value: any): string {
 }
 
 /**
- * Deep equality check
+ * Deep equality check with early termination
+ * Returns false as soon as a difference is found
  */
 export function deepEqual(a: any, b: any): boolean {
+  // Fast path: reference equality
   if (a === b) return true;
 
-  const typeA = getType(a);
-  const typeB = getType(b);
+  // Fast path: null/undefined checks
+  if (a === null || b === null) return false;
+  if (a === undefined || b === undefined) return false;
 
+  const typeA = typeof a;
+  const typeB = typeof b;
+
+  // Fast path: type mismatch for primitives
   if (typeA !== typeB) return false;
 
-  if (typeA === "array") {
+  // Primitives that aren't equal (and not reference equal from above)
+  if (typeA !== "object") return false;
+
+  // Array comparison with early termination
+  const isArrayA = Array.isArray(a);
+  const isArrayB = Array.isArray(b);
+
+  if (isArrayA !== isArrayB) return false;
+
+  if (isArrayA) {
     if (a.length !== b.length) return false;
-    return a.every((item: any, i: number) => deepEqual(item, b[i]));
+    // Use for loop for early termination (faster than .every())
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false;
+    }
+    return true;
   }
 
-  if (typeA === "object") {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
+  // Object comparison with early termination
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
 
-    if (keysA.length !== keysB.length) return false;
+  if (keysA.length !== keysB.length) return false;
 
-    return keysA.every((key) => deepEqual(a[key], b[key]));
+  // Use for loop for early termination
+  for (const key of keysA) {
+    // Check key exists in b (early termination)
+    if (!(key in b)) return false;
+    // Recursively compare values (early termination on false)
+    if (!deepEqual(a[key], b[key])) return false;
   }
 
-  return false;
+  return true;
 }
 
 /**

@@ -200,7 +200,7 @@ function formatCompactMemory(
       const content = normalize
         ? normalizeForModel(entry.content)
         : entry.content;
-      const role = entry.role[0].toUpperCase(); // U/A/S
+      const role = (entry.role[0] ?? "U").toUpperCase(); // U/A/S
       return `${role}: ${content}`;
     })
     .join("\n");
@@ -304,7 +304,7 @@ export function truncateMemory(
 
   // Start from most recent
   for (let i = memory.length - 1; i >= 0; i--) {
-    const entry = memory[i];
+    const entry = memory[i]!;
     const entrySize = entry.content.length;
 
     if (currentSize + entrySize <= maxSize) {

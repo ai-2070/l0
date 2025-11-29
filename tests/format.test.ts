@@ -758,6 +758,39 @@ describe("Tools Formatting", () => {
       expect(parsed.parameters.required).toContain("location");
       expect(parsed.parameters.required).not.toContain("units");
     });
+
+    it("should include types by default in JSON schema", () => {
+      const result = formatTool(testTool, { style: "json-schema" });
+      const parsed = JSON.parse(result);
+      expect(parsed.parameters.properties.location.type).toBe("string");
+      expect(parsed.parameters.properties.units.type).toBe("string");
+    });
+
+    it("should include types when includeTypes is true", () => {
+      const result = formatTool(testTool, {
+        style: "json-schema",
+        includeTypes: true,
+      });
+      const parsed = JSON.parse(result);
+      expect(parsed.parameters.properties.location.type).toBe("string");
+      expect(parsed.parameters.properties.units.type).toBe("string");
+    });
+
+    it("should omit types when includeTypes is false", () => {
+      const result = formatTool(testTool, {
+        style: "json-schema",
+        includeTypes: false,
+      });
+      const parsed = JSON.parse(result);
+      expect(parsed.parameters.properties.location.type).toBeUndefined();
+      expect(parsed.parameters.properties.units.type).toBeUndefined();
+      // Other properties should still be present
+      expect(parsed.parameters.properties.location.description).toBeDefined();
+      expect(parsed.parameters.properties.units.enum).toEqual([
+        "celsius",
+        "fahrenheit",
+      ]);
+    });
   });
 
   describe("formatTools", () => {

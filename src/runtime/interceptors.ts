@@ -266,7 +266,7 @@ export function timingInterceptor(): L0Interceptor {
     after: async (result) => {
       const sessionId = result.telemetry?.sessionId;
       if (sessionId && startTimes.has(sessionId)) {
-        const duration = Date.now() - startTimes.get(sessionId)!;
+        // Duration tracked for potential future use
         startTimes.delete(sessionId);
       }
       return result;
@@ -310,13 +310,13 @@ export function rateLimitInterceptor(
     before: async (options) => {
       const now = Date.now();
       // Remove old requests outside the window
-      while (requests.length > 0 && requests[0] < now - windowMs) {
+      while (requests.length > 0 && requests[0]! < now - windowMs) {
         requests.shift();
       }
 
       // Check if we're over the limit
       if (requests.length >= maxRequests) {
-        const oldestRequest = requests[0];
+        const oldestRequest = requests[0] ?? now;
         const waitTime = windowMs - (now - oldestRequest);
         throw new Error(
           `Rate limit exceeded. Wait ${waitTime}ms before retrying.`,

@@ -11,25 +11,14 @@ import type {
   RetryContext,
   ErrorTypeDelays,
 } from "../types/retry";
-import { ErrorCategory } from "../types/retry";
+import { ErrorCategory, RETRY_DEFAULTS } from "../types/retry";
 import { calculateBackoff, sleep } from "../utils/timers";
 import {
   isNetworkError,
   analyzeNetworkError,
-  isConnectionDropped,
-  isFetchTypeError,
-  isECONNRESET,
-  isECONNREFUSED,
-  isSSEAborted,
-  isNoBytes,
-  isPartialChunks,
-  isRuntimeKilled,
-  isBackgroundThrottle,
-  isDNSError,
-  isSSLError,
   isTimeoutError,
-  NetworkErrorType,
   suggestRetryDelay,
+  NetworkErrorType,
 } from "../utils/errors";
 
 /**
@@ -41,19 +30,13 @@ export class RetryManager {
 
   constructor(config: Partial<RetryConfig> = {}) {
     this.config = {
-      maxAttempts: config.maxAttempts ?? 2,
+      maxAttempts: config.maxAttempts ?? RETRY_DEFAULTS.maxAttempts,
       maxRetries: config.maxRetries,
-      baseDelay: config.baseDelay ?? 1000,
-      maxDelay: config.maxDelay ?? 10000,
-      backoff: config.backoff ?? "exponential",
-      retryOn: config.retryOn ?? [
-        "zero_output",
-        "guardrail_violation",
-        "drift",
-        "network_error",
-        "timeout",
-        "rate_limit",
-      ],
+      baseDelay: config.baseDelay ?? RETRY_DEFAULTS.baseDelay,
+      maxDelay: config.maxDelay ?? RETRY_DEFAULTS.maxDelay,
+      backoff: config.backoff ?? RETRY_DEFAULTS.backoff,
+      retryOn: config.retryOn ?? [...RETRY_DEFAULTS.retryOn],
+      maxErrorHistory: config.maxErrorHistory,
     };
 
     this.state = this.createInitialState();
@@ -98,7 +81,6 @@ export class RetryManager {
    */
   private classifyError(error: Error): ErrorClassification {
     const message = error.message?.toLowerCase() || "";
-    const name = error.name?.toLowerCase() || "";
 
     // Use enhanced network error detection from utils/errors
     const isNetwork = isNetworkError(error);
@@ -109,7 +91,7 @@ export class RetryManager {
     // Try to extract status code
     let statusCode: number | undefined;
     const statusMatch = message.match(/status\s*(?:code)?\s*:?\s*(\d{3})/i);
-    if (statusMatch) {
+    if (statusMatch && statusMatch[1]) {
       statusCode = parseInt(statusMatch[1], 10);
     }
 
@@ -307,7 +289,7 @@ export class RetryManager {
       this.config.errorTypeDelays &&
       isNetworkError(error)
     ) {
-      const analysis = analyzeNetworkError(error);
+      // Network error analysis available if needed
       const customDelayMap = this.mapErrorTypeDelays(
         this.config.errorTypeDelays,
       );
@@ -358,6 +340,16 @@ export class RetryManager {
 
     this.state.lastError = categorizedError;
     this.state.errorHistory.push(categorizedError);
+
+    // Enforce error history bound if configured (prevents memory leaks in long-running processes)
+    const maxHistory = this.config.maxErrorHistory;
+    if (
+      maxHistory !== undefined &&
+      this.state.errorHistory.length > maxHistory
+    ) {
+      this.state.errorHistory = this.state.errorHistory.slice(-maxHistory);
+    }
+
     this.state.totalDelay += decision.delay;
 
     // Wait for backoff delay
