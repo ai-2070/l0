@@ -231,7 +231,7 @@ export function mastraStream(
   return async () => {
     const streamResult = await agent.stream(messages as any, streamOptions);
     return wrapMastraStream(
-      streamResult as MastraModelOutput<any>,
+      streamResult as unknown as MastraModelOutput<any>,
       adapterOptions,
     );
   };
