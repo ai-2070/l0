@@ -57,11 +57,11 @@ export interface L0Options {
    */
   timeout?: {
     /**
-     * Maximum time to wait for the first token (default: 6000ms)
+     * Maximum time to wait for the first token (default: 5000ms)
      */
     initialToken?: number;
     /**
-     * Maximum time between tokens (default: 5000ms)
+     * Maximum time between tokens (default: 10,000ms)
      */
     interToken?: number;
   };

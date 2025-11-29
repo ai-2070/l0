@@ -44,4 +44,4 @@ When using L0 in production:
 2. **Use guardrails** - Enable `recommendedGuardrails` or `strictGuardrails` to catch malformed output
 3. **Validate structured output** - Always use Zod schemas with `structured()` for type-safe parsing
 4. **Handle errors gracefully** - Use `isL0Error()` to catch and log failures appropriately
-5. **Set timeouts** - Configure `initialTokenTimeout` and `interTokenTimeout` to prevent hanging requests
+5. **Set timeouts** - Configure `initialToken` and `interTokenTimeout` to prevent hanging requests

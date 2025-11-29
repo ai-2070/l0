@@ -128,10 +128,16 @@ const result = await l0({
       connectionDropped: 2500      // Mobile networks unstable
     }
   },
-  initialTokenTimeout: 10000,      // Longer for mobile
-  interTokenTimeout: 15000
+
+  // Optional: Timeouts (ms)
+  timeout: {
+    initialToken: 5000,  // 5s to first token
+    interToken: 10000,    // 10s between tokens
+  },
 });
 ```
+
+⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
 
 ### Edge Runtime
 
@@ -147,8 +153,12 @@ const result = await l0({
       timeout: 1500
     }
   },
-  initialTokenTimeout: 3000,
-  interTokenTimeout: 5000
+
+  // Optional: Timeouts (ms)
+  timeout: {
+    initialToken: 5000,  // 5s to first token
+    interToken: 10000,    // 10s between tokens
+  },
 });
 ```
 
@@ -227,8 +237,12 @@ const result = await l0({
       backgroundThrottle: 10000
     }
   },
-  initialTokenTimeout: 5000,
-  interTokenTimeout: 8000
+  
+  // Optional: Timeouts (ms)
+  timeout: {
+    initialToken: 5000,  // 5s to first token
+    interToken: 10000,    // 10s between tokens
+  },
 });
 ```
 

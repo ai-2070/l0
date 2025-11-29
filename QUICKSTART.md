@@ -79,8 +79,12 @@ console.log(result.data.age);   // number
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  initialTokenTimeout: 3000,  // 3s for first token
-  interTokenTimeout: 1000,    // 1s max gap between tokens
+
+  timeout: {
+    initialToken: 5000,  // 5s to first token
+    interToken: 10000,    // 10s between tokens
+  },
+
   guardrails: recommendedGuardrails
 });
 ```

@@ -23,7 +23,7 @@ The time to wait for the first token. Set based on your model and network condit
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  initialTokenTimeout: 3000,  // 3 seconds for first token
+  initialToken: 3000,  // 3 seconds for first token
 });
 ```
 

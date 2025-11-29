@@ -182,7 +182,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
           let lastTokenTime = startTime;
 
           // Initial token timeout
-          const initialTimeout = processedTimeout.initialToken ?? 2000;
+          const initialTimeout = processedTimeout.initialToken ?? 5000;
           let initialTimeoutId: NodeJS.Timeout | null = null;
           let initialTimeoutReached = false;
 
@@ -226,7 +226,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
                 networkRetries: state.networkRetries,
                 fallbackIndex,
                 recoverable: true,
-                metadata: { timeout: processedTimeout.initialToken ?? 2000 },
+                metadata: { timeout: processedTimeout.initialToken ?? 5000 },
               });
             }
 
@@ -265,7 +265,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
               monitor.recordToken(state.lastTokenAt);
 
               // Check inter-token timeout
-              const interTimeout = processedTimeout.interToken ?? 5000;
+              const interTimeout = processedTimeout.interToken ?? 10000;
               const timeSinceLastToken = Date.now() - lastTokenTime;
               if (timeSinceLastToken > interTimeout) {
                 throw new L0Error("Inter-token timeout reached", {

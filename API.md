@@ -49,8 +49,10 @@ const result = await l0({
   },
   
   // Optional: Timeouts (ms)
-  initialTokenTimeout: 3000,
-  interTokenTimeout: 1000,
+  timeout: {
+    initialToken: 5000,  // 5s to first token
+    interToken: 10000,    // 10s between tokens
+  },
   
   // Optional: Check intervals
   checkIntervals: {
@@ -833,7 +835,7 @@ interface L0Options {
   fallbackStreams?: Array<() => Promise<StreamTextResult>>;
   guardrails?: GuardrailRule[];
   retry?: Partial<RetryConfig>;
-  initialTokenTimeout?: number;
+  initialToken?: number;
   interTokenTimeout?: number;
   checkIntervals?: {
     guardrails?: number;

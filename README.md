@@ -97,8 +97,13 @@ L0 wraps `streamText()` with deterministic behavior:
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  initialTokenTimeout: 2000,  // Timeout before first token
-  interTokenTimeout: 1000,    // Timeout between tokens
+  
+  // Optional: Timeouts (ms)
+  timeout: {
+    initialToken: 5000,  // 5s to first token
+    interToken: 10000,    // 10s between tokens
+  },
+  
   signal: abortController.signal
 });
 
@@ -116,6 +121,8 @@ console.log(result.state.content);      // Full accumulated content
 console.log(result.state.tokenCount);   // Total tokens received
 console.log(result.state.checkpoint);   // Last stable checkpoint
 ```
+
+⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
 
 ---
 

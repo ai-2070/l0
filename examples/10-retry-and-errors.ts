@@ -116,8 +116,10 @@ async function timeouts() {
         model: openai("gpt-4o-mini"),
         prompt: "Write a haiku",
       }),
-    initialTokenTimeout: 5000,  // 5s to first token
-    interTokenTimeout: 2000,    // 2s between tokens
+      timeout: {
+        initialToken: 5000,  // 5s to first token
+        interToken: 10000,    // 10s between tokens
+      },
     onEvent: (event) => {
       if (event.type === "token") {
         // Could track timing here
