@@ -191,7 +191,7 @@ export class DocumentWindowImpl implements DocumentWindow {
       } catch (error) {
         results.push({
           chunk,
-          result: null as any,
+          result: undefined,
           status: "error",
           error: error instanceof Error ? error : new Error(String(error)),
           duration: Date.now() - startTime,
@@ -243,7 +243,7 @@ export class DocumentWindowImpl implements DocumentWindow {
             } catch (error) {
               results[chunkIndex] = {
                 chunk,
-                result: null as any,
+                result: undefined,
                 status: "error",
                 error:
                   error instanceof Error ? error : new Error(String(error)),
@@ -512,7 +512,7 @@ export function mergeResults(
 ): string {
   return results
     .filter((r) => r.status === "success" && r.result?.state?.content)
-    .map((r) => r.result.state.content)
+    .map((r) => r.result!.state.content)
     .join(separator);
 }
 

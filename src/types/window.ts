@@ -224,9 +224,9 @@ export interface WindowProcessResult {
   chunk: DocumentChunk;
 
   /**
-   * L0 result
+   * L0 result (undefined on error)
    */
-  result: L0Result;
+  result?: L0Result;
 
   /**
    * Processing status

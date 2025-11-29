@@ -107,7 +107,7 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
           index,
           text,
           data: result.data,
-          l0Result: null as any, // Structured result doesn't have L0Result
+          l0Result: undefined,
           structuredResult: result,
           status: "success" as const,
           duration: Date.now() - outputStartTime,
@@ -144,7 +144,7 @@ export async function consensus<T extends z.ZodTypeAny = z.ZodTypeAny>(
         index,
         text: "",
         data: undefined,
-        l0Result: null as any,
+        l0Result: undefined,
         status: "error" as const,
         error: error instanceof Error ? error : new Error(String(error)),
         duration: Date.now() - outputStartTime,
