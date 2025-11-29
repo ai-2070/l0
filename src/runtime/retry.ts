@@ -11,7 +11,7 @@ import type {
   RetryContext,
   ErrorTypeDelays,
 } from "../types/retry";
-import { ErrorCategory } from "../types/retry";
+import { ErrorCategory, RETRY_DEFAULTS } from "../types/retry";
 import { calculateBackoff, sleep } from "../utils/timers";
 import {
   isNetworkError,
@@ -30,19 +30,12 @@ export class RetryManager {
 
   constructor(config: Partial<RetryConfig> = {}) {
     this.config = {
-      maxAttempts: config.maxAttempts ?? 2,
+      maxAttempts: config.maxAttempts ?? RETRY_DEFAULTS.maxAttempts,
       maxRetries: config.maxRetries,
-      baseDelay: config.baseDelay ?? 1000,
-      maxDelay: config.maxDelay ?? 10000,
-      backoff: config.backoff ?? "exponential",
-      retryOn: config.retryOn ?? [
-        "zero_output",
-        "guardrail_violation",
-        "drift",
-        "network_error",
-        "timeout",
-        "rate_limit",
-      ],
+      baseDelay: config.baseDelay ?? RETRY_DEFAULTS.baseDelay,
+      maxDelay: config.maxDelay ?? RETRY_DEFAULTS.maxDelay,
+      backoff: config.backoff ?? RETRY_DEFAULTS.backoff,
+      retryOn: config.retryOn ?? [...RETRY_DEFAULTS.retryOn],
       maxErrorHistory: config.maxErrorHistory,
     };
 
@@ -354,7 +347,7 @@ export class RetryManager {
       maxHistory !== undefined &&
       this.state.errorHistory.length > maxHistory
     ) {
-      this.state.errorHistory = maxHistory > 0 ? this.state.errorHistory.slice(-maxHistory) : [];
+      this.state.errorHistory = this.state.errorHistory.slice(-maxHistory);
     }
 
     this.state.totalDelay += decision.delay;
