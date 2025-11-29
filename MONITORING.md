@@ -5,6 +5,7 @@ Complete guide to L0's built-in monitoring, telemetry, and network tracking capa
 ## Overview
 
 L0 includes a **built-in monitoring system** that tracks:
+
 - Performance metrics (tokens/sec, latency, duration)
 - Network errors (types, frequencies, retries)
 - Guardrail violations (by rule and severity)
@@ -19,14 +20,14 @@ L0 includes a **built-in monitoring system** that tracks:
 ### Enable Monitoring
 
 ```typescript
-import { l0 } from 'l0';
-import { streamText } from 'ai';
+import { l0 } from "l0";
+import { streamText } from "ai";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: {
-    enabled: true  // Enable built-in monitoring
-  }
+    enabled: true, // Enable built-in monitoring
+  },
 });
 
 // Access telemetry data
@@ -41,8 +42,8 @@ const result = await l0({
   monitoring: {
     enabled: true,
     includeTimings: true,
-    includeNetworkDetails: true
-  }
+    includeNetworkDetails: true,
+  },
 });
 
 for await (const event of result.stream) {
@@ -51,11 +52,11 @@ for await (const event of result.stream) {
 
 // After completion, access telemetry
 const telemetry = result.telemetry;
-console.log('Session ID:', telemetry.sessionId);
-console.log('Duration:', telemetry.duration, 'ms');
-console.log('Tokens:', telemetry.metrics.totalTokens);
-console.log('Tokens/sec:', telemetry.metrics.tokensPerSecond);
-console.log('Network errors:', telemetry.network.errorCount);
+console.log("Session ID:", telemetry.sessionId);
+console.log("Duration:", telemetry.duration, "ms");
+console.log("Tokens:", telemetry.metrics.totalTokens);
+console.log("Tokens/sec:", telemetry.metrics.tokensPerSecond);
+console.log("Network errors:", telemetry.network.errorCount);
 ```
 
 ## Configuration
@@ -101,15 +102,15 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: {
     enabled: true,
-    sampleRate: 1.0,              // Monitor 100% of requests
-    includeNetworkDetails: true,   // Include error details
-    includeTimings: true,          // Include timing metrics
+    sampleRate: 1.0, // Monitor 100% of requests
+    includeNetworkDetails: true, // Include error details
+    includeTimings: true, // Include timing metrics
     metadata: {
-      user_id: 'user_123',
-      model: 'gpt-4',
-      environment: 'production'
-    }
-  }
+      user_id: "user_123",
+      model: "gpt-4",
+      environment: "production",
+    },
+  },
 });
 ```
 
@@ -138,20 +139,21 @@ interface L0Telemetry {
 
   // Performance metrics
   metrics: {
-    timeToFirstToken?: number;      // TTFT in ms
-    avgInterTokenTime?: number;     // Average ms between tokens
-    tokensPerSecond?: number;       // Throughput
-    totalTokens: number;            // Total tokens received
-    totalRetries: number;           // All retries
-    networkRetries: number;         // Network retries (doesn't count)
-    modelRetries: number;           // Model retries (counts)
+    timeToFirstToken?: number; // TTFT in ms
+    avgInterTokenTime?: number; // Average ms between tokens
+    tokensPerSecond?: number; // Throughput
+    totalTokens: number; // Total tokens received
+    totalRetries: number; // All retries
+    networkRetries: number; // Network retries (doesn't count)
+    modelRetries: number; // Model retries (counts)
   };
 
   // Network tracking
   network: {
-    errorCount: number;                      // Total network errors
-    errorsByType: Record<string, number>;    // Errors grouped by type
-    errors?: Array<{                         // Detailed errors (if enabled)
+    errorCount: number; // Total network errors
+    errorsByType: Record<string, number>; // Errors grouped by type
+    errors?: Array<{
+      // Detailed errors (if enabled)
       type: string;
       message: string;
       timestamp: number;
@@ -189,7 +191,7 @@ interface L0Telemetry {
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true }
+  monitoring: { enabled: true },
 });
 
 // Consume stream
@@ -206,14 +208,14 @@ console.log(telemetry);
 
 ```typescript
 // Get high-level summary
-console.log('Summary:', {
+console.log("Summary:", {
   sessionId: telemetry.sessionId,
   duration: telemetry.duration,
   tokens: telemetry.metrics.totalTokens,
   tokensPerSecond: telemetry.metrics.tokensPerSecond,
   retries: telemetry.metrics.totalRetries,
   networkErrors: telemetry.network.errorCount,
-  violations: telemetry.guardrails?.violationCount ?? 0
+  violations: telemetry.guardrails?.violationCount ?? 0,
 });
 ```
 
@@ -222,7 +224,7 @@ console.log('Summary:', {
 ```typescript
 // Check for network errors
 if (telemetry.network.errorCount > 0) {
-  console.log('Network errors by type:');
+  console.log("Network errors by type:");
   for (const [type, count] of Object.entries(telemetry.network.errorsByType)) {
     console.log(`  ${type}: ${count}`);
   }
@@ -230,9 +232,9 @@ if (telemetry.network.errorCount > 0) {
   // Access detailed errors (if includeNetworkDetails: true)
   if (telemetry.network.errors) {
     for (const error of telemetry.network.errors) {
-      console.log('Error:', error.type, error.message);
-      console.log('  Retried:', error.retried);
-      console.log('  Delay:', error.delay, 'ms');
+      console.log("Error:", error.type, error.message);
+      console.log("  Retried:", error.retried);
+      console.log("  Delay:", error.delay, "ms");
     }
   }
 }
@@ -243,9 +245,9 @@ if (telemetry.network.errorCount > 0) {
 ```typescript
 // Check guardrail violations
 if (telemetry.guardrails) {
-  console.log('Violations:', telemetry.guardrails.violationCount);
-  console.log('By severity:', telemetry.guardrails.violationsBySeverity);
-  console.log('By rule:', telemetry.guardrails.violationsByRule);
+  console.log("Violations:", telemetry.guardrails.violationCount);
+  console.log("By severity:", telemetry.guardrails.violationsBySeverity);
+  console.log("By rule:", telemetry.guardrails.violationsByRule);
 }
 ```
 
@@ -253,11 +255,15 @@ if (telemetry.guardrails) {
 
 ```typescript
 // Analyze performance
-console.log('Performance metrics:');
-console.log('  Time to first token:', telemetry.metrics.timeToFirstToken, 'ms');
-console.log('  Avg inter-token time:', telemetry.metrics.avgInterTokenTime, 'ms');
-console.log('  Tokens per second:', telemetry.metrics.tokensPerSecond);
-console.log('  Total duration:', telemetry.duration, 'ms');
+console.log("Performance metrics:");
+console.log("  Time to first token:", telemetry.metrics.timeToFirstToken, "ms");
+console.log(
+  "  Avg inter-token time:",
+  telemetry.metrics.avgInterTokenTime,
+  "ms",
+);
+console.log("  Tokens per second:", telemetry.metrics.tokensPerSecond);
+console.log("  Total duration:", telemetry.duration, "ms");
 ```
 
 ## Exporting Telemetry
@@ -265,14 +271,14 @@ console.log('  Total duration:', telemetry.duration, 'ms');
 ### To JSON
 
 ```typescript
-import { TelemetryExporter } from 'l0';
+import { TelemetryExporter } from "l0";
 
 // Export to JSON string
 const json = TelemetryExporter.toJSON(telemetry);
 console.log(json);
 
 // Or write to file
-fs.writeFileSync('telemetry.json', json);
+fs.writeFileSync("telemetry.json", json);
 ```
 
 ### To CSV
@@ -283,7 +289,7 @@ const csv = TelemetryExporter.toCSV(telemetry);
 console.log(csv);
 
 // Append to CSV file
-fs.appendFileSync('telemetry.csv', csv + '\n');
+fs.appendFileSync("telemetry.csv", csv + "\n");
 ```
 
 ### To Structured Logs
@@ -293,7 +299,7 @@ fs.appendFileSync('telemetry.csv', csv + '\n');
 const logEntry = TelemetryExporter.toLogFormat(telemetry);
 
 // Log with your logger
-logger.info('L0 execution completed', logEntry);
+logger.info("L0 execution completed", logEntry);
 
 // Example output:
 // {
@@ -323,7 +329,7 @@ const metrics = TelemetryExporter.toMetrics(telemetry);
 for (const metric of metrics) {
   metricsClient.gauge(metric.name, metric.value, {
     timestamp: metric.timestamp,
-    tags: metric.tags
+    tags: metric.tags,
   });
 }
 
@@ -348,10 +354,10 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: { enabled: true },
   onEvent: (event) => {
-    if (event.type === 'token') {
-      process.stdout.write(event.value || '');
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
     }
-  }
+  },
 });
 
 for await (const event of result.stream) {
@@ -359,22 +365,25 @@ for await (const event of result.stream) {
 }
 
 // Log telemetry
-console.log('\n--- Telemetry ---');
-console.log('Duration:', result.telemetry.duration, 'ms');
-console.log('Tokens:', result.telemetry.metrics.totalTokens);
-console.log('Tokens/sec:', result.telemetry.metrics.tokensPerSecond?.toFixed(2));
-console.log('Retries:', result.telemetry.metrics.totalRetries);
-console.log('Network errors:', result.telemetry.network.errorCount);
+console.log("\n--- Telemetry ---");
+console.log("Duration:", result.telemetry.duration, "ms");
+console.log("Tokens:", result.telemetry.metrics.totalTokens);
+console.log(
+  "Tokens/sec:",
+  result.telemetry.metrics.tokensPerSecond?.toFixed(2),
+);
+console.log("Retries:", result.telemetry.metrics.totalRetries);
+console.log("Network errors:", result.telemetry.network.errorCount);
 ```
 
 ### With File Logging
 
 ```typescript
-import fs from 'fs';
+import fs from "fs";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true }
+  monitoring: { enabled: true },
 });
 
 for await (const event of result.stream) {
@@ -384,15 +393,15 @@ for await (const event of result.stream) {
 // Append to log file
 const logEntry = {
   timestamp: new Date().toISOString(),
-  telemetry: result.telemetry
+  telemetry: result.telemetry,
 };
-fs.appendFileSync('l0.log', JSON.stringify(logEntry) + '\n');
+fs.appendFileSync("l0.log", JSON.stringify(logEntry) + "\n");
 ```
 
 ### With Datadog
 
 ```typescript
-import { StatsD } from 'hot-shots';
+import { StatsD } from "hot-shots";
 const statsd = new StatsD();
 
 const result = await l0({
@@ -401,9 +410,9 @@ const result = await l0({
     enabled: true,
     metadata: {
       environment: process.env.NODE_ENV,
-      model: 'gpt-4'
-    }
-  }
+      model: "gpt-4",
+    },
+  },
 });
 
 for await (const event of result.stream) {
@@ -412,11 +421,11 @@ for await (const event of result.stream) {
 
 // Send to Datadog
 const telemetry = result.telemetry;
-statsd.gauge('l0.duration', telemetry.duration);
-statsd.gauge('l0.tokens', telemetry.metrics.totalTokens);
-statsd.gauge('l0.tokens_per_second', telemetry.metrics.tokensPerSecond);
-statsd.gauge('l0.network_errors', telemetry.network.errorCount);
-statsd.gauge('l0.retries', telemetry.metrics.totalRetries);
+statsd.gauge("l0.duration", telemetry.duration);
+statsd.gauge("l0.tokens", telemetry.metrics.totalTokens);
+statsd.gauge("l0.tokens_per_second", telemetry.metrics.tokensPerSecond);
+statsd.gauge("l0.network_errors", telemetry.network.errorCount);
+statsd.gauge("l0.retries", telemetry.metrics.totalRetries);
 ```
 
 ### With Prometheus (Built-in)
@@ -424,19 +433,19 @@ statsd.gauge('l0.retries', telemetry.metrics.totalRetries);
 L0 includes a native Prometheus exporter:
 
 ```typescript
-import { l0, createPrometheusCollector, prometheusMiddleware } from 'l0';
-import express from 'express';
+import { l0, createPrometheusCollector, prometheusMiddleware } from "l0";
+import express from "express";
 
 // Create collector
 const collector = createPrometheusCollector({
-  prefix: 'l0',
-  defaultLabels: { service: 'my-app' }
+  prefix: "l0",
+  defaultLabels: { service: "my-app" },
 });
 
 // After each L0 execution, record telemetry
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true }
+  monitoring: { enabled: true },
 });
 
 for await (const event of result.stream) {
@@ -444,11 +453,11 @@ for await (const event of result.stream) {
 }
 
 // Record to Prometheus
-collector.record(result.telemetry, { model: 'gpt-4', endpoint: '/chat' });
+collector.record(result.telemetry, { model: "gpt-4", endpoint: "/chat" });
 
 // Expose /metrics endpoint
 const app = express();
-app.get('/metrics', prometheusMiddleware(collector));
+app.get("/metrics", prometheusMiddleware(collector));
 app.listen(9090);
 ```
 
@@ -462,9 +471,9 @@ class L0Analytics {
 
   async track(result: L0Result) {
     const telemetry = result.telemetry;
-    
+
     this.events.push({
-      event: 'l0_execution',
+      event: "l0_execution",
       session_id: telemetry.sessionId,
       duration: telemetry.duration,
       tokens: telemetry.metrics.totalTokens,
@@ -472,15 +481,15 @@ class L0Analytics {
       retries: telemetry.metrics.totalRetries,
       network_errors: telemetry.network.errorCount,
       violations: telemetry.guardrails?.violationCount ?? 0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
   async flush() {
     // Send to your analytics backend
-    await fetch('https://analytics.example.com/events', {
-      method: 'POST',
-      body: JSON.stringify(this.events)
+    await fetch("https://analytics.example.com/events", {
+      method: "POST",
+      body: JSON.stringify(this.events),
     });
     this.events = [];
   }
@@ -490,7 +499,7 @@ const analytics = new L0Analytics();
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true }
+  monitoring: { enabled: true },
 });
 
 for await (const event of result.stream) {
@@ -510,15 +519,15 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: {
     enabled: true,
-    sampleRate: 0.1,  // Monitor 10% to reduce overhead
+    sampleRate: 0.1, // Monitor 10% to reduce overhead
     includeTimings: true,
-    includeNetworkDetails: false,  // Reduce data size
+    includeNetworkDetails: false, // Reduce data size
     metadata: {
-      environment: 'production',
+      environment: "production",
       user_id: userId,
-      model: modelName
-    }
-  }
+      model: modelName,
+    },
+  },
 });
 
 // Send to monitoring service
@@ -534,18 +543,18 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: {
     enabled: true,
-    sampleRate: 1.0,  // Monitor everything
+    sampleRate: 1.0, // Monitor everything
     includeTimings: true,
-    includeNetworkDetails: true,  // Full details
+    includeNetworkDetails: true, // Full details
     metadata: {
-      environment: 'development',
-      test_id: testId
-    }
-  }
+      environment: "development",
+      test_id: testId,
+    },
+  },
 });
 
 // Detailed logging
-console.log('Full telemetry:', JSON.stringify(result.telemetry, null, 2));
+console.log("Full telemetry:", JSON.stringify(result.telemetry, null, 2));
 ```
 
 ### Performance Profiling
@@ -556,7 +565,7 @@ const runs: L0Telemetry[] = [];
 for (let i = 0; i < 100; i++) {
   const result = await l0({
     stream: () => streamText({ model, prompt }),
-    monitoring: { enabled: true }
+    monitoring: { enabled: true },
   });
 
   for await (const event of result.stream) {
@@ -568,20 +577,28 @@ for (let i = 0; i < 100; i++) {
 
 // Analyze performance
 const avgDuration = runs.reduce((sum, t) => sum + t.duration, 0) / runs.length;
-const avgTokensPerSec = runs.reduce((sum, t) => sum + t.metrics.tokensPerSecond, 0) / runs.length;
-const totalNetworkErrors = runs.reduce((sum, t) => sum + t.network.errorCount, 0);
+const avgTokensPerSec =
+  runs.reduce((sum, t) => sum + t.metrics.tokensPerSecond, 0) / runs.length;
+const totalNetworkErrors = runs.reduce(
+  (sum, t) => sum + t.network.errorCount,
+  0,
+);
 
-console.log('Performance profile:');
-console.log('  Avg duration:', avgDuration, 'ms');
-console.log('  Avg tokens/sec:', avgTokensPerSec);
-console.log('  Total network errors:', totalNetworkErrors);
+console.log("Performance profile:");
+console.log("  Avg duration:", avgDuration, "ms");
+console.log("  Avg tokens/sec:", avgTokensPerSec);
+console.log("  Total network errors:", totalNetworkErrors);
 ```
 
 ### A/B Testing
 
 ```typescript
-const configA = { /* ... */ };
-const configB = { /* ... */ };
+const configA = {
+  /* ... */
+};
+const configB = {
+  /* ... */
+};
 
 const config = Math.random() < 0.5 ? configA : configB;
 
@@ -590,18 +607,18 @@ const result = await l0({
   monitoring: {
     enabled: true,
     metadata: {
-      ab_test: config === configA ? 'A' : 'B'
-    }
+      ab_test: config === configA ? "A" : "B",
+    },
   },
-  ...config
+  ...config,
 });
 
 // Track which config performed better
 const performance = {
-  config: config === configA ? 'A' : 'B',
+  config: config === configA ? "A" : "B",
   duration: result.telemetry.duration,
   tokens_per_second: result.telemetry.metrics.tokensPerSecond,
-  retries: result.telemetry.metrics.totalRetries
+  retries: result.telemetry.metrics.totalRetries,
 };
 
 await trackABTest(performance);
@@ -614,11 +631,11 @@ await trackABTest(performance);
 Use the `L0Monitor` class directly for fine-grained control:
 
 ```typescript
-import { L0Monitor } from 'l0';
+import { L0Monitor } from "l0";
 
 const monitor = new L0Monitor({
   enabled: true,
-  includeTimings: true
+  includeTimings: true,
 });
 
 monitor.start();
@@ -654,9 +671,9 @@ const result = await l0({
     metadata: {
       custom_metric_1: calculateCustomMetric(),
       feature_flag: isFeatureEnabled(),
-      user_tier: getUserTier()
-    }
-  }
+      user_tier: getUserTier(),
+    },
+  },
 });
 
 // Custom metadata is included in telemetry
@@ -666,15 +683,15 @@ console.log(result.telemetry.metadata);
 ### Conditional Monitoring
 
 ```typescript
-const shouldMonitor = process.env.NODE_ENV === 'production' 
-  || Math.random() < 0.1;
+const shouldMonitor =
+  process.env.NODE_ENV === "production" || Math.random() < 0.1;
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: {
     enabled: shouldMonitor,
-    sampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0
-  }
+    sampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+  },
 });
 ```
 
@@ -685,12 +702,12 @@ L0 includes built-in abort functionality:
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true }
+  monitoring: { enabled: true },
 });
 
 // Abort anytime
 setTimeout(() => {
-  result.abort();  // Built-in abort method
+  result.abort(); // Built-in abort method
 }, 5000);
 
 try {
@@ -698,9 +715,9 @@ try {
     // Stream will abort after 5 seconds
   }
 } catch (error) {
-  console.log('Stream aborted:', error.message);
+  console.log("Stream aborted:", error.message);
   // Telemetry is still available
-  console.log('Partial telemetry:', result.telemetry);
+  console.log("Partial telemetry:", result.telemetry);
 }
 ```
 
@@ -711,15 +728,15 @@ const controller = new AbortController();
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  signal: controller.signal,  // External signal
-  monitoring: { enabled: true }
+  signal: controller.signal, // External signal
+  monitoring: { enabled: true },
 });
 
 // Use either built-in or external abort
 setTimeout(() => {
-  result.abort();        // Built-in method
+  result.abort(); // Built-in method
   // OR
-  controller.abort();    // External signal
+  controller.abort(); // External signal
 }, 5000);
 ```
 
@@ -772,6 +789,7 @@ setImmediate(() => {
 ### 5. Monitor Key Metrics
 
 Focus on:
+
 - `tokensPerSecond` - Throughput
 - `timeToFirstToken` - Latency
 - `network.errorCount` - Reliability
@@ -796,31 +814,31 @@ L0 includes native Prometheus support with automatic metric generation.
 ### Quick Start
 
 ```typescript
-import { l0, createPrometheusCollector, prometheusMiddleware } from 'l0';
-import express from 'express';
+import { l0, createPrometheusCollector, prometheusMiddleware } from "l0";
+import express from "express";
 
 const collector = createPrometheusCollector();
 const app = express();
 
 // Expose metrics endpoint
-app.get('/metrics', prometheusMiddleware(collector));
+app.get("/metrics", prometheusMiddleware(collector));
 
 // Record telemetry after each request
-app.post('/chat', async (req, res) => {
+app.post("/chat", async (req, res) => {
   const result = await l0({
     stream: () => streamText({ model, prompt: req.body.prompt }),
-    monitoring: { enabled: true }
+    monitoring: { enabled: true },
   });
 
-  let response = '';
+  let response = "";
   for await (const event of result.stream) {
-    if (event.type === 'token') response += event.value;
+    if (event.type === "token") response += event.value;
   }
 
   // Record to Prometheus
   collector.record(result.telemetry, {
-    model: 'gpt-4',
-    endpoint: '/chat'
+    model: "gpt-4",
+    endpoint: "/chat",
   });
 
   res.json({ response });
@@ -833,32 +851,33 @@ app.listen(3000);
 
 ```typescript
 const collector = createPrometheusCollector({
-  prefix: 'l0',                    // Metric prefix (default: 'l0')
-  defaultLabels: {                 // Labels added to all metrics
-    service: 'my-app',
-    environment: 'production'
-  }
+  prefix: "l0", // Metric prefix (default: 'l0')
+  defaultLabels: {
+    // Labels added to all metrics
+    service: "my-app",
+    environment: "production",
+  },
 });
 ```
 
 ### Exported Metrics
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `l0_requests_total` | Counter | Total L0 requests |
-| `l0_request_duration_seconds` | Histogram | Request duration |
-| `l0_tokens_total` | Counter | Total tokens generated |
-| `l0_tokens_per_second` | Gauge | Generation throughput |
-| `l0_time_to_first_token_seconds` | Histogram | Time to first token |
-| `l0_retries_total` | Counter | Total retry attempts |
-| `l0_retries_network_total` | Counter | Network retries |
-| `l0_retries_model_total` | Counter | Model retries |
-| `l0_network_errors_total` | Counter | Total network errors |
-| `l0_network_errors_by_type_total` | Counter | Errors by type |
-| `l0_guardrail_violations_total` | Counter | Total violations |
-| `l0_guardrail_violations_by_severity_total` | Counter | Violations by severity |
-| `l0_guardrail_violations_by_rule_total` | Counter | Violations by rule |
-| `l0_drift_detected_total` | Counter | Drift detection events |
+| Metric                                      | Type      | Description            |
+| ------------------------------------------- | --------- | ---------------------- |
+| `l0_requests_total`                         | Counter   | Total L0 requests      |
+| `l0_request_duration_seconds`               | Histogram | Request duration       |
+| `l0_tokens_total`                           | Counter   | Total tokens generated |
+| `l0_tokens_per_second`                      | Gauge     | Generation throughput  |
+| `l0_time_to_first_token_seconds`            | Histogram | Time to first token    |
+| `l0_retries_total`                          | Counter   | Total retry attempts   |
+| `l0_retries_network_total`                  | Counter   | Network retries        |
+| `l0_retries_model_total`                    | Counter   | Model retries          |
+| `l0_network_errors_total`                   | Counter   | Total network errors   |
+| `l0_network_errors_by_type_total`           | Counter   | Errors by type         |
+| `l0_guardrail_violations_total`             | Counter   | Total violations       |
+| `l0_guardrail_violations_by_severity_total` | Counter   | Violations by severity |
+| `l0_guardrail_violations_by_rule_total`     | Counter   | Violations by rule     |
+| `l0_drift_detected_total`                   | Counter   | Drift detection events |
 
 ### Labels
 
@@ -866,10 +885,10 @@ Add custom labels per request:
 
 ```typescript
 collector.record(telemetry, {
-  model: 'gpt-4',
-  endpoint: '/chat',
-  user_tier: 'premium',
-  region: 'us-east-1'
+  model: "gpt-4",
+  endpoint: "/chat",
+  user_tier: "premium",
+  region: "us-east-1",
 });
 ```
 
@@ -878,20 +897,22 @@ collector.record(telemetry, {
 For more control, use `PrometheusRegistry`:
 
 ```typescript
-import { createPrometheusRegistry } from 'l0';
+import { createPrometheusRegistry } from "l0";
 
 const registry = createPrometheusRegistry({
-  prefix: 'myapp_l0',
-  defaultLabels: { service: 'api' }
+  prefix: "myapp_l0",
+  defaultLabels: { service: "api" },
 });
 
 // Record telemetry
-registry.recordTelemetry(telemetry, { model: 'gpt-4' });
+registry.recordTelemetry(telemetry, { model: "gpt-4" });
 
 // Or record custom metrics
-registry.incCounter('custom_events_total', 'Custom event count', 1, { type: 'special' });
-registry.setGauge('active_streams', 'Active streams', 5);
-registry.observeHistogram('custom_latency_seconds', 'Custom latency', 0.5);
+registry.incCounter("custom_events_total", "Custom event count", 1, {
+  type: "special",
+});
+registry.setGauge("active_streams", "Active streams", 5);
+registry.observeHistogram("custom_latency_seconds", "Custom latency", 0.5);
 
 // Export
 console.log(registry.expose());
@@ -959,19 +980,19 @@ sum by (severity) (rate(l0_guardrail_violations_by_severity_total[5m]))
 If you're already using `prom-client`, you can still use L0's exporter alongside:
 
 ```typescript
-import { Registry } from 'prom-client';
-import { createPrometheusCollector } from 'l0';
+import { Registry } from "prom-client";
+import { createPrometheusCollector } from "l0";
 
 const promRegistry = new Registry();
 const l0Collector = createPrometheusCollector();
 
 // Combine metrics in your endpoint
-app.get('/metrics', async (req, res) => {
+app.get("/metrics", async (req, res) => {
   const promMetrics = await promRegistry.metrics();
   const l0Metrics = l0Collector.expose();
-  
-  res.set('Content-Type', 'text/plain');
-  res.send(promMetrics + '\n' + l0Metrics);
+
+  res.set("Content-Type", "text/plain");
+  res.send(promMetrics + "\n" + l0Metrics);
 });
 ```
 
@@ -984,57 +1005,56 @@ L0 includes native Sentry support for error tracking and performance monitoring.
 ### Quick Start
 
 ```typescript
-import * as Sentry from '@sentry/node';
-import { l0, sentryInterceptor } from 'l0';
+import * as Sentry from "@sentry/node";
+import { l0, sentryInterceptor } from "l0";
 
-Sentry.init({ dsn: 'your-sentry-dsn' });
+Sentry.init({ dsn: "your-sentry-dsn" });
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: { enabled: true },
-  interceptors: [
-    sentryInterceptor({ hub: Sentry })
-  ]
+  interceptors: [sentryInterceptor({ hub: Sentry })],
 });
 ```
 
 ### Using withSentry Wrapper
 
 ```typescript
-import * as Sentry from '@sentry/node';
-import { l0, withSentry } from 'l0';
+import * as Sentry from "@sentry/node";
+import { l0, withSentry } from "l0";
 
-const result = await withSentry(
-  { hub: Sentry },
-  () => l0({
+const result = await withSentry({ hub: Sentry }, () =>
+  l0({
     stream: () => streamText({ model, prompt }),
-    monitoring: { enabled: true }
-  })
+    monitoring: { enabled: true },
+  }),
 );
 ```
 
 ### Configuration
 
 ```typescript
-import { sentryInterceptor } from 'l0';
+import { sentryInterceptor } from "l0";
 
 sentryInterceptor({
-  hub: Sentry,                        // Required: Sentry instance
-  captureNetworkErrors: true,         // Capture network failures (default: true)
-  captureGuardrailViolations: true,   // Capture guardrail violations (default: true)
-  minGuardrailSeverity: 'error',      // Min severity to capture (default: 'error')
-  breadcrumbsForTokens: false,        // Add breadcrumb per token (default: false)
-  enableTracing: true,                // Enable performance tracing (default: true)
-  tags: {                             // Custom tags for all events
-    model: 'gpt-4',
-    environment: 'production'
-  }
+  hub: Sentry, // Required: Sentry instance
+  captureNetworkErrors: true, // Capture network failures (default: true)
+  captureGuardrailViolations: true, // Capture guardrail violations (default: true)
+  minGuardrailSeverity: "error", // Min severity to capture (default: 'error')
+  breadcrumbsForTokens: false, // Add breadcrumb per token (default: false)
+  enableTracing: true, // Enable performance tracing (default: true)
+  tags: {
+    // Custom tags for all events
+    model: "gpt-4",
+    environment: "production",
+  },
 });
 ```
 
 ### What Gets Tracked
 
 **Breadcrumbs:**
+
 - L0 execution start/complete
 - Stream start/complete
 - First token (TTFT)
@@ -1044,11 +1064,13 @@ sentryInterceptor({
 - Drift detection
 
 **Errors Captured:**
+
 - Network errors (final failures, not retried)
 - Guardrail violations (error/fatal severity)
 - Execution failures
 
 **Performance Transactions:**
+
 - `l0.execution` - Full execution span
 - `l0.stream.consume` - Stream consumption span
 - Token count, duration, TTFT as span data
@@ -1058,23 +1080,23 @@ sentryInterceptor({
 For fine-grained control:
 
 ```typescript
-import * as Sentry from '@sentry/node';
-import { l0, createSentryIntegration } from 'l0';
+import * as Sentry from "@sentry/node";
+import { l0, createSentryIntegration } from "l0";
 
 const sentry = createSentryIntegration({ hub: Sentry });
 
 // Start tracking
-sentry.startExecution('my-chat-request', { user_id: '123' });
+sentry.startExecution("my-chat-request", { user_id: "123" });
 sentry.startStream();
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true }
+  monitoring: { enabled: true },
 });
 
 let tokenCount = 0;
 for await (const event of result.stream) {
-  if (event.type === 'token') {
+  if (event.type === "token") {
     tokenCount++;
     if (tokenCount === 1) {
       sentry.recordFirstToken(result.telemetry?.metrics.timeToFirstToken ?? 0);
@@ -1096,11 +1118,11 @@ sentry.startExecution();
 
 try {
   const result = await l0({ stream, monitoring: { enabled: true } });
-  
+
   for await (const event of result.stream) {
     // ...
   }
-  
+
   sentry.completeExecution(result.telemetry);
 } catch (error) {
   sentry.recordFailure(error, result?.telemetry);
@@ -1114,15 +1136,15 @@ L0 automatically sets Sentry context with telemetry data:
 
 ```typescript
 // Automatically set on completion:
-Sentry.setContext('l0_telemetry', {
-  session_id: 'l0_123...',
+Sentry.setContext("l0_telemetry", {
+  session_id: "l0_123...",
   duration_ms: 1500,
   tokens: 250,
   tokens_per_second: 166,
   ttft_ms: 280,
   retries: 1,
   network_errors: 0,
-  guardrail_violations: 0
+  guardrail_violations: 0,
 });
 ```
 
@@ -1133,7 +1155,7 @@ Events you'll see in Sentry:
 ```
 [ERROR] Network error: connection_dropped
   Tags: error_type=connection_dropped, component=l0.network
-  
+
 [WARNING] Guardrail violation: json-structure
   Message: Unbalanced braces: 2 open, 1 close
 
@@ -1147,6 +1169,7 @@ Events you'll see in Sentry:
 ## Summary
 
 L0's built-in monitoring provides:
+
 - ✅ **Native Prometheus support** - built-in exporter with all metrics
 - ✅ **Native Sentry support** - error tracking and performance monitoring
 - ✅ **No external dependencies** - everything built-in

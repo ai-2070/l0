@@ -42,7 +42,7 @@ import { formatMultipleContexts } from "@ai2070/l0";
 
 formatMultipleContexts([
   { content: "Document 1", label: "Doc1" },
-  { content: "Document 2", label: "Doc2" }
+  { content: "Document 2", label: "Doc2" },
 ]);
 ```
 
@@ -71,7 +71,7 @@ import { formatMemory, createMemoryEntry } from "@ai2070/l0";
 
 const memory = [
   { role: "user", content: "Hello" },
-  { role: "assistant", content: "Hi there!" }
+  { role: "assistant", content: "Hi there!" },
 ];
 
 // Conversational style (default)
@@ -97,23 +97,23 @@ formatMemory(memory, { style: "compact" });
 
 ```typescript
 formatMemory(memory, {
-  maxEntries: 10,           // Limit entries
-  includeTimestamps: true,  // Add timestamps
-  includeMetadata: true,    // Add metadata
-  style: "conversational"   // conversational | structured | compact
+  maxEntries: 10, // Limit entries
+  includeTimestamps: true, // Add timestamps
+  includeMetadata: true, // Add metadata
+  style: "conversational", // conversational | structured | compact
 });
 ```
 
 ### Memory Utilities
 
 ```typescript
-import { 
+import {
   createMemoryEntry,
   mergeMemory,
   filterMemoryByRole,
   getLastNEntries,
   calculateMemorySize,
-  truncateMemory
+  truncateMemory,
 } from "@ai2070/l0";
 
 // Create timestamped entry
@@ -149,9 +149,9 @@ formatJsonOutput({ strict: true });
 // Respond with valid JSON only. Do not include any text before or after...
 
 // With schema
-formatJsonOutput({ 
+formatJsonOutput({
   strict: true,
-  schema: '{ "name": "string", "age": "number" }'
+  schema: '{ "name": "string", "age": "number" }',
 });
 
 // Other formats
@@ -172,7 +172,7 @@ formatOutputConstraints({
   noCodeBlocks: true,
   noMarkdown: true,
   language: "Spanish",
-  tone: "professional"
+  tone: "professional",
 });
 
 // Complete format section
@@ -180,13 +180,13 @@ createOutputFormatSection("json", {
   strict: true,
   schema: '{ "result": "string" }',
   constraints: { maxLength: 1000 },
-  wrap: true  // Wraps in <output_format> tags
+  wrap: true, // Wraps in <output_format> tags
 });
 ```
 
 ### Extract & Clean
 
-```typescript
+````typescript
 import { extractJsonFromOutput, cleanOutput } from "@ai2070/l0";
 
 // Extract JSON from model output with extra text
@@ -200,7 +200,7 @@ extractJsonFromOutput('```json\n{"name": "John"}\n```');
 // Clean common prefixes
 cleanOutput("Sure, here is the result:\n```json\n{}\n```");
 // {}
-```
+````
 
 ---
 
@@ -213,7 +213,7 @@ import { formatTool, createTool, createParameter } from "@ai2070/l0";
 
 const tool = createTool("get_weather", "Get current weather", [
   createParameter("location", "string", "City name", true),
-  createParameter("units", "string", "Temperature units", false)
+  createParameter("units", "string", "Temperature units", false),
 ]);
 
 // JSON Schema format (OpenAI function calling)
@@ -274,30 +274,38 @@ formatFunctionArguments({ location: "NYC" }, true);
 Common string manipulation functions:
 
 ```typescript
-import { 
-  trim, escape, unescape,
-  escapeHtml, unescapeHtml, escapeRegex,
-  sanitize, truncate, truncateWords,
-  wrap, pad, removeAnsi
+import {
+  trim,
+  escape,
+  unescape,
+  escapeHtml,
+  unescapeHtml,
+  escapeRegex,
+  sanitize,
+  truncate,
+  truncateWords,
+  wrap,
+  pad,
+  removeAnsi,
 } from "@ai2070/l0";
 
 // Escape special characters
-escape('Hello\n"World"');    // Hello\\n\\"World\\"
-unescape('Hello\\nWorld');   // Hello\nWorld
+escape('Hello\n"World"'); // Hello\\n\\"World\\"
+unescape("Hello\\nWorld"); // Hello\nWorld
 
 // HTML entities
-escapeHtml('<div>');         // &lt;div&gt;
-unescapeHtml('&lt;div&gt;'); // <div>
+escapeHtml("<div>"); // &lt;div&gt;
+unescapeHtml("&lt;div&gt;"); // <div>
 
 // Regex escaping
-escapeRegex('file.txt');     // file\\.txt
+escapeRegex("file.txt"); // file\\.txt
 
 // Sanitize (remove control chars)
-sanitize('Hello\x00World');  // HelloWorld
+sanitize("Hello\x00World"); // HelloWorld
 
 // Truncate
-truncate("Hello World", 8);        // "Hello..."
-truncateWords("Hello World", 8);   // "Hello..."
+truncate("Hello World", 8); // "Hello..."
+truncateWords("Hello World", 8); // "Hello..."
 
 // Wrap to width
 wrap("Hello World Test", 10);
@@ -305,9 +313,9 @@ wrap("Hello World Test", 10);
 // World Test
 
 // Pad string
-pad("Hi", 10);                    // "Hi        "
-pad("Hi", 10, " ", "right");      // "        Hi"
-pad("Hi", 10, " ", "center");     // "    Hi    "
+pad("Hi", 10); // "Hi        "
+pad("Hi", 10, " ", "right"); // "        Hi"
+pad("Hi", 10, " ", "center"); // "    Hi    "
 
 // Remove ANSI codes
 removeAnsi("\x1b[31mRed\x1b[0m"); // "Red"
@@ -319,61 +327,61 @@ removeAnsi("\x1b[31mRed\x1b[0m"); // "Red"
 
 ### Context
 
-| Function | Description |
-|----------|-------------|
-| `formatContext(content, options)` | Wrap content with delimiters |
-| `formatMultipleContexts(items, options)` | Format multiple contexts |
+| Function                                     | Description                   |
+| -------------------------------------------- | ----------------------------- |
+| `formatContext(content, options)`            | Wrap content with delimiters  |
+| `formatMultipleContexts(items, options)`     | Format multiple contexts      |
 | `formatDocument(content, metadata, options)` | Format document with metadata |
-| `formatInstructions(instructions, options)` | Format system instructions |
-| `escapeDelimiters(content, delimiter)` | Escape delimiters for safety |
-| `unescapeDelimiters(content, delimiter)` | Unescape delimiters |
+| `formatInstructions(instructions, options)`  | Format system instructions    |
+| `escapeDelimiters(content, delimiter)`       | Escape delimiters for safety  |
+| `unescapeDelimiters(content, delimiter)`     | Unescape delimiters           |
 
 ### Memory
 
-| Function | Description |
-|----------|-------------|
-| `formatMemory(memory, options)` | Format conversation history |
-| `createMemoryEntry(role, content, metadata)` | Create timestamped entry |
-| `mergeMemory(...memories)` | Merge and sort by timestamp |
-| `filterMemoryByRole(memory, role)` | Filter by user/assistant/system |
-| `getLastNEntries(memory, n)` | Get last N entries |
-| `calculateMemorySize(memory)` | Calculate character count |
-| `truncateMemory(memory, maxSize)` | Truncate to fit size limit |
+| Function                                     | Description                     |
+| -------------------------------------------- | ------------------------------- |
+| `formatMemory(memory, options)`              | Format conversation history     |
+| `createMemoryEntry(role, content, metadata)` | Create timestamped entry        |
+| `mergeMemory(...memories)`                   | Merge and sort by timestamp     |
+| `filterMemoryByRole(memory, role)`           | Filter by user/assistant/system |
+| `getLastNEntries(memory, n)`                 | Get last N entries              |
+| `calculateMemorySize(memory)`                | Calculate character count       |
+| `truncateMemory(memory, maxSize)`            | Truncate to fit size limit      |
 
 ### Output
 
-| Function | Description |
-|----------|-------------|
-| `formatJsonOutput(options)` | JSON output instructions |
-| `formatStructuredOutput(format, options)` | Format-specific instructions |
-| `formatOutputConstraints(constraints)` | Length/tone/language constraints |
-| `createOutputFormatSection(format, options)` | Complete format section |
-| `extractJsonFromOutput(output)` | Extract JSON from text |
-| `cleanOutput(output)` | Remove prefixes and wrappers |
+| Function                                     | Description                      |
+| -------------------------------------------- | -------------------------------- |
+| `formatJsonOutput(options)`                  | JSON output instructions         |
+| `formatStructuredOutput(format, options)`    | Format-specific instructions     |
+| `formatOutputConstraints(constraints)`       | Length/tone/language constraints |
+| `createOutputFormatSection(format, options)` | Complete format section          |
+| `extractJsonFromOutput(output)`              | Extract JSON from text           |
+| `cleanOutput(output)`                        | Remove prefixes and wrappers     |
 
 ### Tools
 
-| Function | Description |
-|----------|-------------|
-| `formatTool(tool, options)` | Format single tool definition |
-| `formatTools(tools, options)` | Format multiple tools |
-| `createTool(name, description, params)` | Create tool definition |
-| `createParameter(name, type, desc, required)` | Create parameter |
-| `validateTool(tool)` | Validate tool structure |
-| `parseFunctionCall(output)` | Parse function call from output |
-| `formatFunctionArguments(args, pretty)` | Format arguments as JSON |
+| Function                                      | Description                     |
+| --------------------------------------------- | ------------------------------- |
+| `formatTool(tool, options)`                   | Format single tool definition   |
+| `formatTools(tools, options)`                 | Format multiple tools           |
+| `createTool(name, description, params)`       | Create tool definition          |
+| `createParameter(name, type, desc, required)` | Create parameter                |
+| `validateTool(tool)`                          | Validate tool structure         |
+| `parseFunctionCall(output)`                   | Parse function call from output |
+| `formatFunctionArguments(args, pretty)`       | Format arguments as JSON        |
 
 ### Utilities
 
-| Function | Description |
-|----------|-------------|
-| `trim(str)` | Trim whitespace |
-| `escape(str)` / `unescape(str)` | Escape/unescape special chars |
-| `escapeHtml(str)` / `unescapeHtml(str)` | HTML entity escaping |
-| `escapeRegex(str)` | Escape regex special chars |
-| `sanitize(str)` | Remove control characters |
-| `truncate(str, max, suffix)` | Truncate with suffix |
-| `truncateWords(str, max, suffix)` | Truncate at word boundary |
-| `wrap(str, width)` | Wrap to width |
-| `pad(str, length, char, align)` | Pad left/right/center |
-| `removeAnsi(str)` | Remove ANSI color codes |
+| Function                                | Description                   |
+| --------------------------------------- | ----------------------------- |
+| `trim(str)`                             | Trim whitespace               |
+| `escape(str)` / `unescape(str)`         | Escape/unescape special chars |
+| `escapeHtml(str)` / `unescapeHtml(str)` | HTML entity escaping          |
+| `escapeRegex(str)`                      | Escape regex special chars    |
+| `sanitize(str)`                         | Remove control characters     |
+| `truncate(str, max, suffix)`            | Truncate with suffix          |
+| `truncateWords(str, max, suffix)`       | Truncate at word boundary     |
+| `wrap(str, width)`                      | Wrap to width                 |
+| `pad(str, length, char, align)`         | Pad left/right/center         |
+| `removeAnsi(str)`                       | Remove ANSI color codes       |

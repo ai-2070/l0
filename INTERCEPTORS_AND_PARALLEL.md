@@ -18,26 +18,26 @@ interface L0Interceptor {
 ### Built-In Interceptors
 
 ```typescript
-import { 
-  loggingInterceptor,     // Log execution start/complete
-  metadataInterceptor,    // Inject metadata into telemetry
-  authInterceptor,        // Add authentication tokens
-  timingInterceptor,      // Track detailed timing
-  validationInterceptor,  // Validate output
-  rateLimitInterceptor,   // Throttle requests
-  transformInterceptor,   // Post-process content
-  analyticsInterceptor    // Send to analytics services
-} from 'l0';
+import {
+  loggingInterceptor, // Log execution start/complete
+  metadataInterceptor, // Inject metadata into telemetry
+  authInterceptor, // Add authentication tokens
+  timingInterceptor, // Track detailed timing
+  validationInterceptor, // Validate output
+  rateLimitInterceptor, // Throttle requests
+  transformInterceptor, // Post-process content
+  analyticsInterceptor, // Send to analytics services
+} from "l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   interceptors: [
     loggingInterceptor(console),
-    metadataInterceptor({ user_id: 'user_123' }),
+    metadataInterceptor({ user_id: "user_123" }),
     rateLimitInterceptor(10, 60000), // 10 requests per minute
     validationInterceptor((content) => content.length >= 100),
-    transformInterceptor((content) => content.replace(/[*_`]/g, ''))
-  ]
+    transformInterceptor((content) => content.replace(/[*_`]/g, "")),
+  ],
 });
 ```
 
@@ -45,18 +45,18 @@ const result = await l0({
 
 ```typescript
 const myInterceptor: L0Interceptor = {
-  name: 'my-interceptor',
+  name: "my-interceptor",
   before: async (options) => {
-    console.log('Starting...');
+    console.log("Starting...");
     return options;
   },
   after: async (result) => {
-    console.log('Completed!');
+    console.log("Completed!");
     return result;
   },
   onError: async (error) => {
-    console.error('Failed:', error.message);
-  }
+    console.error("Failed:", error.message);
+  },
 };
 ```
 
@@ -66,12 +66,12 @@ const myInterceptor: L0Interceptor = {
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   interceptors: [
-    authInterceptor(getAuth),         // before: 1st
-    rateLimitInterceptor(10, 60000),  // before: 2nd
-    loggingInterceptor(),             // before: 3rd
-    validationInterceptor(validate),  // after: 1st
-    transformInterceptor(transform)   // after: 2nd
-  ]
+    authInterceptor(getAuth), // before: 1st
+    rateLimitInterceptor(10, 60000), // before: 2nd
+    loggingInterceptor(), // before: 3rd
+    validationInterceptor(validate), // after: 1st
+    transformInterceptor(transform), // after: 2nd
+  ],
 });
 // Before hooks: 1 → 2 → 3
 // After hooks: 4 → 5
@@ -84,27 +84,37 @@ const result = await l0({
 ### Basic Usage
 
 ```typescript
-import { parallel } from 'l0';
+import { parallel } from "l0";
 
-const results = await parallel([
-  { stream: () => streamText({ model, prompt: 'Translate to Spanish: Hello' }) },
-  { stream: () => streamText({ model, prompt: 'Translate to French: Hello' }) },
-  { stream: () => streamText({ model, prompt: 'Translate to German: Hello' }) }
-], {
-  concurrency: 2,
-  failFast: false
-});
+const results = await parallel(
+  [
+    {
+      stream: () =>
+        streamText({ model, prompt: "Translate to Spanish: Hello" }),
+    },
+    {
+      stream: () => streamText({ model, prompt: "Translate to French: Hello" }),
+    },
+    {
+      stream: () => streamText({ model, prompt: "Translate to German: Hello" }),
+    },
+  ],
+  {
+    concurrency: 2,
+    failFast: false,
+  },
+);
 
-console.log('Success:', results.successCount);
-console.log('Spanish:', results.results[0]?.state.content);
+console.log("Success:", results.successCount);
+console.log("Spanish:", results.results[0]?.state.content);
 ```
 
 ### Options
 
 ```typescript
 interface ParallelOptions {
-  concurrency?: number;        // Max concurrent (default: 5)
-  failFast?: boolean;          // Stop on first error (default: false)
+  concurrency?: number; // Max concurrent (default: 5)
+  failFast?: boolean; // Stop on first error (default: false)
   sharedRetry?: RetryOptions;
   sharedMonitoring?: MonitoringConfig;
   onProgress?: (completed: number, total: number) => void;
@@ -130,7 +140,7 @@ interface ParallelResult {
 ### Helper Functions
 
 ```typescript
-import { parallel, parallelAll, sequential, batched, race } from 'l0';
+import { parallel, parallelAll, sequential, batched, race } from "l0";
 
 // Limited concurrency
 await parallel(operations, { concurrency: 3 });
@@ -151,12 +161,12 @@ await race(operations);
 ### Race - Multi-Provider
 
 ```typescript
-import { race } from 'l0';
+import { race } from "l0";
 
 const result = await race([
-  { stream: () => streamText({ model: openai('gpt-4'), prompt }) },
-  { stream: () => streamText({ model: anthropic('claude-3'), prompt }) },
-  { stream: () => streamText({ model: google('gemini-pro'), prompt }) }
+  { stream: () => streamText({ model: openai("gpt-4"), prompt }) },
+  { stream: () => streamText({ model: anthropic("claude-3"), prompt }) },
+  { stream: () => streamText({ model: google("gemini-pro"), prompt }) },
 ]);
 // Uses first successful response
 ```
@@ -164,17 +174,17 @@ const result = await race([
 ### Pool - Reusable Workers
 
 ```typescript
-import { createPool } from 'l0';
+import { createPool } from "l0";
 
 const pool = createPool(3, {
   sharedRetry: recommendedRetry,
-  sharedMonitoring: { enabled: true }
+  sharedMonitoring: { enabled: true },
 });
 
 const results = await Promise.all([
-  pool.execute({ stream: () => streamText({ model, prompt: 'Task 1' }) }),
-  pool.execute({ stream: () => streamText({ model, prompt: 'Task 2' }) }),
-  pool.execute({ stream: () => streamText({ model, prompt: 'Task 3' }) })
+  pool.execute({ stream: () => streamText({ model, prompt: "Task 1" }) }),
+  pool.execute({ stream: () => streamText({ model, prompt: "Task 2" }) }),
+  pool.execute({ stream: () => streamText({ model, prompt: "Task 3" }) }),
 ]);
 
 await pool.drain();
@@ -190,12 +200,12 @@ Try models one at a time, moving to next only if current exhausts retries:
 
 ```typescript
 const result = await l0({
-  stream: () => streamText({ model: openai('gpt-4o'), prompt }),
+  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [
-    () => streamText({ model: openai('gpt-4o-mini'), prompt }),
-    () => streamText({ model: anthropic('claude-3-haiku'), prompt })
+    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
   ],
-  retry: recommendedRetry
+  retry: recommendedRetry,
 });
 // 1. GPT-4o (2 retries) → 2. GPT-4o-mini (2 retries) → 3. Claude Haiku (2 retries)
 ```
@@ -208,9 +218,9 @@ Call all models simultaneously, use fastest response:
 
 ```typescript
 const result = await race([
-  () => streamText({ model: openai('gpt-4o'), prompt }),
-  () => streamText({ model: anthropic('claude-3-opus'), prompt }),
-  () => streamText({ model: google('gemini-pro'), prompt })
+  () => streamText({ model: openai("gpt-4o"), prompt }),
+  () => streamText({ model: anthropic("claude-3-opus"), prompt }),
+  () => streamText({ model: google("gemini-pro"), prompt }),
 ]);
 // All called at once, first to complete wins
 ```
@@ -219,25 +229,26 @@ const result = await race([
 
 ### Comparison
 
-| Aspect | Fall-Through | Race |
-|--------|--------------|------|
-| Execution | Sequential | Parallel |
-| Latency | Higher | Lower |
-| Cost | Low | High (pay for all) |
-| Best For | High availability | Low latency |
+| Aspect    | Fall-Through      | Race               |
+| --------- | ----------------- | ------------------ |
+| Execution | Sequential        | Parallel           |
+| Latency   | Higher            | Lower              |
+| Cost      | Low               | High (pay for all) |
+| Best For  | High availability | Low latency        |
 
 ### Hybrid Pattern
 
 ```typescript
 const result = await l0({
-  stream: async () => race([
-    () => streamText({ model: openai('gpt-4o-mini'), prompt }),
-    () => streamText({ model: anthropic('claude-3-haiku'), prompt })
-  ]),
+  stream: async () =>
+    race([
+      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+      () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
+    ]),
   fallbackStreams: [
-    () => streamText({ model: openai('gpt-4o'), prompt }),
-    () => streamText({ model: anthropic('claude-3-opus'), prompt })
-  ]
+    () => streamText({ model: openai("gpt-4o"), prompt }),
+    () => streamText({ model: anthropic("claude-3-opus"), prompt }),
+  ],
 });
 // Fast models race first, fallback to quality if both fail
 ```

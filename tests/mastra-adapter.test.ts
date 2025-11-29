@@ -23,7 +23,7 @@ function createMockMastraStream(
     reasoningText?: string;
     shouldError?: boolean;
     errorMessage?: string;
-  } = {}
+  } = {},
 ) {
   let textStreamRead = false;
   let fullStreamRead = false;
@@ -108,21 +108,23 @@ function createMockMastraStream(
     textStream,
     fullStream,
     text: Promise.resolve(textChunks.join("")),
-    usage: Promise.resolve(options.usage || { inputTokens: 10, outputTokens: 5, totalTokens: 15 }),
+    usage: Promise.resolve(
+      options.usage || { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+    ),
     finishReason: Promise.resolve(options.finishReason || "stop"),
     toolCalls: Promise.resolve(
       options.toolCalls?.map((tc) => ({
         type: "tool-call",
         payload: tc,
         ...tc,
-      })) || []
+      })) || [],
     ),
     toolResults: Promise.resolve(
       options.toolResults?.map((tr) => ({
         type: "tool-result",
         payload: tr,
         ...tr,
-      })) || []
+      })) || [],
     ),
     reasoningText: Promise.resolve(options.reasoningText),
     object: Promise.resolve(null),
@@ -229,7 +231,7 @@ describe("Mastra Adapter", () => {
       }
 
       const messageEvent = events.find(
-        (e) => e.type === "message" && e.value?.includes("tool_calls")
+        (e) => e.type === "message" && e.value?.includes("tool_calls"),
       );
       expect(messageEvent).toBeDefined();
 
@@ -256,7 +258,7 @@ describe("Mastra Adapter", () => {
       }
 
       const messageEvent = events.find(
-        (e) => e.type === "message" && e.value?.includes("tool_results")
+        (e) => e.type === "message" && e.value?.includes("tool_results"),
       );
       expect(messageEvent).toBeDefined();
 
@@ -284,7 +286,7 @@ describe("Mastra Adapter", () => {
       }
 
       const messageEvents = events.filter(
-        (e) => e.type === "message" && e.value?.includes("tool")
+        (e) => e.type === "message" && e.value?.includes("tool"),
       );
       expect(messageEvents).toHaveLength(0);
     });
@@ -353,7 +355,7 @@ describe("Mastra Adapter", () => {
       }
 
       const toolCallEvent = events.find(
-        (e) => e.type === "message" && e.value?.includes("tool_call")
+        (e) => e.type === "message" && e.value?.includes("tool_call"),
       );
       expect(toolCallEvent).toBeDefined();
     });
@@ -403,11 +405,9 @@ describe("Mastra Adapter", () => {
         },
       };
 
-      const factory = mastraStream(
-        mockAgent as any,
-        "Hello",
-        { temperature: 0.7 }
-      );
+      const factory = mastraStream(mockAgent as any, "Hello", {
+        temperature: 0.7,
+      });
 
       const stream = await factory();
       for await (const _ of stream) {
@@ -442,8 +442,15 @@ describe("Mastra Adapter", () => {
       const mockStreamResult = createMockMastraStream(['{"name":"John"}']);
       const mockAgent = createMockAgent(mockStreamResult);
 
-      const schema = { type: "object", properties: { name: { type: "string" } } };
-      const factory = mastraStructured(mockAgent as any, "Generate data", schema);
+      const schema = {
+        type: "object",
+        properties: { name: { type: "string" } },
+      };
+      const factory = mastraStructured(
+        mockAgent as any,
+        "Generate data",
+        schema,
+      );
 
       const stream = await factory();
       const events: L0Event[] = [];
@@ -494,7 +501,7 @@ describe("Mastra Adapter", () => {
     it("should return false for objects missing required properties", () => {
       expect(isMastraStream({ textStream: {} })).toBe(false);
       expect(
-        isMastraStream({ textStream: {}, text: Promise.resolve("") })
+        isMastraStream({ textStream: {}, text: Promise.resolve("") }),
       ).toBe(false);
     });
   });
@@ -515,7 +522,7 @@ describe("Mastra Adapter", () => {
       (mockStream as any).object = Promise.resolve({ name: "John", age: 30 });
 
       const obj = await extractMastraObject<{ name: string; age: number }>(
-        mockStream as any
+        mockStream as any,
       );
       expect(obj).toEqual({ name: "John", age: 30 });
     });
@@ -579,10 +586,10 @@ describe("Mastra Adapter", () => {
       }
 
       const toolCallEvent = events.find(
-        (e) => e.type === "message" && e.value?.includes("tool_calls")
+        (e) => e.type === "message" && e.value?.includes("tool_calls"),
       );
       const toolResultEvent = events.find(
-        (e) => e.type === "message" && e.value?.includes("tool_results")
+        (e) => e.type === "message" && e.value?.includes("tool_results"),
       );
 
       expect(toolCallEvent).toBeDefined();

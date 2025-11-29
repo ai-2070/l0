@@ -22,11 +22,15 @@ export const LLM_TIMEOUT = 30000;
 beforeAll(() => {
   console.log("\n=== Integration Test Environment ===");
   console.log(`OpenAI API Key: ${hasOpenAI ? "✓ Available" : "✗ Missing"}`);
-  console.log(`Anthropic API Key: ${hasAnthropic ? "✓ Available" : "✗ Missing"}`);
+  console.log(
+    `Anthropic API Key: ${hasAnthropic ? "✓ Available" : "✗ Missing"}`,
+  );
   console.log("");
 
   if (!hasOpenAI && !hasAnthropic) {
-    console.log("⚠ No API keys found. Set OPENAI_API_KEY or ANTHROPIC_API_KEY to run integration tests.");
+    console.log(
+      "⚠ No API keys found. Set OPENAI_API_KEY or ANTHROPIC_API_KEY to run integration tests.",
+    );
   }
 });
 

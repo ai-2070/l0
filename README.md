@@ -10,25 +10,25 @@ npm install @ai2070/l0
 
 ## Features
 
-| Feature | Description |
-| --- | --- |
-| **🔁 Smart Retries** | Model-aware retries with exponential backoff. Free retries for zero-token output, network stalls, SSE disconnects, and provider overloads. |
-| **🌐 Network Protection** | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks. |
-| **🔀 Model Fallbacks** | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic. |
-| **💥 Zero-Token/Stall Protection** | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks. |
-| 📍 **Last-Known-Good Token Resumption** | When a stream interrupts, L0 resumes generation from the last structurally valid token (Opt-in). |
-| **🧠 Drift Detection** | Detects tone shifts, duplicated sentences, entropy spikes, markdown collapse, and meta-AI patterns before corruption. |
-| **🧱 Structured Output** | Guaranteed-valid JSON with optional Zod/JSON-schema validation. Auto-corrects missing braces, commas, and markdown fences. |
-| **🛡️ Guardrails** | JSON, Markdown, LaTeX, and tool-call validation. Catches malformed output, broken fences, drift, repetition, and hallucination patterns. |
-| **⚡ Race: Fastest-Model Wins** | Run multiple models or providers in parallel and return the fastest valid stream. Ideal for ultra-low-latency chat and high-availability systems. |
-| **🌿 Parallel: Fan-Out / Fan-In** | Start multiple streams simultaneously and collect structured or summarized results. Perfect for agent-style multi-model workflows. |
-| **🔗 Pipe: Streaming Pipelines** | Compose multiple streaming steps (e.g., summarize → refine → translate) with safe state passing and guardrails between each stage. |
+| Feature                                   | Description                                                                                                                                         |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **🔁 Smart Retries**                      | Model-aware retries with exponential backoff. Free retries for zero-token output, network stalls, SSE disconnects, and provider overloads.          |
+| **🌐 Network Protection**                 | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks.                      |
+| **🔀 Model Fallbacks**                    | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic.                                              |
+| **💥 Zero-Token/Stall Protection**        | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks.                                           |
+| 📍 **Last-Known-Good Token Resumption**   | When a stream interrupts, L0 resumes generation from the last structurally valid token (Opt-in).                                                    |
+| **🧠 Drift Detection**                    | Detects tone shifts, duplicated sentences, entropy spikes, markdown collapse, and meta-AI patterns before corruption.                               |
+| **🧱 Structured Output**                  | Guaranteed-valid JSON with optional Zod/JSON-schema validation. Auto-corrects missing braces, commas, and markdown fences.                          |
+| **🛡️ Guardrails**                         | JSON, Markdown, LaTeX, and tool-call validation. Catches malformed output, broken fences, drift, repetition, and hallucination patterns.            |
+| **⚡ Race: Fastest-Model Wins**           | Run multiple models or providers in parallel and return the fastest valid stream. Ideal for ultra-low-latency chat and high-availability systems.   |
+| **🌿 Parallel: Fan-Out / Fan-In**         | Start multiple streams simultaneously and collect structured or summarized results. Perfect for agent-style multi-model workflows.                  |
+| **🔗 Pipe: Streaming Pipelines**          | Compose multiple streaming steps (e.g., summarize → refine → translate) with safe state passing and guardrails between each stage.                  |
 | **🧩 Consensus: Agreement Across Models** | Combine multiple model outputs using unanimous, weighted, or best-match consensus. Guarantees high-confidence generation for safety-critical tasks. |
-| **📄 Document Windows** | Built-in chunking (token, paragraph, sentence, character). Ideal for long documents, transcripts, or multi-page processing. |
-| **📊 Monitoring Hooks** | `onToken`, `onViolation`, `onRetry`, `onFallback`, and more - integrates with Prometheus, OTel, Sentry. |
-| **📡 Streaming-First Runtime** | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `done`) for easy UIs. |
-| **⛔ Safety-First Defaults** | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved. |
-| **⚡ Tiny & Explicit** | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior. |
+| **📄 Document Windows**                   | Built-in chunking (token, paragraph, sentence, character). Ideal for long documents, transcripts, or multi-page processing.                         |
+| **📊 Monitoring Hooks**                   | `onToken`, `onViolation`, `onRetry`, `onFallback`, and more - integrates with Prometheus, OTel, Sentry.                                             |
+| **📡 Streaming-First Runtime**            | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `done`) for easy UIs.                                   |
+| **⛔ Safety-First Defaults**              | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                    |
+| **⚡ Tiny & Explicit**                    | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                        |
 
 ## Quick Start
 
@@ -48,9 +48,7 @@ const result = await l0({
     }),
 
   // Optional: Fallback models
-  fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-  ],
+  fallbackStreams: [() => streamText({ model: openai("gpt-4o-mini"), prompt })],
 
   // Optional: Guardrails
   guardrails: recommendedGuardrails,
@@ -75,13 +73,13 @@ const result = await l0({
 
   // Optional: Timeout configuration
   timeout: {
-    initialToken: 5000,  // 5s to first token
-    interToken: 10000,   // 10s between tokens
+    initialToken: 5000, // 5s to first token
+    interToken: 10000, // 10s between tokens
   },
 
   // Optional: Guardrail check intervals
   checkIntervals: {
-    guardrails: 5,   // Check every N tokens
+    guardrails: 5, // Check every N tokens
     drift: 10,
     checkpoint: 10,
   },
@@ -119,9 +117,9 @@ const openai = new OpenAI();
 const result = await l0({
   stream: openaiStream(openai, {
     model: "gpt-4o",
-    messages: [{ role: "user", content: "Generate a haiku about coding" }]
+    messages: [{ role: "user", content: "Generate a haiku about coding" }],
   }),
-  guardrails: recommendedGuardrails
+  guardrails: recommendedGuardrails,
 });
 
 for await (const event of result.stream) {
@@ -138,12 +136,12 @@ import { l0, mastraStream, recommendedGuardrails } from "@ai2070/l0";
 const agent = new Agent({
   name: "haiku-writer",
   instructions: "You are a poet who writes haikus",
-  model: "openai/gpt-4o"
+  model: "openai/gpt-4o",
 });
 
 const result = await l0({
   stream: mastraStream(agent, "Generate a haiku about coding"),
-  guardrails: recommendedGuardrails
+  guardrails: recommendedGuardrails,
 });
 
 for await (const event of result.stream) {
@@ -153,17 +151,17 @@ for await (const event of result.stream) {
 
 ## Core Features
 
-| Feature | Description |
-|---------|-------------|
-| [Streaming Runtime](#streaming-runtime) | Token-by-token normalization, checkpoints, resumable generation |
-| [Guardrails](#guardrails) | JSON, Markdown, LaTeX validation, pattern detection |
-| [Structured Output](#structured-output) | Guaranteed valid JSON with Zod schema validation |
-| [Retry Logic](#retry-logic) | Smart retries with backoff, network vs model error distinction |
-| [Network Protection](#network-protection) | Auto-recovery from 12+ network failure types |
-| [Document Windows](#document-windows) | Automatic chunking for long documents |
-| [Fallback Models](#fallback-models) | Sequential fallback when primary model fails |
-| [Parallel Operations](#parallel-operations) | Race, batch, pool patterns for concurrent LLM calls |
-| [Monitoring](#monitoring) | Built-in Prometheus and Sentry integrations |
+| Feature                                     | Description                                                     |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| [Streaming Runtime](#streaming-runtime)     | Token-by-token normalization, checkpoints, resumable generation |
+| [Guardrails](#guardrails)                   | JSON, Markdown, LaTeX validation, pattern detection             |
+| [Structured Output](#structured-output)     | Guaranteed valid JSON with Zod schema validation                |
+| [Retry Logic](#retry-logic)                 | Smart retries with backoff, network vs model error distinction  |
+| [Network Protection](#network-protection)   | Auto-recovery from 12+ network failure types                    |
+| [Document Windows](#document-windows)       | Automatic chunking for long documents                           |
+| [Fallback Models](#fallback-models)         | Sequential fallback when primary model fails                    |
+| [Parallel Operations](#parallel-operations) | Race, batch, pool patterns for concurrent LLM calls             |
+| [Monitoring](#monitoring)                   | Built-in Prometheus and Sentry integrations                     |
 
 ---
 
@@ -174,29 +172,35 @@ L0 wraps `streamText()` with deterministic behavior:
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  
+
   // Optional: Timeouts (ms)
   timeout: {
-    initialToken: 5000,  // 5s to first token
-    interToken: 10000,    // 10s between tokens
+    initialToken: 5000, // 5s to first token
+    interToken: 10000, // 10s between tokens
   },
-  
-  signal: abortController.signal
+
+  signal: abortController.signal,
 });
 
 // Unified event format
 for await (const event of result.stream) {
   switch (event.type) {
-    case "token": console.log(event.value); break;
-    case "done": console.log("Complete"); break;
-    case "error": console.error(event.error); break;
+    case "token":
+      console.log(event.value);
+      break;
+    case "done":
+      console.log("Complete");
+      break;
+    case "error":
+      console.error(event.error);
+      break;
   }
 }
 
 // Access final state
-console.log(result.state.content);      // Full accumulated content
-console.log(result.state.tokenCount);   // Total tokens received
-console.log(result.state.checkpoint);   // Last stable checkpoint
+console.log(result.state.content); // Full accumulated content
+console.log(result.state.tokenCount); // Total tokens received
+console.log(result.state.checkpoint); // Last stable checkpoint
 ```
 
 ⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
@@ -208,30 +212,34 @@ console.log(result.state.checkpoint);   // Last stable checkpoint
 Pure functions that validate streaming output without rewriting it:
 
 ```typescript
-import { 
-  jsonRule, 
-  markdownRule, 
+import {
+  jsonRule,
+  markdownRule,
   zeroOutputRule,
   patternRule,
-  customPatternRule 
+  customPatternRule,
 } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   guardrails: [
-    jsonRule(),           // Validates JSON structure
-    markdownRule(),       // Validates Markdown fences/tables
-    zeroOutputRule(),     // Detects empty output
-    patternRule(),        // Detects "As an AI..." patterns
-    customPatternRule([/forbidden/i], "Custom violation")
-  ]
+    jsonRule(), // Validates JSON structure
+    markdownRule(), // Validates Markdown fences/tables
+    zeroOutputRule(), // Detects empty output
+    patternRule(), // Detects "As an AI..." patterns
+    customPatternRule([/forbidden/i], "Custom violation"),
+  ],
 });
 ```
 
 ### Presets
 
 ```typescript
-import { minimalGuardrails, recommendedGuardrails, strictGuardrails } from "@ai2070/l0";
+import {
+  minimalGuardrails,
+  recommendedGuardrails,
+  strictGuardrails,
+} from "@ai2070/l0";
 
 // Minimal: JSON + zero output detection
 // Recommended: + Markdown, drift, patterns
@@ -251,19 +259,19 @@ import { z } from "zod";
 const schema = z.object({
   name: z.string(),
   age: z.number(),
-  email: z.string().email()
+  email: z.string().email(),
 });
 
 const result = await structured({
   schema,
   stream: () => streamText({ model, prompt: "Generate user data as JSON" }),
-  autoCorrect: true  // Fix trailing commas, missing braces, etc.
+  autoCorrect: true, // Fix trailing commas, missing braces, etc.
 });
 
 // Type-safe access
-console.log(result.data.name);   // string
-console.log(result.data.age);    // number
-console.log(result.corrected);   // true if auto-corrected
+console.log(result.data.name); // string
+console.log(result.data.age); // number
+console.log(result.corrected); // true if auto-corrected
 ```
 
 ---
@@ -276,28 +284,28 @@ Smart retry system that distinguishes network errors from model errors:
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    maxAttempts: 2,           // Model errors only
+    maxAttempts: 2, // Model errors only
     baseDelay: 1000,
     maxDelay: 10000,
-    backoff: "exponential",   // or "linear", "fixed", "full-jitter"
-    retryOn: ["zero_output", "guardrail_violation", "drift"]
-  }
+    backoff: "exponential", // or "linear", "fixed", "full-jitter"
+    retryOn: ["zero_output", "guardrail_violation", "drift"],
+  },
 });
 ```
 
 ### Retry Behavior
 
-| Error Type | Retries | Counts Toward Limit |
-|------------|---------|---------------------|
-| Network disconnect | Yes | No |
-| Zero output | Yes | No |
-| Timeout | Yes | No |
-| 429 rate limit | Yes | No |
-| 503 server error | Yes | No |
-| Guardrail violation | Yes | **Yes** |
-| Malformed output | Yes | **Yes** |
-| Drift detected | Yes | **Yes** |
-| Auth error (401/403) | No | - |
+| Error Type           | Retries | Counts Toward Limit |
+| -------------------- | ------- | ------------------- |
+| Network disconnect   | Yes     | No                  |
+| Zero output          | Yes     | No                  |
+| Timeout              | Yes     | No                  |
+| 429 rate limit       | Yes     | No                  |
+| 503 server error     | Yes     | No                  |
+| Guardrail violation  | Yes     | **Yes**             |
+| Malformed output     | Yes     | **Yes**             |
+| Drift detected       | Yes     | **Yes**             |
+| Auth error (401/403) | No      | -                   |
 
 ---
 
@@ -313,8 +321,8 @@ try {
 } catch (error) {
   if (isNetworkError(error)) {
     const analysis = analyzeNetworkError(error);
-    console.log(analysis.type);       // "connection_dropped", "timeout", etc.
-    console.log(analysis.retryable);  // true/false
+    console.log(analysis.type); // "connection_dropped", "timeout", etc.
+    console.log(analysis.retryable); // true/false
     console.log(analysis.suggestion); // Recovery suggestion
   }
 }
@@ -332,17 +340,18 @@ Process documents that exceed context limits:
 import { createWindow } from "@ai2070/l0";
 
 const window = createWindow(longDocument, {
-  size: 2000,           // Tokens per chunk
-  overlap: 200,         // Overlap between chunks
-  strategy: "paragraph" // or "token", "sentence", "char"
+  size: 2000, // Tokens per chunk
+  overlap: 200, // Overlap between chunks
+  strategy: "paragraph", // or "token", "sentence", "char"
 });
 
 // Process all chunks
 const results = await window.processAll((chunk) => ({
-  stream: () => streamText({
-    model,
-    prompt: `Summarize: ${chunk.content}`
-  })
+  stream: () =>
+    streamText({
+      model,
+      prompt: `Summarize: ${chunk.content}`,
+    }),
 }));
 
 // Or navigate manually
@@ -361,8 +370,8 @@ const result = await l0({
   stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [
     () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-    () => streamText({ model: anthropic("claude-3-haiku"), prompt })
-  ]
+    () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
+  ],
 });
 
 // Check which model succeeded
@@ -382,15 +391,15 @@ const result = await consensus({
   streams: [
     () => streamText({ model, prompt }),
     () => streamText({ model, prompt }),
-    () => streamText({ model, prompt })
+    () => streamText({ model, prompt }),
   ],
-  strategy: "majority",  // or "unanimous", "weighted", "best"
-  threshold: 0.8
+  strategy: "majority", // or "unanimous", "weighted", "best"
+  threshold: 0.8,
 });
 
-console.log(result.consensus);    // Agreed output
-console.log(result.confidence);   // 0-1 confidence score
-console.log(result.agreements);   // What they agreed on
+console.log(result.consensus); // Agreed output
+console.log(result.confidence); // 0-1 confidence score
+console.log(result.agreements); // What they agreed on
 console.log(result.disagreements); // Where they differed
 ```
 
@@ -408,7 +417,7 @@ import { race } from "@ai2070/l0";
 const result = await race([
   { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
   { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
-  { stream: () => streamText({ model: google("gemini-pro"), prompt }) }
+  { stream: () => streamText({ model: google("gemini-pro"), prompt }) },
 ]);
 // Returns first successful response, cancels others
 ```
@@ -418,14 +427,17 @@ const result = await race([
 ```typescript
 import { parallel } from "@ai2070/l0";
 
-const results = await parallel([
-  { stream: () => streamText({ model, prompt: "Task 1" }) },
-  { stream: () => streamText({ model, prompt: "Task 2" }) },
-  { stream: () => streamText({ model, prompt: "Task 3" }) }
-], {
-  concurrency: 2,  // Max 2 concurrent
-  failFast: false  // Continue on errors
-});
+const results = await parallel(
+  [
+    { stream: () => streamText({ model, prompt: "Task 1" }) },
+    { stream: () => streamText({ model, prompt: "Task 2" }) },
+    { stream: () => streamText({ model, prompt: "Task 3" }) },
+  ],
+  {
+    concurrency: 2, // Max 2 concurrent
+    failFast: false, // Continue on errors
+  },
+);
 
 console.log(results.successCount);
 console.log(results.results[0]?.state.content);
@@ -433,10 +445,10 @@ console.log(results.results[0]?.state.content);
 
 ### Fall-Through vs Race
 
-| Pattern | Execution | Cost | Best For |
-|---------|-----------|------|----------|
-| Fall-through | Sequential, next on failure | Low (pay for 1) | High availability, cost-sensitive |
-| Race | Parallel, first wins | High (pay for all) | Low latency, speed-critical |
+| Pattern      | Execution                   | Cost               | Best For                          |
+| ------------ | --------------------------- | ------------------ | --------------------------------- |
+| Fall-through | Sequential, next on failure | Low (pay for 1)    | High availability, cost-sensitive |
+| Race         | Parallel, first wins        | High (pay for all) | Low latency, speed-critical       |
 
 ```typescript
 // Fall-through: Try models sequentially
@@ -444,14 +456,14 @@ const result = await l0({
   stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [
     () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-    () => streamText({ model: anthropic("claude-3-haiku"), prompt })
-  ]
+    () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
+  ],
 });
 
 // Race: All models simultaneously, first wins
 const result = await race([
   { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
-  { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) }
+  { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
 ]);
 ```
 
@@ -464,7 +476,11 @@ Built-in telemetry with Prometheus and Sentry integrations.
 ### Prometheus
 
 ```typescript
-import { l0, createPrometheusCollector, prometheusMiddleware } from "@ai2070/l0";
+import {
+  l0,
+  createPrometheusCollector,
+  prometheusMiddleware,
+} from "@ai2070/l0";
 import express from "express";
 
 const collector = createPrometheusCollector();
@@ -475,10 +491,12 @@ app.get("/metrics", prometheusMiddleware(collector));
 app.post("/chat", async (req, res) => {
   const result = await l0({
     stream: () => streamText({ model, prompt: req.body.prompt }),
-    monitoring: { enabled: true }
+    monitoring: { enabled: true },
   });
 
-  for await (const event of result.stream) { /* ... */ }
+  for await (const event of result.stream) {
+    /* ... */
+  }
 
   collector.record(result.telemetry, { model: "gpt-4" });
   res.json({ response: result.state.content });
@@ -496,9 +514,7 @@ import { l0, sentryInterceptor } from "@ai2070/l0";
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: { enabled: true },
-  interceptors: [
-    sentryInterceptor({ hub: Sentry })
-  ]
+  interceptors: [sentryInterceptor({ hub: Sentry })],
 });
 ```
 
@@ -519,10 +535,10 @@ try {
   await l0({ stream, guardrails });
 } catch (error) {
   if (isL0Error(error)) {
-    console.log(error.code);              // "GUARDRAIL_VIOLATION", "ZERO_OUTPUT", etc.
+    console.log(error.code); // "GUARDRAIL_VIOLATION", "ZERO_OUTPUT", etc.
     console.log(error.context.checkpoint); // Last good content
     console.log(error.context.tokenCount); // Tokens before failure
-    console.log(error.isRecoverable());   // Can retry?
+    console.log(error.isRecoverable()); // Can retry?
   }
 }
 ```
@@ -579,52 +595,52 @@ OPENAI_API_KEY=sk-... npm run test:integration
 
 ### Test Coverage
 
-| Category | Tests | Description |
-|----------|-------|-------------|
-| Unit Tests | 1143 | Fast, mocked, no API calls |
-| Integration Tests | 40+ | Real API calls, all SDK adapters |
+| Category          | Tests | Description                      |
+| ----------------- | ----- | -------------------------------- |
+| Unit Tests        | 1143  | Fast, mocked, no API calls       |
+| Integration Tests | 40+   | Real API calls, all SDK adapters |
 
 ### SDK Adapter Matrix
 
-| Adapter | Unit Tests | Integration Tests | Version |
-|---------|------------|-------------------|---------|
-| Vercel AI SDK | ✓ | ✓ | ^5.0.0 |
-| OpenAI SDK | ✓ | ✓ | ^4.0.0 \|\| ^5.0.0 \|\| ^6.0.0 |
-| Mastra AI | ✓ | ✓ | >=0.24.0 |
+| Adapter       | Unit Tests | Integration Tests | Version                        |
+| ------------- | ---------- | ----------------- | ------------------------------ |
+| Vercel AI SDK | ✓          | ✓                 | ^5.0.0                         |
+| OpenAI SDK    | ✓          | ✓                 | ^4.0.0 \|\| ^5.0.0 \|\| ^6.0.0 |
+| Mastra AI     | ✓          | ✓                 | >=0.24.0                       |
 
 ### Feature Test Matrix
 
-| Feature | Unit | Integration | Notes |
-|---------|------|-------------|-------|
-| Streaming | ✓ | ✓ | Token events, completion |
-| Guardrails | ✓ | ✓ | All rules, presets |
-| Structured Output | ✓ | ✓ | Zod schemas, auto-correct |
-| Retry Logic | ✓ | ✓ | Backoff strategies |
-| Network Errors | ✓ | - | 12+ error types |
-| Fallback Models | ✓ | ✓ | Sequential fallback |
-| Parallel/Race | ✓ | ✓ | Concurrency patterns |
-| Consensus | ✓ | ✓ | Voting strategies |
-| Document Windows | ✓ | - | Chunking strategies |
-| Monitoring | ✓ | ✓ | Telemetry, Prometheus |
-| Interceptors | ✓ | - | All built-in interceptors |
-| Drift Detection | ✓ | - | Pattern detection |
+| Feature           | Unit | Integration | Notes                     |
+| ----------------- | ---- | ----------- | ------------------------- |
+| Streaming         | ✓    | ✓           | Token events, completion  |
+| Guardrails        | ✓    | ✓           | All rules, presets        |
+| Structured Output | ✓    | ✓           | Zod schemas, auto-correct |
+| Retry Logic       | ✓    | ✓           | Backoff strategies        |
+| Network Errors    | ✓    | -           | 12+ error types           |
+| Fallback Models   | ✓    | ✓           | Sequential fallback       |
+| Parallel/Race     | ✓    | ✓           | Concurrency patterns      |
+| Consensus         | ✓    | ✓           | Voting strategies         |
+| Document Windows  | ✓    | -           | Chunking strategies       |
+| Monitoring        | ✓    | ✓           | Telemetry, Prometheus     |
+| Interceptors      | ✓    | -           | All built-in interceptors |
+| Drift Detection   | ✓    | -           | Pattern detection         |
 
 ---
 
 ## Documentation
 
-| Guide | Description |
-|-------|-------------|
-| [QUICKSTART.md](./QUICKSTART.md) | 5-minute getting started |
-| [API.md](./API.md) | Complete API reference |
-| [GUARDRAILS.md](./GUARDRAILS.md) | Guardrails and validation |
-| [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md) | Structured output guide |
-| [CONSENSUS.md](./CONSENSUS.md) | Multi-generation consensus |
-| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md) | Document chunking guide |
-| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md) | Network error handling |
-| [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Parallel operations |
-| [MONITORING.md](./MONITORING.md) | Telemetry and metrics |
-| [FORMATTING.md](./FORMATTING.md) | Formatting helpers |
+| Guide                                                          | Description                |
+| -------------------------------------------------------------- | -------------------------- |
+| [QUICKSTART.md](./QUICKSTART.md)                               | 5-minute getting started   |
+| [API.md](./API.md)                                             | Complete API reference     |
+| [GUARDRAILS.md](./GUARDRAILS.md)                               | Guardrails and validation  |
+| [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md)                 | Structured output guide    |
+| [CONSENSUS.md](./CONSENSUS.md)                                 | Multi-generation consensus |
+| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md)                   | Document chunking guide    |
+| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)                       | Network error handling     |
+| [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Parallel operations        |
+| [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics      |
+| [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers         |
 
 ---
 

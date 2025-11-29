@@ -8,23 +8,24 @@ Automatic chunking and navigation for long documents.
 import { createWindow } from "@ai2070/l0";
 
 const window = createWindow(longDocument, {
-  size: 2000,           // Tokens per chunk
-  overlap: 200,         // Overlap between chunks
-  strategy: "paragraph" // "token" | "char" | "paragraph" | "sentence"
+  size: 2000, // Tokens per chunk
+  overlap: 200, // Overlap between chunks
+  strategy: "paragraph", // "token" | "char" | "paragraph" | "sentence"
 });
 
 // Process all chunks
 const results = await window.processAll((chunk) => ({
-  stream: () => streamText({
-    model: openai("gpt-4o"),
-    prompt: `Summarize: ${chunk.content}`
-  })
+  stream: () =>
+    streamText({
+      model: openai("gpt-4o"),
+      prompt: `Summarize: ${chunk.content}`,
+    }),
 }));
 
 // Merge results
 const summary = results
-  .filter(r => r.status === "success")
-  .map(r => r.result.state.content)
+  .filter((r) => r.status === "success")
+  .map((r) => r.result.state.content)
   .join("\n\n");
 ```
 
@@ -32,22 +33,22 @@ const summary = results
 
 ## Chunking Strategies
 
-| Strategy | Best For | Behavior |
-|----------|----------|----------|
-| `token` | General purpose | Chunks by estimated token count |
-| `char` | Fixed-length | Chunks by character count |
-| `paragraph` | Structured docs | Preserves paragraph boundaries |
-| `sentence` | Precision | Never splits sentences |
+| Strategy    | Best For        | Behavior                        |
+| ----------- | --------------- | ------------------------------- |
+| `token`     | General purpose | Chunks by estimated token count |
+| `char`      | Fixed-length    | Chunks by character count       |
+| `paragraph` | Structured docs | Preserves paragraph boundaries  |
+| `sentence`  | Precision       | Never splits sentences          |
 
 ```typescript
 // Token-based (default)
-createWindow(doc, { size: 2000, strategy: "token" })
+createWindow(doc, { size: 2000, strategy: "token" });
 
 // Paragraph-based
-createWindow(doc, { size: 2000, strategy: "paragraph" })
+createWindow(doc, { size: 2000, strategy: "paragraph" });
 
 // Sentence-based
-createWindow(doc, { size: 1500, strategy: "sentence" })
+createWindow(doc, { size: 1500, strategy: "sentence" });
 ```
 
 ---
@@ -58,21 +59,21 @@ createWindow(doc, { size: 1500, strategy: "sentence" })
 const window = createWindow(document, { size: 2000 });
 
 // Get chunks
-window.current()           // Current chunk
-window.get(0)              // Specific chunk
-window.getAllChunks()      // All chunks
+window.current(); // Current chunk
+window.get(0); // Specific chunk
+window.getAllChunks(); // All chunks
 
 // Navigate
-window.next()              // Move to next
-window.prev()              // Move to previous
-window.jump(5)             // Jump to chunk 5
-window.reset()             // Back to first
+window.next(); // Move to next
+window.prev(); // Move to previous
+window.jump(5); // Jump to chunk 5
+window.reset(); // Back to first
 
 // Check bounds
-window.hasNext()           // Has more chunks?
-window.hasPrev()           // Has previous?
-window.totalChunks         // Total count
-window.currentIndex        // Current position
+window.hasNext(); // Has more chunks?
+window.hasPrev(); // Has previous?
+window.totalChunks; // Total count
+window.currentIndex; // Current position
 ```
 
 ---
@@ -82,16 +83,19 @@ window.currentIndex        // Current position
 ### Parallel (Default)
 
 ```typescript
-const results = await window.processAll((chunk) => ({
-  stream: () => streamText({ model, prompt: chunk.content })
-}), { concurrency: 5 });
+const results = await window.processAll(
+  (chunk) => ({
+    stream: () => streamText({ model, prompt: chunk.content }),
+  }),
+  { concurrency: 5 },
+);
 ```
 
 ### Sequential
 
 ```typescript
 const results = await window.processSequential((chunk) => ({
-  stream: () => streamText({ model, prompt: chunk.content })
+  stream: () => streamText({ model, prompt: chunk.content }),
 }));
 ```
 
@@ -102,8 +106,8 @@ const results = await window.processAll((chunk) => ({
   stream: () => streamText({ model: openai("gpt-4o"), prompt: chunk.content }),
   retry: { attempts: 2 },
   fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o-mini"), prompt: chunk.content })
-  ]
+    () => streamText({ model: openai("gpt-4o-mini"), prompt: chunk.content }),
+  ],
 }));
 ```
 
@@ -113,12 +117,12 @@ const results = await window.processAll((chunk) => ({
 
 ```typescript
 interface DocumentChunk {
-  index: number;        // Position (0-based)
-  content: string;      // Chunk text
-  startPos: number;     // Start in original document
-  endPos: number;       // End in original document
-  tokenCount: number;   // Estimated tokens
-  charCount: number;    // Character count
+  index: number; // Position (0-based)
+  content: string; // Chunk text
+  startPos: number; // Start in original document
+  endPos: number; // End in original document
+  tokenCount: number; // Estimated tokens
+  charCount: number; // Character count
   isFirst: boolean;
   isLast: boolean;
   totalChunks: number;
@@ -134,7 +138,7 @@ Overlap maintains context between chunks:
 ```typescript
 const window = createWindow(document, {
   size: 2000,
-  overlap: 200  // 10% overlap
+  overlap: 200, // 10% overlap
 });
 
 // Chunk 0: tokens 0-2000
@@ -159,9 +163,9 @@ const result = await l0WithWindow({
   stream: () => streamText({ model, prompt: window.get(0)?.content }),
   contextRestoration: {
     enabled: true,
-    strategy: "adjacent",  // Try adjacent chunks
-    maxAttempts: 2
-  }
+    strategy: "adjacent", // Try adjacent chunks
+    maxAttempts: 2,
+  },
 });
 ```
 
@@ -174,14 +178,15 @@ const result = await l0WithWindow({
 ```typescript
 const window = createWindow(contract, {
   size: 2000,
-  strategy: "paragraph"
+  strategy: "paragraph",
 });
 
 const results = await window.processAll((chunk) => ({
-  stream: () => streamText({
-    model,
-    prompt: `Extract legal clauses from: ${chunk.content}`
-  })
+  stream: () =>
+    streamText({
+      model,
+      prompt: `Extract legal clauses from: ${chunk.content}`,
+    }),
 }));
 ```
 
@@ -190,14 +195,15 @@ const results = await window.processAll((chunk) => ({
 ```typescript
 const window = createWindow(transcript, {
   size: 3000,
-  strategy: "sentence"
+  strategy: "sentence",
 });
 
 const summaries = await window.processSequential((chunk) => ({
-  stream: () => streamText({
-    model,
-    prompt: `Summarize this section: ${chunk.content}`
-  })
+  stream: () =>
+    streamText({
+      model,
+      prompt: `Summarize this section: ${chunk.content}`,
+    }),
 }));
 ```
 
@@ -206,14 +212,15 @@ const summaries = await window.processSequential((chunk) => ({
 ```typescript
 const window = createWindow(sourceCode, {
   size: 1500,
-  strategy: "paragraph"
+  strategy: "paragraph",
 });
 
 const docs = await window.processAll((chunk) => ({
-  stream: () => streamText({
-    model,
-    prompt: `Generate documentation for: ${chunk.content}`
-  })
+  stream: () =>
+    streamText({
+      model,
+      prompt: `Generate documentation for: ${chunk.content}`,
+    }),
 }));
 ```
 
@@ -223,11 +230,11 @@ const docs = await window.processAll((chunk) => ({
 
 ```typescript
 import {
-  smallWindow,      // 1000 tokens, 100 overlap
-  mediumWindow,     // 2000 tokens, 200 overlap
-  largeWindow,      // 4000 tokens, 400 overlap
-  paragraphWindow,  // Paragraph-based
-  sentenceWindow    // Sentence-based
+  smallWindow, // 1000 tokens, 100 overlap
+  mediumWindow, // 2000 tokens, 200 overlap
+  largeWindow, // 4000 tokens, 400 overlap
+  paragraphWindow, // Paragraph-based
+  sentenceWindow, // Sentence-based
 } from "@ai2070/l0";
 
 const window = createWindow(document, largeWindow);
@@ -248,16 +255,19 @@ const window = createWindow(document, largeWindow);
 const window = createWindow(document, {
   size: 2000,
   overlap: 200,
-  strategy: "paragraph"
+  strategy: "paragraph",
 });
 
-const results = await window.processAll((chunk) => ({
-  stream: () => streamText({ model, prompt: chunk.content }),
-  retry: { attempts: 2 }
-}), { concurrency: 3 });
+const results = await window.processAll(
+  (chunk) => ({
+    stream: () => streamText({ model, prompt: chunk.content }),
+    retry: { attempts: 2 },
+  }),
+  { concurrency: 3 },
+);
 
 // Handle failures
-const failed = results.filter(r => r.status === "error");
+const failed = results.filter((r) => r.status === "error");
 if (failed.length > 0) {
   console.warn(`${failed.length} chunks failed`);
 }

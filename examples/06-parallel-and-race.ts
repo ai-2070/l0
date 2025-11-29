@@ -34,11 +34,7 @@ async function raceExample() {
 async function parallelExample() {
   console.log("\n=== Parallel Example ===\n");
 
-  const prompts = [
-    "Name a fruit",
-    "Name a color",
-    "Name an animal",
-  ];
+  const prompts = ["Name a fruit", "Name a color", "Name an animal"];
 
   const results = await parallel(
     prompts.map((prompt) => ({
@@ -49,7 +45,7 @@ async function parallelExample() {
         }),
       guardrails: recommendedGuardrails,
     })),
-    { concurrency: 3 }
+    { concurrency: 3 },
   );
 
   console.log("Results:");

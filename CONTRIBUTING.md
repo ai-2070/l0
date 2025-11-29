@@ -102,15 +102,15 @@ Place tests in `tests/` directory with `.test.ts` extension:
 
 ```typescript
 // tests/guardrails/json.test.ts
-import { jsonRule } from '../../src/guardrails/json';
+import { jsonRule } from "../../src/guardrails/json";
 
-describe('jsonRule', () => {
-  it('should detect unbalanced braces', () => {
+describe("jsonRule", () => {
+  it("should detect unbalanced braces", () => {
     const rule = jsonRule();
     const violations = rule.check({
       content: '{"name": "Alice"',
       isComplete: true,
-      tokenCount: 10
+      tokenCount: 10,
     });
     expect(violations.length).toBeGreaterThan(0);
   });
@@ -122,15 +122,15 @@ describe('jsonRule', () => {
 Test full L0 workflows:
 
 ```typescript
-import { l0, recommendedGuardrails } from '../../src';
+import { l0, recommendedGuardrails } from "../../src";
 
-describe('l0 integration', () => {
-  it('should handle streaming with guardrails', async () => {
+describe("l0 integration", () => {
+  it("should handle streaming with guardrails", async () => {
     const result = await l0({
       stream: () => mockStream('{"test": true}'),
-      guardrails: recommendedGuardrails
+      guardrails: recommendedGuardrails,
     });
-    
+
     // Consume stream and verify
   });
 });
@@ -148,6 +148,7 @@ describe('l0 integration', () => {
 ### Pull Request Process
 
 1. **Push your branch** to your fork:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -201,35 +202,38 @@ export function check(c) {
 ### Code Organization
 
 1. **Imports first**, in order:
+
    ```typescript
    // External imports
-   import { something } from 'external-package';
-   
+   import { something } from "external-package";
+
    // Type imports
-   import type { MyType } from './types';
-   
+   import type { MyType } from "./types";
+
    // Local imports
-   import { helper } from './utils';
+   import { helper } from "./utils";
    ```
 
 2. **Types before implementation**:
+
    ```typescript
    export interface MyOptions {
      enabled: boolean;
    }
-   
+
    export function myFunction(options: MyOptions) {
      // implementation
    }
    ```
 
 3. **Export at declaration**:
+
    ```typescript
    // Good
-   export function myFunction() { }
-   
+   export function myFunction() {}
+
    // Avoid
-   function myFunction() { }
+   function myFunction() {}
    export { myFunction };
    ```
 
@@ -241,14 +245,15 @@ export function check(c) {
 - Keep descriptions concise but clear
 
 Example:
-```typescript
+
+````typescript
 /**
  * Format tool/function definition in a model-friendly way
- * 
+ *
  * @param tool - Tool definition
  * @param options - Formatting options
  * @returns Formatted tool definition string
- * 
+ *
  * @example
  * ```typescript
  * const tool = createTool("get_weather", "Get weather", []);
@@ -257,30 +262,35 @@ Example:
  */
 export function formatTool(
   tool: ToolDefinition,
-  options?: FormatToolOptions
+  options?: FormatToolOptions,
 ): string {
   // implementation
 }
-```
+````
 
 ## Adding New Features
 
 ### Adding a Guardrail Rule
 
 1. Create file in `src/guardrails/`:
+
    ```typescript
    // src/guardrails/myRule.ts
-   import type { GuardrailRule, GuardrailContext, GuardrailViolation } from '../types/guardrails';
-   
+   import type {
+     GuardrailRule,
+     GuardrailContext,
+     GuardrailViolation,
+   } from "../types/guardrails";
+
    export function myRule(): GuardrailRule {
      return {
-       name: 'my-rule',
-       description: 'What this rule checks',
+       name: "my-rule",
+       description: "What this rule checks",
        check: (context: GuardrailContext) => {
          const violations: GuardrailViolation[] = [];
          // Your validation logic
          return violations;
-       }
+       },
      };
    }
    ```
@@ -349,7 +359,7 @@ export function process(config: any) {
 
 ```typescript
 if (!content || content.length === 0) {
-  throw new Error('Content is required and cannot be empty');
+  throw new Error("Content is required and cannot be empty");
 }
 ```
 

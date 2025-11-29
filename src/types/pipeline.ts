@@ -21,12 +21,18 @@ export interface PipelineStep<TInput = any, TOutput = any> {
   /**
    * Optional transform function to process L0 result before next step
    */
-  transform?: (result: L0Result, context: StepContext) => TOutput | Promise<TOutput>;
+  transform?: (
+    result: L0Result,
+    context: StepContext,
+  ) => TOutput | Promise<TOutput>;
 
   /**
    * Optional condition to determine if step should run
    */
-  condition?: (input: TInput, context: StepContext) => boolean | Promise<boolean>;
+  condition?: (
+    input: TInput,
+    context: StepContext,
+  ) => boolean | Promise<boolean>;
 
   /**
    * Optional error handler for this step
@@ -36,7 +42,10 @@ export interface PipelineStep<TInput = any, TOutput = any> {
   /**
    * Optional callback when step completes
    */
-  onComplete?: (result: StepResult<TOutput>, context: StepContext) => void | Promise<void>;
+  onComplete?: (
+    result: StepResult<TOutput>,
+    context: StepContext,
+  ) => void | Promise<void>;
 
   /**
    * Step-specific metadata
@@ -49,7 +58,7 @@ export interface PipelineStep<TInput = any, TOutput = any> {
  */
 export interface StructuredPipelineStep<
   TInput = any,
-  TSchema extends z.ZodTypeAny = z.ZodTypeAny
+  TSchema extends z.ZodTypeAny = z.ZodTypeAny,
 > {
   /**
    * Step name
@@ -75,7 +84,10 @@ export interface StructuredPipelineStep<
   /**
    * Optional condition
    */
-  condition?: (input: TInput, context: StepContext) => boolean | Promise<boolean>;
+  condition?: (
+    input: TInput,
+    context: StepContext,
+  ) => boolean | Promise<boolean>;
 
   /**
    * Optional error handler
@@ -397,7 +409,10 @@ export interface PipelineBranch<TInput = any> {
   /**
    * Branch condition
    */
-  condition: (input: TInput, context: StepContext) => boolean | Promise<boolean>;
+  condition: (
+    input: TInput,
+    context: StepContext,
+  ) => boolean | Promise<boolean>;
 
   /**
    * Steps to execute if condition is true

@@ -34,7 +34,10 @@ async function basicTelemetry() {
   console.log("  Duration:", result.telemetry?.duration, "ms");
   console.log("  Tokens:", result.telemetry?.metrics.totalTokens);
   console.log("  TTFT:", result.telemetry?.metrics.timeToFirstToken, "ms");
-  console.log("  Tokens/sec:", result.telemetry?.metrics.tokensPerSecond?.toFixed(1));
+  console.log(
+    "  Tokens/sec:",
+    result.telemetry?.metrics.tokensPerSecond?.toFixed(1),
+  );
 }
 
 // Example 2: Prometheus metrics

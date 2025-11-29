@@ -9,7 +9,8 @@ import { openai } from "@ai-sdk/openai";
 async function majorityConsensus() {
   console.log("=== Majority Consensus ===\n");
 
-  const prompt = "What is the capital of France? Answer with just the city name.";
+  const prompt =
+    "What is the capital of France? Answer with just the city name.";
 
   const result = await consensus({
     streams: [
@@ -23,7 +24,10 @@ async function majorityConsensus() {
 
   console.log("Consensus:", result.consensus);
   console.log("Confidence:", result.confidence);
-  console.log("Individual responses:", result.responses.map(r => r.trim()));
+  console.log(
+    "Individual responses:",
+    result.responses.map((r) => r.trim()),
+  );
 }
 
 // Example 2: Unanimous consensus

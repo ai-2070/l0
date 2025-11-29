@@ -9,7 +9,7 @@ import {
   patternRule,
   customPatternRule,
   recommendedGuardrails,
-  strictGuardrails
+  strictGuardrails,
 } from "../src/index";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -36,7 +36,17 @@ async function jsonGuardrail() {
   }
 
   console.log("Output:", content);
-  console.log("Valid JSON:", (() => { try { JSON.parse(content); return true; } catch { return false; } })());
+  console.log(
+    "Valid JSON:",
+    (() => {
+      try {
+        JSON.parse(content);
+        return true;
+      } catch {
+        return false;
+      }
+    })(),
+  );
 }
 
 // Example 2: Custom pattern detection
@@ -53,7 +63,7 @@ async function customPatterns() {
       patternRule(), // Detects "As an AI..." patterns
       customPatternRule(
         [/sorry/i, /apologize/i, /unfortunately/i],
-        "Detected apologetic language"
+        "Detected apologetic language",
       ),
     ],
     onViolation: (v) => console.log("Detected:", v.message),
@@ -71,8 +81,14 @@ async function customPatterns() {
 async function presets() {
   console.log("=== Guardrail Presets ===\n");
 
-  console.log("recommendedGuardrails includes:", recommendedGuardrails.map(g => g.name).join(", "));
-  console.log("strictGuardrails includes:", strictGuardrails.map(g => g.name).join(", "));
+  console.log(
+    "recommendedGuardrails includes:",
+    recommendedGuardrails.map((g) => g.name).join(", "),
+  );
+  console.log(
+    "strictGuardrails includes:",
+    strictGuardrails.map((g) => g.name).join(", "),
+  );
 
   const result = await l0({
     stream: () =>
@@ -100,12 +116,14 @@ async function customGuardrail() {
     description: "Ensure minimum response length",
     check: (context: { content: string; isComplete: boolean }) => {
       if (context.isComplete && context.content.length < 20) {
-        return [{
-          rule: "min-length",
-          message: `Response too short: ${context.content.length} chars`,
-          severity: "warning" as const,
-          recoverable: true,
-        }];
+        return [
+          {
+            rule: "min-length",
+            message: `Response too short: ${context.content.length} chars`,
+            severity: "warning" as const,
+            recoverable: true,
+          },
+        ];
       }
       return [];
     },

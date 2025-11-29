@@ -2,7 +2,12 @@
 // Run: OPENAI_API_KEY=sk-... npx tsx examples/04-openai-sdk.ts
 
 import OpenAI from "openai";
-import { l0, openaiStream, openaiText, recommendedGuardrails } from "../src/index";
+import {
+  l0,
+  openaiStream,
+  openaiText,
+  recommendedGuardrails,
+} from "../src/index";
 
 const client = new OpenAI();
 

@@ -22,12 +22,13 @@ import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 const result = await l0({
-  stream: () => streamText({
-    model: openai("gpt-4o"),
-    prompt: "Write a haiku about coding"
-  }),
+  stream: () =>
+    streamText({
+      model: openai("gpt-4o"),
+      prompt: "Write a haiku about coding",
+    }),
   guardrails: recommendedGuardrails,
-  retry: recommendedRetry
+  retry: recommendedRetry,
 });
 
 for await (const event of result.stream) {
@@ -40,6 +41,7 @@ console.log("\n\nTokens:", result.state.tokenCount);
 ```
 
 You now have:
+
 - Automatic retry on network failures
 - Guardrails detecting malformed output
 - Zero-token detection
@@ -58,20 +60,21 @@ import { z } from "zod";
 const schema = z.object({
   name: z.string(),
   age: z.number(),
-  email: z.string().email()
+  email: z.string().email(),
 });
 
 const result = await structured({
   schema,
-  stream: () => streamText({
-    model: openai("gpt-4o"),
-    prompt: "Generate a user profile as JSON"
-  })
+  stream: () =>
+    streamText({
+      model: openai("gpt-4o"),
+      prompt: "Generate a user profile as JSON",
+    }),
 });
 
 // Type-safe access
-console.log(result.data.name);  // string
-console.log(result.data.age);   // number
+console.log(result.data.name); // string
+console.log(result.data.age); // number
 ```
 
 ### Timeout Protection
@@ -81,11 +84,11 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
 
   timeout: {
-    initialToken: 5000,  // 5s to first token
-    interToken: 10000,    // 10s between tokens
+    initialToken: 5000, // 5s to first token
+    interToken: 10000, // 10s between tokens
   },
 
-  guardrails: recommendedGuardrails
+  guardrails: recommendedGuardrails,
 });
 ```
 
@@ -98,8 +101,8 @@ const result = await l0({
   stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [
     () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-    () => streamText({ model: anthropic("claude-3-haiku"), prompt })
-  ]
+    () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
+  ],
 });
 
 if (result.state.fallbackIndex > 0) {
@@ -116,8 +119,8 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   guardrails: [
     zeroOutputRule(),
-    customPatternRule([/forbidden/i], "Contains forbidden word")
-  ]
+    customPatternRule([/forbidden/i], "Contains forbidden word"),
+  ],
 });
 ```
 
@@ -129,14 +132,15 @@ import { createWindow } from "@ai2070/l0";
 const window = createWindow(longDocument, {
   size: 2000,
   overlap: 200,
-  strategy: "paragraph"
+  strategy: "paragraph",
 });
 
 const results = await window.processAll((chunk) => ({
-  stream: () => streamText({
-    model,
-    prompt: `Summarize: ${chunk.content}`
-  })
+  stream: () =>
+    streamText({
+      model,
+      prompt: `Summarize: ${chunk.content}`,
+    }),
 }));
 ```
 
@@ -168,9 +172,9 @@ try {
 
 ```typescript
 import {
-  minimalGuardrails,      // JSON + zero output
-  recommendedGuardrails,  // + Markdown, drift, patterns
-  strictGuardrails        // + function calls, schema
+  minimalGuardrails, // JSON + zero output
+  recommendedGuardrails, // + Markdown, drift, patterns
+  strictGuardrails, // + function calls, schema
 } from "@ai2070/l0";
 ```
 
@@ -178,9 +182,9 @@ import {
 
 ```typescript
 import {
-  minimalRetry,      // 1 attempt
-  recommendedRetry,  // 2 attempts, exponential backoff
-  strictRetry        // 3 attempts, full-jitter
+  minimalRetry, // 1 attempt
+  recommendedRetry, // 2 attempts, exponential backoff
+  strictRetry, // 3 attempts, full-jitter
 } from "@ai2070/l0";
 ```
 
@@ -192,11 +196,11 @@ After consuming the stream:
 
 ```typescript
 console.log({
-  content: result.state.content,        // Full output
-  tokenCount: result.state.tokenCount,  // Token count
-  completed: result.state.completed,    // Stream finished
+  content: result.state.content, // Full output
+  tokenCount: result.state.tokenCount, // Token count
+  completed: result.state.completed, // Stream finished
   retryAttempts: result.state.retryAttempts,
-  fallbackIndex: result.state.fallbackIndex
+  fallbackIndex: result.state.fallbackIndex,
 });
 ```
 
@@ -204,11 +208,11 @@ console.log({
 
 ## Next Steps
 
-| Guide | Description |
-|-------|-------------|
-| [API.md](./API.md) | Complete API reference |
+| Guide                                          | Description                  |
+| ---------------------------------------------- | ---------------------------- |
+| [API.md](./API.md)                             | Complete API reference       |
 | [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md) | Guaranteed JSON with schemas |
-| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md) | Processing long documents |
-| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md) | Network error handling |
-| [PERFORMANCE.md](./PERFORMANCE.md) | Performance tuning |
-| [ERROR_HANDLING.md](./ERROR_HANDLING.md) | Error codes and recovery |
+| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md)   | Processing long documents    |
+| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)       | Network error handling       |
+| [PERFORMANCE.md](./PERFORMANCE.md)             | Performance tuning           |
+| [ERROR_HANDLING.md](./ERROR_HANDLING.md)       | Error codes and recovery     |
