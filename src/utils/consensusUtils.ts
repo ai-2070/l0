@@ -351,10 +351,12 @@ function findTextDisagreements(
 
 /**
  * Find structured disagreements (field-by-field)
+ * @param outputs - Array of consensus outputs to compare
+ * @param threshold - Agreement threshold; fields where majority agrees above this are not considered disagreements
  */
 function findStructuredDisagreements(
   outputs: ConsensusOutput[],
-  _threshold: number,
+  threshold: number,
 ): Disagreement[] {
   const disagreements: Disagreement[] = [];
 
@@ -384,7 +386,7 @@ function findStructuredDisagreements(
       valueCounts.get(key)!.push(index);
     });
 
-    // If more than one value, it's a disagreement
+    // If more than one value, check if it's a significant disagreement
     if (valueCounts.size > 1) {
       const distinctValues = Array.from(valueCounts.entries()).map(
         ([value, indices]) => ({
@@ -393,6 +395,15 @@ function findStructuredDisagreements(
           indices,
         }),
       );
+
+      // Find the majority agreement ratio
+      const maxCount = Math.max(...distinctValues.map((v) => v.count));
+      const majorityRatio = maxCount / outputs.length;
+
+      // Skip if majority agrees above threshold (not a significant disagreement)
+      if (majorityRatio >= threshold) {
+        continue;
+      }
 
       const severity = calculateDisagreementSeverity(
         distinctValues,
@@ -724,12 +735,12 @@ function setValueAtPath(obj: any, path: string, value: any): void {
  */
 export function meetsMinimumAgreement(
   agreements: Agreement[],
-  _outputs: number,
+  outputs: number,
   threshold: number,
 ): boolean {
   if (agreements.length === 0) return false;
 
-  // Find highest agreement ratio
-  const maxRatio = Math.max(...agreements.map((a) => a.ratio));
+  // Find highest agreement ratio (use count/outputs for accuracy)
+  const maxRatio = Math.max(...agreements.map((a) => a.count / outputs));
   return maxRatio >= threshold;
 }

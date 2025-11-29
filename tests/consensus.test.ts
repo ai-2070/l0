@@ -23,7 +23,11 @@ import {
   lenientConsensus,
   bestConsensus,
 } from "../src/types/consensus";
-import type { ConsensusOutput, Agreement, Disagreement } from "../src/types/consensus";
+import type {
+  ConsensusOutput,
+  Agreement,
+  Disagreement,
+} from "../src/types/consensus";
 
 // Helper to create mock consensus output
 function createMockOutput(
@@ -204,7 +208,10 @@ describe("Consensus Utilities", () => {
     });
 
     it("should compare strings with similarity", () => {
-      const similarity = calculateStructuralSimilarity("hello world", "hello there");
+      const similarity = calculateStructuralSimilarity(
+        "hello world",
+        "hello there",
+      );
       expect(similarity).toBeGreaterThan(0.5);
     });
 
@@ -297,7 +304,9 @@ describe("Consensus Utilities", () => {
       const strictAgreements = findAgreements(outputs, 0.99);
       const lenientAgreements = findAgreements(outputs, 0.5);
 
-      expect(lenientAgreements.length).toBeGreaterThanOrEqual(strictAgreements.length);
+      expect(lenientAgreements.length).toBeGreaterThanOrEqual(
+        strictAgreements.length,
+      );
     });
 
     it("should handle single output", () => {
@@ -387,6 +396,43 @@ describe("Consensus Utilities", () => {
       if (moderateDisagreements.length > 0) {
         expect(moderateDisagreements[0].severity).toBe("moderate");
       }
+    });
+
+    it("should filter structured disagreements by threshold", () => {
+      // 4 out of 5 agree on field value (80% agreement)
+      const outputs = [
+        createMockOutput(0, "", { status: "success" }),
+        createMockOutput(1, "", { status: "success" }),
+        createMockOutput(2, "", { status: "success" }),
+        createMockOutput(3, "", { status: "success" }),
+        createMockOutput(4, "", { status: "failure" }),
+      ];
+
+      // With 0.8 threshold, 80% agreement should NOT be a disagreement
+      const disagreementsHigh = findDisagreements(outputs, 0.8);
+      expect(disagreementsHigh.length).toBe(0);
+
+      // With 0.9 threshold, 80% agreement IS a disagreement
+      const disagreementsLow = findDisagreements(outputs, 0.9);
+      expect(disagreementsLow.length).toBeGreaterThan(0);
+      expect(disagreementsLow[0]?.path).toBe("status");
+    });
+
+    it("should include structured disagreements below threshold", () => {
+      // 3 out of 5 agree (60% agreement)
+      const outputs = [
+        createMockOutput(0, "", { value: "A" }),
+        createMockOutput(1, "", { value: "A" }),
+        createMockOutput(2, "", { value: "A" }),
+        createMockOutput(3, "", { value: "B" }),
+        createMockOutput(4, "", { value: "C" }),
+      ];
+
+      // With 0.7 threshold, 60% agreement is a disagreement
+      const disagreements = findDisagreements(outputs, 0.7);
+      expect(disagreements.length).toBeGreaterThan(0);
+      expect(disagreements[0]?.path).toBe("value");
+      expect(disagreements[0]?.values.length).toBe(3); // A, B, C
     });
   });
 
@@ -625,7 +671,13 @@ describe("Consensus Utilities", () => {
   describe("meetsMinimumAgreement", () => {
     it("should return true when agreement meets threshold", () => {
       const agreements: Agreement[] = [
-        { content: "test", count: 3, ratio: 0.75, indices: [0, 1, 2], type: "exact" },
+        {
+          content: "test",
+          count: 3,
+          ratio: 0.75,
+          indices: [0, 1, 2],
+          type: "exact",
+        },
       ];
 
       expect(meetsMinimumAgreement(agreements, 4, 0.6)).toBe(true);
@@ -633,7 +685,13 @@ describe("Consensus Utilities", () => {
 
     it("should return false when below threshold", () => {
       const agreements: Agreement[] = [
-        { content: "test", count: 2, ratio: 0.5, indices: [0, 1], type: "similar" },
+        {
+          content: "test",
+          count: 2,
+          ratio: 0.5,
+          indices: [0, 1],
+          type: "similar",
+        },
       ];
 
       expect(meetsMinimumAgreement(agreements, 4, 0.75)).toBe(false);
@@ -645,8 +703,20 @@ describe("Consensus Utilities", () => {
 
     it("should use highest ratio from multiple agreements", () => {
       const agreements: Agreement[] = [
-        { content: "low", count: 1, ratio: 0.25, indices: [0], type: "similar" },
-        { content: "high", count: 3, ratio: 0.75, indices: [1, 2, 3], type: "exact" },
+        {
+          content: "low",
+          count: 1,
+          ratio: 0.25,
+          indices: [0],
+          type: "similar",
+        },
+        {
+          content: "high",
+          count: 3,
+          ratio: 0.75,
+          indices: [1, 2, 3],
+          type: "exact",
+        },
       ];
 
       expect(meetsMinimumAgreement(agreements, 4, 0.7)).toBe(true);
@@ -654,7 +724,13 @@ describe("Consensus Utilities", () => {
 
     it("should handle edge case at exact threshold", () => {
       const agreements: Agreement[] = [
-        { content: "test", count: 3, ratio: 0.6, indices: [0, 1, 2], type: "exact" },
+        {
+          content: "test",
+          count: 3,
+          ratio: 0.6,
+          indices: [0, 1, 2],
+          type: "exact",
+        },
       ];
 
       expect(meetsMinimumAgreement(agreements, 5, 0.6)).toBe(true);
@@ -695,7 +771,9 @@ describe("Helper Functions", () => {
     });
 
     it("should handle all identical outputs", () => {
-      expect(quickConsensus(["same", "same", "same", "same", "same"])).toBe(true);
+      expect(quickConsensus(["same", "same", "same", "same", "same"])).toBe(
+        true,
+      );
     });
 
     it("should handle all different outputs", () => {
@@ -719,7 +797,9 @@ describe("Helper Functions", () => {
     });
 
     it("should throw for empty array", () => {
-      expect(() => getConsensusValue([])).toThrow("No outputs to get consensus from");
+      expect(() => getConsensusValue([])).toThrow(
+        "No outputs to get consensus from",
+      );
     });
 
     it("should return first value when all different", () => {
@@ -728,7 +808,11 @@ describe("Helper Functions", () => {
     });
 
     it("should handle arrays as values", () => {
-      const result = getConsensusValue([[1, 2], [1, 2], [3, 4]]);
+      const result = getConsensusValue([
+        [1, 2],
+        [1, 2],
+        [3, 4],
+      ]);
       expect(result).toEqual([1, 2]);
     });
 
@@ -946,20 +1030,14 @@ describe("Consensus Presets", () => {
 describe("Edge Cases", () => {
   describe("Empty and Minimal Inputs", () => {
     it("should handle outputs with empty text", () => {
-      const outputs = [
-        createMockOutput(0, ""),
-        createMockOutput(1, ""),
-      ];
+      const outputs = [createMockOutput(0, ""), createMockOutput(1, "")];
 
       const matrix = calculateSimilarityMatrix(outputs);
       expect(matrix[0][1]).toBe(1.0); // Empty strings are identical
     });
 
     it("should handle outputs with whitespace only", () => {
-      const outputs = [
-        createMockOutput(0, "   "),
-        createMockOutput(1, "\t\n"),
-      ];
+      const outputs = [createMockOutput(0, "   "), createMockOutput(1, "\t\n")];
 
       const similarity = calculateOutputSimilarity(outputs[0], outputs[1]);
       expect(similarity).toBeGreaterThan(0.5);
@@ -1079,7 +1157,15 @@ describe("Integration Scenarios", () => {
       consensus: "validated answer",
       confidence: 0.95,
       outputs: [],
-      agreements: [{ content: "test", count: 3, ratio: 1.0, indices: [0, 1, 2], type: "exact" as const }],
+      agreements: [
+        {
+          content: "test",
+          count: 3,
+          ratio: 1.0,
+          indices: [0, 1, 2],
+          type: "exact" as const,
+        },
+      ],
       disagreements: [],
       analysis: {} as any,
       type: "text" as const,
