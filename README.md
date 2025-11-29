@@ -1,6 +1,17 @@
-# AI2070/L0 - The Missing Reliability Layer for AI
+# L0 - The Missing Reliability Layer for AI
 
 **Tiny. Predictable. Streaming-first.**
+
+> *LLMs are extraordinary minds wrapped in fragile interfaces.*
+> *The reasoning is brilliant.*
+> *The capability is vast.*
+> *The potential is limitless.*
+>
+> *Yet the surface - the streaming layer -*
+> *can flicker, stall, or fracture without warning.*
+>
+> *L0 is the missing foundation.*
+> *A reliability layer that stabilizes the interface so the model's intelligence can actually reach you.*
 
 L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, and **Mastra AI** directly.
 
