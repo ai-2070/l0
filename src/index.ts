@@ -247,6 +247,34 @@ export type {
   AggregatedTelemetry,
 } from "./runtime/parallel";
 
+// Consensus
+export {
+  consensus,
+  quickConsensus,
+  getConsensusValue,
+  validateConsensus,
+} from "./consensus";
+
+export type {
+  ConsensusOptions,
+  ConsensusResult,
+  ConsensusOutput,
+  ConsensusAnalysis,
+  ConsensusStrategy,
+  ConflictResolution,
+  Agreement,
+  Disagreement,
+  FieldConsensus,
+  FieldAgreement,
+} from "./types/consensus";
+
+export {
+  strictConsensus,
+  standardConsensus,
+  lenientConsensus,
+  bestConsensus,
+} from "./types/consensus";
+
 // Format helpers
 export {
   formatContext,

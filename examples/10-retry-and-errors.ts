@@ -23,7 +23,7 @@ async function basicRetry() {
         prompt: "Say hello",
       }),
     retry: {
-      maxAttempts: 3,
+      attempts: 3,
       baseDelay: 1000,
       maxDelay: 10000,
       backoff: "exponential",
@@ -78,7 +78,7 @@ async function errorHandling() {
           prompt: "Hello",
         }),
       guardrails: recommendedGuardrails,
-      retry: { maxAttempts: 1 },
+      retry: { attempts: 1 },
     });
 
     for await (const event of result.stream) {

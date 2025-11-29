@@ -12,7 +12,7 @@ npm install @ai2070/l0
 
 | Feature                                   | Description                                                                                                                                         |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🔁 Smart Retries**                      | Model-aware retries with exponential backoff. Free retries for zero-token output, network stalls, SSE disconnects, and provider overloads.          |
+| **🔁 Smart Retries**                      | Model-aware retries with exponential backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.          |
 | **🌐 Network Protection**                 | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks.                      |
 | **🔀 Model Fallbacks**                    | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic.                                              |
 | **💥 Zero-Token/Stall Protection**        | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks.                                           |
