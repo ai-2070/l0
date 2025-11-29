@@ -182,6 +182,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
             streamText({
               model: openai("gpt-5-nano"),
               prompt: "Write a very long essay about the history of computing",
+              abortSignal: controller.signal,
             }),
           signal: controller.signal,
         });

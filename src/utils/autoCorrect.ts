@@ -75,11 +75,20 @@ function stripUnwantedFormatting(text: string): {
   let result = text;
   const applied: CorrectionType[] = [];
 
-  // Remove markdown code fences
-  const markdownFenceRegex = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/;
-  if (markdownFenceRegex.test(result)) {
-    result = result.replace(markdownFenceRegex, "$1");
+  // Remove markdown code fences - handle both strict and embedded cases
+  // First try strict case (fence at start/end)
+  const strictFenceRegex = /^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/;
+  if (strictFenceRegex.test(result)) {
+    result = result.replace(strictFenceRegex, "$1");
     applied.push("strip_markdown_fence");
+  } else {
+    // Try to extract content from embedded fence
+    const embeddedFenceRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?```/;
+    const match = result.match(embeddedFenceRegex);
+    if (match && match[1]) {
+      result = match[1];
+      applied.push("strip_markdown_fence");
+    }
   }
 
   // Remove "json" prefix at start

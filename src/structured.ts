@@ -10,7 +10,7 @@ import type {
 } from "./types/structured";
 import type { L0Options, L0Event } from "./types/l0";
 import { l0 } from "./runtime/l0";
-import { autoCorrectJSON, isValidJSON } from "./utils/autoCorrect";
+import { autoCorrectJSON, isValidJSON, extractJSON } from "./utils/autoCorrect";
 
 /**
  * L0 Structured Output - Guaranteed valid JSON matching your schema
@@ -212,8 +212,38 @@ export async function structured<T extends z.ZodTypeAny>(
             : new Error(String(parseError));
         errors.push(err);
 
-        // Try one more auto-correction attempt if not already done
-        if (!autoCorrect) {
+        // Try extractJSON to find JSON within surrounding text
+        const extracted = extractJSON(correctedOutput);
+        if (extracted !== correctedOutput) {
+          try {
+            // Try parsing the extracted JSON
+            parsedData = JSON.parse(extracted);
+            correctedOutput = extracted;
+            wasAutoCorrected = true;
+            appliedCorrections.push("extract_json" as any);
+            autoCorrections++;
+          } catch {
+            // Try auto-correction on the extracted content
+            const rescueResult = autoCorrectJSON(extracted, {
+              structural: true,
+              stripFormatting: true,
+            });
+
+            if (rescueResult.success) {
+              parsedData = JSON.parse(rescueResult.corrected);
+              correctedOutput = rescueResult.corrected;
+              wasAutoCorrected = true;
+              appliedCorrections = rescueResult.corrections;
+              autoCorrections++;
+              correctionTypes.push(...rescueResult.corrections);
+            } else {
+              throw new Error(
+                `Invalid JSON after auto-correction: ${err.message}`,
+              );
+            }
+          }
+        } else if (!autoCorrect) {
+          // Try one more auto-correction attempt if not already done
           const rescueResult = autoCorrectJSON(correctedOutput, {
             structural: true,
             stripFormatting: true,

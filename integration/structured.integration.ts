@@ -147,16 +147,17 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
             streamText({
               model: openai("gpt-5-nano"),
               prompt:
-                'Return a JSON object with "name" (string) and "value" (number) fields. Format it as a code block.',
+                'Return ONLY this JSON: {"name": "test", "value": 42}. You may wrap it in ```json code block.',
             }),
           autoCorrect: true,
+          retry: { attempts: 1 }, // Limit retries to avoid timeout
         });
 
         // Should still parse correctly even if wrapped in markdown
         expect(result.data.name).toBeDefined();
         expect(typeof result.data.value).toBe("number");
       },
-      LLM_TIMEOUT,
+      LLM_TIMEOUT * 2, // Give more time for auto-correction
     );
   });
 

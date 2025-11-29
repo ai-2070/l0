@@ -107,6 +107,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
             streamText({
               model: openai("gpt-5-nano"),
               prompt: "Write a very long story about the history of computing",
+              abortSignal: controller.signal,
             }),
           signal: controller.signal,
         });
@@ -520,6 +521,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
             streamText({
               model: openai("gpt-5-nano"),
               prompt: "Write a long essay",
+              abortSignal: controller.signal,
             }),
           signal: controller.signal,
         });
