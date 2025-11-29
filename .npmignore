@@ -1,0 +1,39 @@
+# Source files (dist is published)
+src/
+
+# Tests
+tests/
+*.test.ts
+vitest.config.ts
+coverage/
+
+# Documentation (README is included via package.json files)
+*.md
+!README.md
+
+# Examples
+examples/
+
+# Build artifacts
+html/
+.claude/
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dev dependencies config
+tsconfig.json
+
+# Lock files (users have their own)
+package-lock.json
+
+# Git
+.git/
+.gitignore
