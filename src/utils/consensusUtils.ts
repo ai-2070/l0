@@ -9,7 +9,7 @@ import type {
   FieldAgreement,
   FieldConsensus,
 } from "../types/consensus";
-import { compareStrings, deepEqual, getType } from "./comparison";
+import { compareStrings, deepEqual } from "./comparison";
 
 /**
  * Calculate pairwise similarity matrix for all outputs
@@ -64,66 +64,95 @@ export function calculateOutputSimilarity(
 
 /**
  * Calculate structural similarity between two objects
+ * Optimized with early termination for identical values
  *
  * @param a - First object
  * @param b - Second object
  * @returns Similarity score (0-1)
  */
 export function calculateStructuralSimilarity(a: any, b: any): number {
-  if (deepEqual(a, b)) return 1.0;
+  // Fast path: reference equality
+  if (a === b) return 1.0;
 
-  const typeA = getType(a);
-  const typeB = getType(b);
+  // Fast path: null/undefined
+  if (a === null || a === undefined)
+    return b === null || b === undefined ? 1.0 : 0.0;
+  if (b === null || b === undefined) return 0.0;
 
+  const typeA = typeof a;
+  const typeB = typeof b;
+
+  // Type mismatch - early termination
   if (typeA !== typeB) return 0.0;
 
-  if (typeA === "object") {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    const allKeys = new Set([...keysA, ...keysB]);
-
-    let matches = 0;
-    let total = allKeys.size;
-
-    for (const key of allKeys) {
-      if (key in a && key in b) {
-        const similarity = calculateStructuralSimilarity(a[key], b[key]);
-        matches += similarity;
-      }
+  // Primitives
+  if (typeA !== "object") {
+    if (typeA === "string") {
+      // Fast path: identical strings
+      if (a === b) return 1.0;
+      return compareStrings(a, b, {
+        caseSensitive: false,
+        normalizeWhitespace: true,
+      });
     }
 
-    return total > 0 ? matches / total : 0;
+    if (typeA === "number") {
+      if (a === b) return 1.0;
+      const maxDiff = Math.max(Math.abs(a), Math.abs(b));
+      if (maxDiff === 0) return 1.0;
+      return 1 - Math.abs(a - b) / maxDiff;
+    }
+
+    // boolean or other primitives
+    return a === b ? 1.0 : 0.0;
   }
 
-  if (typeA === "array") {
+  // Array comparison
+  const isArrayA = Array.isArray(a);
+  const isArrayB = Array.isArray(b);
+
+  if (isArrayA !== isArrayB) return 0.0;
+
+  if (isArrayA) {
     const lengthA = a.length;
     const lengthB = b.length;
     const maxLength = Math.max(lengthA, lengthB);
 
     if (maxLength === 0) return 1.0;
 
+    // Fast path: check if arrays are deeply equal first
+    if (lengthA === lengthB && deepEqual(a, b)) return 1.0;
+
     let matches = 0;
-    for (let i = 0; i < Math.min(lengthA, lengthB); i++) {
+    const minLength = Math.min(lengthA, lengthB);
+    for (let i = 0; i < minLength; i++) {
       matches += calculateStructuralSimilarity(a[i], b[i]);
     }
 
     return matches / maxLength;
   }
 
-  if (typeA === "string") {
-    return compareStrings(a, b, {
-      caseSensitive: false,
-      normalizeWhitespace: true,
-    });
+  // Object comparison
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+
+  // Fast path: check if objects are deeply equal first
+  if (keysA.length === keysB.length && deepEqual(a, b)) return 1.0;
+
+  const allKeys = new Set([...keysA, ...keysB]);
+  const total = allKeys.size;
+
+  if (total === 0) return 1.0;
+
+  let matches = 0;
+  for (const key of allKeys) {
+    if (key in a && key in b) {
+      matches += calculateStructuralSimilarity(a[key], b[key]);
+    }
+    // Keys only in one object contribute 0 to matches (implicitly)
   }
 
-  if (typeA === "number") {
-    const maxDiff = Math.max(Math.abs(a), Math.abs(b));
-    if (maxDiff === 0) return 1.0;
-    return 1 - Math.abs(a - b) / maxDiff;
-  }
-
-  return a === b ? 1.0 : 0.0;
+  return matches / total;
 }
 
 /**
