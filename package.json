@@ -67,7 +67,7 @@
     }
   },
   "devDependencies": {
-    "@ai-sdk/openai": "^1.0.0",
+    "@ai-sdk/openai": "^2.0.0 || ^3.0.0",
     "@mastra/core": "^0.24.0",
     "@sentry/node": "^10.27.0",
     "@sentry/types": "^10.27.0",
