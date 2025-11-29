@@ -1,4 +1,4 @@
-// L0 - A Lightweight Runtime for Reliable LLM Apps
+// L0 - The Missing Reliability Layer for AI
 // Main entry point
 
 // Core runtime

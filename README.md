@@ -1,4 +1,4 @@
-# AI2070/L0 - The Missing Reliability Layer for LLM Apps
+# AI2070/L0 - The Missing Reliability Layer for AI
 
 **Tiny. Predictable. Streaming-first.**
 

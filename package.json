@@ -1,7 +1,7 @@
 {
   "name": "l0",
   "version": "0.1.0",
-  "description": "A Lightweight Runtime for Reliable LLM Apps - Streaming, guardrails, drift detection, and retry logic",
+  "description": "The Missing Reliability Layer for AI",
   "license": "MIT",
   "author": "",
   "type": "module",
