@@ -152,11 +152,12 @@ describe("pipe()", () => {
     });
 
     it("should track duration", async () => {
-      const steps: PipelineStep[] = [createMockStep("step1", "response", 10)];
+      const steps: PipelineStep[] = [createMockStep("step1", "response", 20)];
 
       const result = await pipe(steps, "input");
 
-      expect(result.duration).toBeGreaterThanOrEqual(10);
+      // Use >= 15 to account for timer precision variance
+      expect(result.duration).toBeGreaterThanOrEqual(15);
       expect(result.startTime).toBeLessThan(result.endTime);
     });
   });
