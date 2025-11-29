@@ -524,7 +524,7 @@ const result = await l0({
 
 ```typescript
 import { trace, metrics } from "@opentelemetry/api";
-import { l0, L0OpenTelemetry } from "@ai2070/l0";
+import { l0, L0OpenTelemetry, openTelemetryInterceptor } from "@ai2070/l0";
 
 const otel = new L0OpenTelemetry({
   tracer: trace.getTracer("my-app"),
