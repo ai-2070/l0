@@ -290,27 +290,25 @@ Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `
 
 ## Formatting Helpers
 
-Normalize prompts and structure output:
+Utilities for context, memory, output instructions, and tool definitions:
 
 ```typescript
 import { formatContext, formatMemory, formatTool, formatJsonOutput } from "l0";
 
-// Wrap documents safely
-const context = formatContext(document, { role: "user" });
+// Wrap documents with XML/Markdown/bracket delimiters
+const context = formatContext(document, { label: "Documentation", delimiter: "xml" });
 
-// Format conversation memory
-const memory = formatMemory(messages);
+// Format conversation history (conversational, structured, or compact)
+const memory = formatMemory(messages, { style: "conversational", maxEntries: 10 });
 
-// Define tools with JSON schema
-const tool = formatTool({
-  name: "search",
-  description: "Search the web",
-  parameters: { query: { type: "string" } }
-});
+// Define tools with JSON schema, TypeScript, or natural language
+const tool = formatTool({ name: "search", description: "Search", parameters: [...] });
 
-// Request JSON output
-const instruction = formatJsonOutput(schema);
+// Request strict JSON output
+const instruction = formatJsonOutput({ strict: true, schema: "..." });
 ```
+
+See [FORMATTING.md](./FORMATTING.md) for complete API reference.
 
 ---
 
@@ -334,6 +332,7 @@ const instruction = formatJsonOutput(schema);
 | [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md) | Document chunking guide |
 | [NETWORK_ERRORS.md](./NETWORK_ERRORS.md) | Network error handling |
 | [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Parallel operations |
+| [FORMATTING.md](./FORMATTING.md) | Formatting helpers |
 
 ---
 
