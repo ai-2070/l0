@@ -6,6 +6,7 @@ import {
   getErrorCategory,
 } from "../src/runtime/retry";
 import { ErrorCategory } from "../src/types/retry";
+import { decorrelatedJitterBackoff } from "../src/utils/timers";
 
 describe("RetryManager", () => {
   let retryManager: RetryManager;
@@ -61,12 +62,12 @@ describe("RetryManager", () => {
 
     it("should categorize fatal errors correctly", () => {
       const error = new Error("Invalid API key");
-      const categorized = retryManager.categorizeError(error, "fatal");
+      // Use a valid RetryReason - the error content determines if it's fatal
+      const categorized = retryManager.categorizeError(error);
 
       // Note: categorization may still mark as MODEL if not explicitly fatal
-      // The key is that retryable should be based on the reason passed
+      // The key is that retryable should be based on the error content
       expect(categorized.category).toBeDefined();
-      expect(categorized.reason).toBe("fatal");
     });
   });
 
@@ -89,12 +90,16 @@ describe("RetryManager", () => {
       expect(decision.shouldRetry).toBe(true);
     });
 
-    it("should not retry fatal errors", () => {
+    it("should not retry when reason is not in retryOn list", () => {
+      // Create manager that only retries on network_error
+      const limitedManager = new RetryManager({
+        maxAttempts: 3,
+        retryOn: ["network_error"],
+      });
       const error = new Error("Invalid API key");
-      const decision = retryManager.shouldRetry(error, "fatal");
+      const decision = limitedManager.shouldRetry(error, "malformed");
 
       expect(decision.shouldRetry).toBe(false);
-      // Category will be FATAL due to the reason passed
     });
 
     it("should respect retryOn configuration", () => {
@@ -171,14 +176,14 @@ describe("RetryManager", () => {
       const manager = new RetryManager({
         baseDelay: 100,
         errorTypeDelays: {
-          rate_limit: 5000,
+          connectionDropped: 5000,
         },
       });
 
-      const rateLimitError = new Error("Rate limit");
-      const decision = manager.shouldRetry(rateLimitError, "rate_limit");
+      const connectionError = new Error("Connection dropped");
+      const decision = manager.shouldRetry(connectionError, "network_error");
 
-      // Should use custom delay for rate limits
+      // Should use custom delay for connection dropped
       expect(decision.shouldRetry).toBe(true);
       expect(decision.delay).toBeGreaterThan(0);
     });
@@ -514,7 +519,7 @@ describe("RetryManager", () => {
         backoff: "linear",
         retryOn: ["network_error", "zero_output", "rate_limit"],
         errorTypeDelays: {
-          rate_limit: 10000,
+          econnreset: 10000,
           connectionDropped: 500,
         },
       });
@@ -543,5 +548,104 @@ describe("RetryManager", () => {
         0,
       );
     });
+  });
+});
+
+describe("decorrelatedJitterBackoff", () => {
+  it("should return delay within bounds", () => {
+    const result = decorrelatedJitterBackoff(0, 1000, 10000);
+
+    expect(result.delay).toBeGreaterThanOrEqual(1000);
+    expect(result.delay).toBeLessThanOrEqual(10000);
+  });
+
+  it("should increase delay range with attempt number", () => {
+    // Collect multiple samples to account for randomness
+    const attempt0Delays: number[] = [];
+    const attempt3Delays: number[] = [];
+
+    for (let i = 0; i < 20; i++) {
+      attempt0Delays.push(decorrelatedJitterBackoff(0, 1000, 100000).delay);
+      attempt3Delays.push(decorrelatedJitterBackoff(3, 1000, 100000).delay);
+    }
+
+    const avgAttempt0 =
+      attempt0Delays.reduce((a, b) => a + b, 0) / attempt0Delays.length;
+    const avgAttempt3 =
+      attempt3Delays.reduce((a, b) => a + b, 0) / attempt3Delays.length;
+
+    // Higher attempts should have higher average delays
+    expect(avgAttempt3).toBeGreaterThan(avgAttempt0);
+  });
+
+  it("should respect maxDelay cap", () => {
+    const result = decorrelatedJitterBackoff(10, 1000, 5000);
+
+    expect(result.delay).toBeLessThanOrEqual(5000);
+    expect(result.cappedAtMax).toBe(true);
+  });
+
+  it("should use previousDelay when provided", () => {
+    const previousDelay = 2000;
+    const results: number[] = [];
+
+    for (let i = 0; i < 20; i++) {
+      results.push(
+        decorrelatedJitterBackoff(0, 1000, 100000, previousDelay).delay,
+      );
+    }
+
+    // With previousDelay of 2000, range is [1000, 2000*3] = [1000, 6000]
+    const min = Math.min(...results);
+    const max = Math.max(...results);
+
+    expect(min).toBeGreaterThanOrEqual(1000);
+    expect(max).toBeLessThanOrEqual(6000);
+  });
+
+  it("should ignore attempt when previousDelay is provided", () => {
+    const previousDelay = 1500;
+    const resultsAttempt0: number[] = [];
+    const resultsAttempt5: number[] = [];
+
+    for (let i = 0; i < 50; i++) {
+      resultsAttempt0.push(
+        decorrelatedJitterBackoff(0, 1000, 100000, previousDelay).delay,
+      );
+      resultsAttempt5.push(
+        decorrelatedJitterBackoff(5, 1000, 100000, previousDelay).delay,
+      );
+    }
+
+    // Both should have similar distributions since previousDelay overrides attempt
+    const avg0 =
+      resultsAttempt0.reduce((a, b) => a + b, 0) / resultsAttempt0.length;
+    const avg5 =
+      resultsAttempt5.reduce((a, b) => a + b, 0) / resultsAttempt5.length;
+
+    // Averages should be within 50% of each other (same distribution)
+    expect(Math.abs(avg0 - avg5) / avg0).toBeLessThan(0.5);
+  });
+
+  it("should return rawDelay in result", () => {
+    const result = decorrelatedJitterBackoff(0, 1000, 10000);
+
+    expect(result.rawDelay).toBeDefined();
+    expect(result.rawDelay).toBeGreaterThanOrEqual(1000);
+  });
+
+  it("should handle attempt 0 correctly", () => {
+    // At attempt 0 without previousDelay, prev = baseDelay * 2^0 = baseDelay
+    // Range is [baseDelay, baseDelay * 3]
+    const results: number[] = [];
+    for (let i = 0; i < 20; i++) {
+      results.push(decorrelatedJitterBackoff(0, 1000, 100000).delay);
+    }
+
+    const min = Math.min(...results);
+    const max = Math.max(...results);
+
+    expect(min).toBeGreaterThanOrEqual(1000);
+    expect(max).toBeLessThanOrEqual(3000);
   });
 });

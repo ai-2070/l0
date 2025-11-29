@@ -89,12 +89,13 @@ export function fullJitterBackoff(
  * @param previousDelay - Previous delay value (for decorrelation)
  */
 export function decorrelatedJitterBackoff(
-  _attempt: number,
+  attempt: number,
   baseDelay: number = 1000,
   maxDelay: number = 10000,
   previousDelay?: number,
 ): BackoffResult {
-  const prev = previousDelay ?? baseDelay;
+  // Use previousDelay if provided, otherwise scale baseDelay by attempt
+  const prev = previousDelay ?? baseDelay * Math.pow(2, attempt);
   const rawDelay = Math.random() * (prev * 3 - baseDelay) + baseDelay;
   const delay = Math.min(Math.floor(rawDelay), maxDelay);
 
