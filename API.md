@@ -325,7 +325,7 @@ import {
 import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 // RETRY_DEFAULTS
-// { maxAttempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
+// { attemps: 2, baseDelay: 1000, maxDelay: 10000, ... }
 
 // ERROR_TYPE_DELAY_DEFAULTS
 // { connectionDropped: 1000, fetchError: 500, timeout: 1000, ... }
@@ -882,8 +882,9 @@ interface L0Options {
     baseDelay?: number;       // Base delay in ms (default: 1000)
     maxDelay?: number;        // Max delay in ms (default: 10000)
     backoff?: "exponential" | "linear" | "fixed" | "full-jitter";
-    retryOn?: Array<"network_error" | "timeout" | "zero_output" | 
-                    "guardrail_violation" | "drift" | "malformed">;
+    retryOn?: Array<"zero_output" | "guardrail_violation" | "drift" | 
+                    "malformed" | "incomplete" | "network_error" | 
+                    "timeout" | "rate_limit">;
   };
   
   // Timeout configuration (in milliseconds)

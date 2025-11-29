@@ -298,23 +298,57 @@ export class L0OpenTelemetry {
       });
     }
 
-    // Record network errors
+    // Record network errors with type breakdown
     if (telemetry.network.errorCount > 0) {
-      this.errorCounter?.add(telemetry.network.errorCount, {
-        ...attributes,
-        type: "network",
-      });
+      // Record individual error types from errorsByType
+      const errorsByType = telemetry.network.errorsByType;
+      if (errorsByType && Object.keys(errorsByType).length > 0) {
+        for (const [errorType, count] of Object.entries(errorsByType)) {
+          if (count > 0) {
+            this.errorCounter?.add(count, {
+              ...attributes,
+              type: "network",
+              error_type: errorType,
+            });
+          }
+        }
+      } else {
+        // Fallback to aggregate count if no breakdown available
+        this.errorCounter?.add(telemetry.network.errorCount, {
+          ...attributes,
+          type: "network",
+        });
+      }
     }
 
-    // Record guardrail violations
+    // Record guardrail violations with rule/severity breakdown
     if (
       telemetry.guardrails?.violationCount &&
       telemetry.guardrails.violationCount > 0
     ) {
-      this.errorCounter?.add(telemetry.guardrails.violationCount, {
-        ...attributes,
-        type: "guardrail_violation",
-      });
+      const byRuleAndSeverity =
+        telemetry.guardrails.violationsByRuleAndSeverity;
+      if (byRuleAndSeverity && Object.keys(byRuleAndSeverity).length > 0) {
+        // Record violations by rule and severity
+        for (const [rule, severities] of Object.entries(byRuleAndSeverity)) {
+          for (const [severity, count] of Object.entries(severities)) {
+            if (count > 0) {
+              this.errorCounter?.add(count, {
+                ...attributes,
+                type: "guardrail_violation",
+                rule,
+                severity,
+              });
+            }
+          }
+        }
+      } else {
+        // Fallback to aggregate count if no breakdown available
+        this.errorCounter?.add(telemetry.guardrails.violationCount, {
+          ...attributes,
+          type: "guardrail_violation",
+        });
+      }
     }
 
     // Record drift detection

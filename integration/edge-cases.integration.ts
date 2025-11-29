@@ -255,8 +255,8 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
           // consume stream
         }
 
-        // Should have collected violations (at least one for hello or hi pattern)
-        expect(violations.length).toBeGreaterThan(0);
+        // Should have collected multiple violations (at least one for hello AND one for hi pattern)
+        expect(violations.length).toBeGreaterThan(1);
       },
       LLM_TIMEOUT,
     );

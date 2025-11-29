@@ -442,21 +442,21 @@ export function createBranchStep<TInput = any>(
   ifTrue: PipelineStep<TInput>,
   ifFalse: PipelineStep<TInput>,
 ): PipelineStep<TInput> {
-  // Track which branch was taken to avoid re-evaluating condition in transform
-  let lastBranchTaken: PipelineStep<TInput> | null = null;
+  // Use WeakMap keyed by context to track branch per execution (race-safe)
+  const branchByContext = new WeakMap<StepContext, PipelineStep<TInput>>();
 
   return {
     name,
     fn: async (input: TInput, context: StepContext) => {
       const result = await condition(input, context);
       const step = result ? ifTrue : ifFalse;
-      lastBranchTaken = step;
+      branchByContext.set(context, step);
       return step.fn(input, context);
     },
     transform: async (result, context) => {
       // Use the branch that was taken in fn (avoid re-evaluating condition
       // which would fail when this is the first pipeline step)
-      const step = lastBranchTaken ?? ifTrue;
+      const step = branchByContext.get(context) ?? ifTrue;
       if (step.transform) {
         return step.transform(result, context);
       }
