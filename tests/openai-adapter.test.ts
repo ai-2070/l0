@@ -8,6 +8,7 @@ import {
   openaiWithTools,
   isOpenAIChunk,
   extractOpenAIText,
+  type OpenAIClient,
 } from "../src/adapters/openai";
 import type { L0Event } from "../src/types/l0";
 
@@ -16,14 +17,18 @@ function createMockOpenAIChunk(
   content?: string,
   options: {
     finishReason?: string | null;
-    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+    usage?: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    };
     toolCalls?: Array<{
       index: number;
       id?: string;
       function?: { name?: string; arguments?: string };
     }>;
     functionCall?: { name?: string; arguments?: string };
-  } = {}
+  } = {},
 ) {
   return {
     id: "chatcmpl-123",
@@ -53,15 +58,12 @@ async function* createMockOpenAIStream(chunks: any[]): AsyncIterable<any> {
 }
 
 // Mock OpenAI client
-function createMockOpenAIClient(chunks: any[]) {
+function createMockOpenAIClient(chunks: any[]): OpenAIClient {
   return {
     chat: {
       completions: {
-        create: async (params: any) => {
-          if (params.stream) {
-            return createMockOpenAIStream(chunks);
-          }
-          return { choices: [{ message: { content: "non-streaming" } }] };
+        create: async () => {
+          return createMockOpenAIStream(chunks);
         },
       },
     },
@@ -130,7 +132,9 @@ describe("OpenAI SDK Adapter", () => {
       const stream = createMockOpenAIStream(chunks);
       const events: L0Event[] = [];
 
-      for await (const event of wrapOpenAIStream(stream, { includeUsage: false })) {
+      for await (const event of wrapOpenAIStream(stream, {
+        includeUsage: false,
+      })) {
         events.push(event);
       }
 
@@ -147,14 +151,10 @@ describe("OpenAI SDK Adapter", () => {
           ],
         }),
         createMockOpenAIChunk(undefined, {
-          toolCalls: [
-            { index: 0, function: { arguments: '{"location":' } },
-          ],
+          toolCalls: [{ index: 0, function: { arguments: '{"location":' } }],
         }),
         createMockOpenAIChunk(undefined, {
-          toolCalls: [
-            { index: 0, function: { arguments: '"Tokyo"}' } },
-          ],
+          toolCalls: [{ index: 0, function: { arguments: '"Tokyo"}' } }],
         }),
         createMockOpenAIChunk(undefined, { finishReason: "tool_calls" }),
       ];
@@ -239,14 +239,10 @@ describe("OpenAI SDK Adapter", () => {
     it("should emit function call arguments as tokens when enabled", async () => {
       const chunks = [
         createMockOpenAIChunk(undefined, {
-          toolCalls: [
-            { index: 0, id: "call_123", function: { name: "test" } },
-          ],
+          toolCalls: [{ index: 0, id: "call_123", function: { name: "test" } }],
         }),
         createMockOpenAIChunk(undefined, {
-          toolCalls: [
-            { index: 0, function: { arguments: '{"a":1}' } },
-          ],
+          toolCalls: [{ index: 0, function: { arguments: '{"a":1}' } }],
         }),
         createMockOpenAIChunk(undefined, { finishReason: "tool_calls" }),
       ];
@@ -254,7 +250,9 @@ describe("OpenAI SDK Adapter", () => {
       const stream = createMockOpenAIStream(chunks);
       const events: L0Event[] = [];
 
-      for await (const event of wrapOpenAIStream(stream, { emitFunctionCallsAsTokens: true })) {
+      for await (const event of wrapOpenAIStream(stream, {
+        emitFunctionCallsAsTokens: true,
+      })) {
         events.push(event);
       }
 
@@ -267,7 +265,11 @@ describe("OpenAI SDK Adapter", () => {
       const chunks = [
         createMockOpenAIChunk(undefined, {
           toolCalls: [
-            { index: 0, id: "call_123", function: { name: "test", arguments: "{}" } },
+            {
+              index: 0,
+              id: "call_123",
+              function: { name: "test", arguments: "{}" },
+            },
           ],
         }),
         createMockOpenAIChunk(undefined, { finishReason: "tool_calls" }),
@@ -276,7 +278,9 @@ describe("OpenAI SDK Adapter", () => {
       const stream = createMockOpenAIStream(chunks);
       const events: L0Event[] = [];
 
-      for await (const event of wrapOpenAIStream(stream, { includeToolCalls: false })) {
+      for await (const event of wrapOpenAIStream(stream, {
+        includeToolCalls: false,
+      })) {
         events.push(event);
       }
 
@@ -360,7 +364,7 @@ describe("OpenAI SDK Adapter", () => {
       const factory = openaiStream(
         client,
         { model: "gpt-4o", messages: [] },
-        { includeUsage: false }
+        { includeUsage: false },
       );
 
       const stream = await factory();
@@ -438,7 +442,9 @@ describe("OpenAI SDK Adapter", () => {
         events.push(event);
       }
 
-      const tokens = events.filter((e) => e.type === "token").map((e) => e.value);
+      const tokens = events
+        .filter((e) => e.type === "token")
+        .map((e) => e.value);
       expect(tokens.join("")).toBe('{"name":"test"}');
     });
   });
@@ -448,7 +454,11 @@ describe("OpenAI SDK Adapter", () => {
       const chunks = [
         createMockOpenAIChunk(undefined, {
           toolCalls: [
-            { index: 0, id: "call_123", function: { name: "search", arguments: '{"q":"test"}' } },
+            {
+              index: 0,
+              id: "call_123",
+              function: { name: "search", arguments: '{"q":"test"}' },
+            },
           ],
         }),
         createMockOpenAIChunk(undefined, { finishReason: "tool_calls" }),
@@ -471,7 +481,7 @@ describe("OpenAI SDK Adapter", () => {
               },
             },
           },
-        ]
+        ],
       );
 
       const stream = await factory();
@@ -505,7 +515,9 @@ describe("OpenAI SDK Adapter", () => {
 
     it("should return true for chunks with delta", () => {
       expect(isOpenAIChunk({ choices: [{ delta: {} }] })).toBe(true);
-      expect(isOpenAIChunk({ choices: [{ delta: { content: "hi" } }] })).toBe(true);
+      expect(isOpenAIChunk({ choices: [{ delta: { content: "hi" } }] })).toBe(
+        true,
+      );
     });
   });
 

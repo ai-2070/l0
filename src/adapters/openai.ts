@@ -5,7 +5,6 @@
 // Install it with: npm install openai
 
 import type { L0Event } from "../types/l0";
-import type OpenAI from "openai";
 import type { Stream } from "openai/streaming";
 import type {
   ChatCompletionChunk,
@@ -13,6 +12,21 @@ import type {
   ChatCompletionTool,
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
+
+/**
+ * Minimal interface for OpenAI client - only requires the methods we actually use
+ */
+export interface OpenAIClient {
+  chat: {
+    completions: {
+      create(
+        params: ChatCompletionCreateParamsStreaming,
+      ): Promise<
+        Stream<ChatCompletionChunk> | AsyncIterable<ChatCompletionChunk>
+      >;
+    };
+  };
+}
 
 /**
  * Options for wrapping OpenAI streams
@@ -280,7 +294,7 @@ export async function* wrapOpenAIStream(
  * ```
  */
 export function openaiStream(
-  client: OpenAI,
+  client: OpenAIClient,
   params: Omit<ChatCompletionCreateParamsStreaming, "stream">,
   options?: OpenAIAdapterOptions,
 ): () => Promise<AsyncGenerator<L0Event>> {
@@ -315,7 +329,7 @@ export function openaiStream(
  * ```
  */
 export function openaiText(
-  client: OpenAI,
+  client: OpenAIClient,
   model: string,
   prompt: string | ChatCompletionMessageParam[],
   options?: Omit<
@@ -365,7 +379,7 @@ export function openaiText(
  * ```
  */
 export function openaiJSON(
-  client: OpenAI,
+  client: OpenAIClient,
   model: string,
   prompt: string | ChatCompletionMessageParam[],
   options?: Omit<
@@ -432,7 +446,7 @@ export function openaiJSON(
  * ```
  */
 export function openaiWithTools(
-  client: OpenAI,
+  client: OpenAIClient,
   model: string,
   messages: ChatCompletionMessageParam[],
   tools: ChatCompletionTool[],
