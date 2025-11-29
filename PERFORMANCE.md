@@ -102,26 +102,24 @@ retry: { attempts: 3, maxRetries: 10 }
 Only retry on specific error types:
 
 ```typescript
-// Minimal - only retry network issues
-retry: {
-  retryOn: ["network_error", "timeout"]
-}
-
-// Standard - add output quality issues
-retry: {
-  retryOn: ["network_error", "timeout", "zero_output", "guardrail_violation"]
-}
-
-// Comprehensive
+// Defaults to all recoverable errors
 retry: {
   retryOn: [
-    "network_error",
-    "timeout",
     "zero_output",
     "guardrail_violation",
     "drift",
     "malformed",
-  ]
+    "incomplete",
+    "network_error",
+    "timeout",
+    "rate_limit",
+    "server_error",
+  ],
+}
+
+// Minimal - only retry network issues
+retry: {
+  retryOn: ["network_error", "timeout"]
 }
 ```
 

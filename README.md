@@ -77,7 +77,6 @@ const result = await l0({
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential",
-    retryOn: ["zero_output", "guardrail_violation"],
   },
   // Or simply:
   // retry: recommendedRetry,
@@ -236,7 +235,20 @@ const result = await l0({
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential", // or "linear", "fixed", "full-jitter"
-    retryOn: ["zero_output", "guardrail_violation", "drift", "network_error", "timeout", "rate_limit"],
+
+    // Optional: specify which error types to retry on, defaults to all recoverable errors
+    retryOn: [
+      "zero_output",
+      "guardrail_violation",
+      "drift",
+      "malformed",
+      "incomplete",
+      "network_error",
+      "timeout",
+      "rate_limit",
+      "server_error",
+    ],
+
     // Custom delays per error type (overrides baseDelay)
     errorTypeDelays: {
       connectionDropped: 2000,

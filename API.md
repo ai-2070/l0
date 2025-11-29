@@ -43,7 +43,19 @@ const result = await l0({
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential",
-    retryOn: ["zero_output", "guardrail_violation"],
+
+    // Optional: specify which error types to retry on, defaults to all recoverable errors
+    retryOn: [
+      "zero_output",
+      "guardrail_violation",
+      "drift",
+      "malformed",
+      "incomplete",
+      "network_error",
+      "timeout",
+      "rate_limit",
+      "server_error",
+    ],
   },
 
   // Optional: Timeouts (ms)
@@ -342,7 +354,20 @@ const result = await l0({
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential", // "exponential" | "linear" | "fixed" | "full-jitter"
-    retryOn: ["zero_output", "guardrail_violation", "network_error"],
+    
+    // Optional: specify which error types to retry on, defaults to all recoverable errors
+    retryOn: [
+      "zero_output",
+      "guardrail_violation",
+      "drift",
+      "malformed",
+      "incomplete",
+      "network_error",
+      "timeout",
+      "rate_limit",
+      "server_error",
+    ],
+
     maxErrorHistory: 100, // Prevent memory leaks
     errorTypeDelays: {
       connectionDropped: 2000,
