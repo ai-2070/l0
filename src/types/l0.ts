@@ -6,6 +6,20 @@ import type { GuardrailRule, GuardrailViolation } from "./guardrails";
 export type { GuardrailRule, GuardrailViolation } from "./guardrails";
 
 /**
+ * Result of checkpoint validation for continuation
+ */
+export interface CheckpointValidationResult {
+  /** Whether to skip continuation and start fresh */
+  skipContinuation: boolean;
+  /** Guardrail violations found in checkpoint */
+  violations: GuardrailViolation[];
+  /** Whether drift was detected */
+  driftDetected: boolean;
+  /** Drift types if detected */
+  driftTypes: string[];
+}
+
+/**
  * Unified event format that L0 normalizes all streaming events into
  */
 export interface L0Event {
@@ -166,23 +180,34 @@ export interface L0Options {
    * Custom function to build the continuation prompt.
    * Only used when continueFromLastKnownGoodToken is true.
    *
-   * @param checkpoint - The last known good content
-   * @param originalPrompt - The original prompt (if extractable)
-   * @returns The continuation prompt to use
+   * When a retry or fallback occurs with a checkpoint, this function is called
+   * to build a prompt that tells the LLM to continue from where it left off.
+   * The returned string should be used as the new prompt for the retry.
    *
-   * @default Prepends checkpoint with "Continue from:" prefix
+   * Note: Since L0 receives stream factories (not prompts directly), you must
+   * provide a stream factory that uses this modified prompt. The onContinuation
+   * callback can be used to update external state before the retry.
+   *
+   * @param checkpoint - The last known good content to continue from
+   * @returns The continuation prompt to use for the retry
    *
    * @example
    * ```typescript
-   * continueFromLastKnownGoodToken: true,
-   * buildContinuationPrompt: (checkpoint, original) =>
-   *   `${original}\n\nPrevious output (continue from here):\n${checkpoint}`
+   * let continuationPrompt = "";
+   * const result = await l0({
+   *   stream: () => streamText({
+   *     model,
+   *     prompt: continuationPrompt || originalPrompt,
+   *   }),
+   *   continueFromLastKnownGoodToken: true,
+   *   buildContinuationPrompt: (checkpoint) => {
+   *     continuationPrompt = `${originalPrompt}\n\nContinue from:\n${checkpoint}`;
+   *     return continuationPrompt;
+   *   },
+   * });
    * ```
    */
-  buildContinuationPrompt?: (
-    checkpoint: string,
-    originalPrompt?: string,
-  ) => string;
+  buildContinuationPrompt?: (checkpoint: string) => string;
 
   /**
    * Optional callback for each event

@@ -236,12 +236,16 @@ export class L0Monitor {
 
     this.telemetry.continuation.enabled = enabled;
 
-    if (used && checkpointContent) {
+    if (used) {
       this.telemetry.continuation.used = true;
-      this.telemetry.continuation.checkpointContent = checkpointContent;
-      this.telemetry.continuation.checkpointLength = checkpointContent.length;
       this.telemetry.continuation.continuationCount =
         (this.telemetry.continuation.continuationCount || 0) + 1;
+
+      // Only record content details if checkpoint content is provided
+      if (checkpointContent) {
+        this.telemetry.continuation.checkpointContent = checkpointContent;
+        this.telemetry.continuation.checkpointLength = checkpointContent.length;
+      }
     }
   }
 

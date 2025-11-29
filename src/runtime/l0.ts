@@ -1,6 +1,12 @@
 // Main L0 runtime wrapper - streaming, guardrails, retry, and reliability layer
 
-import type { L0Options, L0Result, L0State, L0Event } from "../types/l0";
+import type {
+  L0Options,
+  L0Result,
+  L0State,
+  L0Event,
+  CheckpointValidationResult,
+} from "../types/l0";
 import type { GuardrailContext } from "../types/guardrails";
 import { GuardrailEngine } from "../guardrails/engine";
 import { RetryManager } from "./retry";
@@ -12,6 +18,56 @@ import { normalizeStreamEvent } from "./events";
 import { L0Monitor } from "./monitoring";
 import { isNetworkError, L0Error } from "../utils/errors";
 import { InterceptorManager } from "./interceptors";
+
+/**
+ * Validate checkpoint content before using for continuation
+ * This ensures all protections apply to the resumed content
+ */
+function validateCheckpointForContinuation(
+  checkpointContent: string,
+  guardrailEngine: GuardrailEngine | null,
+  driftDetector: DriftDetector | null,
+): CheckpointValidationResult {
+  const result: CheckpointValidationResult = {
+    skipContinuation: false,
+    violations: [],
+    driftDetected: false,
+    driftTypes: [],
+  };
+
+  // Run guardrails on checkpoint content
+  if (guardrailEngine) {
+    const checkpointContext: GuardrailContext = {
+      content: checkpointContent,
+      checkpoint: "",
+      delta: checkpointContent,
+      tokenCount: 1,
+      completed: false,
+    };
+    const checkpointResult = guardrailEngine.check(checkpointContext);
+    if (checkpointResult.violations.length > 0) {
+      result.violations = checkpointResult.violations;
+      // Check for fatal violations - if any, skip continuation
+      const hasFatal = checkpointResult.violations.some(
+        (v) => v.severity === "fatal",
+      );
+      if (hasFatal) {
+        result.skipContinuation = true;
+      }
+    }
+  }
+
+  // Run drift detection on checkpoint content (only if not already skipping)
+  if (!result.skipContinuation && driftDetector) {
+    const driftResult = driftDetector.check(checkpointContent);
+    if (driftResult.detected) {
+      result.driftDetected = true;
+      result.driftTypes = driftResult.types;
+    }
+  }
+
+  return result;
+}
 
 /**
  * Main L0 wrapper function
@@ -66,8 +122,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
     onViolation: processedOnViolation,
     onRetry: processedOnRetry,
     continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
-    // buildContinuationPrompt reserved for future use
-    // buildContinuationPrompt: processedBuildContinuationPrompt,
+    buildContinuationPrompt: processedBuildContinuationPrompt,
   } = processedOptions;
 
   // Configure check intervals with defaults
@@ -158,63 +213,50 @@ export async function l0(options: L0Options): Promise<L0Result> {
             ) {
               checkpointForContinuation = state.checkpoint;
 
-              // Run guardrails on checkpoint content before using for continuation
-              // This ensures all protections apply to the resumed content
-              if (guardrailEngine) {
-                const checkpointContext: GuardrailContext = {
-                  content: checkpointForContinuation,
-                  checkpoint: "",
-                  delta: checkpointForContinuation,
-                  tokenCount: 1,
-                  completed: false,
-                };
-                const checkpointResult =
-                  guardrailEngine.check(checkpointContext);
-                if (checkpointResult.violations.length > 0) {
-                  // Record violations but don't block continuation
-                  // The checkpoint was already validated during initial streaming
-                  state.violations.push(...checkpointResult.violations);
-                  monitor.recordGuardrailViolations(
-                    checkpointResult.violations,
-                  );
+              // Validate checkpoint content before continuation
+              const validation = validateCheckpointForContinuation(
+                checkpointForContinuation,
+                guardrailEngine,
+                driftDetector,
+              );
 
-                  // Check for fatal violations - if any, don't continue from checkpoint
-                  const hasFatal = checkpointResult.violations.some(
-                    (v) => v.severity === "fatal",
-                  );
-                  if (hasFatal) {
-                    // Don't use checkpoint, start fresh
-                    tokenBuffer = [];
-                    state.content = "";
-                    state.tokenCount = 0;
-                    state.violations = [];
-                    state.driftDetected = false;
-                    continue;
-                  }
+              // Record any violations found
+              if (validation.violations.length > 0) {
+                state.violations.push(...validation.violations);
+                monitor.recordGuardrailViolations(validation.violations);
+              }
+
+              // Record drift if detected
+              if (validation.driftDetected) {
+                state.driftDetected = true;
+                monitor.recordDrift(true, validation.driftTypes);
+                if (processedOnViolation) {
+                  processedOnViolation({
+                    rule: "drift",
+                    severity: "warning",
+                    message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
+                    recoverable: true,
+                  });
                 }
               }
 
-              // Run drift detection on checkpoint content
-              if (driftDetector) {
-                const driftResult = driftDetector.check(
-                  checkpointForContinuation,
-                );
-                if (driftResult.detected) {
-                  state.driftDetected = true;
-                  monitor.recordDrift(true, driftResult.types);
-                  if (processedOnViolation) {
-                    processedOnViolation({
-                      rule: "drift",
-                      severity: "warning",
-                      message: `Drift detected in checkpoint: ${driftResult.types.join(", ")}`,
-                      recoverable: true,
-                    });
-                  }
-                }
+              if (validation.skipContinuation) {
+                // Fatal violation in checkpoint, start fresh
+                tokenBuffer = [];
+                state.content = "";
+                state.tokenCount = 0;
+                state.violations = [];
+                state.driftDetected = false;
+                continue;
               }
 
               state.continuedFromCheckpoint = true;
               state.continuationCheckpoint = checkpointForContinuation;
+
+              // Call buildContinuationPrompt if provided (allows user to update prompt for retry)
+              if (processedBuildContinuationPrompt) {
+                processedBuildContinuationPrompt(checkpointForContinuation);
+              }
 
               // Record continuation in monitoring
               monitor.recordContinuation(true, true, checkpointForContinuation);
@@ -700,55 +742,41 @@ export async function l0(options: L0Options): Promise<L0Result> {
           if (processedContinueFromCheckpoint && state.checkpoint.length > 0) {
             checkpointForContinuation = state.checkpoint;
 
-            // Run guardrails on checkpoint content before using for continuation
-            // This ensures all protections apply to the resumed content
-            let skipContinuation = false;
-            if (guardrailEngine) {
-              const checkpointContext: GuardrailContext = {
-                content: checkpointForContinuation,
-                checkpoint: "",
-                delta: checkpointForContinuation,
-                tokenCount: 1,
-                completed: false,
-              };
-              const checkpointResult = guardrailEngine.check(checkpointContext);
-              if (checkpointResult.violations.length > 0) {
-                // Record violations
-                state.violations.push(...checkpointResult.violations);
-                monitor.recordGuardrailViolations(checkpointResult.violations);
+            // Validate checkpoint content before continuation
+            const validation = validateCheckpointForContinuation(
+              checkpointForContinuation,
+              guardrailEngine,
+              driftDetector,
+            );
 
-                // Check for fatal violations - if any, don't continue from checkpoint
-                const hasFatal = checkpointResult.violations.some(
-                  (v) => v.severity === "fatal",
-                );
-                if (hasFatal) {
-                  skipContinuation = true;
-                }
+            // Record any violations found
+            if (validation.violations.length > 0) {
+              state.violations.push(...validation.violations);
+              monitor.recordGuardrailViolations(validation.violations);
+            }
+
+            // Record drift if detected
+            if (validation.driftDetected) {
+              state.driftDetected = true;
+              monitor.recordDrift(true, validation.driftTypes);
+              if (processedOnViolation) {
+                processedOnViolation({
+                  rule: "drift",
+                  severity: "warning",
+                  message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
+                  recoverable: true,
+                });
               }
             }
 
-            // Run drift detection on checkpoint content
-            if (!skipContinuation && driftDetector) {
-              const driftResult = driftDetector.check(
-                checkpointForContinuation,
-              );
-              if (driftResult.detected) {
-                state.driftDetected = true;
-                monitor.recordDrift(true, driftResult.types);
-                if (processedOnViolation) {
-                  processedOnViolation({
-                    rule: "drift",
-                    severity: "warning",
-                    message: `Drift detected in checkpoint: ${driftResult.types.join(", ")}`,
-                    recoverable: true,
-                  });
-                }
-              }
-            }
-
-            if (!skipContinuation) {
+            if (!validation.skipContinuation) {
               state.continuedFromCheckpoint = true;
               state.continuationCheckpoint = checkpointForContinuation;
+
+              // Call buildContinuationPrompt if provided (allows user to update prompt for fallback)
+              if (processedBuildContinuationPrompt) {
+                processedBuildContinuationPrompt(checkpointForContinuation);
+              }
 
               // Record continuation in monitoring
               monitor.recordContinuation(true, true, checkpointForContinuation);

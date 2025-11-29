@@ -330,10 +330,34 @@ console.log(result.state.continuationCheckpoint);  // The checkpoint content
 
 ### How It Works
 
-1. L0 maintains a checkpoint of successfully received tokens
-2. When a retry or fallback is triggered, the checkpoint content is emitted first
-3. The model continues generation from where it left off
-4. Telemetry tracks whether continuation was enabled and used
+1. L0 maintains a checkpoint of successfully received tokens (every N tokens, configurable via `checkIntervals.checkpoint`)
+2. When a retry or fallback is triggered, the checkpoint is validated against guardrails and drift detection
+3. If validation passes, the checkpoint content is emitted first to the consumer
+4. The `buildContinuationPrompt` callback (if provided) is called to allow updating the prompt for continuation
+5. Telemetry tracks whether continuation was enabled, used, and the checkpoint details
+
+### Using buildContinuationPrompt
+
+To have the LLM actually continue from where it left off (rather than just replaying tokens locally), use `buildContinuationPrompt` to modify the prompt:
+
+```typescript
+let continuationPrompt = "";
+const originalPrompt = "Write a detailed analysis of...";
+
+const result = await l0({
+  stream: () => streamText({ 
+    model: openai("gpt-4o"), 
+    prompt: continuationPrompt || originalPrompt,
+  }),
+  continueFromLastKnownGoodToken: true,
+  buildContinuationPrompt: (checkpoint) => {
+    // Update the prompt to tell the LLM to continue from checkpoint
+    continuationPrompt = `${originalPrompt}\n\nContinue from where you left off:\n${checkpoint}`;
+    return continuationPrompt;
+  },
+  retry: { attempts: 2 },
+});
+```
 
 ### Example: Resuming After Network Error
 
@@ -348,6 +372,7 @@ const result = await l0({
   ],
   retry: { attempts: 2 },
   continueFromLastKnownGoodToken: true,
+  checkIntervals: { checkpoint: 10 }, // Save checkpoint every 10 tokens
   monitoring: { enabled: true },
 });
 
@@ -363,6 +388,14 @@ if (result.telemetry?.continuation?.used) {
     result.telemetry.continuation.checkpointLength);
 }
 ```
+
+### Checkpoint Validation
+
+Before using a checkpoint for continuation, L0 validates it:
+
+- **Guardrails**: All configured guardrails are run against the checkpoint content
+- **Drift Detection**: If enabled, checks for format drift in the checkpoint
+- **Fatal Violations**: If any guardrail returns a fatal violation, the checkpoint is discarded and retry starts fresh
 
 ### Important Limitations
 
@@ -722,7 +755,7 @@ OPENAI_API_KEY=sk-... npm run test:integration
 
 | Category          | Tests | Description                      |
 | ----------------- | ----- | -------------------------------- |
-| Unit Tests        | 1206  | Fast, mocked, no API calls       |
+| Unit Tests        | 1210  | Fast, mocked, no API calls       |
 | Integration Tests | 40+   | Real API calls, all SDK adapters |
 
 ### SDK Adapter Matrix

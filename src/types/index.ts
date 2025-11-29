@@ -12,6 +12,7 @@ export type {
   L0Telemetry,
   CategorizedNetworkError,
   RetryOptions,
+  CheckpointValidationResult,
 } from "./l0";
 export {
   minimalGuardrails,

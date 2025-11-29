@@ -93,6 +93,7 @@ export type {
   CategorizedNetworkError,
   L0Interceptor,
   RetryOptions,
+  CheckpointValidationResult,
   GuardrailRule,
   GuardrailViolation,
   GuardrailContext,
