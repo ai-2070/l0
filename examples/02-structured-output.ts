@@ -20,7 +20,7 @@ async function basicStructured() {
     schema,
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt:
           "Generate a fictional person as JSON with name, age, and occupation fields",
       }),
@@ -51,7 +51,7 @@ async function nestedSchema() {
     schema,
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Generate a fictional tech startup with 3 employees as JSON",
       }),
     autoCorrect: true,
@@ -78,7 +78,7 @@ async function arrayOutput() {
   const result = await structuredArray(itemSchema, {
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt:
           "List 3 classic science fiction books as a JSON array with title, author, and year",
       }),

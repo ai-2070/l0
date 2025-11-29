@@ -185,9 +185,9 @@ z.object({
 ```typescript
 const result = await structured({
   schema,
-  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
+  stream: () => streamText({ model: openai("gpt-5.1"), prompt }),
   fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: openai("gpt-5-mini"), prompt }),
     () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
   ],
 });

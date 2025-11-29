@@ -200,14 +200,14 @@ Try models one at a time, moving to next only if current exhausts retries:
 
 ```typescript
 const result = await l0({
-  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
+  stream: () => streamText({ model: openai("gpt-5.1"), prompt }),
   fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: openai("gpt-5-mini"), prompt }),
     () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
   ],
   retry: recommendedRetry,
 });
-// 1. GPT-4o (2 retries) → 2. GPT-4o-mini (2 retries) → 3. Claude Haiku (2 retries)
+// 1. GPT-4o (2 retries) → 2. gpt-5-mini (2 retries) → 3. Claude Haiku (2 retries)
 ```
 
 **Use when:** Cost matters, latency acceptable, high availability required.
@@ -242,11 +242,11 @@ const result = await race([
 const result = await l0({
   stream: async () =>
     race([
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+      () => streamText({ model: openai("gpt-5.1"), prompt }),
       () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
     ]),
   fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o"), prompt }),
+    () => streamText({ model: openai("gpt-5-mini"), prompt }),
     () => streamText({ model: anthropic("claude-3-opus"), prompt }),
   ],
 });

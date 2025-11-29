@@ -29,7 +29,7 @@ const result = await l0({
 
 **Recommendations:**
 
-- **Fast models (GPT-4o-mini, Claude Haiku):** 1500-2000ms
+- **Fast models (gpt-5-mini, Claude Haiku):** 1500-2000ms
 - **Standard models (GPT-4o, Claude Sonnet):** 2000-3000ms
 - **Large models (GPT-4, Claude Opus):** 3000-5000ms
 - **Edge/mobile networks:** Add 1000-2000ms buffer

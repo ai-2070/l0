@@ -19,7 +19,7 @@ async function basicRetry() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Say hello",
       }),
     retry: {
@@ -51,7 +51,7 @@ async function recommendedRetryExample() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Generate a random number between 1 and 100",
       }),
     retry: recommendedRetry,
@@ -74,7 +74,7 @@ async function errorHandling() {
     const result = await l0({
       stream: () =>
         streamText({
-          model: openai("gpt-4o-mini"),
+          model: openai("gpt-5-nano"),
           prompt: "Hello",
         }),
       guardrails: recommendedGuardrails,
@@ -113,7 +113,7 @@ async function timeouts() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Write a haiku",
       }),
     timeout: {
@@ -151,7 +151,7 @@ async function abortHandling() {
     const result = await l0({
       stream: () =>
         streamText({
-          model: openai("gpt-4o-mini"),
+          model: openai("gpt-5-nano"),
           prompt: "Write a long story about a dragon",
         }),
       signal: controller.signal,

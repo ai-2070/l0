@@ -21,7 +21,7 @@ async function jsonGuardrail() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Generate a JSON object with name and age fields",
       }),
     guardrails: [jsonRule()],
@@ -56,7 +56,7 @@ async function customPatterns() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Write a short greeting",
       }),
     guardrails: [
@@ -93,7 +93,7 @@ async function presets() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Say hello",
       }),
     guardrails: recommendedGuardrails,
@@ -132,7 +132,7 @@ async function customGuardrail() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Write a detailed explanation of recursion",
       }),
     guardrails: [minLengthRule, ...recommendedGuardrails],

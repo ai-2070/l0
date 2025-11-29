@@ -20,13 +20,13 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say 'primary'",
             }),
           fallbackStreams: [
             () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'fallback'",
               }),
           ],
@@ -52,7 +52,7 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
           fallbackStreams: [
             () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'fallback worked'",
               }),
           ],
@@ -81,7 +81,7 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             },
             () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'fallback 2 worked'",
               }),
           ],
@@ -109,21 +109,21 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             {
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say '1'",
                 }),
             },
             {
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say '2'",
                 }),
             },
             {
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say '3'",
                 }),
             },
@@ -154,7 +154,7 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             {
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'success'",
                 }),
             },
@@ -166,7 +166,7 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             {
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'also success'",
                 }),
             },
@@ -189,14 +189,14 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
           {
             stream: () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'racer 1'",
               }),
           },
           {
             stream: () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'racer 2'",
               }),
           },
@@ -221,7 +221,7 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
           fallbackStreams: [
             () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Write a greeting",
               }),
           ],

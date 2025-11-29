@@ -48,7 +48,7 @@ export interface L0Options {
    * {
    *   stream: () => streamText({ model: openai('gpt-4o'), prompt }),
    *   fallbackStreams: [
-   *     () => streamText({ model: openai('gpt-4o-mini'), prompt }),
+   *     () => streamText({ model: openai('gpt-5-mini'), prompt }),
    *     () => streamText({ model: openai('gpt-3.5-turbo'), prompt })
    *   ]
    * }

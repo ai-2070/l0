@@ -26,7 +26,7 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
           schema,
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt:
                 "Generate a person with name and age as JSON. Use any values.",
             }),
@@ -56,7 +56,7 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
           schema,
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt:
                 "Generate a user object with nested user (name, email) and active boolean as JSON.",
             }),
@@ -84,7 +84,7 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
         const result = await structuredArray(itemSchema, {
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt:
                 "Generate a JSON array with 3 items, each having id (number) and title (string).",
             }),
@@ -115,7 +115,7 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
           {
             stream: () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt:
                   "Generate a city info object with city, country, and population as JSON.",
               }),
@@ -144,7 +144,7 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
           schema,
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt:
                 'Return this exact text including the backticks: ```json\n{"value": "test"}\n```',
             }),
@@ -171,7 +171,7 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
           schema,
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt:
                 "Generate JSON with status (one of: active, inactive, pending) and priority (one of: low, medium, high).",
             }),
@@ -196,7 +196,7 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
           schema,
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt:
                 'Generate JSON with a "required" string field. Optionally include an "optional" field.',
             }),
@@ -220,7 +220,7 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
           schema,
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt:
                 "Generate JSON with a 'tags' array containing 2-3 string tags.",
             }),
@@ -245,7 +245,7 @@ describeIf(hasOpenAI)("Structured Output Integration", () => {
           schema,
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: 'Return {"value": "test"}',
             }),
           monitoring: { enabled: true },

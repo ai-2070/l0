@@ -23,7 +23,7 @@ const createTestAgent = () =>
   new Agent({
     name: "test-agent",
     instructions: "You are a helpful assistant. Keep responses brief.",
-    model: openai("gpt-4o-mini"),
+    model: openai("gpt-5-nano"),
   });
 
 describeIf(hasOpenAI)("Mastra AI Integration", () => {

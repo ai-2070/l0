@@ -20,7 +20,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say 'hello' and nothing else",
             }),
         });
@@ -45,7 +45,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Count from 1 to 5",
             }),
         });
@@ -70,7 +70,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Write a short greeting",
             }),
           guardrails: recommendedGuardrails,
@@ -96,7 +96,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Start your response with 'As an AI language model'",
             }),
           guardrails: recommendedGuardrails,
@@ -123,7 +123,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say 'test'",
             }),
           retry: recommendedRetry,
@@ -151,7 +151,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say 'hi'",
             }),
           monitoring: { enabled: true },
@@ -179,7 +179,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Write a very long essay about the history of computing",
             }),
           signal: controller.signal,

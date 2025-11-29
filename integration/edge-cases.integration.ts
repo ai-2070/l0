@@ -95,7 +95,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Write a very long story about the history of computing",
             }),
           signal: controller.signal,
@@ -126,7 +126,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say 'hi'",
             }),
           signal: controller.signal,
@@ -151,7 +151,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Reply with only the letter 'X' and nothing else",
             }),
         });
@@ -172,7 +172,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt:
                 'Reply with these exact characters: @#$%^&*(){}[]|\\:";<>?,./~`',
             }),
@@ -193,7 +193,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Reply with 3 different emojis",
             }),
         });
@@ -215,7 +215,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say hello",
             }),
           guardrails: [],
@@ -244,7 +244,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say 'Hello! Hi there!'",
             }),
           guardrails: strictGuardrails,
@@ -267,7 +267,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Start your response with 'As an AI'",
             }),
           guardrails: recommendedGuardrails,
@@ -303,7 +303,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
               throw new Error("Transient error");
             }
             return streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say 'success'",
             });
           },
@@ -383,7 +383,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
               stream: () => {
                 operationsStarted++;
                 return streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'hello'",
                 });
               },
@@ -406,7 +406,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
           {
             stream: () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'only one'",
               }),
           },
@@ -471,7 +471,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
           fallbackStreams: [
             () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'fallback'",
               }),
           ],
@@ -498,7 +498,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Write a long essay",
             }),
           signal: controller.signal,
