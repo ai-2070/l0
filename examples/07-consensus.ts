@@ -26,7 +26,7 @@ async function majorityConsensus() {
   console.log("Confidence:", result.confidence);
   console.log(
     "Individual responses:",
-    result.responses.map((r) => r.trim()),
+    result.outputs.map((o) => o.text.trim()),
   );
 }
 
@@ -63,18 +63,12 @@ async function bestResponse() {
       () => streamText({ model: openai("gpt-5-nano"), prompt }),
     ],
     strategy: "best",
-    scorer: (response) => {
-      // Simple scorer: prefer shorter, punchier taglines
-      const length = response.length;
-      const hasExclamation = response.includes("!");
-      return (hasExclamation ? 10 : 0) + (100 - length);
-    },
   });
 
   console.log("Best tagline:", result.consensus);
   console.log("All options:");
-  result.responses.forEach((r, i) => {
-    console.log(`  ${i + 1}. ${r.trim()}`);
+  result.outputs.forEach((o, i) => {
+    console.log(`  ${i + 1}. ${o.text.trim()}`);
   });
 }
 

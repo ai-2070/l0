@@ -167,7 +167,9 @@ export class L0EventRecorder {
     this.seq++;
   }
 
-  async recordStart(options: L0RecordedEvent extends { type: "START" } ? L0RecordedEvent["options"] : never): Promise<void> {
+  async recordStart(
+    options: Extract<L0RecordedEvent, { type: "START" }>["options"],
+  ): Promise<void> {
     await this.record({
       type: "START",
       ts: Date.now(),
@@ -195,7 +197,7 @@ export class L0EventRecorder {
 
   async recordGuardrail(
     at: number,
-    result: L0RecordedEvent extends { type: "GUARDRAIL" } ? L0RecordedEvent["result"] : never,
+    result: Extract<L0RecordedEvent, { type: "GUARDRAIL" }>["result"],
   ): Promise<void> {
     await this.record({
       type: "GUARDRAIL",
@@ -207,7 +209,7 @@ export class L0EventRecorder {
 
   async recordDrift(
     at: number,
-    result: L0RecordedEvent extends { type: "DRIFT" } ? L0RecordedEvent["result"] : never,
+    result: Extract<L0RecordedEvent, { type: "DRIFT" }>["result"],
   ): Promise<void> {
     await this.record({
       type: "DRIFT",
@@ -258,7 +260,7 @@ export class L0EventRecorder {
   }
 
   async recordError(
-    error: L0RecordedEvent extends { type: "ERROR" } ? L0RecordedEvent["error"] : never,
+    error: Extract<L0RecordedEvent, { type: "ERROR" }>["error"],
     recoverable: boolean,
   ): Promise<void> {
     await this.record({

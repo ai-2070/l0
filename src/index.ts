@@ -245,6 +245,7 @@ export {
 export type {
   ParallelOptions,
   ParallelResult,
+  RaceResult,
   AggregatedTelemetry,
 } from "./runtime/parallel";
 

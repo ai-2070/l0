@@ -27,7 +27,7 @@ async function raceExample() {
   ]);
 
   console.log("Winner:", result.state.content);
-  console.log("Index:", result.winnerIndex);
+  console.log("Winner Index:", result.winnerIndex);
 }
 
 // Example 2: Parallel execution

@@ -44,6 +44,16 @@ export interface ParallelOptions {
 }
 
 /**
+ * Result from race operation - includes winner index
+ */
+export interface RaceResult extends L0Result {
+  /**
+   * Index of the winning operation (0-based)
+   */
+  winnerIndex: number;
+}
+
+/**
  * Result from parallel operations
  */
 export interface ParallelResult {
@@ -338,12 +348,12 @@ export async function batched(
  * Cancels other operations when one succeeds
  *
  * @param operations - Array of L0 options
- * @returns Promise that resolves with first successful result
+ * @returns Promise that resolves with first successful result including winnerIndex
  */
 export async function race(
   operations: L0Options[],
   options: Pick<ParallelOptions, "sharedRetry" | "sharedMonitoring"> = {},
-): Promise<L0Result> {
+): Promise<RaceResult> {
   const { sharedRetry, sharedMonitoring } = options;
 
   // Add abort controllers to each operation
@@ -355,22 +365,22 @@ export async function race(
     signal: controllers[index]!.signal,
   }));
 
-  const promises = mergedOperations.map(async (op) => {
+  const promises = mergedOperations.map(async (op, index) => {
     const result = await l0(op);
     // Consume stream
     for await (const _event of result.stream) {
       // Stream consumption
     }
-    return result;
+    return { result, index };
   });
 
   try {
-    const result = await Promise.race(promises);
+    const { result, index } = await Promise.race(promises);
 
     // Abort all other operations
     controllers.forEach((controller) => controller.abort());
 
-    return result;
+    return { ...result, winnerIndex: index };
   } catch (error) {
     // All operations failed
     controllers.forEach((controller) => controller.abort());

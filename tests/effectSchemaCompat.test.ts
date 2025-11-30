@@ -16,27 +16,42 @@ import {
   wrapEffectSchema,
 } from "../src/utils/effectSchemaCompat";
 
+import type {
+  EffectSchemaAdapter,
+  EffectSchema,
+  EffectParseResult,
+  EffectParseError,
+} from "../src/utils/effectSchemaCompat";
+
 // Create an adapter for Effect Schema
-const effectAdapter = {
-  decodeUnknownSync: <A, I, R>(schema: any, data: unknown): A => {
-    return Schema.decodeUnknownSync(schema)(data);
+const effectAdapter: EffectSchemaAdapter = {
+  decodeUnknownSync: <A, I, R>(
+    schema: EffectSchema<A, I, R>,
+    data: unknown,
+  ): A => {
+    return Schema.decodeUnknownSync(schema as any)(data) as A;
   },
-  decodeUnknownEither: <A, I, R>(schema: any, data: unknown) => {
+  decodeUnknownEither: <A, I, R>(
+    schema: EffectSchema<A, I, R>,
+    data: unknown,
+  ): EffectParseResult<A> => {
     try {
-      const result = Schema.decodeUnknownSync(schema)(data);
-      return { _tag: "Right" as const, right: result };
-    } catch (error: any) {
+      const result = Schema.decodeUnknownSync(schema as any)(data) as A;
+      return { _tag: "Right", right: result };
+    } catch (error: unknown) {
+      const err = error as Error;
       return {
-        _tag: "Left" as const,
+        _tag: "Left",
         left: {
-          _tag: "ParseError" as const,
-          issue: error,
-          message: error.message || "Parse error",
+          _tag: "ParseError",
+          issue: err,
+          message: err.message || "Parse error",
         },
       };
     }
   },
-  formatError: (error: any) => error.message || "Schema validation failed",
+  formatError: (error: EffectParseError): string =>
+    error.message || "Schema validation failed",
 };
 
 describe("Effect Schema Compatibility Layer", () => {
