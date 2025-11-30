@@ -902,17 +902,21 @@ L0 includes a lightweight state machine for tracking runtime state. Useful for d
 ### RuntimeState
 
 ```typescript
-import { StateMachine, type RuntimeState } from "@ai2070/l0";
+import { StateMachine, RuntimeStates, type RuntimeState } from "@ai2070/l0";
+
+// Use RuntimeStates constants instead of string literals
+const { INIT, WAITING_FOR_TOKEN, STREAMING, CONTINUATION_MATCHING,
+        CHECKPOINT_VERIFYING, RETRYING, FALLBACK, FINALIZING, DONE, ERROR } = RuntimeStates;
 
 type RuntimeState =
   | "init"                    // Initial setup
-  | "awaiting_first_token"    // Waiting for first chunk
+  | "waiting_for_token"       // Waiting for first chunk
   | "streaming"               // Receiving tokens
-  | "deduplicating"           // Buffering for overlap detection
-  | "validating_checkpoint"   // Validating checkpoint before continuation
+  | "continuation_matching"   // Buffering for overlap detection
+  | "checkpoint_verifying"    // Validating checkpoint before continuation
   | "retrying"                // About to retry same stream
   | "fallback"                // Switching to fallback stream
-  | "completing"              // Finalizing (final guardrails, etc.)
+  | "finalizing"              // Finalizing (final guardrails, etc.)
   | "done"                    // Success
   | "error";                  // Failed
 ```
@@ -920,16 +924,18 @@ type RuntimeState =
 ### StateMachine
 
 ```typescript
+import { RuntimeStates } from "@ai2070/l0";
+
 const sm = new StateMachine();
 
-// Transition to a new state
-sm.transition("streaming");
+// Transition to a new state (use constants)
+sm.transition(RuntimeStates.STREAMING);
 
 // Get current state
 sm.get(); // "streaming"
 
 // Check if in one of multiple states
-sm.is("streaming", "deduplicating"); // true
+sm.is(RuntimeStates.STREAMING, RuntimeStates.CONTINUATION_MATCHING); // true
 
 // Check if terminal
 sm.isTerminal(); // false (true for "done" or "error")
@@ -1654,11 +1660,11 @@ interface L0State {
   // Total tokens received
   tokenCount: number;
 
-  // Retry attempts made (only counts model failures)
-  retryAttempts: number;
+  // Model retry count (counts toward retry limit)
+  modelRetryCount: number;
 
-  // Network retry attempts (doesn't count toward limit)
-  networkRetries: number;
+  // Network retry count (doesn't count toward limit)
+  networkRetryCount: number;
 
   // Index of current fallback stream (0 = primary, 1+ = fallback)
   fallbackIndex: number;
@@ -1684,11 +1690,14 @@ interface L0State {
   // Network errors encountered (categorized)
   networkErrors: CategorizedNetworkError[];
 
-  // Whether continuation from checkpoint was used
-  continuedFromCheckpoint: boolean;
+  // Whether continuation from checkpoint was used (resumed from prior content)
+  resumed: boolean;
 
   // The checkpoint content used for continuation (if any)
-  continuationCheckpoint?: string;
+  resumePoint?: string;
+
+  // Character offset where resume occurred (for debugging)
+  resumeFrom?: number;
 }
 ```
 
@@ -1698,10 +1707,13 @@ Unified event format that L0 normalizes all streaming events into.
 
 ```typescript
 interface L0Event {
-  type: "token" | "message" | "error" | "done";
+  type: "token" | "message" | "data" | "progress" | "error" | "complete";
   value?: string;
   role?: string;
+  data?: L0DataPayload;      // For multimodal data events
+  progress?: L0Progress;     // For progress events
   error?: Error;
+  reason?: ErrorCategory;    // Error category (for error events)
   timestamp?: number;
 }
 ```
@@ -1723,8 +1735,8 @@ interface L0Telemetry {
     tokensPerSecond?: number;
     totalTokens: number;
     totalRetries: number;
-    networkRetries: number;
-    modelRetries: number;
+    networkRetryCount: number;
+    modelRetryCount: number;
   };
 
   network: {
@@ -2002,17 +2014,20 @@ enum ErrorCategory {
 State machine states for tracking runtime execution. Defined in `src/runtime/state-machine.ts`.
 
 ```typescript
+// Use RuntimeStates constants instead of string literals
+import { RuntimeStates } from "@ai2070/l0";
+
 type RuntimeState =
-  | "init"
-  | "awaiting_first_token"
-  | "streaming"
-  | "deduplicating"
-  | "validating_checkpoint"
-  | "retrying"
-  | "fallback"
-  | "completing"
-  | "done"
-  | "error";
+  | "init"                    // RuntimeStates.INIT
+  | "waiting_for_token"       // RuntimeStates.WAITING_FOR_TOKEN
+  | "streaming"               // RuntimeStates.STREAMING
+  | "continuation_matching"   // RuntimeStates.CONTINUATION_MATCHING
+  | "checkpoint_verifying"    // RuntimeStates.CHECKPOINT_VERIFYING
+  | "retrying"                // RuntimeStates.RETRYING
+  | "fallback"                // RuntimeStates.FALLBACK
+  | "finalizing"              // RuntimeStates.FINALIZING
+  | "done"                    // RuntimeStates.DONE
+  | "error";                  // RuntimeStates.ERROR
 ```
 
 ### MetricsSnapshot

@@ -706,9 +706,9 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      // Done event should not have usage
-      const doneEvent = l0Events.find((e) => e.type === "done");
-      expect((doneEvent as any).usage).toBeUndefined();
+      // Complete event should not have usage
+      const completeEvent = l0Events.find((e) => e.type === "complete");
+      expect((completeEvent as any).usage).toBeUndefined();
     });
 
     it("should handle multiple content blocks", async () => {

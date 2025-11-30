@@ -243,11 +243,11 @@ for await (const event of result.stream) {
     case "token":
       console.log(event.value);
       break;
-    case "done":
+    case "complete":
       console.log("Complete");
       break;
     case "error":
-      console.error(event.error);
+      console.error(event.error, event.reason); // reason: ErrorCategory
       break;
   }
 }
@@ -547,8 +547,9 @@ const result = await l0({
 });
 
 // Check if continuation was used
-console.log(result.state.continuedFromCheckpoint); // true if resumed
-console.log(result.state.continuationCheckpoint); // The checkpoint content
+console.log(result.state.resumed);     // true if resumed from checkpoint
+console.log(result.state.resumePoint); // The checkpoint content
+console.log(result.state.resumeFrom);  // Character offset where resume occurred
 ```
 
 ### How It Works

@@ -7,6 +7,7 @@ export {
   getText,
   consumeStream,
   StateMachine,
+  RuntimeStates,
   Metrics,
 } from "./runtime/l0";
 export type { RuntimeState } from "./runtime/state-machine";

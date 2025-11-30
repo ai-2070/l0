@@ -1575,7 +1575,7 @@ describe("L0 Runtime", () => {
         .filter((e) => e.type === "token")
         .map((e) => (e as any).value);
       expect(tokens).toEqual(["Hello", " ", "World"]);
-      expect(events.some((e) => e.type === "done")).toBe(true);
+      expect(events.some((e) => e.type === "complete")).toBe(true);
     });
 
     it("should prefer explicit adapter over auto-detection", async () => {
@@ -1833,7 +1833,7 @@ describe("L0 Runtime", () => {
       // Verify events were emitted
       expect(events.some((e) => e.type === "progress")).toBe(true);
       expect(events.some((e) => e.type === "data")).toBe(true);
-      expect(events.some((e) => e.type === "done")).toBe(true);
+      expect(events.some((e) => e.type === "complete")).toBe(true);
 
       // Verify state was updated
       expect(result.state.dataOutputs).toHaveLength(1);
@@ -1961,7 +1961,7 @@ describe("L0 Runtime", () => {
       expect(types).toContain("token");
       expect(types).toContain("progress");
       expect(types).toContain("data");
-      expect(types).toContain("done");
+      expect(types).toContain("complete");
 
       // Verify state
       expect(result.state.content).toBe("Generating image: Done!");

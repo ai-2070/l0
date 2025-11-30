@@ -10,14 +10,14 @@ export function createInitialState(): L0State {
     content: "",
     checkpoint: "",
     tokenCount: 0,
-    retryAttempts: 0,
-    networkRetries: 0,
+    modelRetryCount: 0,
+    networkRetryCount: 0,
     fallbackIndex: 0,
     violations: [],
     driftDetected: false,
     completed: false,
     networkErrors: [],
-    continuedFromCheckpoint: false,
+    resumed: false,
     dataOutputs: [],
   };
 }
@@ -27,10 +27,11 @@ export function createInitialState(): L0State {
  */
 export interface StateResetPreserveOptions {
   checkpoint?: string;
-  continuedFromCheckpoint?: boolean;
-  continuationCheckpoint?: string;
-  retryAttempts?: number;
-  networkRetries?: number;
+  resumed?: boolean;
+  resumePoint?: string;
+  resumeFrom?: number;
+  modelRetryCount?: number;
+  networkRetryCount?: number;
   fallbackIndex?: number;
 }
 
@@ -55,17 +56,20 @@ export function resetStateForRetry(
   if (preserve.checkpoint !== undefined) {
     state.checkpoint = preserve.checkpoint;
   }
-  if (preserve.continuedFromCheckpoint !== undefined) {
-    state.continuedFromCheckpoint = preserve.continuedFromCheckpoint;
+  if (preserve.resumed !== undefined) {
+    state.resumed = preserve.resumed;
   }
-  if (preserve.continuationCheckpoint !== undefined) {
-    state.continuationCheckpoint = preserve.continuationCheckpoint;
+  if (preserve.resumePoint !== undefined) {
+    state.resumePoint = preserve.resumePoint;
   }
-  if (preserve.retryAttempts !== undefined) {
-    state.retryAttempts = preserve.retryAttempts;
+  if (preserve.resumeFrom !== undefined) {
+    state.resumeFrom = preserve.resumeFrom;
   }
-  if (preserve.networkRetries !== undefined) {
-    state.networkRetries = preserve.networkRetries;
+  if (preserve.modelRetryCount !== undefined) {
+    state.modelRetryCount = preserve.modelRetryCount;
+  }
+  if (preserve.networkRetryCount !== undefined) {
+    state.networkRetryCount = preserve.networkRetryCount;
   }
   if (preserve.fallbackIndex !== undefined) {
     state.fallbackIndex = preserve.fallbackIndex;

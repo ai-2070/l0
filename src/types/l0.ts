@@ -119,9 +119,9 @@ export interface L0Event {
    * - "data": Multimodal data (images, audio, etc.)
    * - "progress": Progress update for long-running operations
    * - "error": Error event
-   * - "done": Stream completion
+   * - "complete": Stream completion
    */
-  type: "token" | "message" | "data" | "progress" | "error" | "done";
+  type: "token" | "message" | "data" | "progress" | "error" | "complete";
 
   /** Text value (for token/message events) */
   value?: string;
@@ -138,11 +138,14 @@ export interface L0Event {
   /** Error (for error events) */
   error?: Error;
 
+  /** Error category/reason (for error events) */
+  reason?: ErrorCategory;
+
   /** Event timestamp */
   timestamp?: number;
 
   /**
-   * Usage information (typically on done event)
+   * Usage information (typically on complete event)
    */
   usage?: {
     input_tokens?: number;
@@ -655,14 +658,14 @@ export interface L0State {
   tokenCount: number;
 
   /**
-   * Retry attempts made (only counts model failures)
+   * Model retry attempts made (counts toward retry limit)
    */
-  retryAttempts: number;
+  modelRetryCount: number;
 
   /**
    * Network retry attempts (doesn't count toward limit)
    */
-  networkRetries: number;
+  networkRetryCount: number;
 
   /**
    * Index of current fallback stream being used (0 = primary, 1+ = fallback)
@@ -705,14 +708,20 @@ export interface L0State {
   networkErrors: CategorizedNetworkError[];
 
   /**
-   * Whether continuation from checkpoint was used
+   * Whether continuation from checkpoint was used (resumed from prior content)
    */
-  continuedFromCheckpoint: boolean;
+  resumed: boolean;
 
   /**
    * The checkpoint content that was used for continuation (if any)
    */
-  continuationCheckpoint?: string;
+  resumePoint?: string;
+
+  /**
+   * Character offset where resume occurred (length of checkpoint content)
+   * Useful for debugging and telemetry
+   */
+  resumeFrom?: number;
 
   /**
    * Multimodal data outputs collected during streaming.
@@ -780,14 +789,14 @@ export interface L0Telemetry {
     totalRetries: number;
 
     /**
-     * Network retries (doesn't count toward limit)
+     * Network retry count (doesn't count toward limit)
      */
-    networkRetries: number;
+    networkRetryCount: number;
 
     /**
-     * Model retries (counts toward limit)
+     * Model retry count (counts toward limit)
      */
-    modelRetries: number;
+    modelRetryCount: number;
   };
 
   /**

@@ -82,7 +82,7 @@ describe("Inter-token timeout", () => {
 
     const tokens = events.filter((e) => e.type === "token").map((e) => e.value);
     expect(tokens).toEqual(["first", "second", "third"]);
-    expect(events.some((e) => e.type === "done")).toBe(true);
+    expect(events.some((e) => e.type === "complete")).toBe(true);
   });
 
   it("should measure time waiting for token, not processing time", async () => {
@@ -118,7 +118,7 @@ describe("Inter-token timeout", () => {
 
     // Should complete successfully despite slow processing
     // If timeout measured processing time, this would have failed
-    expect(events.some((e) => e.type === "done")).toBe(true);
+    expect(events.some((e) => e.type === "complete")).toBe(true);
     expect(processingCalls).toBeGreaterThan(0);
     const tokens = events.filter((e) => e.type === "token").map((e) => e.value);
     expect(tokens).toEqual(["first", "second", "third"]);
@@ -148,7 +148,7 @@ describe("Initial token timeout", () => {
     expect(
       events.some((e) => e.type === "token" && e.value === "made-it"),
     ).toBe(true);
-    expect(events.some((e) => e.type === "done")).toBe(true);
+    expect(events.some((e) => e.type === "complete")).toBe(true);
   });
 
   it("should have initial token timeout configured correctly", async () => {
@@ -204,7 +204,7 @@ describe("normalizeStreamEvent error handling", () => {
     }
 
     // Stream should complete without crashing
-    expect(events.some((e) => e.type === "done")).toBe(true);
+    expect(events.some((e) => e.type === "complete")).toBe(true);
     expect(events.some((e) => e.type === "token" && e.value === "before")).toBe(
       true,
     );
@@ -261,7 +261,7 @@ describe("onEvent callback error handling", () => {
     }
 
     // Stream should complete despite callback error
-    expect(events.some((e) => e.type === "done")).toBe(true);
+    expect(events.some((e) => e.type === "complete")).toBe(true);
     expect(callCount).toBeGreaterThan(0);
 
     const tokens = events.filter((e) => e.type === "token").map((e) => e.value);
@@ -329,7 +329,7 @@ describe("onEvent callback error handling", () => {
     expect(events.some((e) => e.type === "token")).toBe(true);
     expect(events.some((e) => e.type === "message")).toBe(true);
     expect(events.some((e) => e.type === "data")).toBe(true);
-    expect(events.some((e) => e.type === "done")).toBe(true);
+    expect(events.some((e) => e.type === "complete")).toBe(true);
     expect(errorCount).toBe(4); // Called for each event type
   });
 });
@@ -357,11 +357,11 @@ describe("Deduplication buffer flush ordering", () => {
       // Consume
     }
 
-    // Done should be last
-    expect(eventOrder[eventOrder.length - 1]).toBe("done");
+    // Complete should be last
+    expect(eventOrder[eventOrder.length - 1]).toBe("complete");
 
-    // All tokens should come before done
-    const doneIndex = eventOrder.lastIndexOf("done");
+    // All tokens should come before complete
+    const doneIndex = eventOrder.lastIndexOf("complete");
     const tokenIndices = eventOrder
       .map((e, i) => (e === "token" ? i : -1))
       .filter((i) => i >= 0);
@@ -713,7 +713,7 @@ describe("Continuation with checkpoint", () => {
     // Should have retried
     expect(attemptCount).toBe(2);
     // Should have used continuation
-    expect(result.state.continuedFromCheckpoint).toBe(true);
+    expect(result.state.resumed).toBe(true);
     // Content should include the checkpoint content plus continuation
     expect(result.state.content).toContain("word");
     expect(result.state.content).toContain("continued");
