@@ -44,7 +44,7 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         let tokenIndex = 0;
         for await (const event of result.stream) {
           if (event.type === "token") {
-            await recorder.recordToken(event.value, tokenIndex++);
+            await recorder.recordToken(event.value!, tokenIndex++);
           }
         }
 
@@ -93,7 +93,7 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         let tokenIndex = 0;
         for await (const event of result.stream) {
           if (event.type === "token") {
-            await recorder.recordToken(event.value, tokenIndex++);
+            await recorder.recordToken(event.value!, tokenIndex++);
           }
         }
 
@@ -132,7 +132,7 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         let tokenIndex = 0;
         for await (const event of originalResult.stream) {
           if (event.type === "token") {
-            await recorder.recordToken(event.value, tokenIndex++);
+            await recorder.recordToken(event.value!, tokenIndex++);
           }
         }
 
@@ -170,7 +170,7 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         let tokenIndex = 0;
         for await (const event of result.stream) {
           if (event.type === "token") {
-            await recorder.recordToken(event.value, tokenIndex++);
+            await recorder.recordToken(event.value!, tokenIndex++);
           }
         }
 
@@ -214,7 +214,7 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         let idx1 = 0;
         for await (const event of result1.stream) {
           if (event.type === "token") {
-            await recorder1.recordToken(event.value, idx1++);
+            await recorder1.recordToken(event.value!, idx1++);
           }
         }
         await recorder1.recordComplete(result1.state.content, idx1);
@@ -234,7 +234,7 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         let idx2 = 0;
         for await (const event of result2.stream) {
           if (event.type === "token") {
-            await recorder2.recordToken(event.value, idx2++);
+            await recorder2.recordToken(event.value!, idx2++);
           }
         }
         await recorder2.recordComplete(result2.state.content, idx2);
@@ -283,7 +283,7 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
           let idx = 0;
           for await (const event of result.stream) {
             if (event.type === "token") {
-              await recorder.recordToken(event.value, idx++);
+              await recorder.recordToken(event.value!, idx++);
             }
           }
           await recorder.recordComplete(result.state.content, idx);
@@ -448,8 +448,8 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         let tokenIndex = 0;
         for await (const event of result.stream) {
           if (event.type === "token") {
-            originalTokens.push(event.value);
-            await recorder.recordToken(event.value, tokenIndex++);
+            originalTokens.push(event.value!);
+            await recorder.recordToken(event.value!, tokenIndex++);
           }
         }
 
@@ -933,6 +933,7 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
               message: "Unclosed brace",
               severity: "error",
               position: 3,
+              recoverable: true,
             },
           ],
           shouldRetry: true,
@@ -987,6 +988,7 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
               message: "Potential issue",
               severity: "warning",
               position: 2,
+              recoverable: false,
             },
           ],
           shouldRetry: false,
@@ -1033,8 +1035,8 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         let lastCheckpoint = "";
         for await (const event of result.stream) {
           if (event.type === "token") {
-            await recorder.recordToken(event.value, tokenIndex);
-            lastCheckpoint += event.value;
+            await recorder.recordToken(event.value!, tokenIndex);
+            lastCheckpoint += event.value!;
 
             // Record checkpoint every 20 tokens
             if (tokenIndex > 0 && tokenIndex % 20 === 0) {
