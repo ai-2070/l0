@@ -3,6 +3,47 @@
 import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "../types/retry";
 
 /**
+ * Error categories for routing and handling decisions
+ */
+export enum ErrorCategory {
+  /** Network/connection errors - transient, retry without limit */
+  NETWORK = "network",
+  /** Timeout errors - transient, retry with backoff */
+  TIMEOUT = "timeout",
+  /** Provider/API errors - may retry depending on status */
+  PROVIDER = "provider",
+  /** Content errors (guardrails, drift) - may retry with different approach */
+  CONTENT = "content",
+  /** Internal errors - bugs, don't retry */
+  INTERNAL = "internal",
+}
+
+/**
+ * Map error codes to categories
+ */
+export function getErrorCategory(code: L0ErrorCode): ErrorCategory {
+  switch (code) {
+    case "NETWORK_ERROR":
+      return ErrorCategory.NETWORK;
+    case "INITIAL_TOKEN_TIMEOUT":
+    case "INTER_TOKEN_TIMEOUT":
+      return ErrorCategory.TIMEOUT;
+    case "GUARDRAIL_VIOLATION":
+    case "FATAL_GUARDRAIL_VIOLATION":
+    case "DRIFT_DETECTED":
+    case "ZERO_OUTPUT":
+      return ErrorCategory.CONTENT;
+    case "INVALID_STREAM":
+    case "ADAPTER_NOT_FOUND":
+      return ErrorCategory.INTERNAL;
+    case "STREAM_ABORTED":
+    case "ALL_STREAMS_EXHAUSTED":
+    default:
+      return ErrorCategory.PROVIDER;
+  }
+}
+
+/**
  * Error codes for L0 errors
  */
 export type L0ErrorCode =
@@ -99,6 +140,13 @@ export class L0Error extends Error {
   }
 
   /**
+   * Get error category for routing decisions
+   */
+  get category(): ErrorCategory {
+    return getErrorCategory(this.code);
+  }
+
+  /**
    * Check if error is recoverable based on checkpoint
    */
   get isRecoverable(): boolean {
@@ -139,6 +187,27 @@ export class L0Error extends Error {
     }
 
     return parts.join(" | ");
+  }
+
+  /**
+   * Serialize error for logging/transport
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      code: this.code,
+      category: this.category,
+      message: this.message,
+      timestamp: this.timestamp,
+      recoverable: this.isRecoverable,
+      checkpoint: this.context.checkpoint
+        ? this.context.checkpoint.length
+        : undefined,
+      tokenCount: this.context.tokenCount,
+      retryAttempts: this.context.retryAttempts,
+      networkRetries: this.context.networkRetries,
+      fallbackIndex: this.context.fallbackIndex,
+    };
   }
 }
 

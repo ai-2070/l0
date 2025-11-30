@@ -13,6 +13,10 @@ Complete API reference for L0.
 - [Retry Configuration](#retry-configuration)
 - [Smart Continuation Deduplication](#smart-continuation-deduplication)
 - [Error Handling](#error-handling)
+- [State Machine](#state-machine)
+- [Metrics](#metrics)
+- [Pipeline](#pipeline)
+- [Async Checks](#async-checks)
 - [Formatting Helpers](#formatting-helpers)
 - [Utility Functions](#utility-functions)
 - [OpenAI SDK Adapter](#openai-sdk-adapter)
@@ -882,11 +886,215 @@ if (isNetworkError(error)) {
 import { ErrorCategory, getErrorCategory } from "@ai2070/l0";
 
 const category = getErrorCategory(error);
-// ErrorCategory.NETWORK    - Retry forever
-// ErrorCategory.TRANSIENT  - Retry forever (429, 503)
-// ErrorCategory.MODEL      - Counts toward limit
-// ErrorCategory.FATAL      - No retry
+// ErrorCategory.NETWORK   - Transient, retry without limit
+// ErrorCategory.TIMEOUT   - Transient, retry with backoff
+// ErrorCategory.PROVIDER  - API/model error, may retry
+// ErrorCategory.CONTENT   - Guardrails/drift, may retry
+// ErrorCategory.INTERNAL  - Bug, don't retry
 ```
+
+---
+
+## State Machine
+
+L0 includes a lightweight state machine for tracking runtime state. Useful for debugging and monitoring.
+
+### RuntimeState
+
+```typescript
+import { StateMachine, type RuntimeState } from "@ai2070/l0";
+
+type RuntimeState =
+  | "init"                    // Initial setup
+  | "awaiting_first_token"    // Waiting for first chunk
+  | "streaming"               // Receiving tokens
+  | "deduplicating"           // Buffering for overlap detection
+  | "validating_checkpoint"   // Validating checkpoint before continuation
+  | "retrying"                // About to retry same stream
+  | "fallback"                // Switching to fallback stream
+  | "completing"              // Finalizing (final guardrails, etc.)
+  | "done"                    // Success
+  | "error";                  // Failed
+```
+
+### StateMachine
+
+```typescript
+const sm = new StateMachine();
+
+// Transition to a new state
+sm.transition("streaming");
+
+// Get current state
+sm.get(); // "streaming"
+
+// Check if in one of multiple states
+sm.is("streaming", "deduplicating"); // true
+
+// Check if terminal
+sm.isTerminal(); // false (true for "done" or "error")
+
+// Subscribe to state changes
+const unsubscribe = sm.subscribe((state) => {
+  console.log(`State changed to: ${state}`);
+});
+
+// Get history for debugging
+sm.getHistory();
+// [{ from: "init", to: "awaiting_first_token", timestamp: 1234567890 }, ...]
+
+// Reset to initial state
+sm.reset();
+```
+
+---
+
+## Metrics
+
+Simple counters for runtime metrics. OpenTelemetry is opt-in via separate adapter.
+
+### Metrics Class
+
+```typescript
+import { Metrics } from "@ai2070/l0";
+
+const metrics = new Metrics();
+
+// Available counters
+metrics.requests;       // Total stream requests
+metrics.tokens;         // Total tokens processed
+metrics.retries;        // Total retry attempts
+metrics.networkRetries; // Network retries (subset)
+metrics.errors;         // Total errors
+metrics.violations;     // Guardrail violations
+metrics.driftDetections;// Drift detections
+metrics.fallbacks;      // Fallback activations
+metrics.completions;    // Successful completions
+metrics.timeouts;       // Timeouts (initial + inter-token)
+
+// Get snapshot
+const snapshot = metrics.snapshot();
+
+// Reset all counters
+metrics.reset();
+
+// Serialize for logging
+JSON.stringify(metrics); // Uses toJSON()
+```
+
+---
+
+## Pipeline
+
+Simple pipeline for event processing. Just an array of functions - no framework.
+
+### Stage Function
+
+```typescript
+import { type Stage, type PipelineContext, runStages } from "@ai2070/l0";
+
+// A stage receives an event and returns it (modified or not), or null to filter
+type Stage = (event: L0Event, ctx: PipelineContext) => L0Event | null;
+
+// Example: logging stage
+const loggingStage: Stage = (event, ctx) => {
+  console.log(`Event: ${event.type}`);
+  return event; // Pass through
+};
+
+// Example: filtering stage
+const filterEmptyTokens: Stage = (event, ctx) => {
+  if (event.type === "token" && !event.value?.trim()) {
+    return null; // Filter out
+  }
+  return event;
+};
+```
+
+### Running Stages
+
+```typescript
+import { runStages, createPipelineContext } from "@ai2070/l0";
+
+const stages: Stage[] = [loggingStage, filterEmptyTokens];
+
+const ctx = createPipelineContext(state, stateMachine, monitor, signal);
+
+// Run event through all stages
+const result = runStages(stages, event, ctx);
+// Returns final event, or null if filtered
+```
+
+### PipelineContext
+
+```typescript
+interface PipelineContext {
+  state: L0State;           // Runtime state
+  stateMachine: StateMachine;
+  monitor: L0Monitor;
+  signal?: AbortSignal;
+  scratch: Map<string, unknown>; // Scratch space for stages
+}
+```
+
+---
+
+## Async Checks
+
+Non-blocking wrappers for guardrails and drift detection. Uses fast/slow path pattern.
+
+### Async Guardrails
+
+```typescript
+import { runAsyncGuardrailCheck } from "@ai2070/l0";
+
+// Fast path: returns immediately if check is quick
+// Slow path: defers to setImmediate and calls onComplete
+const result = runAsyncGuardrailCheck(
+  guardrailEngine,
+  context,
+  (asyncResult) => {
+    // Called if check was deferred
+    handleGuardrailResult(asyncResult);
+  }
+);
+
+if (result) {
+  // Fast path succeeded, handle immediately
+  handleGuardrailResult(result);
+}
+// If undefined, check is running async
+```
+
+### Async Drift Detection
+
+```typescript
+import { runAsyncDriftCheck } from "@ai2070/l0";
+
+const result = runAsyncDriftCheck(
+  driftDetector,
+  content,
+  delta,
+  (asyncResult) => {
+    // Called if check was deferred
+    if (asyncResult.detected) {
+      handleDrift(asyncResult.types);
+    }
+  }
+);
+
+if (result?.detected) {
+  // Fast path found drift
+  handleDrift(result.types);
+}
+```
+
+### How It Works
+
+1. **Fast path**: Delta-only check or small content - runs synchronously
+2. **Slow path**: Large content (>10KB) - defers via `setImmediate()` to avoid blocking event loop
+
+This prevents guardrails/drift from causing token delays that could trigger false timeouts.
 
 ---
 
@@ -1777,14 +1985,74 @@ type RetryReason =
 
 ### ErrorCategory
 
-Error classification enum for retry logic. Defined in `src/types/retry.ts`.
+Error classification enum for routing and handling decisions. Defined in `src/utils/errors.ts`.
 
 ```typescript
 enum ErrorCategory {
-  NETWORK = "network", // Network failures - retry forever with backoff
-  TRANSIENT = "transient", // 429, 503, timeouts - retry forever with backoff
-  MODEL = "model", // Model failures - count toward retry limit
-  FATAL = "fatal", // Don't retry
+  NETWORK = "network",     // Network/connection errors - transient, retry without limit
+  TIMEOUT = "timeout",     // Timeout errors - transient, retry with backoff
+  PROVIDER = "provider",   // Provider/API errors - may retry depending on status
+  CONTENT = "content",     // Content errors (guardrails, drift) - may retry
+  INTERNAL = "internal",   // Internal errors - bugs, don't retry
+}
+```
+
+### RuntimeState
+
+State machine states for tracking runtime execution. Defined in `src/runtime/state-machine.ts`.
+
+```typescript
+type RuntimeState =
+  | "init"
+  | "awaiting_first_token"
+  | "streaming"
+  | "deduplicating"
+  | "validating_checkpoint"
+  | "retrying"
+  | "fallback"
+  | "completing"
+  | "done"
+  | "error";
+```
+
+### MetricsSnapshot
+
+Snapshot of runtime metrics. Defined in `src/runtime/metrics.ts`.
+
+```typescript
+interface MetricsSnapshot {
+  requests: number;
+  tokens: number;
+  retries: number;
+  networkRetries: number;
+  errors: number;
+  violations: number;
+  driftDetections: number;
+  fallbacks: number;
+  completions: number;
+  timeouts: number;
+}
+```
+
+### Stage
+
+Pipeline stage function type. Defined in `src/runtime/pipeline.ts`.
+
+```typescript
+type Stage = (event: L0Event, ctx: PipelineContext) => L0Event | null;
+```
+
+### PipelineContext
+
+Context passed through pipeline stages. Defined in `src/runtime/pipeline.ts`.
+
+```typescript
+interface PipelineContext {
+  state: L0State;
+  stateMachine: StateMachine;
+  monitor: L0Monitor;
+  signal?: AbortSignal;
+  scratch: Map<string, unknown>;
 }
 ```
 

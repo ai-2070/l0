@@ -2,7 +2,28 @@
 // Main entry point
 
 // Core runtime
-export { l0, getText, consumeStream } from "./runtime/l0";
+export {
+  l0,
+  getText,
+  consumeStream,
+  StateMachine,
+  Metrics,
+} from "./runtime/l0";
+export type { RuntimeState } from "./runtime/state-machine";
+export type { MetricsSnapshot } from "./runtime/metrics";
+
+// Pipeline (simple array of functions)
+export { runStages, createPipelineContext } from "./runtime/pipeline";
+export type { Stage, PipelineContext } from "./runtime/pipeline";
+
+// Async checks (non-blocking guardrails/drift)
+export {
+  runAsyncGuardrailCheck,
+  runGuardrailCheckAsync,
+} from "./guardrails/async";
+export type { GuardrailCheckResult } from "./guardrails/async";
+export { runAsyncDriftCheck, runDriftCheckAsync } from "./runtime/async-drift";
+export type { DriftCheckResult } from "./runtime/async-drift";
 
 // Structured output
 export {

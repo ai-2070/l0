@@ -26,9 +26,15 @@ import {
 import { createInitialState, resetStateForRetry } from "./state";
 import { validateCheckpointForContinuation } from "./checkpoint";
 import { safeInvokeCallback } from "./callbacks";
+import { StateMachine, type RuntimeState } from "./state-machine";
+import { Metrics } from "./metrics";
 
 // Re-export helpers for backward compatibility
 export { getText, consumeStream } from "./helpers";
+
+// Re-export new modules for advanced usage
+export { StateMachine, type RuntimeState } from "./state-machine";
+export { Metrics } from "./metrics";
 
 /**
  * Main L0 wrapper function
@@ -154,6 +160,11 @@ export async function l0<TOutput = unknown>(
 
   const driftDetector = processedDetectDrift ? new DriftDetector() : null;
 
+  // Initialize state machine and metrics
+  const stateMachine = new StateMachine();
+  const metrics = new Metrics();
+  metrics.requests++;
+
   // Create async generator for streaming
   const streamGenerator = async function* (): AsyncGenerator<L0Event> {
     let fallbackIndex = 0;
@@ -183,6 +194,9 @@ export async function l0<TOutput = unknown>(
       state.fallbackIndex = fallbackIndex;
 
       while (retryAttempt <= modelRetryLimit) {
+        // Transition to init state at start of each attempt
+        stateMachine.transition("init");
+
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
           // retryAttempt > 0: guardrail/drift retries increment this directly
@@ -194,6 +208,7 @@ export async function l0<TOutput = unknown>(
               state.checkpoint.length > 0
             ) {
               checkpointForContinuation = state.checkpoint;
+              stateMachine.transition("validating_checkpoint");
 
               // Validate checkpoint content before continuation
               const validation = validateCheckpointForContinuation(
@@ -355,6 +370,8 @@ export async function l0<TOutput = unknown>(
           state.lastTokenAt = undefined;
 
           let firstTokenReceived = false;
+          stateMachine.transition("awaiting_first_token");
+
           // Track time of last token emission for inter-token timeout
           // This is set BEFORE reading each chunk, so the timeout check
           // measures time waiting for the next token, not time since processing
@@ -396,6 +413,7 @@ export async function l0<TOutput = unknown>(
               const interTimeout = processedTimeout.interToken ?? 10000;
               const timeSinceLastToken = Date.now() - lastTokenEmissionTime;
               if (timeSinceLastToken > interTimeout) {
+                metrics.timeouts++;
                 throw new L0Error("Inter-token timeout reached", {
                   code: "INTER_TOKEN_TIMEOUT",
                   checkpoint: state.checkpoint,
@@ -419,6 +437,7 @@ export async function l0<TOutput = unknown>(
 
             // Check initial timeout
             if (initialTimeoutReached && !firstTokenReceived) {
+              metrics.timeouts++;
               throw new L0Error("Initial token timeout reached", {
                 code: "INITIAL_TOKEN_TIMEOUT",
                 checkpoint: state.checkpoint,
@@ -461,7 +480,10 @@ export async function l0<TOutput = unknown>(
               if (!firstTokenReceived) {
                 firstTokenReceived = true;
                 state.firstTokenAt = Date.now();
+                stateMachine.transition("streaming");
               }
+
+              metrics.tokens++;
 
               // Handle deduplication for continuation
               // LLMs stream tokens one at a time, so we need to accumulate tokens
@@ -472,6 +494,11 @@ export async function l0<TOutput = unknown>(
                 checkpointForContinuation.length > 0 &&
                 !deduplicationComplete
               ) {
+                // Transition to deduplicating state on first buffer
+                if (deduplicationBuffer.length === 0) {
+                  stateMachine.transition("deduplicating");
+                }
+
                 // Accumulate tokens in the deduplication buffer
                 deduplicationBuffer += token;
 
@@ -504,6 +531,7 @@ export async function l0<TOutput = unknown>(
 
                 if (shouldFinalize) {
                   deduplicationComplete = true;
+                  stateMachine.transition("streaming");
 
                   if (overlapResult.hasOverlap) {
                     // Emit only the non-overlapping portion
@@ -853,8 +881,10 @@ export async function l0<TOutput = unknown>(
           }
 
           // Success - mark as completed
+          stateMachine.transition("completing");
           state.completed = true;
           monitor.complete();
+          metrics.completions++;
 
           // Calculate duration
           if (state.firstTokenAt) {
@@ -868,6 +898,8 @@ export async function l0<TOutput = unknown>(
           };
           safeInvokeCallback(processedOnEvent, doneEvent, monitor, "onEvent");
           yield doneEvent;
+
+          stateMachine.transition("done");
 
           break; // Exit retry loop on success
         } catch (error) {
@@ -1001,6 +1033,11 @@ export async function l0<TOutput = unknown>(
             }
             // Mark that next iteration is a retry (for state reset)
             isRetryAttempt = true;
+            stateMachine.transition("retrying");
+            metrics.retries++;
+            if (isNetError) {
+              metrics.networkRetries++;
+            }
 
             // Record in monitoring
             monitor.recordRetry(isNetError);
@@ -1032,6 +1069,8 @@ export async function l0<TOutput = unknown>(
           // Execute error interceptors
           await interceptorManager.executeError(err, processedOptions);
 
+          stateMachine.transition("error");
+          metrics.errors++;
           throw err;
         }
       }
@@ -1041,6 +1080,8 @@ export async function l0<TOutput = unknown>(
         if (fallbackIndex < allStreams.length - 1) {
           // Move to next fallback
           fallbackIndex++;
+          stateMachine.transition("fallback");
+          metrics.fallbacks++;
           const fallbackMessage = `Retries exhausted for stream ${fallbackIndex}, falling back to stream ${fallbackIndex + 1}`;
 
           monitor.logEvent({
@@ -1057,6 +1098,7 @@ export async function l0<TOutput = unknown>(
           // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
           if (processedContinueFromCheckpoint && state.checkpoint.length > 0) {
             checkpointForContinuation = state.checkpoint;
+            stateMachine.transition("validating_checkpoint");
 
             // Validate checkpoint content before continuation
             const validation = validateCheckpointForContinuation(
@@ -1158,6 +1200,8 @@ export async function l0<TOutput = unknown>(
             processedOptions,
           );
 
+          stateMachine.transition("error");
+          metrics.errors++;
           throw exhaustedError;
         }
       }
