@@ -50,12 +50,13 @@ export function runAsyncDriftCheck(
 
   // Large content: defer to next tick
   setImmediate(() => {
+    let result: DriftCheckResult;
     try {
-      const result = detector.check(content, delta);
-      onComplete(result);
+      result = detector.check(content, delta);
     } catch {
-      onComplete({ detected: false, types: [] });
+      result = { detected: false, types: [] };
     }
+    onComplete(result);
   });
 
   return undefined; // Deferred to async
@@ -71,11 +72,12 @@ export function runDriftCheckAsync(
   onComplete: (result: DriftCheckResult) => void,
 ): void {
   setImmediate(() => {
+    let result: DriftCheckResult;
     try {
-      const result = detector.check(content, delta);
-      onComplete(result);
+      result = detector.check(content, delta);
     } catch {
-      onComplete({ detected: false, types: [] });
+      result = { detected: false, types: [] };
     }
+    onComplete(result);
   });
 }

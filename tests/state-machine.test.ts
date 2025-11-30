@@ -144,6 +144,38 @@ describe("StateMachine", () => {
       sm.reset();
       expect(sm.getHistory()).toHaveLength(0);
     });
+
+    it("should notify subscribers when reset from non-INIT state", () => {
+      const listener = vi.fn();
+      sm.subscribe(listener);
+
+      sm.transition(RuntimeStates.STREAMING);
+      listener.mockClear(); // Clear the transition notification
+
+      sm.reset();
+
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(listener).toHaveBeenCalledWith(RuntimeStates.INIT);
+    });
+
+    it("should not notify subscribers when already at INIT (non-terminal)", () => {
+      const listener = vi.fn();
+      sm.subscribe(listener);
+
+      // Already at INIT, not terminal
+      sm.reset();
+
+      expect(listener).not.toHaveBeenCalled();
+    });
+
+    it("should clear history completely on reset", () => {
+      sm.transition(RuntimeStates.STREAMING);
+      sm.transition(RuntimeStates.COMPLETE);
+      sm.reset();
+
+      // History should be completely cleared (reset is not a transition)
+      expect(sm.getHistory()).toHaveLength(0);
+    });
   });
 
   describe("subscribe()", () => {

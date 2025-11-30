@@ -73,11 +73,16 @@ export class StateMachine {
   }
 
   /**
-   * Reset to initial state
+   * Reset to initial state and notify subscribers
    */
   reset(): void {
+    const previousState = this.state;
     this.state = RuntimeStates.INIT;
     this.history = [];
+    // Notify subscribers if state changed
+    if (previousState !== RuntimeStates.INIT) {
+      this.notify();
+    }
   }
 
   /**
