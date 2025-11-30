@@ -8,10 +8,5 @@ export default defineConfig({
     globals: true,
     // Run tests sequentially to avoid rate limits
     pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
   },
 });

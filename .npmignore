@@ -3,13 +3,16 @@ src/
 
 # Tests
 tests/
+integration/
 *.test.ts
 vitest.config.ts
+vitest.integration.config.ts
 coverage/
 
 # Documentation (README is included via package.json files)
 *.md
 !README.md
+env.*
 
 # Examples
 examples/
@@ -30,6 +33,7 @@ Thumbs.db
 
 # Dev dependencies config
 tsconfig.json
+renovate.json
 
 # Lock files (users have their own)
 package-lock.json
@@ -37,3 +41,6 @@ package-lock.json
 # Git
 .git/
 .gitignore
+
+# Banners
+img/

@@ -23,7 +23,6 @@ export default defineConfig({
         "vitest.config.ts",
       ],
       include: ["src/**/*.ts"],
-      all: true,
       thresholds: {
         lines: 80,
         functions: 80,
