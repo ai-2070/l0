@@ -216,7 +216,7 @@ for await (const event of result.stream) {
 | [Type-Safe Generics](#type-safe-generics)                             | Forward output types through all L0 functions                   |
 | [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
-| [Testing](#testing)                                                   | 1300+ tests covering all features and SDK adapters              |
+| [Testing](#testing)                                                   | 1,800+ tests covering all features and SDK adapters              |
 
 ---
 
