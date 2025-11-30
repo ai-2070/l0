@@ -270,7 +270,7 @@ export interface L0Options<TOutput = unknown> {
 
   /**
    * Options to pass to the adapter's wrap() function.
-   * Only used when `adapter` is specified.
+   * Used with both explicit adapters and auto-detected adapters.
    */
   adapterOptions?: unknown;
 }
