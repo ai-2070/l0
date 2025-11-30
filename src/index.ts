@@ -619,3 +619,37 @@ export type {
   JSONSchemaValidationResult,
   JSONSchemaAdapter,
 } from "./utils/jsonSchemaCompat";
+
+// String Comparison Utilities
+export {
+  compareStrings,
+  levenshteinSimilarity,
+  levenshteinDistance,
+  jaroWinklerSimilarity,
+  cosineSimilarity,
+  compareNumbers,
+  compareArrays,
+  compareObjects,
+  compareValues,
+  getType,
+  deepEqual,
+  calculateSimilarityScore,
+  countFields,
+} from "./utils/comparison";
+
+// Consensus Utilities
+export {
+  calculateSimilarityMatrix,
+  calculateOutputSimilarity,
+  calculateStructuralSimilarity,
+  findAgreements,
+  findDisagreements,
+  calculateFieldConsensus,
+  resolveMajority,
+  resolveBest,
+  resolveMerge,
+  meetsMinimumAgreement,
+} from "./utils/consensusUtils";
+
+// Shallow Copy Utilities
+export { shallowClone, shallowCopy } from "./utils/shallow";
