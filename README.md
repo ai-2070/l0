@@ -45,7 +45,7 @@ npm install @ai2070/l0
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                    |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
 | **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
-| **🧪 Thoughtly-Tested**                             | 1,400+ unit tests, 200+ integration tests with real LLMs.                                     |
+| **🧪 Battle-Tested**                             | 1,400+ unit tests and 200+ integration tests validating real streaming, retries, and advanced behavior.                                     |
 
 ## Quick Start
 
