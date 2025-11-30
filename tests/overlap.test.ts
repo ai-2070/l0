@@ -1,10 +1,7 @@
 // Unit tests for overlap detection in continuation
 
 import { describe, it, expect } from "vitest";
-import {
-  detectOverlap,
-  deduplicateContinuation,
-} from "../src/utils/tokens";
+import { detectOverlap, deduplicateContinuation } from "../src/utils/tokens";
 
 describe("detectOverlap", () => {
   describe("basic overlap detection", () => {
@@ -28,10 +25,7 @@ describe("detectOverlap", () => {
     });
 
     it("should detect overlap with punctuation", () => {
-      const result = detectOverlap(
-        "Hello, world!",
-        "world! How are you?",
-      );
+      const result = detectOverlap("Hello, world!", "world! How are you?");
       expect(result.hasOverlap).toBe(true);
       expect(result.overlapLength).toBe(6);
       expect(result.overlapText).toBe("world!");
@@ -152,11 +146,9 @@ describe("detectOverlap", () => {
 
     it("should respect maxOverlap option", () => {
       const longText = "a".repeat(100);
-      const result = detectOverlap(
-        longText,
-        longText + " more",
-        { maxOverlap: 50 },
-      );
+      const result = detectOverlap(longText, longText + " more", {
+        maxOverlap: 50,
+      });
       // Should only check up to 50 characters
       expect(result.overlapLength).toBeLessThanOrEqual(50);
     });
@@ -215,10 +207,7 @@ describe("detectOverlap", () => {
     });
 
     it("should handle newlines in overlap", () => {
-      const result = detectOverlap(
-        "Line 1\nLine 2",
-        "Line 2\nLine 3",
-      );
+      const result = detectOverlap("Line 1\nLine 2", "Line 2\nLine 3");
       expect(result.hasOverlap).toBe(true);
       expect(result.overlapText).toBe("Line 2");
       expect(result.deduplicatedContinuation).toBe("\nLine 3");
@@ -227,13 +216,16 @@ describe("detectOverlap", () => {
 
   describe("realistic LLM continuation scenarios", () => {
     it("should handle typical sentence continuation overlap", () => {
-      const checkpoint = "The weather today is sunny and warm. I decided to go for a walk in the park";
+      const checkpoint =
+        "The weather today is sunny and warm. I decided to go for a walk in the park";
       const continuation = "in the park and enjoy the beautiful scenery.";
 
       const result = detectOverlap(checkpoint, continuation);
       expect(result.hasOverlap).toBe(true);
       expect(result.overlapText).toBe("in the park");
-      expect(result.deduplicatedContinuation).toBe(" and enjoy the beautiful scenery.");
+      expect(result.deduplicatedContinuation).toBe(
+        " and enjoy the beautiful scenery.",
+      );
     });
 
     it("should handle code continuation overlap", () => {

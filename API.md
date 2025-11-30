@@ -755,12 +755,12 @@ const result = await l0({
 
 ### Options
 
-| Option               | Type    | Default | Description                                      |
-| -------------------- | ------- | ------- | ------------------------------------------------ |
-| `minOverlap`         | number  | 2       | Minimum overlap length to detect (avoids false positives) |
-| `maxOverlap`         | number  | 500     | Maximum overlap length to check (performance limit) |
-| `caseSensitive`      | boolean | true    | Whether matching is case-sensitive               |
-| `normalizeWhitespace`| boolean | false   | Normalize whitespace when matching (`"hello  world"` matches `"hello world"`) |
+| Option                | Type    | Default | Description                                                                   |
+| --------------------- | ------- | ------- | ----------------------------------------------------------------------------- |
+| `minOverlap`          | number  | 2       | Minimum overlap length to detect (avoids false positives)                     |
+| `maxOverlap`          | number  | 500     | Maximum overlap length to check (performance limit)                           |
+| `caseSensitive`       | boolean | true    | Whether matching is case-sensitive                                            |
+| `normalizeWhitespace` | boolean | false   | Normalize whitespace when matching (`"hello  world"` matches `"hello world"`) |
 
 ### Examples
 
