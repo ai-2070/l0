@@ -21,6 +21,10 @@ L0 adds guardrails, retry logic, and network protection to LLM streams, turning 
 npm install @ai2070/l0
 ```
 
+**Upcoming versions:**
+- **0.9.0** - Website docs
+- **1.0.0** - API freeze
+
 ## Features
 
 | Feature                                          | Description                                                                                                                                                                                           |
