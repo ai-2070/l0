@@ -116,13 +116,13 @@ const result = await l0({
   // Or simply:
   // retry: recommendedRetry,
 
-  // Optional: Timeout configuration, , default as follows
+  // Optional: Timeout configuration, default as follows
   timeout: {
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens
   },
 
-  // Optional: Guardrail check intervals
+  // Optional: Guardrail check intervals, default as follows
   checkIntervals: {
     guardrails: 5, // Check every N tokens
     drift: 10,
