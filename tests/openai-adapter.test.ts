@@ -89,13 +89,13 @@ describe("OpenAI SDK Adapter", () => {
 
       // Should have 3 token events + 1 done event
       const tokenEvents = events.filter((e) => e.type === "token");
-      const doneEvents = events.filter((e) => e.type === "complete");
+      const completeEvent = events.filter((e) => e.type === "complete");
 
       expect(tokenEvents).toHaveLength(3);
       expect(tokenEvents[0]!.value).toBe("Hello");
       expect(tokenEvents[1]!.value).toBe(" ");
       expect(tokenEvents[2]!.value).toBe("world");
-      expect(doneEvents).toHaveLength(1);
+      expect(completeEvent).toHaveLength(1);
     });
 
     it("should include usage information when available", async () => {

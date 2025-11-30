@@ -313,8 +313,8 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      const doneEvents = l0Events.filter((e) => e.type === "complete");
-      expect(doneEvents).toHaveLength(1);
+      const completeEvent = l0Events.filter((e) => e.type === "complete");
+      expect(completeEvent).toHaveLength(1);
     });
 
     it("should not emit done twice", async () => {
@@ -335,8 +335,8 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      const doneEvents = l0Events.filter((e) => e.type === "complete");
-      expect(doneEvents).toHaveLength(1);
+      const completeEvent = l0Events.filter((e) => e.type === "complete");
+      expect(completeEvent).toHaveLength(1);
     });
 
     it("should skip irrelevant chunk types (message_start, content_block_start, etc.)", async () => {
@@ -449,10 +449,10 @@ describe("Anthropic SDK Adapter", () => {
       }
 
       const tokenEvents = l0Events.filter((e) => e.type === "token");
-      const doneEvents = l0Events.filter((e) => e.type === "complete");
+      const completeEvent = l0Events.filter((e) => e.type === "complete");
 
       expect(tokenEvents).toHaveLength(0);
-      expect(doneEvents).toHaveLength(1);
+      expect(completeEvent).toHaveLength(1);
     });
 
     it("should work when stream ends immediately", async () => {
@@ -484,8 +484,8 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      const doneEvents = l0Events.filter((e) => e.type === "complete");
-      expect(doneEvents).toHaveLength(1);
+      const completeEvent = l0Events.filter((e) => e.type === "complete");
+      expect(completeEvent).toHaveLength(1);
     });
 
     it("should include usage when available", async () => {

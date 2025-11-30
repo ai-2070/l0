@@ -391,13 +391,13 @@ describe("Adapter Registry", () => {
       }
 
       const tokens = events.filter((e) => e.type === "token");
-      const doneEvents = events.filter((e) => e.type === "complete");
+      const completeEvent = events.filter((e) => e.type === "complete");
 
       expect(tokens).toHaveLength(3);
       expect(tokens[0]!.value).toBe("Hello");
       expect(tokens[1]!.value).toBe(" ");
       expect(tokens[2]!.value).toBe("World");
-      expect(doneEvents).toHaveLength(1);
+      expect(completeEvent).toHaveLength(1);
     });
 
     it("should include timestamps on all events", async () => {
