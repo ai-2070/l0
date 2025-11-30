@@ -90,6 +90,7 @@ export type {
   L0State,
   L0Event,
   L0Telemetry,
+  L0Adapter,
   CategorizedNetworkError,
   L0Interceptor,
   RetryOptions,
@@ -458,6 +459,27 @@ export type {
   L0ErrorContext,
 } from "./utils/errors";
 
+// SDK Adapters - Registry (BYOA - Bring Your Own Adapter)
+export {
+  registerAdapter,
+  unregisterAdapter,
+  getAdapter,
+  getRegisteredStreamAdapters,
+  clearAdapters,
+  detectAdapter,
+  hasMatchingAdapter,
+} from "./adapters/registry";
+
+// SDK Adapters - Helpers for building custom adapters
+export {
+  toL0Events,
+  toL0EventsWithMessages,
+  createAdapterTokenEvent,
+  createAdapterDoneEvent,
+  createAdapterErrorEvent,
+  createAdapterMessageEvent,
+} from "./adapters/helpers";
+
 // SDK Adapters - OpenAI
 export {
   wrapOpenAIStream,
@@ -470,6 +492,28 @@ export {
 } from "./adapters/openai";
 
 export type { OpenAIAdapterOptions } from "./adapters/openai";
+
+// SDK Adapters - Anthropic
+export {
+  wrapAnthropicStream,
+  anthropicAdapter,
+  anthropicStream,
+  anthropicText,
+  isAnthropicStream,
+  isAnthropicStreamEvent,
+} from "./adapters/anthropic";
+
+export type {
+  AnthropicStream,
+  AnthropicAdapterOptions,
+  RawMessageStreamEvent,
+  RawMessageStartEvent,
+  RawMessageDeltaEvent,
+  RawContentBlockStartEvent,
+  RawContentBlockDeltaEvent,
+  RawContentBlockStopEvent,
+  MessageCreateParamsBase,
+} from "./adapters/anthropic";
 
 // SDK Adapters - Mastra
 export {

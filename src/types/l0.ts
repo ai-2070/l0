@@ -239,6 +239,125 @@ export interface L0Options<TOutput = unknown> {
    * Interceptors for preprocessing and postprocessing
    */
   interceptors?: L0Interceptor[];
+
+  /**
+   * Custom adapter for wrapping the stream.
+   *
+   * Use this for SDKs not natively supported by L0.
+   * Can be an adapter object or a registered adapter name.
+   *
+   * When specified, this adapter is used instead of:
+   * - Native L0 stream detection (textStream, fullStream)
+   * - Auto-detection via registered adapters
+   *
+   * @example
+   * ```typescript
+   * // Explicit adapter object
+   * const result = await l0({
+   *   stream: () => myCoolAI.generate("Hello"),
+   *   adapter: myCoolAdapter,
+   * });
+   *
+   * // Registered adapter by name
+   * registerAdapter(myCoolAdapter);
+   * const result = await l0({
+   *   stream: () => myCoolAI.generate("Hello"),
+   *   adapter: "mycoolai",
+   * });
+   * ```
+   */
+  adapter?: L0Adapter | string;
+
+  /**
+   * Options to pass to the adapter's wrap() function.
+   * Only used when `adapter` is specified.
+   */
+  adapterOptions?: unknown;
+}
+
+/**
+ * Interface for custom stream adapters.
+ * Adapters normalize foreign SDK streams → L0Events.
+ *
+ * Adapters MUST NOT:
+ * - Modify, sanitize, or transform content
+ * - Buffer, batch, or collapse tokens
+ * - Retry internally or apply guardrails
+ * - Alter timing or ordering
+ *
+ * L0 handles all of that.
+ *
+ * @typeParam StreamType - The type of stream this adapter handles
+ * @typeParam Options - Optional configuration for the adapter
+ *
+ * @example
+ * ```typescript
+ * const myCoolAdapter: L0Adapter<MyCoolStream, { verbose?: boolean }> = {
+ *   name: "mycoolai",
+ *
+ *   detect(input): input is MyCoolStream {
+ *     return input && typeof input === "object" && "myCoolMarker" in input;
+ *   },
+ *
+ *   async *wrap(stream, options = {}) {
+ *     try {
+ *       for await (const chunk of stream) {
+ *         if (chunk.type === "text") {
+ *           yield { type: "token", value: chunk.content, timestamp: Date.now() };
+ *         }
+ *       }
+ *       yield { type: "done", timestamp: Date.now() };
+ *     } catch (err) {
+ *       yield {
+ *         type: "error",
+ *         error: err instanceof Error ? err : new Error(String(err)),
+ *         timestamp: Date.now(),
+ *       };
+ *     }
+ *   },
+ * };
+ * ```
+ */
+export interface L0Adapter<StreamType = unknown, Options = unknown> {
+  /**
+   * Unique identifier for this adapter.
+   * Used for registration and lookup by name.
+   */
+  name: string;
+
+  /**
+   * Optional type guard for auto-detection.
+   *
+   * Required ONLY if you want auto-detection via registerAdapter().
+   * Not needed for explicit `adapter: myAdapter` usage.
+   *
+   * Must return true ONLY for streams this adapter can handle.
+   * Must be fast (no async, no I/O).
+   *
+   * @param input - Unknown input to test
+   * @returns True if this adapter can handle the input
+   */
+  detect?(input: unknown): input is StreamType;
+
+  /**
+   * Convert provider stream → L0Events.
+   *
+   * MUST:
+   * - Yield events in exact order received
+   * - Include timestamp on every event
+   * - Convert errors to { type: "error" } events (never throw)
+   * - Yield { type: "done" } exactly once at end
+   *
+   * MUST NOT:
+   * - Modify text content in any way
+   * - Buffer or batch chunks
+   * - Perform retries or async operations besides iteration
+   *
+   * @param stream - The provider's stream to wrap
+   * @param options - Optional adapter-specific configuration
+   * @returns Async generator yielding L0Events
+   */
+  wrap(stream: StreamType, options?: Options): AsyncGenerator<L0Event>;
 }
 
 /**

@@ -15,7 +15,8 @@ export type L0ErrorCode =
   | "INVALID_STREAM"
   | "ALL_STREAMS_EXHAUSTED"
   | "NETWORK_ERROR"
-  | "DRIFT_DETECTED";
+  | "DRIFT_DETECTED"
+  | "ADAPTER_NOT_FOUND";
 
 /**
  * Context information for L0 errors
