@@ -28,7 +28,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
       "should stream with wrapAnthropicStream",
       async () => {
         const stream = client!.messages.stream({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-haiku-20240307",
           max_tokens: 50,
           messages: [
             { role: "user", content: "Say hello in exactly 3 words." },
@@ -56,7 +56,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
       "should include usage information",
       async () => {
         const stream = client!.messages.stream({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-haiku-20240307",
           max_tokens: 20,
           messages: [{ role: "user", content: "Hi" }],
         });
@@ -82,7 +82,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
       async () => {
         const result = await l0({
           stream: anthropicStream(client!, {
-            model: "claude-sonnet-4-20250514",
+            model: "claude-3-haiku-20240307",
             max_tokens: 30,
             messages: [{ role: "user", content: "Count to 3" }],
           }),
@@ -106,7 +106,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
         const result = await l0({
           stream: anthropicText(
             client!,
-            "claude-sonnet-4-20250514",
+            "claude-3-haiku-20240307",
             "What is 2+2? Answer with just the number.",
             { maxTokens: 10 },
           ),
@@ -128,7 +128,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
         const result = await l0({
           stream: anthropicText(
             client!,
-            "claude-sonnet-4-20250514",
+            "claude-3-haiku-20240307",
             "Say test",
             {
               maxTokens: 20,
@@ -154,7 +154,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
         const result = await l0({
           stream: () =>
             client!.messages.stream({
-              model: "claude-sonnet-4-20250514",
+              model: "claude-3-haiku-20240307",
               max_tokens: 50,
               messages: [{ role: "user", content: "Say 'test passed'" }],
             }),
@@ -181,7 +181,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
         const result = await l0({
           stream: () =>
             client!.messages.stream({
-              model: "claude-sonnet-4-20250514",
+              model: "claude-3-haiku-20240307",
               max_tokens: 30,
               messages: [{ role: "user", content: "Say OK" }],
             }),
@@ -206,7 +206,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
         const result = await l0({
           stream: () =>
             client!.messages.stream({
-              model: "claude-sonnet-4-20250514",
+              model: "claude-3-haiku-20240307",
               max_tokens: 50,
               messages: [{ role: "user", content: "Hello" }],
             }),
@@ -236,7 +236,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
         const result = await l0({
           stream: () =>
             client!.messages.stream({
-              model: "claude-sonnet-4-20250514",
+              model: "claude-3-haiku-20240307",
               max_tokens: 30,
               messages: [{ role: "user", content: "Hi" }],
             }),
@@ -263,7 +263,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
         const result = await l0({
           stream: anthropicText(
             client!,
-            "claude-sonnet-4-20250514",
+            "claude-3-haiku-20240307",
             "Say hello world",
             { maxTokens: 20 },
           ),
