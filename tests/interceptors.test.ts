@@ -48,6 +48,7 @@ function createMockL0Result(overrides: Partial<L0Result> = {}): L0Result {
     completed: true,
     networkErrors: [],
     resumed: false,
+    dataOutputs: [],
   };
 
   return {
@@ -736,6 +737,7 @@ describe("loggingInterceptor()", () => {
           completed: true,
           networkErrors: [],
           resumed: false,
+          dataOutputs: [],
         },
       }),
     );
@@ -774,6 +776,7 @@ describe("loggingInterceptor()", () => {
           completed: true,
           networkErrors: [],
           resumed: false,
+          dataOutputs: [],
         },
       }),
     );
@@ -1107,6 +1110,7 @@ describe("transformInterceptor()", () => {
         completed: true,
         networkErrors: [],
         resumed: false,
+        dataOutputs: [],
       },
     });
 
