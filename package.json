@@ -5,6 +5,7 @@
   "license": "MIT",
   "author": "LZL0",
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,7 +13,8 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -20,6 +22,10 @@
     "README.md",
     "LICENSE"
   ],
+  "directories": {
+    "lib": "dist",
+    "test": "tests"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -131,6 +137,9 @@
     "vitest": "^4.0.0",
     "zod": "^3.25.76",
     "zod4": "npm:zod@^4.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "engines": {
     "node": ">=20.0.0"
