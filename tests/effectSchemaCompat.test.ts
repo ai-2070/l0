@@ -88,11 +88,8 @@ describe("Effect Schema Compatibility Layer", () => {
     });
 
     it("should detect Effect Literal schemas", () => {
-      // Literal may have different structure, check if it's detected or skip
       const literal = Schema.Literal("a", "b", "c");
-      // Literals might not have annotations as a function in all versions
-      const isSchema = isEffectSchema(literal) || "ast" in literal;
-      expect(isSchema).toBe(true);
+      expect(isEffectSchema(literal)).toBe(true);
     });
 
     it("should return false for non-Effect values", () => {

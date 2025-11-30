@@ -196,9 +196,9 @@ export function validateJSONSchema<T = unknown>(
 export interface UnifiedSchema<T = unknown> {
   readonly _tag: "zod" | "effect" | "jsonschema";
   parse(data: unknown): T;
-  safeParse(data: unknown):
-    | { success: true; data: T }
-    | { success: false; error: Error };
+  safeParse(
+    data: unknown,
+  ): { success: true; data: T } | { success: false; error: Error };
 }
 
 /**
@@ -263,7 +263,15 @@ export function createSimpleJSONSchemaAdapter(): JSONSchemaAdapter {
         if (s.type) {
           const types = Array.isArray(s.type) ? s.type : [s.type];
           const actualType = getJSONType(value);
-          if (!types.includes(actualType)) {
+          // JSON Schema "integer" is a subtype of "number" - check if value is an integer
+          const typeMatches = types.some((t) => {
+            if (t === actualType) return true;
+            if (t === "integer" && actualType === "number") {
+              return Number.isInteger(value);
+            }
+            return false;
+          });
+          if (!typeMatches) {
             errors.push({
               path,
               message: `Expected ${types.join(" or ")}, got ${actualType}`,
@@ -292,7 +300,11 @@ export function createSimpleJSONSchemaAdapter(): JSONSchemaAdapter {
         }
 
         // Object validation
-        if (s.type === "object" && typeof value === "object" && value !== null) {
+        if (
+          s.type === "object" &&
+          typeof value === "object" &&
+          value !== null
+        ) {
           const obj = value as Record<string, unknown>;
 
           // Required properties
@@ -322,7 +334,11 @@ export function createSimpleJSONSchemaAdapter(): JSONSchemaAdapter {
         if (s.type === "array" && Array.isArray(value)) {
           if (s.items && !Array.isArray(s.items)) {
             value.forEach((item, index) => {
-              validateValue(s.items as JSONSchemaDefinition, item, `${path}/${index}`);
+              validateValue(
+                s.items as JSONSchemaDefinition,
+                item,
+                `${path}/${index}`,
+              );
             });
           }
         }
