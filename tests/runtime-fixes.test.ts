@@ -101,7 +101,7 @@ describe("Inter-token timeout", () => {
     let processingCalls = 0;
     const result = await l0({
       stream: () => streamFn(),
-      timeout: { interToken: 200 }, // 200ms timeout
+      timeout: { interToken: 100 }, // 100ms timeout
       retry: { attempts: 0 },
       onEvent: async () => {
         processingCalls++;
