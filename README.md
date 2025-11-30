@@ -25,7 +25,7 @@ npm install @ai2070/l0
 
 | Feature                                          | Description                                                                                                                                                                                           |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🔁 Smart Retries**                             | Model-aware retries with fixed-jitter backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.                                                       |
+| **🔁 Smart Retries**                             | Model-aware retries with fixed-jitter backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.                                                      |
 | **🌐 Network Protection**                        | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks.                                                                        |
 | **🔀 Model Fallbacks**                           | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic.                                                                                                |
 | **💥 Zero-Token/Stall Protection**               | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks.                                                                                             |
@@ -42,10 +42,10 @@ npm install @ai2070/l0
 | **📊 Monitoring Hooks**                          | `onToken`, `onViolation`, `onRetry`, `onFallback`, and more - integrates with Prometheus, OTel, Sentry.                                                                                               |
 | **📡 Streaming-First Runtime**                   | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `done`) for easy UIs.                                                                                     |
 | **📼 Atomic Event Logs**                         | Record every token, retry, fallback, and guardrail check as immutable events. Full audit trail for debugging and compliance.                                                                          |
-| **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                    |
+| **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
 | **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
-| **🧪 Battle-Tested**                             | 1,400+ unit tests and 230+ integration tests validating real streaming, retries, and advanced behavior.                                     |
+| **🧪 Battle-Tested**                             | 1,400+ unit tests and 230+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
 ## Quick Start
 
@@ -82,7 +82,7 @@ const result = await l0({
     attempts: 3,
     baseDelay: 1000,
     maxDelay: 10000,
-    backoff: "fixed-jitter",
+    backoff: "fixed-jitter", // "exponential" | "linear" | "fixed" | "full-jitter"
   },
   // Or simply:
   // retry: recommendedRetry,
@@ -969,8 +969,8 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 
 ### Test Coverage
 
-| Category          | Tests | Description                      |
-| ----------------- | ----- | -------------------------------- |
+| Category          | Tests  | Description                      |
+| ----------------- | ------ | -------------------------------- |
 | Unit Tests        | 1,400+ | Fast, mocked, no API calls       |
 | Integration Tests | 230+   | Real API calls, all SDK adapters |
 

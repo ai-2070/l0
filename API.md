@@ -43,7 +43,7 @@ const result = await l0({
     attempts: 3,
     baseDelay: 1000,
     maxDelay: 10000,
-    backoff: "fixed-jitter",
+    backoff: "fixed-jitter", // "exponential" | "linear" | "fixed" | "full-jitter"
 
     // Optional: specify which error types to retry on, defaults to all recoverable errors
     retryOn: [
@@ -271,25 +271,35 @@ interface AnalysisOutput {
 const result = await pipe<DocumentInput, AnalysisOutput>({
   input: { text: "Long document...", language: "en" },
   stages: [
-    { name: "extract", stream: (input) => streamText({ model, prompt: `Extract from: ${input.text}` }) },
-    { name: "analyze", stream: (prev) => streamText({ model, prompt: `Analyze: ${prev}` }) },
-    { name: "summarize", stream: (prev) => streamText({ model, prompt: `Summarize: ${prev}` }) },
+    {
+      name: "extract",
+      stream: (input) =>
+        streamText({ model, prompt: `Extract from: ${input.text}` }),
+    },
+    {
+      name: "analyze",
+      stream: (prev) => streamText({ model, prompt: `Analyze: ${prev}` }),
+    },
+    {
+      name: "summarize",
+      stream: (prev) => streamText({ model, prompt: `Summarize: ${prev}` }),
+    },
   ],
 });
 ```
 
 ### Type Inference Table
 
-| Function | Generic | Result Type |
-| --- | --- | --- |
-| `l0<T>()` | `TOutput` | `L0Result<TOutput>` |
-| `parallel<T>()` | `TOutput` | `ParallelResult<TOutput>` |
-| `parallelAll<T>()` | `TOutput` | `ParallelResult<TOutput>` |
-| `sequential<T>()` | `TOutput` | `ParallelResult<TOutput>` |
-| `batched<T>()` | `TOutput` | `ParallelResult<TOutput>` |
-| `race<T>()` | `TOutput` | `RaceResult<TOutput>` |
-| `consensus<T>()` | `TSchema` | `ConsensusResult<T>` |
-| `pipe<I, O>()` | `TInput, TOutput` | `PipeResult<TOutput>` |
+| Function           | Generic           | Result Type               |
+| ------------------ | ----------------- | ------------------------- |
+| `l0<T>()`          | `TOutput`         | `L0Result<TOutput>`       |
+| `parallel<T>()`    | `TOutput`         | `ParallelResult<TOutput>` |
+| `parallelAll<T>()` | `TOutput`         | `ParallelResult<TOutput>` |
+| `sequential<T>()`  | `TOutput`         | `ParallelResult<TOutput>` |
+| `batched<T>()`     | `TOutput`         | `ParallelResult<TOutput>` |
+| `race<T>()`        | `TOutput`         | `RaceResult<TOutput>`     |
+| `consensus<T>()`   | `TSchema`         | `ConsensusResult<T>`      |
+| `pipe<I, O>()`     | `TInput, TOutput` | `PipeResult<TOutput>`     |
 
 ### Best Practices
 
@@ -601,28 +611,28 @@ const result = await l0({
     // Custom function to control whether to retry
     shouldRetry: (error, context) => {
       // context: { attempt, totalAttempts, category, reason, content, tokenCount }
-      
+
       // Never retry after 5 total attempts
       if (context.totalAttempts >= 5) return false;
-      
+
       // Always retry rate limits
       if (context.reason === "rate_limit") return true;
-      
+
       // Don't retry if we already have significant content
       if (context.tokenCount > 100) return false;
-      
+
       // Return undefined to use default behavior
       return undefined;
     },
-    
+
     // Custom function to calculate retry delay
     calculateDelay: (context) => {
       // context: { attempt, totalAttempts, category, reason, error, defaultDelay }
-      
+
       // Different delays based on error category
       if (context.category === "network") return 500;
       if (context.reason === "rate_limit") return 5000;
-      
+
       // Custom exponential backoff with full jitter
       const base = 1000;
       const cap = 30000;
@@ -646,14 +656,14 @@ const result = await l0({
 
 #### calculateDelay Context
 
-| Property       | Type   | Description                          |
-| -------------- | ------ | ------------------------------------ |
-| `attempt`      | number | Current retry attempt (0-based)      |
-| `totalAttempts`| number | Total attempts including network     |
-| `category`     | string | Error category (network/model/fatal) |
-| `reason`       | string | Error reason code                    |
-| `error`        | Error  | The error that occurred              |
-| `defaultDelay` | number | Default delay that would be used     |
+| Property        | Type   | Description                          |
+| --------------- | ------ | ------------------------------------ |
+| `attempt`       | number | Current retry attempt (0-based)      |
+| `totalAttempts` | number | Total attempts including network     |
+| `category`      | string | Error category (network/model/fatal) |
+| `reason`        | string | Error reason code                    |
+| `error`         | Error  | The error that occurred              |
+| `defaultDelay`  | number | Default delay that would be used     |
 
 ### Error Type Delays
 
