@@ -219,7 +219,9 @@ export async function l0<TOutput = unknown>(
       while (retryAttempt <= modelRetryLimit) {
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
-          if (isRetryAttempt) {
+          // retryAttempt > 0: guardrail/drift retries increment this directly
+          // isRetryAttempt: network retries set this flag (don't count toward limit)
+          if (retryAttempt > 0 || isRetryAttempt) {
             // Check if we should continue from checkpoint
             if (
               processedContinueFromCheckpoint &&
