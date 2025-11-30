@@ -32,18 +32,12 @@ export default defineConfig({
       },
     },
 
-    // Test file patterns
-    include: ["tests/**/*.test.ts", "tests/**/*.spec.ts"],
-
     // Test timeout
     testTimeout: 10000,
     hookTimeout: 10000,
 
     // Retry failed tests
     retry: 0,
-
-    // Reporter
-    reporter: ["verbose", "json", "html"],
 
     // Mock options
     mockReset: true,
