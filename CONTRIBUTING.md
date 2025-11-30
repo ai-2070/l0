@@ -23,6 +23,8 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 L0 does not accept integrations, drivers, storage adapters, or external service bindings into the core repository. These must live in separate repositories, maintained by their authors.
 
+All adapters must be maintained out-of-tree. The L0 core will remain small, dependency-free, and integration-agnostic.
+
 **What belongs in core:**
 - Runtime features (retry, fallback, continuation, drift detection)
 - Guardrail rules and engine
