@@ -87,22 +87,27 @@ describe("Inter-token timeout", () => {
 
   it("should measure time waiting for token, not processing time", async () => {
     // This test verifies the fix: timeout is checked BEFORE processing each chunk
+    // If timeout measured processing time instead of wait time, this would fail
     const streamFn = async function* (): AsyncGenerator<L0Event> {
       yield { type: "token", value: "first", timestamp: Date.now() };
-      await delay(10); // Short delay
+      await delay(10); // Short delay between tokens (well under timeout)
       yield { type: "token", value: "second", timestamp: Date.now() };
+      await delay(10);
+      yield { type: "token", value: "third", timestamp: Date.now() };
       yield { type: "done", timestamp: Date.now() };
     };
 
     let processingCalls = 0;
     const result = await l0({
       stream: () => streamFn(),
-      timeout: { interToken: 5000 },
+      timeout: { interToken: 200 }, // 200ms timeout
       retry: { attempts: 0 },
-      onEvent: () => {
+      onEvent: async () => {
         processingCalls++;
-        // Simulate slow processing - this should NOT affect timeout
-        // because timeout measures wait time for next token
+        // Simulate slow processing (150ms) - this should NOT affect timeout
+        // because timeout measures wait time for next token, not processing time
+        // If timeout was measured incorrectly, this 150ms would cause timeout
+        await delay(150);
       },
     });
 
@@ -111,9 +116,12 @@ describe("Inter-token timeout", () => {
       events.push(event);
     }
 
-    // Should complete successfully
+    // Should complete successfully despite slow processing
+    // If timeout measured processing time, this would have failed
     expect(events.some((e) => e.type === "done")).toBe(true);
     expect(processingCalls).toBeGreaterThan(0);
+    const tokens = events.filter((e) => e.type === "token").map((e) => e.value);
+    expect(tokens).toEqual(["first", "second", "third"]);
   });
 });
 

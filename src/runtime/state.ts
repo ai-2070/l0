@@ -49,6 +49,7 @@ export function resetStateForRetry(
   state.dataOutputs = [];
   state.lastProgress = undefined;
   state.completed = false;
+  state.networkErrors = [];
 
   // Restore preserved fields
   if (preserve.checkpoint !== undefined) {

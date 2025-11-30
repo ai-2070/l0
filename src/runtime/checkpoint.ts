@@ -27,13 +27,15 @@ export function validateCheckpointForContinuation(
   };
 
   // Run guardrails on checkpoint content
+  // Mark as completed: true so completion-only guardrail rules are applied
+  // This ensures full safety checks run on the checkpoint before continuation
   if (guardrailEngine) {
     const checkpointContext: GuardrailContext = {
       content: checkpointContent,
       checkpoint: "",
       delta: checkpointContent,
       tokenCount: 1,
-      completed: false,
+      completed: true,
     };
     const checkpointResult = guardrailEngine.check(checkpointContext);
     if (checkpointResult.violations.length > 0) {
