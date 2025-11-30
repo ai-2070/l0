@@ -45,7 +45,7 @@ npm install @ai2070/l0
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
 | **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
-| **🧪 Battle-Tested**                             | 1,400+ unit tests and 230+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
+| **🧪 Battle-Tested**                             | 1,500+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                      |
 
 ## Quick Start
@@ -1031,8 +1031,8 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 
 | Category          | Tests  | Description                      |
 | ----------------- | ------ | -------------------------------- |
-| Unit Tests        | 1,400+ | Fast, mocked, no API calls       |
-| Integration Tests | 230+   | Real API calls, all SDK adapters |
+| Unit Tests        | 1,500+ | Fast, mocked, no API calls       |
+| Integration Tests | 250+   | Real API calls, all SDK adapters |
 
 ```bash
 # Run unit tests (fast, no API keys needed)
