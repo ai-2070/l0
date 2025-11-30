@@ -1176,6 +1176,14 @@ Every major reliability feature in L0 has dedicated test suites:
 
 ---
 
+## Support
+
+L0 is developed and maintained independently. If your company depends on L0 or wants to support ongoing development (including the Python version, website docs, and future tooling), feel free to reach out:
+
+**makerseven7@gmail.com**
+
+---
+
 ## License
 
 MIT
