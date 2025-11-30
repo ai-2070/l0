@@ -108,7 +108,8 @@ const result = await l0({
 
   // Optional: Retry configuration, default as follows
   retry: {
-    attempts: 3,
+    attempts: 3, // LLM errors only
+    maxRetries: 6, // Total (LLM + network)
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "fixed-jitter", // "exponential" | "linear" | "fixed" | "full-jitter"
