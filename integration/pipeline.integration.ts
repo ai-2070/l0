@@ -632,8 +632,9 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
                 stream: () =>
                   streamText({
                     model: openai("gpt-5-nano"),
-                    prompt: "Say 'ok'",
+                    prompt: "Say 'metadata received successfully'",
                   }),
+                zeroOutput: { enabled: false },
               };
             },
           },
