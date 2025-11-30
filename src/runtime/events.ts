@@ -148,6 +148,8 @@ function isL0Event(obj: any): obj is L0Event {
     "type" in obj &&
     (obj.type === "token" ||
       obj.type === "message" ||
+      obj.type === "data" ||
+      obj.type === "progress" ||
       obj.type === "error" ||
       obj.type === "done")
   );
