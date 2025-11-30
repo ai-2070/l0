@@ -25,7 +25,7 @@ _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
 **Upcoming versions:**
 
-- **0.9.0** - Website docs
+- **0.9.0** - Website docs + Python version
 - **1.0.0** - API freeze
 
 ## Features
