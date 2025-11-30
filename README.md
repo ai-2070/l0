@@ -1,4 +1,5 @@
 # L0 - The Missing Reliability Substrate for AI
+![L0: The Missing AI Reliability Substrate](img/l0-banner.png)
 
 **Tiny. Predictable. Replayable. Streaming-first.**
 
