@@ -248,7 +248,6 @@ const result = await l0({
       "zero_output",
       "guardrail_violation",
       "drift",
-      "malformed",
       "incomplete",
       "network_error",
       "timeout",

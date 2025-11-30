@@ -417,6 +417,7 @@ export {
 // Re-export commonly used types
 export type {
   RetryReason,
+  BackoffStrategy,
   CategorizedError,
   ErrorTypeDelays,
 } from "./types/retry";

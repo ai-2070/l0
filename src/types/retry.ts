@@ -96,7 +96,7 @@ export interface RetryConfig {
   /**
    * Backoff strategy
    */
-  backoff: "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter";
+  backoff: BackoffStrategy;
 
   /**
    * What types of errors to retry on
@@ -130,6 +130,16 @@ export type RetryReason =
   | "timeout"
   | "rate_limit"
   | "server_error";
+
+/**
+ * Backoff strategy for retry delays
+ */
+export type BackoffStrategy =
+  | "exponential"
+  | "linear"
+  | "fixed"
+  | "full-jitter"
+  | "fixed-jitter";
 
 /**
  * Centralized retry configuration defaults

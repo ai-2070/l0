@@ -1,6 +1,6 @@
 // Backoff and timer helpers for L0
 
-import type { BackoffResult } from "../types/retry";
+import type { BackoffResult, BackoffStrategy } from "../types/retry";
 import { RETRY_DEFAULTS } from "../types/retry";
 
 /**
@@ -139,7 +139,7 @@ export function decorrelatedJitterBackoff(
  * @param maxDelay - Maximum delay cap in milliseconds
  */
 export function calculateBackoff(
-  strategy: "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter",
+  strategy: BackoffStrategy,
   attempt: number,
   baseDelay: number = RETRY_DEFAULTS.baseDelay,
   maxDelay: number = RETRY_DEFAULTS.maxDelay,

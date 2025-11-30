@@ -50,7 +50,6 @@ const result = await l0({
       "zero_output",
       "guardrail_violation",
       "drift",
-      "malformed",
       "incomplete",
       "network_error",
       "timeout",
@@ -581,7 +580,6 @@ const result = await l0({
       "zero_output",
       "guardrail_violation",
       "drift",
-      "malformed",
       "incomplete",
       "network_error",
       "timeout",
@@ -1455,7 +1453,7 @@ interface L0Interceptor {
 
 ### RetryOptions
 
-Retry configuration options.
+Retry configuration options. See [BackoffStrategy](#backoffstrategy), [RetryReason](#retryreason), and [RETRY_DEFAULTS](#retry_defaults) for type details.
 
 ```typescript
 interface RetryOptions {
@@ -1468,7 +1466,7 @@ interface RetryOptions {
   maxRetries?: number;
 
   // Backoff strategy (default: "fixed-jitter")
-  backoff?: "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter";
+  backoff?: BackoffStrategy;
 
   // Base delay in milliseconds (default: 1000)
   baseDelay?: number;
@@ -1476,17 +1474,8 @@ interface RetryOptions {
   // Maximum delay cap in milliseconds (default: 10000)
   maxDelay?: number;
 
-  // What types of errors to retry on
-  retryOn?: Array<
-    | "zero_output"
-    | "guardrail_violation"
-    | "drift"
-    | "malformed"
-    | "incomplete"
-    | "network_error"
-    | "timeout"
-    | "rate_limit"
-  >;
+  // What types of errors to retry on (see RETRY_DEFAULTS.retryOn for defaults)
+  retryOn?: RetryReason[];
 
   // Custom delays for specific network error types
   errorTypeDelays?: {
@@ -1619,16 +1608,72 @@ interface ConsensusResult<T> {
 }
 ```
 
-### ErrorCategory
+### BackoffStrategy
 
-Error classification for retry logic.
+Backoff strategy options for retry delays. Defined in `src/types/retry.ts`.
 
 ```typescript
-type ErrorCategory =
-  | "network" // Network failures - retry forever with backoff
-  | "transient" // 429, 503, timeouts - retry forever with backoff
-  | "model" // Model failures - count toward retry limit
-  | "fatal"; // Don't retry
+type BackoffStrategy =
+  | "exponential" // Classic exponential backoff (delay * 2^attempt)
+  | "linear" // Linear increase (delay * attempt)
+  | "fixed" // Constant delay
+  | "full-jitter" // Random delay between 0 and exponential value
+  | "fixed-jitter"; // AWS-style: base delay + random jitter (DEFAULT)
+```
+
+### RetryReason
+
+Reasons that can trigger a retry. Defined in `src/types/retry.ts`.
+
+```typescript
+type RetryReason =
+  | "zero_output" // LLM returned no content
+  | "guardrail_violation" // Output failed guardrail check
+  | "drift" // Output drifted from expected format
+  | "unknown" // Unknown error (opt-in only, not in defaults)
+  | "incomplete" // Output was truncated/incomplete
+  | "network_error" // Network connectivity issues
+  | "timeout" // Request timed out
+  | "rate_limit" // 429 rate limit hit
+  | "server_error"; // 5xx server errors
+```
+
+### ErrorCategory
+
+Error classification enum for retry logic. Defined in `src/types/retry.ts`.
+
+```typescript
+enum ErrorCategory {
+  NETWORK = "network", // Network failures - retry forever with backoff
+  TRANSIENT = "transient", // 429, 503, timeouts - retry forever with backoff
+  MODEL = "model", // Model failures - count toward retry limit
+  FATAL = "fatal", // Don't retry
+}
+```
+
+### RETRY_DEFAULTS
+
+Centralized default values for retry configuration. Defined in `src/types/retry.ts`.
+
+```typescript
+const RETRY_DEFAULTS = {
+  attempts: 3, // Model failure attempts
+  maxRetries: 6, // Hard cap across all error types
+  baseDelay: 1000, // 1 second
+  maxDelay: 10000, // 10 seconds
+  networkMaxDelay: 30000, // 30 seconds for network errors
+  backoff: "fixed-jitter", // AWS-style backoff
+  retryOn: [
+    "zero_output",
+    "guardrail_violation",
+    "drift",
+    "incomplete",
+    "network_error",
+    "timeout",
+    "rate_limit",
+    "server_error",
+  ],
+};
 ```
 
 ---
