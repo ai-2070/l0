@@ -1024,7 +1024,7 @@ export const strictGuardrails: GuardrailRule[] = [];
 export const minimalRetry: RetryOptions = {
   attempts: 2,
   maxRetries: 4,
-  backoff: RETRY_DEFAULTS.backoff,
+  backoff: "linear",
   baseDelay: RETRY_DEFAULTS.baseDelay,
   maxDelay: RETRY_DEFAULTS.maxDelay,
   retryOn: [...RETRY_DEFAULTS.retryOn],
@@ -1043,6 +1043,15 @@ export const strictRetry: RetryOptions = {
   attempts: RETRY_DEFAULTS.attempts,
   maxRetries: RETRY_DEFAULTS.maxRetries,
   backoff: "full-jitter",
+  baseDelay: RETRY_DEFAULTS.baseDelay,
+  maxDelay: RETRY_DEFAULTS.maxDelay,
+  retryOn: [...RETRY_DEFAULTS.retryOn],
+};
+
+export const exponentialRetry: RetryOptions = {
+  attempts: 4,
+  maxRetries: 8,
+  backoff: "exponential",
   baseDelay: RETRY_DEFAULTS.baseDelay,
   maxDelay: RETRY_DEFAULTS.maxDelay,
   retryOn: [...RETRY_DEFAULTS.retryOn],

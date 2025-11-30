@@ -548,6 +548,7 @@ import {
   minimalRetry, // { attempts: 2 }
   recommendedRetry, // { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
   strictRetry, // { attempts: 3, maxRetries: 6, backoff: "full-jitter" }
+  exponentialRetry, // { attempts: 4, maxRetries: 8, backoff: "exponential" }
 } from "@ai2070/l0";
 ```
 
