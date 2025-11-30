@@ -2,12 +2,12 @@
 
 import type { GuardrailRule, GuardrailViolation } from "./guardrails";
 import type { BackoffStrategy, RetryReason } from "./retry";
-import { RETRY_DEFAULTS } from "./retry";
+import { RETRY_DEFAULTS, ErrorCategory } from "./retry";
 
 // Re-export for convenience
 export type { GuardrailRule, GuardrailViolation } from "./guardrails";
 export type { BackoffStrategy, RetryReason } from "./retry";
-export { RETRY_DEFAULTS } from "./retry";
+export { RETRY_DEFAULTS, ErrorCategory } from "./retry";
 
 /**
  * Result of checkpoint validation for continuation
@@ -760,15 +760,6 @@ export interface RetryOptions {
     defaultDelay: number;
   }) => number | undefined;
 }
-
-/**
- * Error classification for retry logic
- */
-export type ErrorCategory =
-  | "network" // Network failures - retry forever with backoff
-  | "transient" // 429, 503, timeouts - retry forever with backoff
-  | "model" // Model failures - count toward retry limit
-  | "fatal"; // Don't retry
 
 /**
  * Preset guardrail configurations
