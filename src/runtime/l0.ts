@@ -693,15 +693,30 @@ export async function l0<TOutput = unknown>(
               },
             );
 
+            let flushedToken: string;
             if (overlapResult.hasOverlap) {
               // Add only the non-overlapping portion
-              if (overlapResult.deduplicatedContinuation.length > 0) {
-                tokenBuffer.push(overlapResult.deduplicatedContinuation);
-              }
+              flushedToken = overlapResult.deduplicatedContinuation;
             } else {
               // No overlap found, add the entire buffer
-              tokenBuffer.push(deduplicationBuffer);
+              flushedToken = deduplicationBuffer;
             }
+
+            // Only emit and add to buffer if there's content
+            if (flushedToken.length > 0) {
+              tokenBuffer.push(flushedToken);
+              state.tokenCount++;
+
+              // Emit the flushed token to the stream
+              const flushedEvent: L0Event = {
+                type: "token",
+                value: flushedToken,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(flushedEvent);
+              yield flushedEvent;
+            }
+
             deduplicationComplete = true;
           }
 

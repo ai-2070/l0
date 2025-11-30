@@ -976,18 +976,16 @@ describe("continueFromLastKnownGoodToken", () => {
         detectZeroTokens: false,
       });
 
-      try {
-        for await (const _event of result.stream) {
-          // consume
-        }
-
-        if (result.state.continuedFromCheckpoint) {
-          expect(result.state.content).toBe("Primary content here and more");
-        }
-      } catch (_error) {
-        // Fallback behavior may vary
-        expect(primaryAttempts).toBeGreaterThanOrEqual(1);
+      for await (const _event of result.stream) {
+        // consume
       }
+
+      // Primary should have been attempted
+      expect(primaryAttempts).toBeGreaterThanOrEqual(1);
+      // Continuation should have been used on fallback
+      expect(result.state.continuedFromCheckpoint).toBe(true);
+      // Content should be deduplicated
+      expect(result.state.content).toBe("Primary content here and more");
     });
 
     it("should respect minOverlap option", async () => {
@@ -1078,6 +1076,127 @@ describe("continueFromLastKnownGoodToken", () => {
       }
 
       expect(result.state.content).toBe("Hello beautiful world is nice");
+    });
+
+    it("should emit flushed deduplication tokens to stream", async () => {
+      let attemptCount = 0;
+      const emittedTokens: string[] = [];
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["Hello", " world"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // Short continuation that ends before deduplication finalizes normally
+          // This tests the flush path at stream end
+          return {
+            textStream: createMockStream([" new"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const event of result.stream) {
+        if (event.type === "token" && event.value) {
+          emittedTokens.push(event.value);
+        }
+      }
+
+      // Should have emitted: checkpoint "Hello world" + flushed " new"
+      expect(emittedTokens).toContain("Hello world");
+      expect(emittedTokens).toContain(" new");
+      expect(result.state.content).toBe("Hello world new");
+    });
+
+    it("should update token count when flushing deduplication buffer", async () => {
+      let attemptCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["A", "B", "C"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // Continuation with no overlap - will be flushed at end
+          return {
+            textStream: createMockStream(["X", "Y", "Z"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      // Token count should include: checkpoint (1) + flushed continuation (1)
+      // The checkpoint is emitted as 1 token, and the flushed buffer as 1 token
+      expect(result.state.tokenCount).toBeGreaterThanOrEqual(2);
+      expect(result.state.content).toBe("ABCXYZ");
+    });
+
+    it("should handle continuation where entire buffer is overlap", async () => {
+      let attemptCount = 0;
+      const emittedTokens: string[] = [];
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["Hello", " world"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // Continuation is entirely overlap - no new content
+          return {
+            textStream: createMockStream(["world"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const event of result.stream) {
+        if (event.type === "token" && event.value) {
+          emittedTokens.push(event.value);
+        }
+      }
+
+      // Final content should not have duplicate "world"
+      expect(result.state.content).toBe("Hello world");
+      // The content should NOT be "Hello worldworld"
+      expect(result.state.content).not.toBe("Hello worldworld");
     });
   });
 });
