@@ -409,7 +409,11 @@ export {
   extractMeaningfulTokens,
   detectRepeatedTokens,
   endsAbruptly,
+  detectOverlap,
+  deduplicateContinuation,
 } from "./utils/tokens";
+
+export type { OverlapDetectionResult } from "./utils/tokens";
 
 export {
   exponentialBackoff,

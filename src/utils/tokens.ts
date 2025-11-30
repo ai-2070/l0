@@ -269,3 +269,205 @@ export function chunkByTokens(content: string, chunkSize: number): string[] {
 
   return chunks;
 }
+
+/**
+ * Result of overlap detection between checkpoint and continuation
+ */
+export interface OverlapDetectionResult {
+  /** The length of the detected overlap in characters */
+  overlapLength: number;
+  /** The overlapping text that was found */
+  overlapText: string;
+  /** The deduplicated continuation (with overlap removed) */
+  deduplicatedContinuation: string;
+  /** Whether any overlap was detected */
+  hasOverlap: boolean;
+}
+
+/**
+ * Detect and remove overlapping text between checkpoint and continuation.
+ *
+ * When LLMs continue from a checkpoint, they often repeat some words from the end
+ * of the checkpoint at the beginning of their continuation. This function detects
+ * the longest suffix of the checkpoint that matches a prefix of the continuation
+ * and returns the deduplicated continuation.
+ *
+ * Uses an optimized algorithm that checks from longest possible overlap down to
+ * minimum, with early termination when a match is found.
+ *
+ * @param checkpoint - The checkpoint content (what we already have)
+ * @param continuation - The continuation content (new content from LLM)
+ * @param options - Optional configuration
+ * @param options.minOverlap - Minimum overlap length to consider (default: 2)
+ * @param options.maxOverlap - Maximum overlap length to check (default: min(500, continuation.length))
+ * @param options.caseSensitive - Whether to use case-sensitive matching (default: true)
+ * @param options.normalizeWhitespace - Whether to normalize whitespace for matching (default: false)
+ * @returns OverlapDetectionResult with overlap info and deduplicated continuation
+ *
+ * @example
+ * ```typescript
+ * const result = detectOverlap("Hello world", "world is great");
+ * // result.overlapLength === 5
+ * // result.overlapText === "world"
+ * // result.deduplicatedContinuation === " is great"
+ * // result.hasOverlap === true
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // With whitespace normalization
+ * const result = detectOverlap("Hello  world", "world   is great", {
+ *   normalizeWhitespace: true
+ * });
+ * // Matches despite different whitespace
+ * ```
+ */
+export function detectOverlap(
+  checkpoint: string,
+  continuation: string,
+  options: {
+    minOverlap?: number;
+    maxOverlap?: number;
+    caseSensitive?: boolean;
+    normalizeWhitespace?: boolean;
+  } = {},
+): OverlapDetectionResult {
+  // Handle edge cases first (before accessing properties)
+  if (
+    !checkpoint ||
+    !continuation ||
+    checkpoint.length === 0 ||
+    continuation.length === 0
+  ) {
+    return {
+      overlapLength: 0,
+      overlapText: "",
+      deduplicatedContinuation: continuation || "",
+      hasOverlap: false,
+    };
+  }
+
+  const {
+    minOverlap = 2,
+    maxOverlap = Math.min(500, continuation.length),
+    caseSensitive = true,
+    normalizeWhitespace = false,
+  } = options;
+
+  // Prepare strings for comparison
+  let checkpointForMatch = checkpoint;
+  let continuationForMatch = continuation;
+
+  if (!caseSensitive) {
+    checkpointForMatch = checkpoint.toLowerCase();
+    continuationForMatch = continuation.toLowerCase();
+  }
+
+  if (normalizeWhitespace) {
+    // Normalize multiple whitespace to single space for matching
+    checkpointForMatch = checkpointForMatch.replace(/\s+/g, " ");
+    continuationForMatch = continuationForMatch.replace(/\s+/g, " ");
+  }
+
+  // Calculate the maximum possible overlap
+  const maxPossibleOverlap = Math.min(
+    checkpointForMatch.length,
+    continuationForMatch.length,
+    maxOverlap,
+  );
+
+  // If max possible is less than minimum, no overlap possible
+  if (maxPossibleOverlap < minOverlap) {
+    return {
+      overlapLength: 0,
+      overlapText: "",
+      deduplicatedContinuation: continuation,
+      hasOverlap: false,
+    };
+  }
+
+  // Search from longest to shortest overlap for efficiency
+  // This way we find the longest match first and can exit early
+  for (let len = maxPossibleOverlap; len >= minOverlap; len--) {
+    const suffix = checkpointForMatch.slice(-len);
+    const prefix = continuationForMatch.slice(0, len);
+
+    if (suffix === prefix) {
+      // Found overlap - calculate the actual overlap text from original strings
+      // When whitespace is normalized, we need to find the actual boundary
+      let actualOverlapLength = len;
+
+      if (normalizeWhitespace) {
+        // Find the actual position in the original continuation
+        // by matching the normalized prefix length
+        let normalizedPos = 0;
+        let originalPos = 0;
+        const normalizedPrefix = continuationForMatch.slice(0, len);
+
+        while (
+          normalizedPos < normalizedPrefix.length &&
+          originalPos < continuation.length
+        ) {
+          // Skip extra whitespace in original
+          if (/\s/.test(continuation[originalPos]!)) {
+            if (normalizedPrefix[normalizedPos] === " ") {
+              normalizedPos++;
+              originalPos++;
+              // Skip any additional whitespace in original
+              while (
+                originalPos < continuation.length &&
+                /\s/.test(continuation[originalPos]!)
+              ) {
+                originalPos++;
+              }
+            } else {
+              originalPos++;
+            }
+          } else {
+            normalizedPos++;
+            originalPos++;
+          }
+        }
+        actualOverlapLength = originalPos;
+      }
+
+      return {
+        overlapLength: actualOverlapLength,
+        overlapText: continuation.slice(0, actualOverlapLength),
+        deduplicatedContinuation: continuation.slice(actualOverlapLength),
+        hasOverlap: true,
+      };
+    }
+  }
+
+  // No overlap found
+  return {
+    overlapLength: 0,
+    overlapText: "",
+    deduplicatedContinuation: continuation,
+    hasOverlap: false,
+  };
+}
+
+/**
+ * Remove overlapping content from continuation based on checkpoint.
+ * Convenience wrapper around detectOverlap that just returns the deduplicated string.
+ *
+ * @param checkpoint - The checkpoint content
+ * @param continuation - The continuation content
+ * @param options - Same options as detectOverlap
+ * @returns The continuation with any overlapping prefix removed
+ */
+export function deduplicateContinuation(
+  checkpoint: string,
+  continuation: string,
+  options: {
+    minOverlap?: number;
+    maxOverlap?: number;
+    caseSensitive?: boolean;
+    normalizeWhitespace?: boolean;
+  } = {},
+): string {
+  return detectOverlap(checkpoint, continuation, options)
+    .deduplicatedContinuation;
+}

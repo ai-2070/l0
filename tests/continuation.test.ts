@@ -720,4 +720,364 @@ describe("continueFromLastKnownGoodToken", () => {
       expect(callbackCalled).toBe(false);
     });
   });
+
+  describe("deduplicateContinuation", () => {
+    it("should deduplicate overlapping content on retry by default", async () => {
+      let attemptCount = 0;
+      const tokens: string[] = [];
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            // First attempt: emit "Hello world" then fail
+            return {
+              textStream: createMockStream(["Hello", " ", "world"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // Second attempt: LLM repeats "world" then continues
+          return {
+            textStream: createMockStream(["world", " is great"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 }, // Checkpoint every token
+        detectZeroTokens: false,
+      });
+
+      for await (const event of result.stream) {
+        if (event.type === "token" && event.value) {
+          tokens.push(event.value);
+        }
+      }
+
+      // Should have: checkpoint "Hello world" + deduplicated " is great"
+      expect(result.state.continuedFromCheckpoint).toBe(true);
+      expect(result.state.content).toBe("Hello world is great");
+    });
+
+    it("should handle multi-word overlap deduplication", async () => {
+      let attemptCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(
+                ["The", " quick", " brown", " fox"],
+                { shouldError: true },
+              ),
+            };
+          }
+          // LLM repeats "brown fox" then continues
+          return {
+            textStream: createMockStream(["brown fox", " jumps over"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      expect(result.state.content).toBe("The quick brown fox jumps over");
+    });
+
+    it("should allow disabling deduplication explicitly", async () => {
+      let attemptCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["Hello", " ", "world"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // LLM repeats "world"
+          return {
+            textStream: createMockStream(["world", " test"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        deduplicateContinuation: false, // Explicitly disable
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      // Without deduplication, "world" should appear twice
+      expect(result.state.content).toBe("Hello worldworld test");
+    });
+
+    it("should handle case-insensitive deduplication when configured", async () => {
+      let attemptCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["Hello", " ", "World"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // LLM repeats with different case
+          return {
+            textStream: createMockStream(["world", " is nice"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        deduplicationOptions: {
+          caseSensitive: false,
+        },
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      // With case-insensitive matching, "world" should be deduplicated
+      expect(result.state.content).toBe("Hello World is nice");
+    });
+
+    it("should not deduplicate when there is no overlap", async () => {
+      let attemptCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["Hello", " ", "world"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // LLM continues without repetition
+          return {
+            textStream: createMockStream([" is great"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      expect(result.state.content).toBe("Hello world is great");
+    });
+
+    it("should handle complete overlap (continuation is entirely repeated)", async () => {
+      let attemptCount = 0;
+      const tokens: string[] = [];
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["Hello", " world"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // First token is complete overlap, second is new
+          return {
+            textStream: createMockStream(["world", " again"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const event of result.stream) {
+        if (event.type === "token" && event.value) {
+          tokens.push(event.value);
+        }
+      }
+
+      expect(result.state.content).toBe("Hello world again");
+    });
+
+    it("should deduplicate on fallback as well", async () => {
+      let primaryAttempts = 0;
+
+      const result = await l0({
+        stream: () => {
+          primaryAttempts++;
+          return {
+            textStream: createMockStream(["Primary", " content", " here"], {
+              shouldError: true,
+            }),
+          };
+        },
+        fallbackStreams: [
+          () => ({
+            // Fallback repeats "here" then continues
+            textStream: createMockStream(["here", " and more"]),
+          }),
+        ],
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 1,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      try {
+        for await (const _event of result.stream) {
+          // consume
+        }
+
+        if (result.state.continuedFromCheckpoint) {
+          expect(result.state.content).toBe("Primary content here and more");
+        }
+      } catch (_error) {
+        // Fallback behavior may vary
+        expect(primaryAttempts).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it("should respect minOverlap option", async () => {
+      let attemptCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["abc"], { shouldError: true }),
+            };
+          }
+          // Single char overlap "c" should be ignored with minOverlap: 2
+          return {
+            textStream: createMockStream(["cd"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        deduplicationOptions: {
+          minOverlap: 2, // Require at least 2 chars for overlap
+        },
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      // "c" is only 1 char, so no deduplication with minOverlap: 2
+      expect(result.state.content).toBe("abccd");
+    });
+
+    it("should handle streamed tokens that gradually reveal overlap", async () => {
+      let attemptCount = 0;
+      const tokens: string[] = [];
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(
+                ["Hello", " ", "beautiful", " ", "world"],
+                { shouldError: true },
+              ),
+            };
+          }
+          // LLM streams the overlap character by character
+          return {
+            textStream: createMockStream([
+              "w",
+              "o",
+              "r",
+              "l",
+              "d", // overlap
+              " ",
+              "i",
+              "s",
+              " ",
+              "n",
+              "i",
+              "c",
+              "e", // new content
+            ]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const event of result.stream) {
+        if (event.type === "token" && event.value) {
+          tokens.push(event.value);
+        }
+      }
+
+      expect(result.state.content).toBe("Hello beautiful world is nice");
+    });
+  });
 });

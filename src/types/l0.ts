@@ -341,6 +341,65 @@ export interface L0Options<TOutput = unknown> {
   buildContinuationPrompt?: (checkpoint: string) => string;
 
   /**
+   * Enable automatic deduplication of overlapping content when continuing from checkpoint.
+   * Only used when continueFromLastKnownGoodToken is true.
+   *
+   * When LLMs continue from a checkpoint, they often repeat some words from the end
+   * of the checkpoint at the beginning of their continuation. When this option is enabled,
+   * L0 will detect and remove this overlapping content automatically.
+   *
+   * @default true (when continueFromLastKnownGoodToken is enabled)
+   *
+   * @example
+   * ```typescript
+   * // Checkpoint: "Hello world"
+   * // LLM continues with: "world is great"
+   * // Without deduplication: "Hello worldworld is great"
+   * // With deduplication: "Hello world is great"
+   *
+   * const result = await l0({
+   *   stream: () => streamText({ model, prompt }),
+   *   continueFromLastKnownGoodToken: true,
+   *   deduplicateContinuation: true, // default when continuation is enabled
+   * });
+   * ```
+   */
+  deduplicateContinuation?: boolean;
+
+  /**
+   * Options for continuation deduplication.
+   * Only used when deduplicateContinuation is true.
+   */
+  deduplicationOptions?: {
+    /**
+     * Minimum overlap length in characters to consider for deduplication.
+     * Shorter overlaps are ignored to avoid false positives.
+     * @default 2
+     */
+    minOverlap?: number;
+
+    /**
+     * Maximum overlap length in characters to check.
+     * Limits the search space for performance.
+     * @default 500
+     */
+    maxOverlap?: number;
+
+    /**
+     * Whether to use case-sensitive matching.
+     * @default true
+     */
+    caseSensitive?: boolean;
+
+    /**
+     * Whether to normalize whitespace when detecting overlap.
+     * When true, "Hello  world" and "Hello world" are considered matching.
+     * @default false
+     */
+    normalizeWhitespace?: boolean;
+  };
+
+  /**
    * Optional callback for each event
    */
   onEvent?: (event: L0Event) => void;
