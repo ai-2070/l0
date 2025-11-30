@@ -43,7 +43,7 @@ All adapters must be maintained out-of-tree. The L0 core will remain small, depe
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/your-username/l0.git
+   git clone https://github.com/ai-2070/l0.git
    cd l0
    ```
 3. **Install dependencies**:
