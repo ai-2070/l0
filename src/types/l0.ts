@@ -24,14 +24,134 @@ export interface CheckpointValidationResult {
 }
 
 /**
+ * Multimodal content types supported by L0
+ */
+export type L0ContentType =
+  | "text"
+  | "image"
+  | "audio"
+  | "video"
+  | "file"
+  | "json"
+  | "binary";
+
+/**
+ * Multimodal data payload for non-text content
+ */
+export interface L0DataPayload {
+  /**
+   * Content type of the data
+   */
+  contentType: L0ContentType;
+
+  /**
+   * MIME type (e.g., "image/png", "audio/mp3")
+   */
+  mimeType?: string;
+
+  /**
+   * Data as base64 string (for binary content)
+   */
+  base64?: string;
+
+  /**
+   * Data as URL (for remote content)
+   */
+  url?: string;
+
+  /**
+   * Data as raw bytes (for binary content in Node.js)
+   */
+  bytes?: Uint8Array;
+
+  /**
+   * Structured data (for JSON content type)
+   */
+  json?: unknown;
+
+  /**
+   * Optional metadata about the content
+   */
+  metadata?: {
+    /** Width in pixels (for images/video) */
+    width?: number;
+    /** Height in pixels (for images/video) */
+    height?: number;
+    /** Duration in seconds (for audio/video) */
+    duration?: number;
+    /** File size in bytes */
+    size?: number;
+    /** Original filename */
+    filename?: string;
+    /** Generation seed (for reproducibility) */
+    seed?: number;
+    /** Model used for generation */
+    model?: string;
+    /** Additional provider-specific metadata */
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Progress information for long-running operations
+ */
+export interface L0Progress {
+  /** Progress percentage (0-100) */
+  percent?: number;
+  /** Current step number */
+  step?: number;
+  /** Total steps */
+  totalSteps?: number;
+  /** Status message */
+  message?: string;
+  /** Estimated time remaining in ms */
+  eta?: number;
+}
+
+/**
  * Unified event format that L0 normalizes all streaming events into
  */
 export interface L0Event {
-  type: "token" | "message" | "error" | "done";
+  /**
+   * Event type:
+   * - "token": Text token (for LLM streaming)
+   * - "message": Structured message (tool calls, etc.)
+   * - "data": Multimodal data (images, audio, etc.)
+   * - "progress": Progress update for long-running operations
+   * - "error": Error event
+   * - "done": Stream completion
+   */
+  type: "token" | "message" | "data" | "progress" | "error" | "done";
+
+  /** Text value (for token/message events) */
   value?: string;
+
+  /** Role (for message events) */
   role?: string;
+
+  /** Multimodal data payload (for data events) */
+  data?: L0DataPayload;
+
+  /** Progress information (for progress events) */
+  progress?: L0Progress;
+
+  /** Error (for error events) */
   error?: Error;
+
+  /** Event timestamp */
   timestamp?: number;
+
+  /**
+   * Usage information (typically on done event)
+   */
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    /** Cost in USD (if available from provider) */
+    cost?: number;
+    /** Provider-specific usage details */
+    [key: string]: unknown;
+  };
 }
 
 /**
@@ -506,6 +626,17 @@ export interface L0State {
    * The checkpoint content that was used for continuation (if any)
    */
   continuationCheckpoint?: string;
+
+  /**
+   * Multimodal data outputs collected during streaming.
+   * Each entry corresponds to a "data" event received.
+   */
+  dataOutputs: L0DataPayload[];
+
+  /**
+   * Last progress update received (for long-running operations)
+   */
+  lastProgress?: L0Progress;
 }
 
 /**

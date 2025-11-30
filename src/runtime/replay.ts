@@ -289,6 +289,7 @@ function createInitialState(): L0State {
     completed: false,
     networkErrors: [],
     continuedFromCheckpoint: false,
+    dataOutputs: [],
   };
 }
 

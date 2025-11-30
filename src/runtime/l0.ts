@@ -556,6 +556,28 @@ export async function l0<TOutput = unknown>(
               };
               if (processedOnEvent) processedOnEvent(messageEvent);
               yield messageEvent;
+            } else if (event.type === "data") {
+              // Handle multimodal data events (images, audio, etc.)
+              if (event.data) {
+                state.dataOutputs.push(event.data);
+              }
+              const dataEvent: L0Event = {
+                type: "data",
+                data: event.data,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(dataEvent);
+              yield dataEvent;
+            } else if (event.type === "progress") {
+              // Handle progress events for long-running operations
+              state.lastProgress = event.progress;
+              const progressEvent: L0Event = {
+                type: "progress",
+                progress: event.progress,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(progressEvent);
+              yield progressEvent;
             } else if (event.type === "error") {
               throw event.error || new Error("Stream error");
             } else if (event.type === "done") {
@@ -992,6 +1014,7 @@ function createInitialState(): L0State {
     completed: false,
     networkErrors: [],
     continuedFromCheckpoint: false,
+    dataOutputs: [],
   };
 }
 

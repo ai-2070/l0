@@ -46,7 +46,8 @@ npm install @ai2070/l0
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
 | **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
 | **🧪 Battle-Tested**                             | 1,500+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
-| **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                      |
+| **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
+| **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (Flux, DALL-E, TTS). Progress tracking, data events, and state management for non-text outputs.                                                       |
 
 ## Quick Start
 
@@ -990,6 +991,53 @@ See [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md) for complete guide including help
 
 ---
 
+## Multimodal Support
+
+L0 supports image, audio, and video generation with progress tracking and data events:
+
+```typescript
+import { l0, toMultimodalL0Events, type L0Adapter } from "@ai2070/l0";
+
+const fluxAdapter: L0Adapter<FluxStream> = {
+  name: "flux",
+  wrap: (stream) =>
+    toMultimodalL0Events(stream, {
+      extractProgress: (chunk) =>
+        chunk.type === "progress" ? { percent: chunk.percent } : null,
+      extractData: (chunk) =>
+        chunk.type === "image"
+          ? {
+              contentType: "image",
+              mimeType: "image/png",
+              base64: chunk.image,
+              metadata: {
+                width: chunk.width,
+                height: chunk.height,
+                seed: chunk.seed,
+              },
+            }
+          : null,
+    }),
+};
+
+const result = await l0({
+  stream: () => fluxGenerate({ prompt: "A cat in space" }),
+  adapter: fluxAdapter,
+});
+
+for await (const event of result.stream) {
+  if (event.type === "progress") console.log(`${event.progress?.percent}%`);
+  if (event.type === "data") saveImage(event.data?.base64);
+}
+
+// All generated images available in state
+console.log(result.state.dataOutputs);
+```
+
+See [MULTIMODAL.md](./MULTIMODAL.md) for complete guide.
+
+---
+
 ## Error Handling
 
 L0 provides detailed error context for debugging and recovery:
@@ -1094,6 +1142,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails |
 | [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers          |
 | [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md)                     | Build your own adapters     |
+| [MULTIMODAL.md](./MULTIMODAL.md)                               | Image/audio/video support   |
 
 ---
 

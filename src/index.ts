@@ -99,6 +99,10 @@ export type {
   GuardrailViolation,
   GuardrailContext,
   GuardrailResult,
+  // Multimodal types
+  L0ContentType,
+  L0DataPayload,
+  L0Progress,
 } from "./types";
 
 // Guardrails
@@ -474,10 +478,16 @@ export {
 export {
   toL0Events,
   toL0EventsWithMessages,
+  toMultimodalL0Events,
   createAdapterTokenEvent,
   createAdapterDoneEvent,
   createAdapterErrorEvent,
   createAdapterMessageEvent,
+  createAdapterDataEvent,
+  createAdapterProgressEvent,
+  createImageEvent,
+  createAudioEvent,
+  createJsonDataEvent,
 } from "./adapters/helpers";
 
 // SDK Adapters - OpenAI
