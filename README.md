@@ -47,7 +47,7 @@ npm install @ai2070/l0
 | **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
 | **🧪 Battle-Tested**                             | 1,500+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
-| **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (Flux, DALL-E, TTS). Progress tracking, data events, and state management for non-text outputs.                                                       |
+| **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                                       |
 
 ## Quick Start
 
