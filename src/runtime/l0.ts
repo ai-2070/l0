@@ -208,6 +208,8 @@ export async function l0<TOutput = unknown>(
     while (fallbackIndex < allStreams.length) {
       const currentStreamFactory = allStreams[fallbackIndex]!;
       let retryAttempt = 0;
+      // Track if this is a retry (network errors don't increment retryAttempt but still need state reset)
+      let isRetryAttempt = false;
       // Model failure retry limit (network errors don't count toward this)
       const modelRetryLimit = processedRetry.attempts ?? 2;
 
@@ -217,7 +219,7 @@ export async function l0<TOutput = unknown>(
       while (retryAttempt <= modelRetryLimit) {
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
-          if (retryAttempt > 0) {
+          if (isRetryAttempt) {
             // Check if we should continue from checkpoint
             if (
               processedContinueFromCheckpoint &&
@@ -259,6 +261,8 @@ export async function l0<TOutput = unknown>(
                 state.tokenCount = 0;
                 state.violations = [];
                 state.driftDetected = false;
+                state.dataOutputs = [];
+                state.lastProgress = undefined;
                 continue;
               }
 
@@ -294,6 +298,8 @@ export async function l0<TOutput = unknown>(
             }
             state.violations = [];
             state.driftDetected = false;
+            state.dataOutputs = [];
+            state.lastProgress = undefined;
           }
 
           // Get stream from factory
@@ -818,6 +824,8 @@ export async function l0<TOutput = unknown>(
             } else {
               state.networkRetries++;
             }
+            // Mark that next iteration is a retry (for state reset)
+            isRetryAttempt = true;
 
             // Record in monitoring
             monitor.recordRetry(isNetError);
@@ -940,6 +948,8 @@ export async function l0<TOutput = unknown>(
           }
           state.violations = [];
           state.driftDetected = false;
+          state.dataOutputs = [];
+          state.lastProgress = undefined;
           state.retryAttempts = 0;
 
           // Continue to next fallback

@@ -1987,5 +1987,139 @@ describe("L0 Runtime", () => {
       expect(result.state.dataOutputs).toEqual([]);
       expect(result.state.lastProgress).toBeUndefined();
     });
+
+    it("should clear dataOutputs on retry", async () => {
+      let callCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          callCount++;
+          async function* gen(): AsyncIterable<L0Event> {
+            yield {
+              type: "data",
+              data: {
+                contentType: "image",
+                base64: `image-from-call-${callCount}`,
+              },
+              timestamp: Date.now(),
+            };
+            yield {
+              type: "progress",
+              progress: { percent: 50, message: `call-${callCount}` },
+              timestamp: Date.now(),
+            };
+            if (callCount === 1) {
+              // First call fails with a retryable network error
+              const err = new Error("read ECONNRESET");
+              (err as any).code = "ECONNRESET";
+              throw err;
+            }
+            yield { type: "done", timestamp: Date.now() };
+          }
+          return gen();
+        },
+        retry: { attempts: 2 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      // Should only have data from successful attempt (call 2)
+      expect(callCount).toBe(2);
+      expect(result.state.dataOutputs).toHaveLength(1);
+      expect(result.state.dataOutputs[0].base64).toBe("image-from-call-2");
+      expect(result.state.lastProgress?.message).toBe("call-2");
+    });
+
+    it("should clear lastProgress on retry", async () => {
+      let callCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          callCount++;
+          async function* gen(): AsyncIterable<L0Event> {
+            yield {
+              type: "progress",
+              progress: { percent: 100, message: `progress-${callCount}` },
+              timestamp: Date.now(),
+            };
+            if (callCount === 1) {
+              // First call fails with a retryable network error
+              const err = new Error("read ECONNRESET");
+              (err as any).code = "ECONNRESET";
+              throw err;
+            }
+            yield { type: "token", value: "success", timestamp: Date.now() };
+            yield { type: "done", timestamp: Date.now() };
+          }
+          return gen();
+        },
+        retry: { attempts: 2 },
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      // Should have progress from successful attempt only
+      expect(callCount).toBe(2);
+      expect(result.state.lastProgress?.message).toBe("progress-2");
+    });
+
+    it("should clear dataOutputs on fallback", async () => {
+      let primaryCalled = false;
+
+      const result = await l0({
+        stream: () => {
+          primaryCalled = true;
+          async function* gen(): AsyncIterable<L0Event> {
+            yield {
+              type: "data",
+              data: { contentType: "image", base64: "primary-image" },
+              timestamp: Date.now(),
+            };
+            yield {
+              type: "progress",
+              progress: { percent: 50, message: "primary" },
+              timestamp: Date.now(),
+            };
+            throw new Error("Primary failed");
+          }
+          return gen();
+        },
+        fallbackStreams: [
+          () => {
+            async function* gen(): AsyncIterable<L0Event> {
+              yield {
+                type: "data",
+                data: { contentType: "image", base64: "fallback-image" },
+                timestamp: Date.now(),
+              };
+              yield {
+                type: "progress",
+                progress: { percent: 100, message: "fallback" },
+                timestamp: Date.now(),
+              };
+              yield { type: "done", timestamp: Date.now() };
+            }
+            return gen();
+          },
+        ],
+        retry: { attempts: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      // Should only have data from fallback
+      expect(primaryCalled).toBe(true);
+      expect(result.state.dataOutputs).toHaveLength(1);
+      expect(result.state.dataOutputs[0].base64).toBe("fallback-image");
+      expect(result.state.lastProgress?.message).toBe("fallback");
+    });
   });
 });
