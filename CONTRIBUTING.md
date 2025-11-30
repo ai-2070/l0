@@ -5,6 +5,7 @@ Thank you for your interest in contributing to L0! This document provides guidel
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
+- [Scope Policy](#scope-policy)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
@@ -17,6 +18,23 @@ Thank you for your interest in contributing to L0! This document provides guidel
 ## Code of Conduct
 
 By participating in this project, you agree to maintain a respectful and inclusive environment for all contributors.
+
+## Scope Policy
+
+L0 does not accept integrations, drivers, storage adapters, or external service bindings into the core repository. These must live in separate repositories, maintained by their authors.
+
+**What belongs in core:**
+- Runtime features (retry, fallback, continuation, drift detection)
+- Guardrail rules and engine
+- Format helpers
+- Type definitions
+- Core utilities
+
+**What belongs in separate repos:**
+- Database adapters (Redis, PostgreSQL, MongoDB, etc.)
+- Cloud service integrations (AWS, GCP, Azure)
+- Monitoring backends (custom Prometheus exporters, Datadog, etc.)
+- LLM provider-specific extensions
 
 ## Getting Started
 
