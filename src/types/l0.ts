@@ -1,12 +1,12 @@
 // Top-level L0 runtime types
 
 import type { GuardrailRule, GuardrailViolation } from "./guardrails";
-import type { BackoffStrategy } from "./retry";
+import type { BackoffStrategy, RetryReason } from "./retry";
 import { RETRY_DEFAULTS } from "./retry";
 
 // Re-export for convenience
 export type { GuardrailRule, GuardrailViolation } from "./guardrails";
-export type { BackoffStrategy } from "./retry";
+export type { BackoffStrategy, RetryReason } from "./retry";
 export { RETRY_DEFAULTS } from "./retry";
 
 /**
@@ -621,17 +621,7 @@ export interface RetryOptions {
    * Default: zero_output, guardrail_violation, drift, incomplete, network_error, timeout, rate_limit, server_error
    * Note: "unknown" errors are NOT retried by default (opt-in only)
    */
-  retryOn?: Array<
-    | "zero_output"
-    | "guardrail_violation"
-    | "drift"
-    | "unknown"
-    | "incomplete"
-    | "network_error"
-    | "timeout"
-    | "rate_limit"
-    | "server_error"
-  >;
+  retryOn?: RetryReason[];
 
   /**
    * Custom delays for specific network error types (optional)
