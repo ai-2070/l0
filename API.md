@@ -726,7 +726,7 @@ When using `continueFromLastKnownGoodToken`, LLMs often repeat words from the en
 // With deduplication: "Hello world is great" ✓
 ```
 
-Deduplication is **enabled by default** when `continueFromLastKnownGoodToken: true`. The algorithm:
+Deduplication is **enabled by default** when `continueFromLastKnownGoodToken: true`. The deduplication window is bounded (maxOverlap) to guarantee stable O(n) streaming performance. The algorithm:
 
 1. Buffers incoming continuation tokens until overlap can be detected
 2. Finds the longest suffix of the checkpoint that matches a prefix of the continuation
