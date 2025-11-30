@@ -32,7 +32,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'Hello' and nothing else.",
                 }),
             }),
@@ -59,7 +59,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt:
                     "Output exactly one word: 'apple'. Nothing else, just the word.",
                 }),
@@ -70,7 +70,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: (input: string) => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: `Describe the color of: ${input}. Answer in one short sentence.`,
                 }),
             }),
@@ -102,7 +102,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'hello world' and nothing else.",
                 }),
             }),
@@ -132,7 +132,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt:
                     'Output valid JSON: {"name": "Alice", "age": 30}. Nothing else.',
                 }),
@@ -147,7 +147,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: (name: string) => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: `Say "Hello, ${name}!" and nothing else.`,
                 }),
             }),
@@ -174,7 +174,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'short' and nothing else.",
                 }),
             }),
@@ -184,7 +184,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "This should not run.",
                 }),
             }),
@@ -195,7 +195,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: (input: string) => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: `Echo back: "${input}"`,
                 }),
             }),
@@ -222,7 +222,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'executed' and nothing else.",
                 }),
             }),
@@ -251,7 +251,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: (input: string) => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: `Reverse this word: "${input}". Output only the reversed word.`,
                   }),
               }),
@@ -279,7 +279,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: () => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: "Output: 'first'",
                   }),
               }),
@@ -293,7 +293,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
           fn: (input: string) => ({
             stream: () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: `You received: "${input}". Now output: 'second'`,
               }),
           }),
@@ -320,7 +320,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: (input: string) => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: `Add "FIRST" to: "${input}". Output the combined text.`,
                   }),
               }),
@@ -336,7 +336,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: (input: string) => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: `Add "SECOND" to: "${input}". Output the combined text.`,
                   }),
               }),
@@ -367,7 +367,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: (input: string) => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: `Analyze sentiment of "${input}". Reply with one word: positive, negative, or neutral.`,
                   }),
               }),
@@ -383,7 +383,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: (input: string) => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: `Count the words in "${input}". Reply with just the number.`,
                   }),
               }),
@@ -418,7 +418,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
           fn: () => ({
             stream: () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'SHORT' and nothing else.",
               }),
           }),
@@ -429,7 +429,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
           fn: () => ({
             stream: () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'LONG' and nothing else.",
               }),
           }),
@@ -469,7 +469,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'one'",
                 }),
             }),
@@ -479,7 +479,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'two'",
                 }),
             }),
@@ -511,7 +511,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'done'",
                 }),
             }),
@@ -543,7 +543,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: (text: string) => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: `Summarize in one sentence: "${text}"`,
                   }),
               }),
@@ -553,7 +553,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: (summary: string) => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: `Translate to French: "${summary}"`,
                   }),
               }),
@@ -585,7 +585,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: () => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt:
                       'Extract: name and age from "John is 25 years old". Output as JSON: {"name": "...", "age": ...}',
                   }),
@@ -596,7 +596,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               fn: (json: string) => ({
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: `Format this data as a sentence: ${json}`,
                   }),
               }),
@@ -631,7 +631,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
               return {
                 stream: () =>
                   streamText({
-                    model: openai("gpt-4o-mini"),
+                    model: openai("gpt-5-nano"),
                     prompt: "Say 'ok'",
                   }),
               };
@@ -661,7 +661,7 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
             fn: () => ({
               stream: () =>
                 streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'hello'",
                 }),
             }),
