@@ -458,6 +458,8 @@ const first = window.current();
 const next = window.next();
 ```
 
+---
+
 ## Formatting Helpers
 
 Utilities for context, memory, output instructions, and tool definitions:
