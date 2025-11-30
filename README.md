@@ -31,6 +31,7 @@ npm install @ai2070/l0
 | 📍 **Last-Known-Good Token Resumption**   | When a stream interrupts, L0 resumes generation from the last structurally valid token (Opt-in).                                                    |
 | **🧠 Drift Detection**                    | Detects tone shifts, duplicated sentences, entropy spikes, markdown collapse, and meta-AI patterns before corruption.                               |
 | **🧱 Structured Output**                  | Guaranteed-valid JSON with Zod (v3/v4), Effect Schema, or JSON Schema. Auto-corrects missing braces, commas, and markdown fences.                   |
+| **🩹 JSON Auto-Healing + Markdown Fence Repair**            | Automatic correction of truncated or malformed JSON (missing braces, brackets, quotes), and repair of broken Markdown code fences. Ensures clean extraction of structured data from noisy LLM output.|
 | **🛡️ Guardrails**                         | JSON, Markdown, LaTeX, and tool-call validation. Catches malformed output, broken fences, drift, repetition, and hallucination patterns.            |
 | **⚡ Race: Fastest-Model Wins**           | Run multiple models or providers in parallel and return the fastest valid stream. Ideal for ultra-low-latency chat and high-availability systems.   |
 | **🌿 Parallel: Fan-Out / Fan-In**         | Start multiple streams simultaneously and collect structured or summarized results. Perfect for agent-style multi-model workflows.                  |
