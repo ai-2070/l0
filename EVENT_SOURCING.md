@@ -32,7 +32,7 @@ const recorder = createEventRecorder(store, "my-stream-id");
 // Record events as they happen
 await recorder.recordStart({
   prompt: "Explain quantum computing",
-  model: "gpt-4",
+  model: "gpt-5-micro",
 });
 await recorder.recordToken("Quantum", 0);
 await recorder.recordToken(" ", 1);
@@ -165,7 +165,7 @@ const recorder = createEventRecorder(store);
 console.log(recorder.getStreamId()); // "l0_abc123..."
 
 // Record events
-await recorder.recordStart({ prompt: "test", model: "gpt-4" });
+await recorder.recordStart({ prompt: "test", model: "gpt-5-micro" });
 await recorder.recordToken("Hello", 0);
 await recorder.recordToken(" World", 1);
 await recorder.recordCheckpoint(1, "Hello World");
@@ -197,7 +197,7 @@ await recorder.recordError({ name: "Error", message: "Failed" }, true);
 ```typescript
 const recorder = createEventRecorder(store);
 
-await recorder.recordStart({ prompt: "Analyze data", model: "gpt-4" });
+await recorder.recordStart({ prompt: "Analyze data", model: "gpt-5-micro" });
 
 // Stream tokens
 await recorder.recordToken("The", 0);
@@ -362,7 +362,7 @@ console.log(metadata);
 //   endTs: 1699000005000,
 //   completed: true,
 //   hasError: false,
-//   options: { prompt: "...", model: "gpt-4" }
+//   options: { prompt: "...", model: "gpt-5-micro" }
 // }
 ```
 

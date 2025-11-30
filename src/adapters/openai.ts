@@ -4,7 +4,7 @@
 // This adapter works with the `openai` package.
 // Install it with: npm install openai
 
-import type { L0Event } from "../types/l0";
+import type { L0Event, L0Adapter } from "../types/l0";
 import type { Stream } from "openai/streaming";
 import type {
   ChatCompletionChunk,
@@ -503,6 +503,67 @@ export async function extractOpenAIText(
   }
   return text;
 }
+
+/**
+ * OpenAI stream type - can be Stream or raw async iterable of chunks
+ */
+export type OpenAIStream =
+  | Stream<ChatCompletionChunk>
+  | AsyncIterable<ChatCompletionChunk>;
+
+/**
+ * Type guard to detect an OpenAI stream
+ * Checks if the input looks like a Stream from the OpenAI SDK
+ */
+export function isOpenAIStream(input: unknown): input is OpenAIStream {
+  if (!input || typeof input !== "object") return false;
+
+  // Must be async iterable
+  if (!(Symbol.asyncIterator in input)) return false;
+
+  const stream = input as Record<string, unknown>;
+
+  // OpenAI SDK Stream has these specific methods/properties
+  if (typeof stream.toReadableStream === "function" && "controller" in stream) {
+    return true;
+  }
+
+  // Also check for response property (another SDK marker)
+  if ("response" in stream && typeof stream.toReadableStream === "function") {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * OpenAI adapter for L0
+ *
+ * Use with `registerAdapter()` for auto-detection or pass directly to `l0({ adapter })`.
+ *
+ * @example
+ * ```typescript
+ * import { l0, openaiAdapter } from '@ai2070/l0';
+ * import OpenAI from 'openai';
+ *
+ * const openai = new OpenAI();
+ *
+ * // Explicit adapter usage
+ * const result = await l0({
+ *   stream: () => openai.chat.completions.create({
+ *     model: 'gpt-5-micro',
+ *     messages: [{ role: 'user', content: 'Hello!' }],
+ *     stream: true,
+ *   }),
+ *   adapter: openaiAdapter,
+ * });
+ * ```
+ */
+export const openaiAdapter: L0Adapter<OpenAIStream, OpenAIAdapterOptions> = {
+  name: "openai",
+  detect: isOpenAIStream,
+  wrap: wrapOpenAIStream,
+};
 
 // Re-export useful OpenAI types for convenience
 export type {

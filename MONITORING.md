@@ -107,7 +107,7 @@ const result = await l0({
     includeTimings: true, // Include timing metrics
     metadata: {
       user_id: "user_123",
-      model: "gpt-4",
+      model: "gpt-5-micro",
       environment: "production",
     },
   },
@@ -436,7 +436,7 @@ const result = await l0({
     enabled: true,
     metadata: {
       environment: process.env.NODE_ENV,
-      model: "gpt-4",
+      model: "gpt-5-micro",
     },
   },
 });
@@ -479,7 +479,7 @@ for await (const event of result.stream) {
 }
 
 // Record to Prometheus
-collector.record(result.telemetry, { model: "gpt-4", endpoint: "/chat" });
+collector.record(result.telemetry, { model: "gpt-5-micro", endpoint: "/chat" });
 
 // Expose /metrics endpoint
 const app = express();
@@ -870,7 +870,7 @@ app.post("/chat", async (req, res) => {
 
   // Record to Prometheus
   collector.record(result.telemetry, {
-    model: "gpt-4",
+    model: "gpt-5-micro",
     endpoint: "/chat",
   });
 
@@ -918,7 +918,7 @@ Add custom labels per request:
 
 ```typescript
 collector.record(telemetry, {
-  model: "gpt-4",
+  model: "gpt-5-micro",
   endpoint: "/chat",
   user_tier: "premium",
   region: "us-east-1",
@@ -938,7 +938,7 @@ const registry = createPrometheusRegistry({
 });
 
 // Record telemetry
-registry.recordTelemetry(telemetry, { model: "gpt-4" });
+registry.recordTelemetry(telemetry, { model: "gpt-5-micro" });
 
 // Or record custom metrics
 registry.incCounter("custom_events_total", "Custom event count", 1, {
@@ -956,32 +956,32 @@ console.log(registry.expose());
 ```
 # HELP l0_requests_total Total L0 requests
 # TYPE l0_requests_total counter
-l0_requests_total{service="my-app",model="gpt-4"} 150
+l0_requests_total{service="my-app",model="gpt-5-micro"} 150
 
 # HELP l0_request_duration_seconds L0 request duration in seconds
 # TYPE l0_request_duration_seconds histogram
-l0_request_duration_seconds_bucket{service="my-app",model="gpt-4",le="+Inf"} 1.5
-l0_request_duration_seconds_sum{service="my-app",model="gpt-4"} 1.5
-l0_request_duration_seconds_count{service="my-app",model="gpt-4"} 1
+l0_request_duration_seconds_bucket{service="my-app",model="gpt-5-micro",le="+Inf"} 1.5
+l0_request_duration_seconds_sum{service="my-app",model="gpt-5-micro"} 1.5
+l0_request_duration_seconds_count{service="my-app",model="gpt-5-micro"} 1
 
 # HELP l0_tokens_total Total tokens generated
 # TYPE l0_tokens_total counter
-l0_tokens_total{service="my-app",model="gpt-4"} 1250
+l0_tokens_total{service="my-app",model="gpt-5-micro"} 1250
 
 # HELP l0_time_to_first_token_seconds Time to first token in seconds
 # TYPE l0_time_to_first_token_seconds histogram
-l0_time_to_first_token_seconds_bucket{service="my-app",model="gpt-4",le="+Inf"} 0.25
-l0_time_to_first_token_seconds_sum{service="my-app",model="gpt-4"} 0.25
-l0_time_to_first_token_seconds_count{service="my-app",model="gpt-4"} 1
+l0_time_to_first_token_seconds_bucket{service="my-app",model="gpt-5-micro",le="+Inf"} 0.25
+l0_time_to_first_token_seconds_sum{service="my-app",model="gpt-5-micro"} 0.25
+l0_time_to_first_token_seconds_count{service="my-app",model="gpt-5-micro"} 1
 
 # HELP l0_network_errors_total Total network errors
 # TYPE l0_network_errors_total counter
-l0_network_errors_total{service="my-app",model="gpt-4"} 2
+l0_network_errors_total{service="my-app",model="gpt-5-micro"} 2
 
 # HELP l0_network_errors_by_type_total Network errors by type
 # TYPE l0_network_errors_by_type_total counter
-l0_network_errors_by_type_total{service="my-app",model="gpt-4",error_type="connection_dropped"} 1
-l0_network_errors_by_type_total{service="my-app",model="gpt-4",error_type="timeout"} 1
+l0_network_errors_by_type_total{service="my-app",model="gpt-5-micro",error_type="connection_dropped"} 1
+l0_network_errors_by_type_total{service="my-app",model="gpt-5-micro",error_type="timeout"} 1
 ```
 
 ### Grafana Dashboard
@@ -1078,7 +1078,7 @@ sentryInterceptor({
   enableTracing: true, // Enable performance tracing (default: true)
   tags: {
     // Custom tags for all events
-    model: "gpt-4",
+    model: "gpt-5-micro",
     environment: "production",
   },
 });
@@ -1326,7 +1326,7 @@ const otel = new L0OpenTelemetry({
 // Create a span manually
 const span = otel.createSpan("my-operation", {
   attributes: {
-    [SemanticAttributes.LLM_REQUEST_MODEL]: "gpt-4",
+    [SemanticAttributes.LLM_REQUEST_MODEL]: "gpt-5-micro",
     "custom.attribute": "value",
   },
 });
@@ -1383,7 +1383,7 @@ const result = await l0({
 Trace: l0.execution (1.5s)
 ├── Attributes:
 │   ├── l0.session_id: "l0_abc123..."
-│   ├── gen_ai.request.model: "gpt-4"
+│   ├── gen_ai.request.model: "gpt-5-micro"
 │   ├── l0.retry.count: 1
 │   └── l0.tokens_per_second: 166
 ├── Events:

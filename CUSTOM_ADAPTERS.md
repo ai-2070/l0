@@ -2,17 +2,17 @@
 
 L0 supports custom adapters for integrating any LLM provider or streaming source. This guide covers everything you need to build production-ready adapters.
 
-## ⚠️ Adapter Scope
+## Adapter Scope
 
 L0 provides **official first-party adapters** for:
 
-*   Vercel AI SDK
-*   OpenAI SDK
-*   Mastra AI
+- **Vercel AI SDK** - Native support, no adapter needed
+- **OpenAI SDK** - `openaiAdapter`
+- **Anthropic SDK** - `anthropicAdapter`
+- **Mastra AI** - `mastraAdapter`
 
 These are the only integrations maintained within the core project.
-
-Support for **additional providers** is **out of scope**.
+Support for additional providers is out of scope.
 
 ---
 
@@ -38,11 +38,11 @@ Adapters convert provider-specific streams into L0's unified event format. L0 ha
 Provider Stream → Adapter → L0Events → L0 Runtime → Reliable Output
 ```
 
-L0 ships with built-in adapters for:
-- **Vercel AI SDK** (native support, no adapter needed)
-- **OpenAI SDK** (`openaiAdapter`)
-- **Mastra AI** (`mastraAdapter`)
-- **Anthropic SDK** (`anthropicAdapter`) (as custom adapter example)
+L0 ships with built-in support for:
+- **Vercel AI SDK** - Native support, no adapter needed
+- **OpenAI SDK** - `openaiAdapter`
+- **Mastra AI** - `mastraAdapter`
+- **Anthropic SDK** - `anthropicAdapter` (reference implementation)
 
 For other providers, create a custom adapter.
 
@@ -433,7 +433,7 @@ const openai = new OpenAI();
 // Option 1: Explicit adapter
 const result = await l0({
   stream: () => openai.chat.completions.create({
-    model: "gpt-4",
+    model: "gpt-5-micro",
     messages: [{ role: "user", content: "Hello!" }],
     stream: true,
   }),
@@ -444,7 +444,7 @@ const result = await l0({
 const result = await l0({
   stream: async () => {
     const stream = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-5-micro",
       messages: [{ role: "user", content: "Hello!" }],
       stream: true,
     });
@@ -496,14 +496,23 @@ const result = await l0({
 ### Mastra Adapter
 
 ```typescript
-import { l0, mastraAdapter } from "@ai2070/l0";
+import { l0, mastraAdapter, wrapMastraStream } from "@ai2070/l0";
 import { Agent } from "@mastra/core";
 
 const agent = new Agent({ /* config */ });
 
+// Option 1: Explicit adapter
 const result = await l0({
   stream: () => agent.stream("Hello!"),
   adapter: mastraAdapter,
+});
+
+// Option 2: Pre-wrap the stream
+const result = await l0({
+  stream: async () => {
+    const stream = await agent.stream("Hello!");
+    return wrapMastraStream(stream);
+  },
 });
 ```
 

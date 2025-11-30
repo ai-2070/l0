@@ -319,7 +319,7 @@ describe("Event Sourcing", () => {
     it("should record START event", async () => {
       await recorder.recordStart({
         prompt: "test",
-        model: "gpt-4",
+        model: "gpt-5-micro",
       });
 
       const events = await store.getEvents(recorder.getStreamId());
@@ -732,7 +732,7 @@ describe("Event Sourcing", () => {
       // Record a stream
       await recorder.recordStart({
         prompt: "test",
-        model: "gpt-4",
+        model: "gpt-5-micro",
       });
       await recorder.recordToken("The", 0);
       await recorder.recordToken(" ", 1);

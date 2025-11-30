@@ -932,24 +932,24 @@ See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for complete guide.
 
 ## Custom Adapters (BYOA)
 
-L0 supports custom adapters for integrating any LLM provider. Built-in adapters include OpenAI, Anthropic, and Mastra.
+L0 supports custom adapters for integrating any LLM provider. Built-in adapters include `openaiAdapter`, `mastraAdapter`, and `anthropicAdapter` (reference implementation).
 
 ### Explicit Adapter Usage
 
 ```typescript
-import { l0, anthropicAdapter } from "@ai2070/l0";
-import Anthropic from "@anthropic-ai/sdk";
+import { l0, openaiAdapter } from "@ai2070/l0";
+import OpenAI from "openai";
 
-const anthropic = new Anthropic();
+const openai = new OpenAI();
 
 const result = await l0({
   stream: () =>
-    anthropic.messages.stream({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
+    openai.chat.completions.create({
+      model: "gpt-4",
       messages: [{ role: "user", content: "Hello!" }],
+      stream: true,
     }),
-  adapter: anthropicAdapter,
+  adapter: openaiAdapter,
 });
 ```
 
