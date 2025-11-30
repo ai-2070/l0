@@ -94,7 +94,7 @@ for await (const event of result.stream) {
     case "token":
       console.log(event.value);
       break;
-    case "done":
+    case "complete":
       console.log("Complete");
       break;
     case "error":
@@ -905,20 +905,30 @@ L0 includes a lightweight state machine for tracking runtime state. Useful for d
 import { StateMachine, RuntimeStates, type RuntimeState } from "@ai2070/l0";
 
 // Use RuntimeStates constants instead of string literals
-const { INIT, WAITING_FOR_TOKEN, STREAMING, CONTINUATION_MATCHING,
-        CHECKPOINT_VERIFYING, RETRYING, FALLBACK, FINALIZING, DONE, ERROR } = RuntimeStates;
+const {
+  INIT,
+  WAITING_FOR_TOKEN,
+  STREAMING,
+  CONTINUATION_MATCHING,
+  CHECKPOINT_VERIFYING,
+  RETRYING,
+  FALLBACK,
+  FINALIZING,
+  COMPLETE,
+  ERROR,
+} = RuntimeStates;
 
 type RuntimeState =
-  | "init"                    // Initial setup
-  | "waiting_for_token"       // Waiting for first chunk
-  | "streaming"               // Receiving tokens
-  | "continuation_matching"   // Buffering for overlap detection
-  | "checkpoint_verifying"    // Validating checkpoint before continuation
-  | "retrying"                // About to retry same stream
-  | "fallback"                // Switching to fallback stream
-  | "finalizing"              // Finalizing (final guardrails, etc.)
-  | "done"                    // Success
-  | "error";                  // Failed
+  | "init" // Initial setup
+  | "waiting_for_token" // Waiting for first chunk
+  | "streaming" // Receiving tokens
+  | "continuation_matching" // Buffering for overlap detection
+  | "checkpoint_verifying" // Validating checkpoint before continuation
+  | "retrying" // About to retry same stream
+  | "fallback" // Switching to fallback stream
+  | "finalizing" // Finalizing (final guardrails, etc.)
+  | "complete" // Success
+  | "error"; // Failed
 ```
 
 ### StateMachine
@@ -938,7 +948,7 @@ sm.get(); // "streaming"
 sm.is(RuntimeStates.STREAMING, RuntimeStates.CONTINUATION_MATCHING); // true
 
 // Check if terminal
-sm.isTerminal(); // false (true for "done" or "error")
+sm.isTerminal(); // false (true for "complete" or "error")
 
 // Subscribe to state changes
 const unsubscribe = sm.subscribe((state) => {
@@ -967,16 +977,16 @@ import { Metrics } from "@ai2070/l0";
 const metrics = new Metrics();
 
 // Available counters
-metrics.requests;       // Total stream requests
-metrics.tokens;         // Total tokens processed
-metrics.retries;        // Total retry attempts
-metrics.networkRetries; // Network retries (subset)
-metrics.errors;         // Total errors
-metrics.violations;     // Guardrail violations
-metrics.driftDetections;// Drift detections
-metrics.fallbacks;      // Fallback activations
-metrics.completions;    // Successful completions
-metrics.timeouts;       // Timeouts (initial + inter-token)
+metrics.requests; // Total stream requests
+metrics.tokens; // Total tokens processed
+metrics.retries; // Total retry attempts
+metrics.networkRetryCount; // Network retries (subset)
+metrics.errors; // Total errors
+metrics.violations; // Guardrail violations
+metrics.driftDetections; // Drift detections
+metrics.fallbacks; // Fallback activations
+metrics.completions; // Successful completions
+metrics.timeouts; // Timeouts (initial + inter-token)
 
 // Get snapshot
 const snapshot = metrics.snapshot();
@@ -1035,7 +1045,7 @@ const result = runStages(stages, event, ctx);
 
 ```typescript
 interface PipelineContext {
-  state: L0State;           // Runtime state
+  state: L0State; // Runtime state
   stateMachine: StateMachine;
   monitor: L0Monitor;
   signal?: AbortSignal;
@@ -1062,7 +1072,7 @@ const result = runAsyncGuardrailCheck(
   (asyncResult) => {
     // Called if check was deferred
     handleGuardrailResult(asyncResult);
-  }
+  },
 );
 
 if (result) {
@@ -1086,7 +1096,7 @@ const result = runAsyncDriftCheck(
     if (asyncResult.detected) {
       handleDrift(asyncResult.types);
     }
-  }
+  },
 );
 
 if (result?.detected) {
@@ -1710,10 +1720,10 @@ interface L0Event {
   type: "token" | "message" | "data" | "progress" | "error" | "complete";
   value?: string;
   role?: string;
-  data?: L0DataPayload;      // For multimodal data events
-  progress?: L0Progress;     // For progress events
+  data?: L0DataPayload; // For multimodal data events
+  progress?: L0Progress; // For progress events
   error?: Error;
-  reason?: ErrorCategory;    // Error category (for error events)
+  reason?: ErrorCategory; // Error category (for error events)
   timestamp?: number;
 }
 ```
@@ -2001,11 +2011,11 @@ Error classification enum for routing and handling decisions. Defined in `src/ut
 
 ```typescript
 enum ErrorCategory {
-  NETWORK = "network",     // Network/connection errors - transient, retry without limit
-  TIMEOUT = "timeout",     // Timeout errors - transient, retry with backoff
-  PROVIDER = "provider",   // Provider/API errors - may retry depending on status
-  CONTENT = "content",     // Content errors (guardrails, drift) - may retry
-  INTERNAL = "internal",   // Internal errors - bugs, don't retry
+  NETWORK = "network", // Network/connection errors - transient, retry without limit
+  TIMEOUT = "timeout", // Timeout errors - transient, retry with backoff
+  PROVIDER = "provider", // Provider/API errors - may retry depending on status
+  CONTENT = "content", // Content errors (guardrails, drift) - may retry
+  INTERNAL = "internal", // Internal errors - bugs, don't retry
 }
 ```
 
@@ -2018,16 +2028,16 @@ State machine states for tracking runtime execution. Defined in `src/runtime/sta
 import { RuntimeStates } from "@ai2070/l0";
 
 type RuntimeState =
-  | "init"                    // RuntimeStates.INIT
-  | "waiting_for_token"       // RuntimeStates.WAITING_FOR_TOKEN
-  | "streaming"               // RuntimeStates.STREAMING
-  | "continuation_matching"   // RuntimeStates.CONTINUATION_MATCHING
-  | "checkpoint_verifying"    // RuntimeStates.CHECKPOINT_VERIFYING
-  | "retrying"                // RuntimeStates.RETRYING
-  | "fallback"                // RuntimeStates.FALLBACK
-  | "finalizing"              // RuntimeStates.FINALIZING
-  | "done"                    // RuntimeStates.DONE
-  | "error";                  // RuntimeStates.ERROR
+  | "init" // RuntimeStates.INIT
+  | "waiting_for_token" // RuntimeStates.WAITING_FOR_TOKEN
+  | "streaming" // RuntimeStates.STREAMING
+  | "continuation_matching" // RuntimeStates.CONTINUATION_MATCHING
+  | "checkpoint_verifying" // RuntimeStates.CHECKPOINT_VERIFYING
+  | "retrying" // RuntimeStates.RETRYING
+  | "fallback" // RuntimeStates.FALLBACK
+  | "finalizing" // RuntimeStates.FINALIZING
+  | "complete" // RuntimeStates.COMPLETE
+  | "error"; // RuntimeStates.ERROR
 ```
 
 ### MetricsSnapshot
@@ -2039,7 +2049,7 @@ interface MetricsSnapshot {
   requests: number;
   tokens: number;
   retries: number;
-  networkRetries: number;
+  networkRetryCount: number;
   errors: number;
   violations: number;
   driftDetections: number;

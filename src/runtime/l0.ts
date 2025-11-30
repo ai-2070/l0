@@ -8,18 +8,14 @@ import type {
   L0Adapter,
 } from "../types/l0";
 import { GuardrailEngine } from "../guardrails/engine";
+import type { GuardrailContext } from "../types/guardrails";
 import { RetryManager } from "./retry";
 import { DriftDetector } from "./drift";
 import { detectZeroToken } from "./zeroToken";
 import { normalizeStreamEvent } from "./events";
 import { detectOverlap } from "../utils/tokens";
 import { L0Monitor } from "./monitoring";
-import {
-  isNetworkError,
-  L0Error,
-  getErrorCategory,
-  ErrorCategory,
-} from "../utils/errors";
+import { isNetworkError, L0Error, ErrorCategory } from "../utils/errors";
 import { InterceptorManager } from "./interceptors";
 import {
   getAdapter,
@@ -31,22 +27,15 @@ import {
 import { createInitialState, resetStateForRetry } from "./state";
 import { validateCheckpointForContinuation } from "./checkpoint";
 import { safeInvokeCallback } from "./callbacks";
-import {
-  StateMachine,
-  RuntimeStates,
-  type RuntimeState,
-} from "./state-machine";
+import { StateMachine, RuntimeStates } from "./state-machine";
 import { Metrics } from "./metrics";
 
 // Re-export helpers for backward compatibility
 export { getText, consumeStream } from "./helpers";
 
 // Re-export new modules for advanced usage
-export {
-  StateMachine,
-  RuntimeStates,
-  type RuntimeState,
-} from "./state-machine";
+export { StateMachine, RuntimeStates } from "./state-machine";
+export type { RuntimeState } from "./state-machine";
 export { Metrics } from "./metrics";
 
 /**
@@ -327,8 +316,8 @@ export async function l0<TOutput = unknown>(
                     `Use registerAdapter() to register it first.`,
                   {
                     code: "ADAPTER_NOT_FOUND",
-                    retryAttempts: state.modelRetryCount,
-                    networkRetries: state.networkRetryCount,
+                    modelRetryCount: state.modelRetryCount,
+                    networkRetryCount: state.networkRetryCount,
                     fallbackIndex,
                     recoverable: false,
                   },
@@ -371,8 +360,8 @@ export async function l0<TOutput = unknown>(
                 "Use explicit `adapter: myAdapter` or register an adapter with detect().",
               {
                 code: "INVALID_STREAM",
-                retryAttempts: state.modelRetryCount,
-                networkRetries: state.networkRetryCount,
+                modelRetryCount: state.modelRetryCount,
+                networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
                 recoverable: true,
               },
@@ -415,8 +404,8 @@ export async function l0<TOutput = unknown>(
                 checkpoint: state.checkpoint,
                 tokenCount: state.tokenCount,
                 contentLength: state.content.length,
-                retryAttempts: state.modelRetryCount,
-                networkRetries: state.networkRetryCount,
+                modelRetryCount: state.modelRetryCount,
+                networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
                 recoverable: state.checkpoint.length > 0,
               });
@@ -434,8 +423,8 @@ export async function l0<TOutput = unknown>(
                   checkpoint: state.checkpoint,
                   tokenCount: state.tokenCount,
                   contentLength: state.content.length,
-                  retryAttempts: state.modelRetryCount,
-                  networkRetries: state.networkRetryCount,
+                  modelRetryCount: state.modelRetryCount,
+                  networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
                   recoverable: state.checkpoint.length > 0,
                   metadata: { timeout: interTimeout, timeSinceLastToken },
@@ -458,8 +447,8 @@ export async function l0<TOutput = unknown>(
                 checkpoint: state.checkpoint,
                 tokenCount: 0,
                 contentLength: 0,
-                retryAttempts: state.modelRetryCount,
-                networkRetries: state.networkRetryCount,
+                modelRetryCount: state.modelRetryCount,
+                networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
                 recoverable: true,
                 metadata: {
@@ -619,8 +608,8 @@ export async function l0<TOutput = unknown>(
                       checkpoint: state.checkpoint,
                       tokenCount: state.tokenCount,
                       contentLength: state.content.length,
-                      retryAttempts: state.modelRetryCount,
-                      networkRetries: state.networkRetryCount,
+                      modelRetryCount: state.modelRetryCount,
+                      networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
                       recoverable: false,
                       metadata: { violation: result.violations[0] },
@@ -703,8 +692,7 @@ export async function l0<TOutput = unknown>(
               yield progressEvent;
             } else if (event.type === "error") {
               throw event.error || new Error("Stream error");
-            } else if (event.type === "complete" || event.type === "done") {
-              // Support both "complete" (new) and "done" (legacy) for adapter compatibility
+            } else if (event.type === "complete") {
               break;
             }
           }
@@ -778,8 +766,8 @@ export async function l0<TOutput = unknown>(
                       checkpoint: state.checkpoint,
                       tokenCount: state.tokenCount,
                       contentLength: state.content.length,
-                      retryAttempts: state.modelRetryCount,
-                      networkRetries: state.networkRetryCount,
+                      modelRetryCount: state.modelRetryCount,
+                      networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
                       recoverable: false,
                       metadata: { violation: result.violations[0] },
@@ -825,8 +813,8 @@ export async function l0<TOutput = unknown>(
               checkpoint: state.checkpoint,
               tokenCount: state.tokenCount,
               contentLength: state.content.length,
-              retryAttempts: state.modelRetryCount,
-              networkRetries: state.networkRetryCount,
+              modelRetryCount: state.modelRetryCount,
+              networkRetryCount: state.networkRetryCount,
               fallbackIndex,
               recoverable: true,
             });
@@ -870,8 +858,8 @@ export async function l0<TOutput = unknown>(
                   checkpoint: state.checkpoint,
                   tokenCount: state.tokenCount,
                   contentLength: state.content.length,
-                  retryAttempts: state.modelRetryCount,
-                  networkRetries: state.networkRetryCount,
+                  modelRetryCount: state.modelRetryCount,
+                  networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
                   recoverable: false,
                   metadata: { violation: result.violations[0] },
@@ -920,7 +908,7 @@ export async function l0<TOutput = unknown>(
           );
           yield completeEvent;
 
-          stateMachine.transition(RuntimeStates.DONE);
+          stateMachine.transition(RuntimeStates.COMPLETE);
 
           break; // Exit retry loop on success
         } catch (error) {
@@ -1057,7 +1045,7 @@ export async function l0<TOutput = unknown>(
             stateMachine.transition(RuntimeStates.RETRYING);
             metrics.retries++;
             if (isNetError) {
-              metrics.networkRetries++;
+              metrics.networkRetryCount++;
             }
 
             // Record in monitoring

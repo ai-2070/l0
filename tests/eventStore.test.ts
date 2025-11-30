@@ -206,7 +206,7 @@ describe("Event Sourcing", () => {
         violations: [],
         driftDetected: false,
         retryAttempts: 0,
-        networkRetries: 0,
+        networkRetryCount: 0,
         fallbackIndex: 0,
       });
 
@@ -227,7 +227,7 @@ describe("Event Sourcing", () => {
         violations: [],
         driftDetected: false,
         retryAttempts: 0,
-        networkRetries: 0,
+        networkRetryCount: 0,
         fallbackIndex: 0,
       });
 
@@ -241,7 +241,7 @@ describe("Event Sourcing", () => {
         violations: [],
         driftDetected: false,
         retryAttempts: 0,
-        networkRetries: 0,
+        networkRetryCount: 0,
         fallbackIndex: 0,
       });
 
@@ -541,14 +541,14 @@ describe("Event Sourcing", () => {
       await store.append("retry-stream", {
         type: "COMPLETE",
         ts: 1300,
-        content: "done",
+        content: "complete",
         tokenCount: 1,
       });
 
       const state = await replayer.replayToState("retry-stream");
 
       expect(state.retryAttempts).toBe(1);
-      expect(state.networkRetries).toBe(1);
+      expect(state.networkRetryCount).toBe(1);
     });
 
     it("should handle fallback events in state", async () => {
@@ -570,7 +570,7 @@ describe("Event Sourcing", () => {
       await store.append("fallback-stream", {
         type: "COMPLETE",
         ts: 1300,
-        content: "done",
+        content: "complete",
         tokenCount: 1,
       });
 
@@ -594,7 +594,7 @@ describe("Event Sourcing", () => {
       await store.append("drift-stream", {
         type: "COMPLETE",
         ts: 1300,
-        content: "done",
+        content: "complete",
         tokenCount: 1,
       });
 
@@ -629,7 +629,7 @@ describe("Event Sourcing", () => {
       await store.append("guardrail-stream", {
         type: "COMPLETE",
         ts: 1300,
-        content: "done",
+        content: "complete",
         tokenCount: 1,
       });
 

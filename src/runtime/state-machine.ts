@@ -14,7 +14,7 @@ export const RuntimeStates = {
   RETRYING: "retrying",
   FALLBACK: "fallback",
   FINALIZING: "finalizing",
-  DONE: "done",
+  COMPLETE: "complete",
   ERROR: "error",
 } as const;
 
@@ -67,7 +67,8 @@ export class StateMachine {
    */
   isTerminal(): boolean {
     return (
-      this.state === RuntimeStates.DONE || this.state === RuntimeStates.ERROR
+      this.state === RuntimeStates.COMPLETE ||
+      this.state === RuntimeStates.ERROR
     );
   }
 

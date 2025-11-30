@@ -215,8 +215,8 @@ describe("OpenTelemetry Integration", () => {
             tokensPerSecond: 50,
             timeToFirstToken: 200,
             totalRetries: 0,
-            networkRetries: 0,
-            modelRetries: 0,
+            networkRetryCount: 0,
+            modelRetryCount: 0,
           },
           network: {
             errorCount: 0,

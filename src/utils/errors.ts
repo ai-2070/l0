@@ -1,22 +1,13 @@
 // Network error detection utilities for L0
 
-import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "../types/retry";
+import {
+  RETRY_DEFAULTS,
+  ERROR_TYPE_DELAY_DEFAULTS,
+  ErrorCategory,
+} from "../types/retry";
 
-/**
- * Error categories for routing and handling decisions
- */
-export enum ErrorCategory {
-  /** Network/connection errors - transient, retry without limit */
-  NETWORK = "network",
-  /** Timeout errors - transient, retry with backoff */
-  TIMEOUT = "timeout",
-  /** Provider/API errors - may retry depending on status */
-  PROVIDER = "provider",
-  /** Content errors (guardrails, drift) - may retry with different approach */
-  CONTENT = "content",
-  /** Internal errors - bugs, don't retry */
-  INTERNAL = "internal",
-}
+// Re-export ErrorCategory for convenience
+export { ErrorCategory };
 
 /**
  * Map error codes to categories
@@ -27,7 +18,7 @@ export function getErrorCategory(code: L0ErrorCode): ErrorCategory {
       return ErrorCategory.NETWORK;
     case "INITIAL_TOKEN_TIMEOUT":
     case "INTER_TOKEN_TIMEOUT":
-      return ErrorCategory.TIMEOUT;
+      return ErrorCategory.TRANSIENT;
     case "GUARDRAIL_VIOLATION":
     case "FATAL_GUARDRAIL_VIOLATION":
     case "DRIFT_DETECTED":
@@ -86,12 +77,12 @@ export interface L0ErrorContext {
   /**
    * Number of retry attempts made
    */
-  retryAttempts?: number;
+  modelRetryCount?: number;
 
   /**
    * Number of network retries (don't count toward limit)
    */
-  networkRetries?: number;
+  networkRetryCount?: number;
 
   /**
    * Index of fallback stream being used (0 = primary)
@@ -173,8 +164,8 @@ export class L0Error extends Error {
     if (this.context.tokenCount !== undefined) {
       parts.push(`Tokens: ${this.context.tokenCount}`);
     }
-    if (this.context.retryAttempts !== undefined) {
-      parts.push(`Retries: ${this.context.retryAttempts}`);
+    if (this.context.modelRetryCount !== undefined) {
+      parts.push(`Retries: ${this.context.modelRetryCount}`);
     }
     if (
       this.context.fallbackIndex !== undefined &&
@@ -204,8 +195,8 @@ export class L0Error extends Error {
         ? this.context.checkpoint.length
         : undefined,
       tokenCount: this.context.tokenCount,
-      retryAttempts: this.context.retryAttempts,
-      networkRetries: this.context.networkRetries,
+      modelRetryCount: this.context.modelRetryCount,
+      networkRetryCount: this.context.networkRetryCount,
       fallbackIndex: this.context.fallbackIndex,
     };
   }

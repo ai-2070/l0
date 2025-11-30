@@ -40,19 +40,19 @@ function createMockL0Result(overrides: Partial<L0Result> = {}): L0Result {
     content: "Test content",
     checkpoint: "",
     tokenCount: 10,
-    retryAttempts: 0,
-    networkRetries: 0,
+    modelRetryCount: 0,
+    networkRetryCount: 0,
     fallbackIndex: 0,
     violations: [],
     driftDetected: false,
     completed: true,
     networkErrors: [],
-    continuedFromCheckpoint: false,
+    resumed: false,
   };
 
   return {
     stream: (async function* () {
-      yield { type: "done" as const };
+      yield { type: "complete" as const };
     })(),
     state: { ...defaultState, ...overrides.state },
     errors: overrides.errors ?? [],
@@ -728,14 +728,14 @@ describe("loggingInterceptor()", () => {
           content: "",
           checkpoint: "",
           tokenCount: 10,
-          retryAttempts: 2,
-          networkRetries: 3,
+          modelRetryCount: 2,
+          networkRetryCount: 3,
           fallbackIndex: 0,
           violations: [],
           driftDetected: false,
           completed: true,
           networkErrors: [],
-          continuedFromCheckpoint: false,
+          resumed: false,
         },
       }),
     );
@@ -744,7 +744,7 @@ describe("loggingInterceptor()", () => {
       "L0 execution completed",
       expect.objectContaining({
         retries: 2,
-        networkRetries: 3,
+        networkRetryCount: 3,
       }),
     );
   });
@@ -759,8 +759,8 @@ describe("loggingInterceptor()", () => {
           content: "",
           checkpoint: "",
           tokenCount: 10,
-          retryAttempts: 0,
-          networkRetries: 0,
+          modelRetryCount: 0,
+          networkRetryCount: 0,
           fallbackIndex: 0,
           violations: [
             {
@@ -773,7 +773,7 @@ describe("loggingInterceptor()", () => {
           driftDetected: false,
           completed: true,
           networkErrors: [],
-          continuedFromCheckpoint: false,
+          resumed: false,
         },
       }),
     );
@@ -1099,14 +1099,14 @@ describe("transformInterceptor()", () => {
         content: "original",
         checkpoint: "checkpoint",
         tokenCount: 50,
-        retryAttempts: 1,
-        networkRetries: 2,
+        modelRetryCount: 1,
+        networkRetryCount: 2,
         fallbackIndex: 0,
         violations: [],
         driftDetected: false,
         completed: true,
         networkErrors: [],
-        continuedFromCheckpoint: false,
+        resumed: false,
       },
     });
 
@@ -1115,7 +1115,7 @@ describe("transformInterceptor()", () => {
     expect(result.state.content).toBe("new content");
     expect(result.state.checkpoint).toBe("checkpoint");
     expect(result.state.tokenCount).toBe(50);
-    expect(result.state.retryAttempts).toBe(1);
+    expect(result.state.modelRetryCount).toBe(1);
   });
 
   it("should only have after hook", () => {

@@ -184,7 +184,7 @@ export {
   normalizeStreamEvents,
   createTokenEvent,
   createMessageEvent,
-  createDoneEvent,
+  createCompleteEvent,
   createErrorEvent,
   filterEventsByType,
   extractTokens,

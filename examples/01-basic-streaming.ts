@@ -24,7 +24,7 @@ async function main() {
       case "token":
         process.stdout.write(event.value || "");
         break;
-      case "done":
+      case "complete":
         console.log("\n\n✓ Stream completed");
         break;
       case "error":

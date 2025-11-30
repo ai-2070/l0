@@ -13,7 +13,7 @@ L0 extends the standard event system with multimodal-specific events:
 | `data`     | Multimodal content (images, audio, video, files, JSON) |
 | `progress` | Progress updates for long-running operations           |
 | `error`    | Error event                                            |
-| `done`     | Stream completion                                      |
+| `complete` | Stream completion                                      |
 
 ## Data Payload
 
@@ -194,7 +194,7 @@ for await (const event of result.stream) {
         console.log(`Generated ${width}x${height} image`);
       }
       break;
-    case "done":
+    case "complete":
       console.log("Generation complete");
       break;
   }

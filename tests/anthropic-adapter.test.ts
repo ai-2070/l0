@@ -313,7 +313,7 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      const doneEvents = l0Events.filter((e) => e.type === "done");
+      const doneEvents = l0Events.filter((e) => e.type === "complete");
       expect(doneEvents).toHaveLength(1);
     });
 
@@ -335,7 +335,7 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      const doneEvents = l0Events.filter((e) => e.type === "done");
+      const doneEvents = l0Events.filter((e) => e.type === "complete");
       expect(doneEvents).toHaveLength(1);
     });
 
@@ -356,9 +356,9 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      // Should only have token and done events (no message_start, etc.)
+      // Should only have token and complete events (no message_start, etc.)
       const eventTypes = l0Events.map((e) => e.type);
-      expect(eventTypes).toEqual(["token", "done"]);
+      expect(eventTypes).toEqual(["token", "complete"]);
     });
 
     it("should produce no extra events", async () => {
@@ -378,11 +378,11 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      // Exactly 2 tokens + 1 done = 3 events
+      // Exactly 2 tokens + 1 complete = 3 events
       expect(l0Events).toHaveLength(3);
       expect(l0Events[0]!.type).toBe("token");
       expect(l0Events[1]!.type).toBe("token");
-      expect(l0Events[2]!.type).toBe("done");
+      expect(l0Events[2]!.type).toBe("complete");
     });
 
     it("should wrap thrown errors into { type: 'error' }", async () => {
@@ -430,7 +430,7 @@ describe("Anthropic SDK Adapter", () => {
       expect(l0Events[1]!.value).toBe("second");
       expect(l0Events[2]!.type).toBe("token");
       expect(l0Events[2]!.value).toBe("third");
-      expect(l0Events[3]!.type).toBe("done");
+      expect(l0Events[3]!.type).toBe("complete");
     });
 
     it("should work when stream yields no deltas", async () => {
@@ -449,7 +449,7 @@ describe("Anthropic SDK Adapter", () => {
       }
 
       const tokenEvents = l0Events.filter((e) => e.type === "token");
-      const doneEvents = l0Events.filter((e) => e.type === "done");
+      const doneEvents = l0Events.filter((e) => e.type === "complete");
 
       expect(tokenEvents).toHaveLength(0);
       expect(doneEvents).toHaveLength(1);
@@ -466,7 +466,7 @@ describe("Anthropic SDK Adapter", () => {
       }
 
       expect(l0Events).toHaveLength(1);
-      expect(l0Events[0]!.type).toBe("done");
+      expect(l0Events[0]!.type).toBe("complete");
     });
 
     it("should emit done even if stream ends without message_stop", async () => {
@@ -484,7 +484,7 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      const doneEvents = l0Events.filter((e) => e.type === "done");
+      const doneEvents = l0Events.filter((e) => e.type === "complete");
       expect(doneEvents).toHaveLength(1);
     });
 
@@ -505,7 +505,7 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      const doneEvent = l0Events.find((e) => e.type === "done");
+      const doneEvent = l0Events.find((e) => e.type === "complete");
       expect((doneEvent as any).usage).toBeDefined();
       expect((doneEvent as any).usage.input_tokens).toBe(15);
       expect((doneEvent as any).usage.output_tokens).toBe(8);
@@ -530,7 +530,7 @@ describe("Anthropic SDK Adapter", () => {
         l0Events.push(event);
       }
 
-      const doneEvent = l0Events.find((e) => e.type === "done");
+      const doneEvent = l0Events.find((e) => e.type === "complete");
       expect((doneEvent as any).usage).toBeUndefined();
     });
 

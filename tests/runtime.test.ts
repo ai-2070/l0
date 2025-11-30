@@ -1553,7 +1553,7 @@ describe("L0 Runtime", () => {
               timestamp: Date.now(),
             };
           }
-          yield { type: "done" as const, timestamp: Date.now() };
+          yield { type: "complete" as const, timestamp: Date.now() };
         },
       };
 
@@ -1612,7 +1612,7 @@ describe("L0 Runtime", () => {
               timestamp: Date.now(),
             };
           }
-          yield { type: "done" as const, timestamp: Date.now() };
+          yield { type: "complete" as const, timestamp: Date.now() };
         },
       };
 
@@ -1627,7 +1627,7 @@ describe("L0 Runtime", () => {
               timestamp: Date.now(),
             };
           }
-          yield { type: "done" as const, timestamp: Date.now() };
+          yield { type: "complete" as const, timestamp: Date.now() };
         },
       };
 
@@ -1663,7 +1663,7 @@ describe("L0 Runtime", () => {
                 timestamp: Date.now(),
               };
             }
-            yield { type: "done" as const, timestamp: Date.now() };
+            yield { type: "complete" as const, timestamp: Date.now() };
           },
         };
       }
@@ -1699,7 +1699,7 @@ describe("L0 Runtime", () => {
               timestamp: Date.now(),
             };
           }
-          yield { type: "done" as const, timestamp: Date.now() };
+          yield { type: "complete" as const, timestamp: Date.now() };
         },
       };
 
@@ -1769,7 +1769,7 @@ describe("L0 Runtime", () => {
               timestamp: Date.now(),
             };
           }
-          yield { type: "done" as const, timestamp: Date.now() };
+          yield { type: "complete" as const, timestamp: Date.now() };
         },
       };
 
@@ -1817,7 +1817,7 @@ describe("L0 Runtime", () => {
           },
           timestamp: Date.now(),
         };
-        yield { type: "done", timestamp: Date.now() };
+        yield { type: "complete", timestamp: Date.now() };
       }
 
       const result = await l0({
@@ -1856,10 +1856,10 @@ describe("L0 Runtime", () => {
         };
         yield {
           type: "progress",
-          progress: { percent: 100, message: "Done" },
+          progress: { percent: 100, message: "complete" },
           timestamp: Date.now(),
         };
-        yield { type: "done", timestamp: Date.now() };
+        yield { type: "complete", timestamp: Date.now() };
       }
 
       const result = await l0({
@@ -1873,7 +1873,7 @@ describe("L0 Runtime", () => {
 
       // Should have the last progress update
       expect(result.state.lastProgress?.percent).toBe(100);
-      expect(result.state.lastProgress?.message).toBe("Done");
+      expect(result.state.lastProgress?.message).toBe("complete");
     });
 
     it("should handle multiple data outputs", async () => {
@@ -1905,7 +1905,7 @@ describe("L0 Runtime", () => {
           },
           timestamp: Date.now(),
         };
-        yield { type: "done", timestamp: Date.now() };
+        yield { type: "complete", timestamp: Date.now() };
       }
 
       const result = await l0({
@@ -1944,7 +1944,7 @@ describe("L0 Runtime", () => {
           timestamp: Date.now(),
         };
         yield { type: "token", value: "Done!", timestamp: Date.now() };
-        yield { type: "done", timestamp: Date.now() };
+        yield { type: "complete", timestamp: Date.now() };
       }
 
       const result = await l0({
@@ -1973,7 +1973,7 @@ describe("L0 Runtime", () => {
     it("should initialize dataOutputs as empty array", async () => {
       async function* simpleStream(): AsyncIterable<L0Event> {
         yield { type: "token", value: "Hello", timestamp: Date.now() };
-        yield { type: "done", timestamp: Date.now() };
+        yield { type: "complete", timestamp: Date.now() };
       }
 
       const result = await l0({
@@ -2014,7 +2014,7 @@ describe("L0 Runtime", () => {
               (err as any).code = "ECONNRESET";
               throw err;
             }
-            yield { type: "done", timestamp: Date.now() };
+            yield { type: "complete", timestamp: Date.now() };
           }
           return gen();
         },
@@ -2052,7 +2052,7 @@ describe("L0 Runtime", () => {
               throw err;
             }
             yield { type: "token", value: "success", timestamp: Date.now() };
-            yield { type: "done", timestamp: Date.now() };
+            yield { type: "complete", timestamp: Date.now() };
           }
           return gen();
         },
@@ -2102,7 +2102,7 @@ describe("L0 Runtime", () => {
                 progress: { percent: 100, message: "fallback" },
                 timestamp: Date.now(),
               };
-              yield { type: "done", timestamp: Date.now() };
+              yield { type: "complete", timestamp: Date.now() };
             }
             return gen();
           },

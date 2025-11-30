@@ -144,8 +144,8 @@ interface L0Telemetry {
     tokensPerSecond?: number; // Throughput
     totalTokens: number; // Total tokens received
     totalRetries: number; // All retries
-    networkRetries: number; // Network retries (doesn't count)
-    modelRetries: number; // Model retries (counts)
+    networkRetryCount: number; // Network retries (doesn't count)
+    modelRetryCount: number; // Model retries (counts)
   };
 
   // Network tracking
@@ -823,7 +823,7 @@ Focus on:
 - `tokensPerSecond` - Throughput
 - `timeToFirstToken` - Latency
 - `network.errorCount` - Reliability
-- `metrics.networkRetries` - Network quality
+- `metrics.networkRetryCount` - Network quality
 - `duration` - Overall performance
 
 ## Performance Impact

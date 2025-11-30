@@ -50,7 +50,7 @@ async function basicRetry() {
       process.stdout.write(event.value || "");
     }
   }
-  console.log("\n\nRetries used:", result.state.retryAttempts);
+  console.log("\n\nRetries used:", result.state.modelRetryCount);
 }
 
 // Example 2: Using recommended retry preset

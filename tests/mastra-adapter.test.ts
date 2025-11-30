@@ -157,7 +157,7 @@ describe("Mastra Adapter", () => {
       }
 
       const tokenEvents = events.filter((e) => e.type === "token");
-      const doneEvents = events.filter((e) => e.type === "done");
+      const doneEvents = events.filter((e) => e.type === "complete");
 
       expect(tokenEvents).toHaveLength(3);
       expect(tokenEvents[0]!.value).toBe("Hello");
@@ -176,7 +176,7 @@ describe("Mastra Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect(doneEvent).toBeDefined();
       expect((doneEvent as any).usage).toBeDefined();
       expect((doneEvent as any).usage.totalTokens).toBe(15);
@@ -194,13 +194,13 @@ describe("Mastra Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect(doneEvent).toBeDefined();
       expect((doneEvent as any).usage).toBeUndefined();
     });
 
     it("should include finish reason", async () => {
-      const mockStream = createMockMastraStream(["Done"], {
+      const mockStream = createMockMastraStream(["complete"], {
         finishReason: "stop",
       });
 
@@ -209,7 +209,7 @@ describe("Mastra Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect(doneEvent).toBeDefined();
       expect((doneEvent as any).finishReason).toBe("stop");
     });
@@ -316,7 +316,7 @@ describe("Mastra Adapter", () => {
       }
 
       const tokenEvents = events.filter((e) => e.type === "token");
-      const doneEvents = events.filter((e) => e.type === "done");
+      const doneEvents = events.filter((e) => e.type === "complete");
 
       expect(tokenEvents).toHaveLength(0);
       expect(doneEvents).toHaveLength(1);
@@ -361,7 +361,7 @@ describe("Mastra Adapter", () => {
     });
 
     it("should handle finish chunk with usage", async () => {
-      const mockStream = createMockMastraStream(["Done"], {
+      const mockStream = createMockMastraStream(["complete"], {
         usage: { inputTokens: 5, outputTokens: 10, totalTokens: 15 },
         finishReason: "stop",
       });
@@ -371,7 +371,7 @@ describe("Mastra Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect(doneEvent).toBeDefined();
       expect((doneEvent as any).usage).toBeDefined();
     });
@@ -547,7 +547,7 @@ describe("Mastra Adapter", () => {
         if (event.type === "token") {
           fullText += event.value;
         }
-        if (event.type === "done" && (event as any).usage) {
+        if (event.type === "complete" && (event as any).usage) {
           usage = (event as any).usage;
         }
       }

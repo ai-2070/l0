@@ -126,7 +126,7 @@ describeIf(hasOpenAI)("Mastra AI Integration", () => {
         for await (const event of wrapMastraStream(streamResult, {
           includeUsage: true,
         })) {
-          if (event.type === "done") {
+          if (event.type === "complete") {
             doneEvent = event;
           }
         }

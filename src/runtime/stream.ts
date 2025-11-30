@@ -74,7 +74,7 @@ export class StreamNormalizer {
         } else if (event.type === "error") {
           this.state.error = event.error;
           throw event.error;
-        } else if (event.type === "done") {
+        } else if (event.type === "complete") {
           this.state.complete = true;
         }
 
@@ -223,7 +223,7 @@ export async function* bufferStream(
 
     if (
       buffer.length >= bufferSize ||
-      event.type === "done" ||
+      event.type === "complete" ||
       event.type === "error"
     ) {
       yield buffer;

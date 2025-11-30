@@ -17,7 +17,7 @@ export class Metrics {
   retries = 0;
 
   /** Network retries (subset of retries) */
-  networkRetries = 0;
+  networkRetryCount = 0;
 
   /** Total errors encountered */
   errors = 0;
@@ -44,7 +44,7 @@ export class Metrics {
     this.requests = 0;
     this.tokens = 0;
     this.retries = 0;
-    this.networkRetries = 0;
+    this.networkRetryCount = 0;
     this.errors = 0;
     this.violations = 0;
     this.driftDetections = 0;
@@ -61,7 +61,7 @@ export class Metrics {
       requests: this.requests,
       tokens: this.tokens,
       retries: this.retries,
-      networkRetries: this.networkRetries,
+      networkRetryCount: this.networkRetryCount,
       errors: this.errors,
       violations: this.violations,
       driftDetections: this.driftDetections,
@@ -86,7 +86,7 @@ export interface MetricsSnapshot {
   requests: number;
   tokens: number;
   retries: number;
-  networkRetries: number;
+  networkRetryCount: number;
   errors: number;
   violations: number;
   driftDetections: number;

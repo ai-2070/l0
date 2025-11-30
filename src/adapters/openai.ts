@@ -254,9 +254,9 @@ export async function* wrapOpenAIStream(
       }
     }
 
-    // Emit done event with usage (once, after all choices processed)
+    // Emit complete event with usage (once, after all choices processed)
     yield {
-      type: "done",
+      type: "complete",
       timestamp: Date.now(),
       ...(includeUsage && usage ? { usage } : {}),
     } as L0Event;

@@ -12,7 +12,8 @@
 
 import { describe, it, expect } from "vitest";
 import { l0 } from "../src/runtime/l0";
-import type { L0Event, GuardrailRule } from "../src/types/l0";
+import type { L0Event } from "../src/types/l0";
+import type { GuardrailRule } from "../src/types/guardrails";
 
 // Helper to create a simple token stream
 function createTokenStream(tokens: string[]): () => AsyncGenerator<L0Event> {
@@ -20,7 +21,7 @@ function createTokenStream(tokens: string[]): () => AsyncGenerator<L0Event> {
     for (const token of tokens) {
       yield { type: "token", value: token, timestamp: Date.now() };
     }
-    yield { type: "done", timestamp: Date.now() };
+    yield { type: "complete", timestamp: Date.now() };
   };
 }
 
@@ -35,7 +36,7 @@ describe("Inter-token timeout", () => {
       // This delay should trigger the timeout (using small value for test speed)
       await delay(150);
       yield { type: "token", value: "second", timestamp: Date.now() };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const result = await l0({
@@ -66,7 +67,7 @@ describe("Inter-token timeout", () => {
       yield { type: "token", value: "second", timestamp: Date.now() };
       await delay(10);
       yield { type: "token", value: "third", timestamp: Date.now() };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const result = await l0({
@@ -94,7 +95,7 @@ describe("Inter-token timeout", () => {
       yield { type: "token", value: "second", timestamp: Date.now() };
       await delay(10);
       yield { type: "token", value: "third", timestamp: Date.now() };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     let processingCalls = 0;
@@ -131,7 +132,7 @@ describe("Initial token timeout", () => {
     const streamFn = async function* (): AsyncGenerator<L0Event> {
       await delay(50); // Less than timeout
       yield { type: "token", value: "made-it", timestamp: Date.now() };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const result = await l0({
@@ -158,7 +159,7 @@ describe("Initial token timeout", () => {
       yield { type: "token", value: "first", timestamp: Date.now() };
       await delay(200);
       yield { type: "token", value: "second", timestamp: Date.now() };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const result = await l0({
@@ -190,7 +191,7 @@ describe("normalizeStreamEvent error handling", () => {
       // Unknown type - normalizeStreamEvent should handle this
       yield { type: "unknown-type", data: "test" };
       yield { type: "token", value: "after", timestamp: Date.now() };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const result = await l0({
@@ -218,7 +219,7 @@ describe("normalizeStreamEvent error handling", () => {
       yield "hello";
       yield " ";
       yield "world";
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const result = await l0({
@@ -307,7 +308,7 @@ describe("onEvent callback error handling", () => {
         data: { contentType: "text" as const },
         timestamp: Date.now(),
       };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     let errorCount = 0;
@@ -341,7 +342,7 @@ describe("Deduplication buffer flush ordering", () => {
       yield { type: "token", value: "a", timestamp: Date.now() };
       yield { type: "token", value: "b", timestamp: Date.now() };
       yield { type: "token", value: "c", timestamp: Date.now() };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const eventOrder: string[] = [];
@@ -394,7 +395,7 @@ describe("Deduplication buffer flush ordering", () => {
       yield { type: "token", value: "Hello ", timestamp: Date.now() };
       yield { type: "token", value: "forbidden", timestamp: Date.now() };
       yield { type: "token", value: " world", timestamp: Date.now() };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const result = await l0({
@@ -485,7 +486,7 @@ describe("State reset function", () => {
             timestamp: Date.now(),
           };
         }
-        yield { type: "done", timestamp: Date.now() };
+        yield { type: "complete", timestamp: Date.now() };
       };
       return gen();
     };
@@ -521,7 +522,7 @@ describe("State reset function", () => {
         data: { contentType: "image" as const },
         timestamp: Date.now(),
       };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const streamFn2 = async function* (): AsyncGenerator<L0Event> {
@@ -531,7 +532,7 @@ describe("State reset function", () => {
         data: { contentType: "audio" as const },
         timestamp: Date.now(),
       };
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     };
 
     const result1 = await l0({
@@ -626,7 +627,7 @@ describe("Continuation with checkpoint", () => {
             timestamp: Date.now(),
           };
         }
-        yield { type: "done", timestamp: Date.now() };
+        yield { type: "complete", timestamp: Date.now() };
       };
       return gen();
     };
@@ -693,7 +694,7 @@ describe("Continuation with checkpoint", () => {
           // On retry, just add more content
           yield { type: "token", value: "continued", timestamp: Date.now() };
         }
-        yield { type: "done", timestamp: Date.now() };
+        yield { type: "complete", timestamp: Date.now() };
       };
       return gen();
     };

@@ -125,8 +125,8 @@ describe("Prometheus Integration", () => {
           tokensPerSecond: 50,
           timeToFirstToken: 200,
           totalRetries: 0,
-          networkRetries: 0,
-          modelRetries: 0,
+          networkRetryCount: 0,
+          modelRetryCount: 0,
         },
         network: {
           errorCount: 0,
@@ -169,8 +169,8 @@ describe("Prometheus Integration", () => {
           tokensPerSecond: 50,
           timeToFirstToken: 200,
           totalRetries: 1,
-          networkRetries: 0,
-          modelRetries: 1,
+          networkRetryCount: 0,
+          modelRetryCount: 1,
         },
         network: {
           errorCount: 0,
@@ -198,8 +198,8 @@ describe("Prometheus Integration", () => {
         metrics: {
           totalTokens: 10,
           totalRetries: 0,
-          networkRetries: 0,
-          modelRetries: 0,
+          networkRetryCount: 0,
+          modelRetryCount: 0,
         },
         network: { errorCount: 0, errorsByType: {} },
         guardrails: {
@@ -224,8 +224,8 @@ describe("Prometheus Integration", () => {
         metrics: {
           totalTokens: 10,
           totalRetries: 0,
-          networkRetries: 0,
-          modelRetries: 0,
+          networkRetryCount: 0,
+          modelRetryCount: 0,
         },
         network: { errorCount: 0, errorsByType: {} },
         guardrails: {
@@ -411,8 +411,8 @@ describe("Prometheus Integration", () => {
         metrics: {
           totalTokens: 10,
           totalRetries: 0,
-          networkRetries: 0,
-          modelRetries: 0,
+          networkRetryCount: 0,
+          modelRetryCount: 0,
         },
         network: { errorCount: 0, errorsByType: {} },
         guardrails: {

@@ -177,8 +177,8 @@ export function loggingInterceptor(
       logger.info("L0 execution completed", {
         completed: result.state.completed,
         tokens: result.state.tokenCount,
-        retries: result.state.retryAttempts,
-        networkRetries: result.state.networkRetries,
+        retries: result.state.modelRetryCount,
+        networkRetryCount: result.state.networkRetryCount,
         violations: result.state.violations.length,
       });
       return result;
@@ -408,7 +408,7 @@ export function analyticsInterceptor(
       await track("l0_completed", {
         duration: Date.now() - startTime,
         tokens: result.state.tokenCount,
-        retries: result.state.retryAttempts,
+        retries: result.state.modelRetryCount,
         completed: result.state.completed,
       });
       return result;

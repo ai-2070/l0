@@ -213,14 +213,17 @@ export class L0PrometheusCollector {
     }
 
     // Retries
-    if (telemetry.metrics.networkRetries > 0) {
+    if (telemetry.metrics.networkRetryCount > 0) {
       this.retriesTotal.inc(
         { type: "network" },
-        telemetry.metrics.networkRetries,
+        telemetry.metrics.networkRetryCount,
       );
     }
-    if (telemetry.metrics.modelRetries > 0) {
-      this.retriesTotal.inc({ type: "model" }, telemetry.metrics.modelRetries);
+    if (telemetry.metrics.modelRetryCount > 0) {
+      this.retriesTotal.inc(
+        { type: "model" },
+        telemetry.metrics.modelRetryCount,
+      );
     }
 
     // Network errors
@@ -585,14 +588,14 @@ export class PrometheusRegistry {
       this.incCounter(
         "retries_network_total",
         "Network-related retry attempts",
-        telemetry.metrics.networkRetries,
+        telemetry.metrics.networkRetryCount,
         { ...baseLabels, retry_type: "network" },
       );
 
       this.incCounter(
         "retries_model_total",
         "Model-related retry attempts",
-        telemetry.metrics.modelRetries,
+        telemetry.metrics.modelRetryCount,
         { ...baseLabels, retry_type: "model" },
       );
     }

@@ -190,28 +190,48 @@ export const ERROR_TYPE_DELAY_DEFAULTS: Required<ErrorTypeDelays> = {
 };
 
 /**
- * Error categories for retry decision-making
+ * Unified error categories for retry decision-making and error classification.
+ *
+ * Categories determine:
+ * 1. Whether to retry
+ * 2. Whether retries count toward the limit
+ * 3. What backoff strategy to use
  */
 export enum ErrorCategory {
   /**
-   * Network failures - retry forever with backoff, doesn't count
+   * Network/connection failures - retry forever with backoff, doesn't count toward limit
    */
   NETWORK = "network",
 
   /**
-   * Transient errors (429, 503, timeouts) - retry forever, doesn't count
+   * Transient errors (429 rate limits, 503, timeouts) - retry forever with backoff, doesn't count
    */
   TRANSIENT = "transient",
 
   /**
-   * Model-side errors - count toward retry limit
+   * Model-side errors (bad response, content issues) - counts toward retry limit
    */
   MODEL = "model",
 
   /**
-   * Fatal errors - don't retry
+   * Content errors (guardrails, drift) - counts toward retry limit
+   */
+  CONTENT = "content",
+
+  /**
+   * Provider/API errors - may retry depending on status code
+   */
+  PROVIDER = "provider",
+
+  /**
+   * Fatal errors - don't retry (auth failures, invalid config)
    */
   FATAL = "fatal",
+
+  /**
+   * Internal errors (bugs) - don't retry
+   */
+  INTERNAL = "internal",
 }
 
 /**
@@ -226,7 +246,7 @@ export interface RetryState {
   /**
    * Network retry attempts (doesn't count toward limit)
    */
-  networkRetries: number;
+  networkRetryCount: number;
 
   /**
    * Transient retry attempts (doesn't count toward limit)

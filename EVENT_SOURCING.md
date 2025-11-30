@@ -330,7 +330,7 @@ console.log(state.content); // Final content
 console.log(state.tokenCount); // Token count
 console.log(state.completed); // true/false
 console.log(state.violations); // Guardrail violations
-console.log(state.retryAttempts); // Retry count
+console.log(state.modelRetryCount); // Retry count
 console.log(state.fallbackIndex); // Which fallback was used
 ```
 
@@ -504,8 +504,8 @@ interface L0Snapshot {
   checkpoint: string;
   violations: GuardrailViolation[];
   driftDetected: boolean;
-  retryAttempts: number;
-  networkRetries: number;
+  modelRetryCount: number;
+  networkRetryCount: number;
   fallbackIndex: number;
 }
 ```

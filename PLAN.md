@@ -16,9 +16,11 @@ This plan addresses the architectural critiques of the L0 runtime, transforming 
 ## 1. Formal State Machine
 
 ### Current Problem
+
 The runtime uses ~15 boolean flags and manual conditional branches to track state:
+
 - `firstTokenReceived`, `deduplicationComplete`, `isRetryAttempt`
-- `state.continuedFromCheckpoint`, `state.completed`, `state.driftDetected`
+- `state.resumed`, `state.completed`, `state.driftDetected`
 - `initialTimeoutReached`, etc.
 
 This makes correctness accidental and hard to verify.
@@ -64,27 +66,36 @@ export type L0Transition =
 // State machine with validated transitions
 export class L0StateMachine {
   private state: L0RuntimeState = "idle";
-  private listeners: Set<(state: L0RuntimeState, transition: L0Transition) => void>;
-  
+  private listeners: Set<
+    (state: L0RuntimeState, transition: L0Transition) => void
+  >;
+
   constructor(private readonly validTransitions: TransitionMap) {}
-  
+
   transition(event: L0Transition): L0RuntimeState {
     const nextState = this.validTransitions[this.state]?.[event.type];
     if (!nextState) {
-      throw new L0Error(`Invalid transition ${event.type} from state ${this.state}`, {
-        code: "INVALID_STATE_TRANSITION",
-        metadata: { currentState: this.state, event }
-      });
+      throw new L0Error(
+        `Invalid transition ${event.type} from state ${this.state}`,
+        {
+          code: "INVALID_STATE_TRANSITION",
+          metadata: { currentState: this.state, event },
+        },
+      );
     }
     this.state = nextState;
     this.notify(event);
     return this.state;
   }
-  
-  getState(): L0RuntimeState { return this.state; }
-  
+
+  getState(): L0RuntimeState {
+    return this.state;
+  }
+
   // Observable for external monitoring
-  subscribe(listener: (state: L0RuntimeState, transition: L0Transition) => void): () => void;
+  subscribe(
+    listener: (state: L0RuntimeState, transition: L0Transition) => void,
+  ): () => void;
 }
 
 // Transition map defines valid state transitions
@@ -128,6 +139,7 @@ const L0_TRANSITIONS: TransitionMap = {
 ```
 
 ### Benefits
+
 - **Verifiable correctness** - Invalid transitions throw immediately
 - **Observable** - External systems can subscribe to state changes
 - **Testable** - Can test all valid/invalid transition combinations
@@ -138,7 +150,9 @@ const L0_TRANSITIONS: TransitionMap = {
 ## 2. Typed Error Taxonomy with Serialization
 
 ### Current Problem
+
 `L0Error` exists but:
+
 - No formal error hierarchy
 - No guaranteed serialization format
 - No mapping to user-facing semantics
@@ -151,14 +165,14 @@ Create `src/types/errors.ts`:
 ```typescript
 // Error categories for routing and handling
 export enum L0ErrorCategory {
-  NETWORK = "network",       // Transient, retry without limit
-  TIMEOUT = "timeout",       // Transient, retry with backoff
-  GUARDRAIL = "guardrail",   // Content issue, may retry
-  DRIFT = "drift",           // Content divergence, may retry
-  PROVIDER = "provider",     // API/model error, may retry
+  NETWORK = "network", // Transient, retry without limit
+  TIMEOUT = "timeout", // Transient, retry with backoff
+  GUARDRAIL = "guardrail", // Content issue, may retry
+  DRIFT = "drift", // Content divergence, may retry
+  PROVIDER = "provider", // API/model error, may retry
   VALIDATION = "validation", // Input error, don't retry
-  INTERNAL = "internal",     // Bug, don't retry
-  FATAL = "fatal",           // Unrecoverable, stop immediately
+  INTERNAL = "internal", // Bug, don't retry
+  FATAL = "fatal", // Unrecoverable, stop immediately
 }
 
 // Base error interface for serialization
@@ -168,21 +182,21 @@ export interface SerializedL0Error {
   category: L0ErrorCategory;
   message: string;
   timestamp: number;
-  
+
   // Recovery context
   recoverable: boolean;
   checkpoint?: string;
   checkpointLength?: number;
   tokenCount: number;
-  
+
   // Execution context
-  retryAttempts: number;
-  networkRetries: number;
+  modelRetryCount: number;
+  networkRetryCount: number;
   fallbackIndex: number;
-  
+
   // Causal chain
   cause?: SerializedL0Error | SerializedError;
-  
+
   // Provider-specific details (if any)
   provider?: {
     name: string;
@@ -198,13 +212,13 @@ export class L0Error extends Error {
   readonly context: L0ErrorContext;
   readonly timestamp: number;
   readonly cause?: Error;
-  
+
   constructor(message: string, context: L0ErrorContext, cause?: Error) {
     super(message);
     this.cause = cause;
     // ... existing constructor logic
   }
-  
+
   // Serialize for logging/transport
   toJSON(): SerializedL0Error {
     return {
@@ -217,27 +231,27 @@ export class L0Error extends Error {
       checkpoint: this.context.checkpoint,
       checkpointLength: this.context.checkpoint?.length,
       tokenCount: this.context.tokenCount ?? 0,
-      retryAttempts: this.context.retryAttempts ?? 0,
-      networkRetries: this.context.networkRetries ?? 0,
+      modelRetryCount: this.context.modelRetryCount ?? 0,
+      networkRetryCount: this.context.networkRetryCount ?? 0,
       fallbackIndex: this.context.fallbackIndex ?? 0,
       cause: this.cause ? serializeError(this.cause) : undefined,
       provider: this.context.metadata?.provider,
     };
   }
-  
+
   // Deserialize from JSON (for error reconstruction)
   static fromJSON(json: SerializedL0Error): L0Error {
     return new L0Error(json.message, {
       code: json.code,
       checkpoint: json.checkpoint,
       tokenCount: json.tokenCount,
-      retryAttempts: json.retryAttempts,
-      networkRetries: json.networkRetries,
+      modelRetryCount: json.modelRetryCount,
+      networkRetryCount: json.networkRetryCount,
       fallbackIndex: json.fallbackIndex,
       recoverable: json.recoverable,
     });
   }
-  
+
   // User-facing message (sanitized, no internal details)
   toUserMessage(): string {
     const messages: Record<L0ErrorCode, string> = {
@@ -267,6 +281,7 @@ function serializeError(error: Error): SerializedError {
 ### Error Event Ordering
 
 Establish deterministic ordering for error events:
+
 1. Error detected
 2. State mutation (checkpoint update, etc.)
 3. Error event emitted
@@ -278,7 +293,9 @@ Establish deterministic ordering for error events:
 ## 3. Non-Blocking Guardrails & Drift Detection
 
 ### Current Problem
+
 Guardrails and drift detection run synchronously in the streaming loop:
+
 - O(n) content scanning blocks event loop
 - Slow rules cause token delays
 - Token delays can trigger timeouts → false retries
@@ -307,7 +324,7 @@ export class AsyncGuardrailEngine {
     resolve: (result: GuardrailResult) => void;
   }> = [];
   private processing = false;
-  
+
   constructor(
     private engine: GuardrailEngine,
     private options: {
@@ -317,27 +334,27 @@ export class AsyncGuardrailEngine {
       useWorker: boolean;
       // Max queued checks before dropping oldest
       maxQueueSize: number;
-    } = { syncBudgetMs: 5, useWorker: false, maxQueueSize: 100 }
+    } = { syncBudgetMs: 5, useWorker: false, maxQueueSize: 100 },
   ) {}
-  
+
   // Check with budget - returns immediately if fast enough
   check(context: GuardrailContext): AsyncCheckResult<GuardrailResult> {
     const checkId = `check-${Date.now()}-${Math.random()}`;
     const abortController = new AbortController();
-    
+
     // Try fast path first (delta-only rules)
     const fastResult = this.engine.checkDeltaOnly(context);
     if (fastResult.complete) {
       return { immediate: fastResult.result, cancel: () => {} };
     }
-    
+
     // Queue full content check for async processing
     const pending = new Promise<GuardrailResult>((resolve) => {
       this.checkQueue.push({ id: checkId, context, resolve });
       this.pendingChecks.set(checkId, abortController);
       this.processQueue();
     });
-    
+
     return {
       pending,
       cancel: () => {
@@ -346,21 +363,21 @@ export class AsyncGuardrailEngine {
       },
     };
   }
-  
+
   // Process queue without blocking
   private async processQueue(): Promise<void> {
     if (this.processing) return;
     this.processing = true;
-    
+
     while (this.checkQueue.length > 0) {
       const item = this.checkQueue.shift()!;
       const controller = this.pendingChecks.get(item.id);
-      
+
       if (controller?.signal.aborted) continue;
-      
+
       // Use setImmediate to yield to event loop between checks
-      await new Promise(resolve => setImmediate(resolve));
-      
+      await new Promise((resolve) => setImmediate(resolve));
+
       try {
         const result = this.engine.check(item.context);
         item.resolve(result);
@@ -370,7 +387,7 @@ export class AsyncGuardrailEngine {
         this.pendingChecks.delete(item.id);
       }
     }
-    
+
     this.processing = false;
   }
 }
@@ -379,9 +396,9 @@ export class AsyncGuardrailEngine {
 export class AsyncDriftDetector {
   constructor(
     private detector: DriftDetector,
-    private options: { syncBudgetMs: number } = { syncBudgetMs: 5 }
+    private options: { syncBudgetMs: number } = { syncBudgetMs: 5 },
   ) {}
-  
+
   check(content: string, delta?: string): AsyncCheckResult<DriftResult> {
     // Fast path: check delta only for obvious drift patterns
     if (delta && delta.length < 1000) {
@@ -390,7 +407,7 @@ export class AsyncDriftDetector {
         return { immediate: quickResult, cancel: () => {} };
       }
     }
-    
+
     // For large content, defer to next tick
     if (content.length > 10000) {
       const pending = new Promise<DriftResult>((resolve) => {
@@ -400,7 +417,7 @@ export class AsyncDriftDetector {
       });
       return { pending, cancel: () => {} };
     }
-    
+
     // Small enough for sync check
     return { immediate: this.detector.check(content, delta), cancel: () => {} };
   }
@@ -418,7 +435,7 @@ if (checkResult.immediate) {
   handleGuardrailResult(checkResult.immediate);
 } else if (checkResult.pending) {
   // Slow path - handle when ready, don't block token emission
-  checkResult.pending.then(result => {
+  checkResult.pending.then((result) => {
     handleGuardrailResult(result);
   });
 }
@@ -432,6 +449,7 @@ yield tokenEvent;
 ## 4. Structured Instrumentation
 
 ### Current Problem
+
 - Ad-hoc metric naming
 - No consistent tags/labels
 - No high-cardinality support
@@ -451,13 +469,13 @@ export const L0Metrics = {
   ERRORS_TOTAL: "l0.errors.total",
   GUARDRAIL_CHECKS_TOTAL: "l0.guardrails.checks.total",
   GUARDRAIL_VIOLATIONS_TOTAL: "l0.guardrails.violations.total",
-  
+
   // Histograms
   REQUEST_DURATION: "l0.request.duration",
   TIME_TO_FIRST_TOKEN: "l0.time_to_first_token",
   INTER_TOKEN_LATENCY: "l0.inter_token_latency",
   GUARDRAIL_CHECK_DURATION: "l0.guardrails.check.duration",
-  
+
   // Gauges
   ACTIVE_STREAMS: "l0.streams.active",
   PENDING_GUARDRAIL_CHECKS: "l0.guardrails.checks.pending",
@@ -469,21 +487,21 @@ export const L0Attributes = {
   SESSION_ID: "l0.session.id",
   PROVIDER: "l0.provider",
   MODEL: "l0.model",
-  
+
   // Error context
   ERROR_CODE: "l0.error.code",
   ERROR_CATEGORY: "l0.error.category",
   ERROR_RECOVERABLE: "l0.error.recoverable",
-  
+
   // Guardrail context
   GUARDRAIL_RULE: "l0.guardrail.rule",
   GUARDRAIL_SEVERITY: "l0.guardrail.severity",
-  
+
   // Retry context
-  RETRY_TYPE: "l0.retry.type",        // "network" | "model"
+  RETRY_TYPE: "l0.retry.type", // "network" | "model"
   RETRY_REASON: "l0.retry.reason",
   FALLBACK_INDEX: "l0.fallback.index",
-  
+
   // Performance context
   CONTENT_LENGTH: "l0.content.length",
   TOKEN_COUNT: "l0.token.count",
@@ -494,33 +512,37 @@ export class L0MetricsRecorder {
   private meters: Map<string, Meter> = new Map();
   private counters: Map<string, Counter> = new Map();
   private histograms: Map<string, Histogram> = new Map();
-  
+
   constructor(private meter: Meter) {
     this.initializeMetrics();
   }
-  
+
   private initializeMetrics(): void {
     // Initialize all metrics with proper descriptions and units
-    this.counters.set(L0Metrics.REQUESTS_TOTAL, 
+    this.counters.set(
+      L0Metrics.REQUESTS_TOTAL,
       this.meter.createCounter(L0Metrics.REQUESTS_TOTAL, {
         description: "Total number of L0 stream requests",
         unit: "{request}",
-      })
+      }),
     );
-    
-    this.histograms.set(L0Metrics.REQUEST_DURATION,
+
+    this.histograms.set(
+      L0Metrics.REQUEST_DURATION,
       this.meter.createHistogram(L0Metrics.REQUEST_DURATION, {
         description: "Duration of L0 stream requests",
         unit: "ms",
         advice: {
-          explicitBucketBoundaries: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10000],
+          explicitBucketBoundaries: [
+            10, 50, 100, 250, 500, 1000, 2500, 5000, 10000,
+          ],
         },
-      })
+      }),
     );
-    
+
     // ... other metrics
   }
-  
+
   // Type-safe metric recording
   recordRequest(attributes: {
     provider: string;
@@ -533,7 +555,7 @@ export class L0MetricsRecorder {
       status: attributes.status,
     });
   }
-  
+
   recordError(error: L0Error): void {
     this.counters.get(L0Metrics.ERRORS_TOTAL)?.add(1, {
       [L0Attributes.ERROR_CODE]: error.code,
@@ -541,7 +563,7 @@ export class L0MetricsRecorder {
       [L0Attributes.ERROR_RECOVERABLE]: String(error.isRecoverable),
     });
   }
-  
+
   recordGuardrailCheck(result: {
     rule: string;
     duration: number;
@@ -552,11 +574,13 @@ export class L0MetricsRecorder {
       [L0Attributes.GUARDRAIL_RULE]: result.rule,
       passed: String(result.passed),
     });
-    
-    this.histograms.get(L0Metrics.GUARDRAIL_CHECK_DURATION)?.record(result.duration, {
-      [L0Attributes.GUARDRAIL_RULE]: result.rule,
-    });
-    
+
+    this.histograms
+      .get(L0Metrics.GUARDRAIL_CHECK_DURATION)
+      ?.record(result.duration, {
+        [L0Attributes.GUARDRAIL_RULE]: result.rule,
+      });
+
     if (!result.passed) {
       this.counters.get(L0Metrics.GUARDRAIL_VIOLATIONS_TOTAL)?.add(1, {
         [L0Attributes.GUARDRAIL_RULE]: result.rule,
@@ -572,7 +596,9 @@ export class L0MetricsRecorder {
 ## 5. Composable Pipeline Architecture
 
 ### Current Problem
+
 All features (guardrails, drift, dedup, retry, fallback) are interleaved in one giant streaming loop, making them:
+
 - Hard to test in isolation
 - Hard to enable/disable individually
 - Hard to reorder or compose
@@ -585,16 +611,16 @@ Create `src/runtime/pipeline.ts`:
 // A pipeline stage processes events and may emit transformed events
 export interface PipelineStage<TIn = L0Event, TOut = L0Event> {
   name: string;
-  
+
   // Process an event, may emit 0 or more output events
   process(event: TIn, context: PipelineContext): AsyncGenerator<TOut>;
-  
+
   // Called when stream starts
   onStart?(context: PipelineContext): void | Promise<void>;
-  
+
   // Called when stream ends (even on error)
   onEnd?(context: PipelineContext): void | Promise<void>;
-  
+
   // Called on error (can transform or suppress)
   onError?(error: Error, context: PipelineContext): Error | null;
 }
@@ -605,7 +631,7 @@ export interface PipelineContext {
   stateMachine: L0StateMachine;
   monitor: L0Monitor;
   signal?: AbortSignal;
-  
+
   // Mutable scratch space for stages
   scratch: Map<string, unknown>;
 }
@@ -613,45 +639,61 @@ export interface PipelineContext {
 // Built-in stages
 export const stages = {
   // Normalizes raw SDK events to L0Events
-  normalize: (): PipelineStage => ({ /* ... */ }),
-  
+  normalize: (): PipelineStage => ({
+    /* ... */
+  }),
+
   // Handles deduplication for continuation
-  deduplicate: (options: DeduplicationOptions): PipelineStage => ({ /* ... */ }),
-  
+  deduplicate: (options: DeduplicationOptions): PipelineStage => ({
+    /* ... */
+  }),
+
   // Runs guardrails (async)
-  guardrails: (engine: AsyncGuardrailEngine): PipelineStage => ({ /* ... */ }),
-  
+  guardrails: (engine: AsyncGuardrailEngine): PipelineStage => ({
+    /* ... */
+  }),
+
   // Detects drift (async)
-  driftDetection: (detector: AsyncDriftDetector): PipelineStage => ({ /* ... */ }),
-  
+  driftDetection: (detector: AsyncDriftDetector): PipelineStage => ({
+    /* ... */
+  }),
+
   // Handles timeouts
-  timeout: (options: TimeoutOptions): PipelineStage => ({ /* ... */ }),
-  
+  timeout: (options: TimeoutOptions): PipelineStage => ({
+    /* ... */
+  }),
+
   // Zero-token detection
-  zeroToken: (): PipelineStage => ({ /* ... */ }),
-  
+  zeroToken: (): PipelineStage => ({
+    /* ... */
+  }),
+
   // Checkpointing
-  checkpoint: (interval: number): PipelineStage => ({ /* ... */ }),
-  
+  checkpoint: (interval: number): PipelineStage => ({
+    /* ... */
+  }),
+
   // Metrics collection
-  metrics: (recorder: L0MetricsRecorder): PipelineStage => ({ /* ... */ }),
+  metrics: (recorder: L0MetricsRecorder): PipelineStage => ({
+    /* ... */
+  }),
 };
 
 // Pipeline builder with type-safe composition
 export class PipelineBuilder {
   private stages: PipelineStage[] = [];
-  
+
   add(stage: PipelineStage): this {
     this.stages.push(stage);
     return this;
   }
-  
+
   // Conditional stage addition
   addIf(condition: boolean, stage: PipelineStage): this {
     if (condition) this.stages.push(stage);
     return this;
   }
-  
+
   build(): Pipeline {
     return new Pipeline(this.stages);
   }
@@ -661,7 +703,10 @@ export class PipelineBuilder {
 const pipeline = new PipelineBuilder()
   .add(stages.normalize())
   .add(stages.timeout(processedTimeout))
-  .addIf(shouldDeduplicateContinuation, stages.deduplicate(deduplicationOptions))
+  .addIf(
+    shouldDeduplicateContinuation,
+    stages.deduplicate(deduplicationOptions),
+  )
   .addIf(guardrailEngine !== null, stages.guardrails(asyncGuardrails))
   .addIf(driftDetector !== null, stages.driftDetection(asyncDrift))
   .add(stages.zeroToken())
@@ -683,22 +728,25 @@ The retry and fallback logic stays as the outer orchestrator:
 async function* l0Stream(options: L0Options): AsyncGenerator<L0Event> {
   const stateMachine = new L0StateMachine(L0_TRANSITIONS);
   const pipeline = buildPipeline(options);
-  
-  for (let fallbackIndex = 0; fallbackIndex < allStreams.length; fallbackIndex++) {
+
+  for (
+    let fallbackIndex = 0;
+    fallbackIndex < allStreams.length;
+    fallbackIndex++
+  ) {
     for (let retry = 0; retry <= maxRetries; retry++) {
       stateMachine.transition({ type: "START" });
-      
+
       try {
         const sourceStream = await createStream(allStreams[fallbackIndex]);
         stateMachine.transition({ type: "STREAM_CREATED" });
-        
+
         for await (const event of pipeline.process(sourceStream, context)) {
           yield event;
         }
-        
+
         stateMachine.transition({ type: "COMPLETE" });
         return; // Success
-        
       } catch (error) {
         const decision = retryManager.shouldRetry(error);
         if (decision.shouldRetry && retry < maxRetries) {
@@ -710,10 +758,10 @@ async function* l0Stream(options: L0Options): AsyncGenerator<L0Event> {
         break;
       }
     }
-    
+
     stateMachine.transition({ type: "FALLBACK", index: fallbackIndex + 1 });
   }
-  
+
   stateMachine.transition({ type: "ERROR", error: exhaustedError });
   throw exhaustedError;
 }
@@ -724,7 +772,9 @@ async function* l0Stream(options: L0Options): AsyncGenerator<L0Event> {
 ## 6. Fuzz Testing for Deduplication
 
 ### Current Problem
+
 Deduplication handles overlap detection but lacks tests for:
+
 - Minimum vs maximum overlap boundaries
 - Whitespace normalization edge cases
 - Unicode/encoding differences
@@ -747,22 +797,28 @@ describe("Deduplication Fuzz Tests", () => {
         fc.string({ minLength: 1, maxLength: 1000 }),
         (checkpoint, continuation) => {
           const result = detectOverlap(checkpoint, continuation);
-          
+
           // Combined output should contain all unique content
           const combined = checkpoint + result.deduplicatedContinuation;
-          
+
           // If there was overlap, combined should be shorter than naive concat
           if (result.hasOverlap) {
-            expect(combined.length).toBeLessThan(checkpoint.length + continuation.length);
+            expect(combined.length).toBeLessThan(
+              checkpoint.length + continuation.length,
+            );
           }
-          
+
           // But should never lose the ending
-          expect(combined.endsWith(continuation.slice(-Math.min(10, continuation.length)))).toBe(true);
-        }
-      )
+          expect(
+            combined.endsWith(
+              continuation.slice(-Math.min(10, continuation.length)),
+            ),
+          ).toBe(true);
+        },
+      ),
     );
   });
-  
+
   // Property: overlap detection should be deterministic
   it("should be deterministic", () => {
     fc.assert(
@@ -772,15 +828,17 @@ describe("Deduplication Fuzz Tests", () => {
         (checkpoint, continuation) => {
           const result1 = detectOverlap(checkpoint, continuation);
           const result2 = detectOverlap(checkpoint, continuation);
-          
+
           expect(result1.hasOverlap).toBe(result2.hasOverlap);
           expect(result1.overlapLength).toBe(result2.overlapLength);
-          expect(result1.deduplicatedContinuation).toBe(result2.deduplicatedContinuation);
-        }
-      )
+          expect(result1.deduplicatedContinuation).toBe(
+            result2.deduplicatedContinuation,
+          );
+        },
+      ),
     );
   });
-  
+
   // Property: known overlap should always be detected
   it("should detect intentional overlap", () => {
     fc.assert(
@@ -793,48 +851,53 @@ describe("Deduplication Fuzz Tests", () => {
           const overlap = base.slice(-actualOverlapLen);
           const checkpoint = base;
           const continuation = overlap + suffix;
-          
+
           const result = detectOverlap(checkpoint, continuation, {
             minOverlap: 2,
             maxOverlap: 500,
           });
-          
+
           // Should detect the overlap we created
           if (actualOverlapLen >= 2) {
             expect(result.hasOverlap).toBe(true);
-            expect(result.overlapLength).toBeGreaterThanOrEqual(actualOverlapLen);
+            expect(result.overlapLength).toBeGreaterThanOrEqual(
+              actualOverlapLen,
+            );
           }
-        }
-      )
+        },
+      ),
     );
   });
-  
+
   // Edge case: whitespace normalization
   it("should handle whitespace variations when normalized", () => {
     fc.assert(
       fc.property(
-        fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 2, maxLength: 10 }),
+        fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+          minLength: 2,
+          maxLength: 10,
+        }),
         (words) => {
           const checkpoint = words.join(" ");
           const continuation = words.slice(-2).join("  ") + " more"; // Double space
-          
+
           const resultNormalized = detectOverlap(checkpoint, continuation, {
             normalizeWhitespace: true,
           });
-          
+
           const resultExact = detectOverlap(checkpoint, continuation, {
             normalizeWhitespace: false,
           });
-          
+
           // Normalized should find overlap, exact might not
           if (words.length >= 2) {
             expect(resultNormalized.hasOverlap).toBe(true);
           }
-        }
-      )
+        },
+      ),
     );
   });
-  
+
   // Edge case: Unicode
   it("should handle unicode correctly", () => {
     fc.assert(
@@ -845,55 +908,53 @@ describe("Deduplication Fuzz Tests", () => {
           const actualOverlapLen = Math.min(overlapLen, base.length);
           const overlap = base.slice(-actualOverlapLen);
           const continuation = overlap + "续";
-          
+
           const result = detectOverlap(base, continuation);
-          
+
           // Should not corrupt unicode
           expect(() => {
             const combined = base + result.deduplicatedContinuation;
             // This will throw if we have invalid unicode
             new TextEncoder().encode(combined);
           }).not.toThrow();
-        }
-      )
+        },
+      ),
     );
   });
-  
+
   // Edge case: boundary conditions
   describe("boundary conditions", () => {
     it("minOverlap boundary", () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 1, max: 10 }),
-          (minOverlap) => {
-            const checkpoint = "a".repeat(minOverlap);
-            const continuation = "a".repeat(minOverlap - 1) + "b";
-            
-            const result = detectOverlap(checkpoint, continuation, { minOverlap });
-            
-            // Overlap of exactly minOverlap-1 should not be detected
-            if (minOverlap > 1) {
-              expect(result.hasOverlap).toBe(false);
-            }
+        fc.property(fc.integer({ min: 1, max: 10 }), (minOverlap) => {
+          const checkpoint = "a".repeat(minOverlap);
+          const continuation = "a".repeat(minOverlap - 1) + "b";
+
+          const result = detectOverlap(checkpoint, continuation, {
+            minOverlap,
+          });
+
+          // Overlap of exactly minOverlap-1 should not be detected
+          if (minOverlap > 1) {
+            expect(result.hasOverlap).toBe(false);
           }
-        )
+        }),
       );
     });
-    
+
     it("maxOverlap boundary", () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 10, max: 50 }),
-          (maxOverlap) => {
-            const checkpoint = "a".repeat(maxOverlap + 10);
-            const continuation = "a".repeat(maxOverlap + 5) + "b";
-            
-            const result = detectOverlap(checkpoint, continuation, { maxOverlap });
-            
-            // Should cap at maxOverlap
-            expect(result.overlapLength).toBeLessThanOrEqual(maxOverlap);
-          }
-        )
+        fc.property(fc.integer({ min: 10, max: 50 }), (maxOverlap) => {
+          const checkpoint = "a".repeat(maxOverlap + 10);
+          const continuation = "a".repeat(maxOverlap + 5) + "b";
+
+          const result = detectOverlap(checkpoint, continuation, {
+            maxOverlap,
+          });
+
+          // Should cap at maxOverlap
+          expect(result.overlapLength).toBeLessThanOrEqual(maxOverlap);
+        }),
       );
     });
   });
@@ -948,6 +1009,7 @@ describe("Deduplication Fuzz Tests", () => {
 ## Backward Compatibility
 
 All changes maintain backward compatibility:
+
 - `l0()` function signature unchanged
 - `L0Options` interface extended, not changed
 - `L0Result` interface extended, not changed
@@ -957,6 +1019,7 @@ All changes maintain backward compatibility:
 ## Migration Path
 
 For users:
+
 1. No required changes - existing code works as-is
 2. Optional: Use new error serialization for logging
 3. Optional: Subscribe to state machine for debugging

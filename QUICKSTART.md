@@ -202,7 +202,7 @@ console.log({
   content: result.state.content, // Full output
   tokenCount: result.state.tokenCount, // Token count
   completed: result.state.completed, // Stream finished
-  retryAttempts: result.state.retryAttempts,
+  modelRetryCount: result.state.modelRetryCount,
   fallbackIndex: result.state.fallbackIndex,
 });
 ```

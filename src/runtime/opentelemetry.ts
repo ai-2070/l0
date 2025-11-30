@@ -283,16 +283,16 @@ export class L0OpenTelemetry {
     }
 
     // Record network retries separately for granularity
-    if (telemetry.metrics.networkRetries > 0) {
-      this.retryCounter?.add(telemetry.metrics.networkRetries, {
+    if (telemetry.metrics.networkRetryCount > 0) {
+      this.retryCounter?.add(telemetry.metrics.networkRetryCount, {
         ...attributes,
         type: "network",
       });
     }
 
     // Record model retries separately for granularity
-    if (telemetry.metrics.modelRetries > 0) {
-      this.retryCounter?.add(telemetry.metrics.modelRetries, {
+    if (telemetry.metrics.modelRetryCount > 0) {
+      this.retryCounter?.add(telemetry.metrics.modelRetryCount, {
         ...attributes,
         type: "model",
       });

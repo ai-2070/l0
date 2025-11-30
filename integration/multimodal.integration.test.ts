@@ -810,9 +810,9 @@ describeIf(hasOpenAI)("Multimodal Integration", () => {
               };
               yield createAdapterProgressEvent({
                 percent: 100,
-                message: "Done",
+                message: "complete",
               });
-              yield { type: "done", timestamp: Date.now() };
+              yield { type: "complete", timestamp: Date.now() };
             },
           }),
           detectZeroTokens: false,
@@ -835,7 +835,7 @@ describeIf(hasOpenAI)("Multimodal Integration", () => {
                 percent: 100,
                 message: "Described",
               });
-              yield { type: "done", timestamp: Date.now() };
+              yield { type: "complete", timestamp: Date.now() };
             },
           }),
         }),
@@ -875,7 +875,7 @@ describeIf(hasOpenAI)("Multimodal Integration", () => {
                 value: "with-data",
                 timestamp: Date.now(),
               };
-              yield { type: "done", timestamp: Date.now() };
+              yield { type: "complete", timestamp: Date.now() };
             },
           }),
         }),

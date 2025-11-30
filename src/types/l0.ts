@@ -4,11 +4,6 @@ import type { GuardrailRule, GuardrailViolation } from "./guardrails";
 import type { BackoffStrategy, RetryReason } from "./retry";
 import { RETRY_DEFAULTS, ErrorCategory } from "./retry";
 
-// Re-export for convenience
-export type { GuardrailRule, GuardrailViolation } from "./guardrails";
-export type { BackoffStrategy, RetryReason } from "./retry";
-export { RETRY_DEFAULTS, ErrorCategory } from "./retry";
-
 /**
  * Result of checkpoint validation for continuation
  */
@@ -516,7 +511,7 @@ export interface L0Options<TOutput = unknown> {
  *           yield { type: "token", value: chunk.content, timestamp: Date.now() };
  *         }
  *       }
- *       yield { type: "done", timestamp: Date.now() };
+ *       yield { type: "complete", timestamp: Date.now() };
  *     } catch (err) {
  *       yield {
  *         type: "error",
@@ -556,7 +551,7 @@ export interface L0Adapter<StreamType = unknown, Options = unknown> {
    * - Yield events in exact order received
    * - Include timestamp on every event
    * - Convert errors to { type: "error" } events (never throw)
-   * - Yield { type: "done" } exactly once at end
+   * - Yield { type: "complete" } exactly once at end
    *
    * MUST NOT:
    * - Modify text content in any way

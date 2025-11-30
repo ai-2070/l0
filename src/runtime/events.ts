@@ -36,9 +36,9 @@ export function normalizeStreamEvent(chunk: any): L0Event {
         };
 
       case "finish":
-      case "done":
+      case "complete":
         return {
-          type: "done",
+          type: "complete",
           timestamp: Date.now(),
         };
 
@@ -89,7 +89,7 @@ export function normalizeStreamEvent(chunk: any): L0Event {
     }
     if (choice?.finish_reason) {
       return {
-        type: "done",
+        type: "complete",
         timestamp: Date.now(),
       };
     }
@@ -106,7 +106,7 @@ export function normalizeStreamEvent(chunk: any): L0Event {
 
   if (chunk.type === "message_stop" || chunk.type === "content_block_stop") {
     return {
-      type: "done",
+      type: "complete",
       timestamp: Date.now(),
     };
   }
@@ -151,7 +151,7 @@ function isL0Event(obj: any): obj is L0Event {
       obj.type === "data" ||
       obj.type === "progress" ||
       obj.type === "error" ||
-      obj.type === "done")
+      obj.type === "complete")
   );
 }
 
@@ -242,13 +242,13 @@ export function createMessageEvent(
 }
 
 /**
- * Create a done event
+ * Create a complete event
  *
- * @returns L0 done event
+ * @returns L0 complete event
  */
-export function createDoneEvent(): L0Event {
+export function createCompleteEvent(): L0Event {
   return {
-    type: "done",
+    type: "complete",
     timestamp: Date.now(),
   };
 }
@@ -324,13 +324,13 @@ export function isErrorEvent(event: L0Event): boolean {
 }
 
 /**
- * Check if event is a done event
+ * Check if event is a complete event
  *
  * @param event - Event to check
- * @returns True if done event
+ * @returns True if complete event
  */
-export function isDoneEvent(event: L0Event): boolean {
-  return event.type === "done";
+export function isCompleteEvent(event: L0Event): boolean {
+  return event.type === "complete";
 }
 
 /**

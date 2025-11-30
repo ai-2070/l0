@@ -89,7 +89,7 @@ describe("OpenAI SDK Adapter", () => {
 
       // Should have 3 token events + 1 done event
       const tokenEvents = events.filter((e) => e.type === "token");
-      const doneEvents = events.filter((e) => e.type === "done");
+      const doneEvents = events.filter((e) => e.type === "complete");
 
       expect(tokenEvents).toHaveLength(3);
       expect(tokenEvents[0]!.value).toBe("Hello");
@@ -114,7 +114,7 @@ describe("OpenAI SDK Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect(doneEvent).toBeDefined();
       expect((doneEvent as any).usage).toBeDefined();
       expect((doneEvent as any).usage.total_tokens).toBe(15);
@@ -138,7 +138,7 @@ describe("OpenAI SDK Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect(doneEvent).toBeDefined();
       expect((doneEvent as any).usage).toBeUndefined();
     });
@@ -374,7 +374,7 @@ describe("OpenAI SDK Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect((doneEvent as any).usage).toBeUndefined();
     });
   });
@@ -590,7 +590,7 @@ describe("OpenAI SDK Adapter", () => {
         if (event.type === "token") {
           fullText += event.value;
         }
-        if (event.type === "done" && (event as any).usage) {
+        if (event.type === "complete" && (event as any).usage) {
           usage = (event as any).usage;
         }
       }

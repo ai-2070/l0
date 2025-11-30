@@ -221,11 +221,11 @@ export async function* wrapAnthropicStream(
         }
 
         case "message_stop": {
-          // Emit done exactly once
+          // Emit complete exactly once
           if (!emittedDone) {
             emittedDone = true;
             yield {
-              type: "done",
+              type: "complete",
               timestamp: Date.now(),
               ...(includeUsage && (usage.input_tokens || usage.output_tokens)
                 ? { usage }
@@ -237,11 +237,11 @@ export async function* wrapAnthropicStream(
       }
     }
 
-    // Ensure done is emitted if stream ends without message_stop
+    // Ensure complete is emitted if stream ends without message_stop
     if (!emittedDone) {
       emittedDone = true;
       yield {
-        type: "done",
+        type: "complete",
         timestamp: Date.now(),
         ...(includeUsage && (usage.input_tokens || usage.output_tokens)
           ? { usage }

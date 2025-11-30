@@ -1,6 +1,6 @@
 // Callback utilities for L0 runtime
 
-import type { L0Monitor } from "./monitor";
+import type { L0Monitor } from "./monitoring";
 
 /**
  * Safely invoke a user callback, catching and logging any errors
