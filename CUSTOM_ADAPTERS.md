@@ -39,6 +39,7 @@ Provider Stream → Adapter → L0Events → L0 Runtime → Reliable Output
 ```
 
 L0 ships with built-in support for:
+
 - **Vercel AI SDK** - Native support, no adapter needed
 - **OpenAI SDK** - `openaiAdapter`
 - **Mastra AI** - `mastraAdapter`
@@ -75,7 +76,11 @@ interface L0Adapter<StreamType = unknown, Options = unknown> {
 type L0Event =
   | { type: "token"; value: string; timestamp: number }
   | { type: "message"; value: string; role?: string; timestamp: number }
-  | { type: "done"; timestamp: number; usage?: { input_tokens?: number; output_tokens?: number } }
+  | {
+      type: "done";
+      timestamp: number;
+      usage?: { input_tokens?: number; output_tokens?: number };
+    }
   | { type: "error"; error: Error; timestamp: number };
 ```
 
@@ -92,11 +97,12 @@ import Anthropic from "@anthropic-ai/sdk";
 const anthropic = new Anthropic();
 
 const result = await l0({
-  stream: () => anthropic.messages.stream({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    messages: [{ role: "user", content: "Hello!" }],
-  }),
+  stream: () =>
+    anthropic.messages.stream({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: "Hello!" }],
+    }),
   adapter: anthropicAdapter,
 });
 ```
@@ -113,7 +119,10 @@ registerAdapter(anthropicAdapter);
 
 // Use by name
 const result = await l0({
-  stream: () => anthropic.messages.stream({ /* ... */ }),
+  stream: () =>
+    anthropic.messages.stream({
+      /* ... */
+    }),
   adapter: "anthropic",
 });
 ```
@@ -123,7 +132,12 @@ const result = await l0({
 Register adapters with `detect()` for automatic stream detection:
 
 ```typescript
-import { l0, registerAdapter, anthropicAdapter, openaiAdapter } from "@ai2070/l0";
+import {
+  l0,
+  registerAdapter,
+  anthropicAdapter,
+  openaiAdapter,
+} from "@ai2070/l0";
 
 // Register at startup
 registerAdapter(anthropicAdapter);
@@ -131,7 +145,10 @@ registerAdapter(openaiAdapter);
 
 // L0 auto-detects the adapter
 const result = await l0({
-  stream: () => anthropic.messages.stream({ /* ... */ }),
+  stream: () =>
+    anthropic.messages.stream({
+      /* ... */
+    }),
   // No adapter specified - auto-detected!
 });
 ```
@@ -247,25 +264,25 @@ Adapters MUST follow these rules. L0 depends on them for reliability.
 
 ### MUST Do
 
-| Requirement | Description |
-|------------|-------------|
-| **Preserve text exactly** | Never trim, modify, or transform text content |
-| **Include timestamps** | Every event must have `timestamp: Date.now()` |
-| **Emit events in order** | Yield events in exact order received from provider |
-| **Convert errors to events** | Catch all errors, yield `{ type: "error" }` |
-| **Emit done exactly once** | Always yield `{ type: "done" }` at stream end |
-| **Be synchronous iteration** | Only async operation is `for await` on the stream |
+| Requirement                  | Description                                        |
+| ---------------------------- | -------------------------------------------------- |
+| **Preserve text exactly**    | Never trim, modify, or transform text content      |
+| **Include timestamps**       | Every event must have `timestamp: Date.now()`      |
+| **Emit events in order**     | Yield events in exact order received from provider |
+| **Convert errors to events** | Catch all errors, yield `{ type: "error" }`        |
+| **Emit done exactly once**   | Always yield `{ type: "done" }` at stream end      |
+| **Be synchronous iteration** | Only async operation is `for await` on the stream  |
 
 ### MUST NOT Do
 
-| Forbidden | Reason |
-|-----------|--------|
-| **Modify text** | L0 guardrails need exact text for validation |
-| **Buffer chunks** | Breaks streaming, L0 handles batching if needed |
-| **Retry internally** | L0 handles all retry logic |
-| **Throw exceptions** | Convert to error events instead |
-| **Skip chunks** | Unless they contain no text (metadata-only) |
-| **Perform I/O** | No HTTP calls, file reads, etc. |
+| Forbidden            | Reason                                          |
+| -------------------- | ----------------------------------------------- |
+| **Modify text**      | L0 guardrails need exact text for validation    |
+| **Buffer chunks**    | Breaks streaming, L0 handles batching if needed |
+| **Retry internally** | L0 handles all retry logic                      |
+| **Throw exceptions** | Convert to error events instead                 |
+| **Skip chunks**      | Unless they contain no text (metadata-only)     |
+| **Perform I/O**      | No HTTP calls, file reads, etc.                 |
 
 ### Example: Correct vs Incorrect
 
@@ -312,6 +329,7 @@ const myAdapter: L0Adapter<MyStream> = {
 ```
 
 `toL0Events` handles:
+
 - Timestamp generation
 - Error conversion to error events
 - Automatic done event emission
@@ -328,8 +346,7 @@ const toolAdapter: L0Adapter<ToolStream> = {
   name: "tool-ai",
   wrap(stream) {
     return toL0EventsWithMessages(stream, {
-      extractText: (chunk) =>
-        chunk.type === "text" ? chunk.content : null,
+      extractText: (chunk) => (chunk.type === "text" ? chunk.content : null),
       extractMessage: (chunk) => {
         if (chunk.type === "tool_call") {
           return {
@@ -365,7 +382,7 @@ async function* manualAdapter(stream: MyStream): AsyncGenerator<L0Event> {
       if (chunk.toolCall) {
         yield createAdapterMessageEvent(
           JSON.stringify(chunk.toolCall),
-          "assistant"
+          "assistant",
         );
       }
     }
@@ -398,15 +415,15 @@ clearAdapters();
 
 ### Registry Functions
 
-| Function | Description |
-|----------|-------------|
-| `registerAdapter(adapter, options?)` | Register for auto-detection |
-| `unregisterAdapter(name)` | Remove by name |
-| `getAdapter(name)` | Get adapter by name |
-| `getRegisteredStreamAdapters()` | List all registered names |
-| `clearAdapters()` | Remove all adapters |
-| `detectAdapter(input)` | Auto-detect adapter for stream |
-| `hasMatchingAdapter(input)` | Check if exactly one adapter matches |
+| Function                             | Description                          |
+| ------------------------------------ | ------------------------------------ |
+| `registerAdapter(adapter, options?)` | Register for auto-detection          |
+| `unregisterAdapter(name)`            | Remove by name                       |
+| `getAdapter(name)`                   | Get adapter by name                  |
+| `getRegisteredStreamAdapters()`      | List all registered names            |
+| `clearAdapters()`                    | Remove all adapters                  |
+| `detectAdapter(input)`               | Auto-detect adapter for stream       |
+| `hasMatchingAdapter(input)`          | Check if exactly one adapter matches |
 
 ### DX Warning
 
@@ -432,11 +449,12 @@ const openai = new OpenAI();
 
 // Option 1: Explicit adapter
 const result = await l0({
-  stream: () => openai.chat.completions.create({
-    model: "gpt-5-micro",
-    messages: [{ role: "user", content: "Hello!" }],
-    stream: true,
-  }),
+  stream: () =>
+    openai.chat.completions.create({
+      model: "gpt-5-micro",
+      messages: [{ role: "user", content: "Hello!" }],
+      stream: true,
+    }),
   adapter: openaiAdapter,
 });
 
@@ -456,18 +474,24 @@ const result = await l0({
 ### Anthropic Adapter
 
 ```typescript
-import { l0, anthropicAdapter, wrapAnthropicStream, anthropicStream } from "@ai2070/l0";
+import {
+  l0,
+  anthropicAdapter,
+  wrapAnthropicStream,
+  anthropicStream,
+} from "@ai2070/l0";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
 
 // Option 1: Explicit adapter
 const result = await l0({
-  stream: () => anthropic.messages.stream({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    messages: [{ role: "user", content: "Hello!" }],
-  }),
+  stream: () =>
+    anthropic.messages.stream({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: "Hello!" }],
+    }),
   adapter: anthropicAdapter,
 });
 
@@ -499,7 +523,9 @@ const result = await l0({
 import { l0, mastraAdapter, wrapMastraStream } from "@ai2070/l0";
 import { Agent } from "@mastra/core";
 
-const agent = new Agent({ /* config */ });
+const agent = new Agent({
+  /* config */
+});
 
 // Option 1: Explicit adapter
 const result = await l0({
@@ -855,6 +881,7 @@ detect(input): input is MyStream {
 ```
 
 If detection fails, L0 shows:
+
 ```
 No registered adapter detected for stream.
 Detectable adapters: [openai, anthropic, myai].

@@ -206,11 +206,292 @@ export function createAdapterErrorEvent(err: unknown): L0Event {
  * @param role - Optional role (e.g., "assistant")
  * @returns L0Event of type "message"
  */
-export function createAdapterMessageEvent(value: string, role?: string): L0Event {
+export function createAdapterMessageEvent(
+  value: string,
+  role?: string,
+): L0Event {
   return {
     type: "message",
     value,
     role,
     timestamp: Date.now(),
   };
+}
+
+// ============================================================================
+// Multimodal Adapter Helpers
+// ============================================================================
+
+import type { L0DataPayload, L0Progress } from "../types/l0";
+
+/**
+ * Create an L0 data event for multimodal content (images, audio, etc.)
+ *
+ * @param payload - The data payload containing the multimodal content
+ * @returns L0Event of type "data"
+ *
+ * @example
+ * ```typescript
+ * // Image from URL
+ * yield createAdapterDataEvent({
+ *   contentType: "image",
+ *   mimeType: "image/png",
+ *   url: "https://example.com/image.png",
+ *   metadata: { width: 1024, height: 1024 }
+ * });
+ *
+ * // Image from base64
+ * yield createAdapterDataEvent({
+ *   contentType: "image",
+ *   mimeType: "image/png",
+ *   base64: "iVBORw0KGgo...",
+ *   metadata: { width: 512, height: 512, seed: 12345 }
+ * });
+ * ```
+ */
+export function createAdapterDataEvent(payload: L0DataPayload): L0Event {
+  return {
+    type: "data",
+    data: payload,
+    timestamp: Date.now(),
+  };
+}
+
+/**
+ * Create an L0 progress event for long-running operations.
+ *
+ * @param progress - Progress information
+ * @returns L0Event of type "progress"
+ *
+ * @example
+ * ```typescript
+ * // Percentage-based progress
+ * yield createAdapterProgressEvent({ percent: 50, message: "Generating image..." });
+ *
+ * // Step-based progress
+ * yield createAdapterProgressEvent({ step: 3, totalSteps: 10, message: "Diffusion step 3/10" });
+ * ```
+ */
+export function createAdapterProgressEvent(progress: L0Progress): L0Event {
+  return {
+    type: "progress",
+    progress,
+    timestamp: Date.now(),
+  };
+}
+
+/**
+ * Create an image data event with convenience parameters.
+ *
+ * @param options - Image data options
+ * @returns L0Event of type "data" with image content
+ *
+ * @example
+ * ```typescript
+ * // From URL
+ * yield createImageEvent({ url: "https://example.com/image.png" });
+ *
+ * // From base64 with metadata
+ * yield createImageEvent({
+ *   base64: "iVBORw0KGgo...",
+ *   mimeType: "image/png",
+ *   width: 1024,
+ *   height: 1024,
+ *   seed: 42,
+ *   model: "flux-schnell"
+ * });
+ * ```
+ */
+export function createImageEvent(options: {
+  url?: string;
+  base64?: string;
+  bytes?: Uint8Array;
+  mimeType?: string;
+  width?: number;
+  height?: number;
+  seed?: number;
+  model?: string;
+}): L0Event {
+  const payload: L0DataPayload = {
+    contentType: "image",
+    mimeType: options.mimeType ?? "image/png",
+    url: options.url,
+    base64: options.base64,
+    bytes: options.bytes,
+    metadata: {
+      width: options.width,
+      height: options.height,
+      seed: options.seed,
+      model: options.model,
+    },
+  };
+
+  // Remove undefined metadata fields
+  if (payload.metadata) {
+    payload.metadata = Object.fromEntries(
+      Object.entries(payload.metadata).filter(([_, v]) => v !== undefined),
+    );
+    if (Object.keys(payload.metadata).length === 0) {
+      delete payload.metadata;
+    }
+  }
+
+  return createAdapterDataEvent(payload);
+}
+
+/**
+ * Create an audio data event with convenience parameters.
+ *
+ * @param options - Audio data options
+ * @returns L0Event of type "data" with audio content
+ */
+export function createAudioEvent(options: {
+  url?: string;
+  base64?: string;
+  bytes?: Uint8Array;
+  mimeType?: string;
+  duration?: number;
+  model?: string;
+}): L0Event {
+  const payload: L0DataPayload = {
+    contentType: "audio",
+    mimeType: options.mimeType ?? "audio/mp3",
+    url: options.url,
+    base64: options.base64,
+    bytes: options.bytes,
+    metadata: {
+      duration: options.duration,
+      model: options.model,
+    },
+  };
+
+  // Remove undefined metadata fields
+  if (payload.metadata) {
+    payload.metadata = Object.fromEntries(
+      Object.entries(payload.metadata).filter(([_, v]) => v !== undefined),
+    );
+    if (Object.keys(payload.metadata).length === 0) {
+      delete payload.metadata;
+    }
+  }
+
+  return createAdapterDataEvent(payload);
+}
+
+/**
+ * Create a JSON data event for structured non-text responses.
+ *
+ * @param data - The JSON data
+ * @param metadata - Optional metadata
+ * @returns L0Event of type "data" with JSON content
+ */
+export function createJsonDataEvent(
+  data: unknown,
+  metadata?: Record<string, unknown>,
+): L0Event {
+  return createAdapterDataEvent({
+    contentType: "json",
+    mimeType: "application/json",
+    json: data,
+    metadata,
+  });
+}
+
+/**
+ * Convert multimodal stream to L0Events with support for both text and data.
+ *
+ * @typeParam T - The chunk type from the source stream
+ * @param stream - The source async iterable stream
+ * @param handlers - Handlers for extracting different content types
+ * @returns Async generator of L0Events
+ *
+ * @example
+ * ```typescript
+ * // Flux image generation adapter
+ * const fluxAdapter: L0Adapter<FluxStream> = {
+ *   name: "flux",
+ *   wrap(stream) {
+ *     return toMultimodalL0Events(stream, {
+ *       extractData: (chunk) => {
+ *         if (chunk.type === "image") {
+ *           return {
+ *             contentType: "image",
+ *             mimeType: "image/png",
+ *             base64: chunk.image,
+ *             metadata: { width: chunk.width, height: chunk.height, seed: chunk.seed }
+ *           };
+ *         }
+ *         return null;
+ *       },
+ *       extractProgress: (chunk) => {
+ *         if (chunk.type === "progress") {
+ *           return { percent: chunk.percent, message: chunk.status };
+ *         }
+ *         return null;
+ *       }
+ *     });
+ *   },
+ * };
+ * ```
+ */
+export async function* toMultimodalL0Events<T>(
+  stream: AsyncIterable<T>,
+  handlers: {
+    /** Extract text from chunk (for token events) */
+    extractText?: (chunk: T) => string | null | undefined;
+    /** Extract multimodal data from chunk */
+    extractData?: (chunk: T) => L0DataPayload | null | undefined;
+    /** Extract progress from chunk */
+    extractProgress?: (chunk: T) => L0Progress | null | undefined;
+    /** Extract message from chunk */
+    extractMessage?: (
+      chunk: T,
+    ) => { value: string; role?: string } | null | undefined;
+  },
+): AsyncGenerator<L0Event> {
+  try {
+    for await (const chunk of stream) {
+      // Try each extractor in order
+
+      // Text tokens
+      if (handlers.extractText) {
+        const text = handlers.extractText(chunk);
+        if (text != null) {
+          yield createAdapterTokenEvent(text);
+          continue;
+        }
+      }
+
+      // Multimodal data
+      if (handlers.extractData) {
+        const data = handlers.extractData(chunk);
+        if (data != null) {
+          yield createAdapterDataEvent(data);
+          continue;
+        }
+      }
+
+      // Progress updates
+      if (handlers.extractProgress) {
+        const progress = handlers.extractProgress(chunk);
+        if (progress != null) {
+          yield createAdapterProgressEvent(progress);
+          continue;
+        }
+      }
+
+      // Messages
+      if (handlers.extractMessage) {
+        const message = handlers.extractMessage(chunk);
+        if (message != null) {
+          yield createAdapterMessageEvent(message.value, message.role);
+          continue;
+        }
+      }
+    }
+
+    yield createAdapterDoneEvent();
+  } catch (err) {
+    yield createAdapterErrorEvent(err);
+  }
 }

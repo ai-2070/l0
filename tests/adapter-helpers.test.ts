@@ -5,10 +5,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   toL0Events,
   toL0EventsWithMessages,
+  toMultimodalL0Events,
   createAdapterTokenEvent,
   createAdapterDoneEvent,
   createAdapterErrorEvent,
   createAdapterMessageEvent,
+  createAdapterDataEvent,
+  createAdapterProgressEvent,
+  createImageEvent,
+  createAudioEvent,
+  createJsonDataEvent,
 } from "../src/adapters/helpers";
 import type { L0Event } from "../src/types/l0";
 
@@ -842,5 +848,389 @@ describe("adapter helper integration patterns", () => {
     expect(events[0]).toMatchObject({ type: "token", value: "A" });
     expect(events[1]).toMatchObject({ type: "token", value: "B" });
     expect(events[2]?.type).toBe("error");
+  });
+});
+
+// ============================================================================
+// Multimodal Adapter Helper Tests
+// ============================================================================
+
+describe("createAdapterDataEvent", () => {
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(12345);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should create a data event with image payload", () => {
+    const event = createAdapterDataEvent({
+      contentType: "image",
+      mimeType: "image/png",
+      base64: "iVBORw0KGgo...",
+      metadata: { width: 1024, height: 1024 },
+    });
+
+    expect(event).toEqual({
+      type: "data",
+      data: {
+        contentType: "image",
+        mimeType: "image/png",
+        base64: "iVBORw0KGgo...",
+        metadata: { width: 1024, height: 1024 },
+      },
+      timestamp: 12345,
+    });
+  });
+
+  it("should create a data event with URL", () => {
+    const event = createAdapterDataEvent({
+      contentType: "image",
+      mimeType: "image/png",
+      url: "https://example.com/image.png",
+    });
+
+    expect(event.type).toBe("data");
+    expect(event.data?.url).toBe("https://example.com/image.png");
+  });
+
+  it("should create a data event with JSON content", () => {
+    const event = createAdapterDataEvent({
+      contentType: "json",
+      mimeType: "application/json",
+      json: { foo: "bar", count: 42 },
+    });
+
+    expect(event.data?.contentType).toBe("json");
+    expect(event.data?.json).toEqual({ foo: "bar", count: 42 });
+  });
+});
+
+describe("createAdapterProgressEvent", () => {
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(54321);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should create a progress event with percentage", () => {
+    const event = createAdapterProgressEvent({
+      percent: 50,
+      message: "Generating image...",
+    });
+
+    expect(event).toEqual({
+      type: "progress",
+      progress: {
+        percent: 50,
+        message: "Generating image...",
+      },
+      timestamp: 54321,
+    });
+  });
+
+  it("should create a progress event with steps", () => {
+    const event = createAdapterProgressEvent({
+      step: 3,
+      totalSteps: 10,
+      message: "Diffusion step 3/10",
+    });
+
+    expect(event.type).toBe("progress");
+    expect(event.progress?.step).toBe(3);
+    expect(event.progress?.totalSteps).toBe(10);
+  });
+
+  it("should include ETA when provided", () => {
+    const event = createAdapterProgressEvent({
+      percent: 75,
+      eta: 5000,
+    });
+
+    expect(event.progress?.eta).toBe(5000);
+  });
+});
+
+describe("createImageEvent", () => {
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(11111);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should create image event from URL", () => {
+    const event = createImageEvent({
+      url: "https://example.com/image.png",
+    });
+
+    expect(event.type).toBe("data");
+    expect(event.data?.contentType).toBe("image");
+    expect(event.data?.mimeType).toBe("image/png");
+    expect(event.data?.url).toBe("https://example.com/image.png");
+  });
+
+  it("should create image event from base64 with metadata", () => {
+    const event = createImageEvent({
+      base64: "iVBORw0KGgo...",
+      mimeType: "image/webp",
+      width: 512,
+      height: 512,
+      seed: 42,
+      model: "flux-schnell",
+    });
+
+    expect(event.data?.contentType).toBe("image");
+    expect(event.data?.mimeType).toBe("image/webp");
+    expect(event.data?.base64).toBe("iVBORw0KGgo...");
+    expect(event.data?.metadata?.width).toBe(512);
+    expect(event.data?.metadata?.height).toBe(512);
+    expect(event.data?.metadata?.seed).toBe(42);
+    expect(event.data?.metadata?.model).toBe("flux-schnell");
+  });
+
+  it("should omit undefined metadata fields", () => {
+    const event = createImageEvent({
+      url: "https://example.com/image.png",
+      width: 1024,
+      // height not provided
+    });
+
+    expect(event.data?.metadata?.width).toBe(1024);
+    expect(event.data?.metadata).not.toHaveProperty("height");
+  });
+
+  it("should omit metadata entirely if all fields undefined", () => {
+    const event = createImageEvent({
+      url: "https://example.com/image.png",
+    });
+
+    expect(event.data?.metadata).toBeUndefined();
+  });
+});
+
+describe("createAudioEvent", () => {
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(22222);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should create audio event with default mime type", () => {
+    const event = createAudioEvent({
+      url: "https://example.com/audio.mp3",
+    });
+
+    expect(event.type).toBe("data");
+    expect(event.data?.contentType).toBe("audio");
+    expect(event.data?.mimeType).toBe("audio/mp3");
+  });
+
+  it("should create audio event with duration", () => {
+    const event = createAudioEvent({
+      base64: "//uQx...",
+      mimeType: "audio/wav",
+      duration: 30.5,
+      model: "tts-1",
+    });
+
+    expect(event.data?.mimeType).toBe("audio/wav");
+    expect(event.data?.metadata?.duration).toBe(30.5);
+    expect(event.data?.metadata?.model).toBe("tts-1");
+  });
+});
+
+describe("createJsonDataEvent", () => {
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(33333);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should create JSON data event", () => {
+    const event = createJsonDataEvent({ name: "test", value: 123 });
+
+    expect(event.type).toBe("data");
+    expect(event.data?.contentType).toBe("json");
+    expect(event.data?.mimeType).toBe("application/json");
+    expect(event.data?.json).toEqual({ name: "test", value: 123 });
+  });
+
+  it("should include metadata when provided", () => {
+    const event = createJsonDataEvent(
+      { data: [1, 2, 3] },
+      { source: "api", version: "1.0" },
+    );
+
+    expect(event.data?.json).toEqual({ data: [1, 2, 3] });
+    expect(event.data?.metadata).toEqual({ source: "api", version: "1.0" });
+  });
+});
+
+describe("toMultimodalL0Events", () => {
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(44444);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should handle text extraction", async () => {
+    type Chunk = { type: "text"; content: string };
+    const chunks: Chunk[] = [
+      { type: "text", content: "Hello" },
+      { type: "text", content: " World" },
+    ];
+
+    const events = await collectEvents(
+      toMultimodalL0Events(arrayToAsyncIterable(chunks), {
+        extractText: (chunk) => chunk.content,
+      }),
+    );
+
+    expect(events).toHaveLength(3); // 2 tokens + done
+    expect(events[0]).toMatchObject({ type: "token", value: "Hello" });
+    expect(events[1]).toMatchObject({ type: "token", value: " World" });
+    expect(events[2]).toMatchObject({ type: "done" });
+  });
+
+  it("should handle data extraction for images", async () => {
+    type Chunk = { type: "image"; base64: string; width: number };
+    const chunks: Chunk[] = [{ type: "image", base64: "abc123", width: 512 }];
+
+    const events = await collectEvents(
+      toMultimodalL0Events(arrayToAsyncIterable(chunks), {
+        extractData: (chunk) => ({
+          contentType: "image",
+          mimeType: "image/png",
+          base64: chunk.base64,
+          metadata: { width: chunk.width },
+        }),
+      }),
+    );
+
+    expect(events).toHaveLength(2); // 1 data + done
+    expect(events[0]?.type).toBe("data");
+    expect(events[0]?.data?.contentType).toBe("image");
+    expect(events[0]?.data?.base64).toBe("abc123");
+  });
+
+  it("should handle progress extraction", async () => {
+    type Chunk = { type: "progress"; percent: number };
+    const chunks: Chunk[] = [
+      { type: "progress", percent: 25 },
+      { type: "progress", percent: 50 },
+      { type: "progress", percent: 100 },
+    ];
+
+    const events = await collectEvents(
+      toMultimodalL0Events(arrayToAsyncIterable(chunks), {
+        extractProgress: (chunk) => ({ percent: chunk.percent }),
+      }),
+    );
+
+    expect(events).toHaveLength(4); // 3 progress + done
+    expect(events[0]?.type).toBe("progress");
+    expect(events[0]?.progress?.percent).toBe(25);
+    expect(events[1]?.progress?.percent).toBe(50);
+    expect(events[2]?.progress?.percent).toBe(100);
+  });
+
+  it("should handle mixed multimodal stream", async () => {
+    type Chunk =
+      | { type: "progress"; percent: number }
+      | { type: "image"; url: string }
+      | { type: "text"; content: string };
+
+    const chunks: Chunk[] = [
+      { type: "progress", percent: 50 },
+      { type: "text", content: "Generated: " },
+      { type: "image", url: "https://example.com/result.png" },
+    ];
+
+    const events = await collectEvents(
+      toMultimodalL0Events(arrayToAsyncIterable(chunks), {
+        extractText: (chunk) => (chunk.type === "text" ? chunk.content : null),
+        extractData: (chunk) =>
+          chunk.type === "image"
+            ? { contentType: "image", mimeType: "image/png", url: chunk.url }
+            : null,
+        extractProgress: (chunk) =>
+          chunk.type === "progress" ? { percent: chunk.percent } : null,
+      }),
+    );
+
+    expect(events).toHaveLength(4); // progress + token + data + done
+    expect(events[0]?.type).toBe("progress");
+    expect(events[1]?.type).toBe("token");
+    expect(events[2]?.type).toBe("data");
+    expect(events[3]?.type).toBe("done");
+  });
+
+  it("should handle message extraction", async () => {
+    type Chunk = { type: "tool"; name: string; args: string };
+    const chunks: Chunk[] = [{ type: "tool", name: "search", args: "{}" }];
+
+    const events = await collectEvents(
+      toMultimodalL0Events(arrayToAsyncIterable(chunks), {
+        extractMessage: (chunk) => ({
+          value: JSON.stringify({ tool: chunk.name, args: chunk.args }),
+          role: "assistant",
+        }),
+      }),
+    );
+
+    expect(events).toHaveLength(2); // 1 message + done
+    expect(events[0]?.type).toBe("message");
+    expect(events[0]?.role).toBe("assistant");
+  });
+
+  it("should convert errors to error events", async () => {
+    async function* errorStream(): AsyncIterable<{ text: string }> {
+      yield { text: "Starting" };
+      throw new Error("Generation failed");
+    }
+
+    const events = await collectEvents(
+      toMultimodalL0Events(errorStream(), {
+        extractText: (chunk) => chunk.text,
+      }),
+    );
+
+    expect(events).toHaveLength(2); // 1 token + 1 error
+    expect(events[0]?.type).toBe("token");
+    expect(events[1]?.type).toBe("error");
+    expect((events[1] as { error: Error }).error.message).toBe(
+      "Generation failed",
+    );
+  });
+
+  it("should skip chunks that return null from all extractors", async () => {
+    type Chunk =
+      | { type: "metadata"; info: string }
+      | { type: "text"; content: string };
+    const chunks: Chunk[] = [
+      { type: "metadata", info: "ignored" },
+      { type: "text", content: "Hello" },
+      { type: "metadata", info: "also ignored" },
+    ];
+
+    const events = await collectEvents(
+      toMultimodalL0Events(arrayToAsyncIterable(chunks), {
+        extractText: (chunk) => (chunk.type === "text" ? chunk.content : null),
+      }),
+    );
+
+    expect(events).toHaveLength(2); // 1 token + done (metadata skipped)
+    expect(events[0]).toMatchObject({ type: "token", value: "Hello" });
   });
 });

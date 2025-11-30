@@ -1798,4 +1798,328 @@ describe("L0 Runtime", () => {
       expect(adapterWasCalled.value).toBe(false);
     });
   });
+
+  describe("Multimodal Events", () => {
+    it("should handle data events and populate dataOutputs", async () => {
+      async function* multimodalStream(): AsyncIterable<L0Event> {
+        yield {
+          type: "progress",
+          progress: { percent: 50 },
+          timestamp: Date.now(),
+        };
+        yield {
+          type: "data",
+          data: {
+            contentType: "image",
+            mimeType: "image/png",
+            base64: "iVBORw0KGgo...",
+            metadata: { width: 512, height: 512 },
+          },
+          timestamp: Date.now(),
+        };
+        yield { type: "done", timestamp: Date.now() };
+      }
+
+      const result = await l0({
+        stream: () => multimodalStream(),
+        detectZeroTokens: false, // Multimodal streams may not have text tokens
+      });
+
+      const events: L0Event[] = [];
+      for await (const event of result.stream) {
+        events.push(event);
+      }
+
+      // Verify events were emitted
+      expect(events.some((e) => e.type === "progress")).toBe(true);
+      expect(events.some((e) => e.type === "data")).toBe(true);
+      expect(events.some((e) => e.type === "done")).toBe(true);
+
+      // Verify state was updated
+      expect(result.state.dataOutputs).toHaveLength(1);
+      expect(result.state.dataOutputs[0].contentType).toBe("image");
+      expect(result.state.dataOutputs[0].base64).toBe("iVBORw0KGgo...");
+      expect(result.state.dataOutputs[0].metadata?.width).toBe(512);
+    });
+
+    it("should track lastProgress from progress events", async () => {
+      async function* progressStream(): AsyncIterable<L0Event> {
+        yield {
+          type: "progress",
+          progress: { percent: 25, message: "Starting" },
+          timestamp: Date.now(),
+        };
+        yield {
+          type: "progress",
+          progress: { percent: 50, message: "Halfway" },
+          timestamp: Date.now(),
+        };
+        yield {
+          type: "progress",
+          progress: { percent: 100, message: "Done" },
+          timestamp: Date.now(),
+        };
+        yield { type: "done", timestamp: Date.now() };
+      }
+
+      const result = await l0({
+        stream: () => progressStream(),
+        detectZeroTokens: false, // Progress-only streams have no text tokens
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      // Should have the last progress update
+      expect(result.state.lastProgress?.percent).toBe(100);
+      expect(result.state.lastProgress?.message).toBe("Done");
+    });
+
+    it("should handle multiple data outputs", async () => {
+      async function* multiImageStream(): AsyncIterable<L0Event> {
+        yield {
+          type: "data",
+          data: {
+            contentType: "image",
+            mimeType: "image/png",
+            url: "https://example.com/1.png",
+          },
+          timestamp: Date.now(),
+        };
+        yield {
+          type: "data",
+          data: {
+            contentType: "image",
+            mimeType: "image/png",
+            url: "https://example.com/2.png",
+          },
+          timestamp: Date.now(),
+        };
+        yield {
+          type: "data",
+          data: {
+            contentType: "image",
+            mimeType: "image/png",
+            url: "https://example.com/3.png",
+          },
+          timestamp: Date.now(),
+        };
+        yield { type: "done", timestamp: Date.now() };
+      }
+
+      const result = await l0({
+        stream: () => multiImageStream(),
+        detectZeroTokens: false, // Image-only streams have no text tokens
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      expect(result.state.dataOutputs).toHaveLength(3);
+      expect(result.state.dataOutputs[0].url).toBe("https://example.com/1.png");
+      expect(result.state.dataOutputs[2].url).toBe("https://example.com/3.png");
+    });
+
+    it("should handle mixed text and data events", async () => {
+      async function* mixedStream(): AsyncIterable<L0Event> {
+        yield {
+          type: "token",
+          value: "Generating image: ",
+          timestamp: Date.now(),
+        };
+        yield {
+          type: "progress",
+          progress: { percent: 50 },
+          timestamp: Date.now(),
+        };
+        yield {
+          type: "data",
+          data: {
+            contentType: "image",
+            mimeType: "image/png",
+            base64: "abc123",
+          },
+          timestamp: Date.now(),
+        };
+        yield { type: "token", value: "Done!", timestamp: Date.now() };
+        yield { type: "done", timestamp: Date.now() };
+      }
+
+      const result = await l0({
+        stream: () => mixedStream(),
+      });
+
+      const events: L0Event[] = [];
+      for await (const event of result.stream) {
+        events.push(event);
+      }
+
+      // Verify all event types
+      const types = events.map((e) => e.type);
+      expect(types).toContain("token");
+      expect(types).toContain("progress");
+      expect(types).toContain("data");
+      expect(types).toContain("done");
+
+      // Verify state
+      expect(result.state.content).toBe("Generating image: Done!");
+      expect(result.state.tokenCount).toBe(2);
+      expect(result.state.dataOutputs).toHaveLength(1);
+      expect(result.state.lastProgress?.percent).toBe(50);
+    });
+
+    it("should initialize dataOutputs as empty array", async () => {
+      async function* simpleStream(): AsyncIterable<L0Event> {
+        yield { type: "token", value: "Hello", timestamp: Date.now() };
+        yield { type: "done", timestamp: Date.now() };
+      }
+
+      const result = await l0({
+        stream: () => simpleStream(),
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      expect(result.state.dataOutputs).toEqual([]);
+      expect(result.state.lastProgress).toBeUndefined();
+    });
+
+    it("should clear dataOutputs on retry", async () => {
+      let callCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          callCount++;
+          async function* gen(): AsyncIterable<L0Event> {
+            yield {
+              type: "data",
+              data: {
+                contentType: "image",
+                base64: `image-from-call-${callCount}`,
+              },
+              timestamp: Date.now(),
+            };
+            yield {
+              type: "progress",
+              progress: { percent: 50, message: `call-${callCount}` },
+              timestamp: Date.now(),
+            };
+            if (callCount === 1) {
+              // First call fails with a retryable network error
+              const err = new Error("read ECONNRESET");
+              (err as any).code = "ECONNRESET";
+              throw err;
+            }
+            yield { type: "done", timestamp: Date.now() };
+          }
+          return gen();
+        },
+        retry: { attempts: 2 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      // Should only have data from successful attempt (call 2)
+      expect(callCount).toBe(2);
+      expect(result.state.dataOutputs).toHaveLength(1);
+      expect(result.state.dataOutputs[0].base64).toBe("image-from-call-2");
+      expect(result.state.lastProgress?.message).toBe("call-2");
+    });
+
+    it("should clear lastProgress on retry", async () => {
+      let callCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          callCount++;
+          async function* gen(): AsyncIterable<L0Event> {
+            yield {
+              type: "progress",
+              progress: { percent: 100, message: `progress-${callCount}` },
+              timestamp: Date.now(),
+            };
+            if (callCount === 1) {
+              // First call fails with a retryable network error
+              const err = new Error("read ECONNRESET");
+              (err as any).code = "ECONNRESET";
+              throw err;
+            }
+            yield { type: "token", value: "success", timestamp: Date.now() };
+            yield { type: "done", timestamp: Date.now() };
+          }
+          return gen();
+        },
+        retry: { attempts: 2 },
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      // Should have progress from successful attempt only
+      expect(callCount).toBe(2);
+      expect(result.state.lastProgress?.message).toBe("progress-2");
+    });
+
+    it("should clear dataOutputs on fallback", async () => {
+      let primaryCalled = false;
+
+      const result = await l0({
+        stream: () => {
+          primaryCalled = true;
+          async function* gen(): AsyncIterable<L0Event> {
+            yield {
+              type: "data",
+              data: { contentType: "image", base64: "primary-image" },
+              timestamp: Date.now(),
+            };
+            yield {
+              type: "progress",
+              progress: { percent: 50, message: "primary" },
+              timestamp: Date.now(),
+            };
+            throw new Error("Primary failed");
+          }
+          return gen();
+        },
+        fallbackStreams: [
+          () => {
+            async function* gen(): AsyncIterable<L0Event> {
+              yield {
+                type: "data",
+                data: { contentType: "image", base64: "fallback-image" },
+                timestamp: Date.now(),
+              };
+              yield {
+                type: "progress",
+                progress: { percent: 100, message: "fallback" },
+                timestamp: Date.now(),
+              };
+              yield { type: "done", timestamp: Date.now() };
+            }
+            return gen();
+          },
+        ],
+        retry: { attempts: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      // Should only have data from fallback
+      expect(primaryCalled).toBe(true);
+      expect(result.state.dataOutputs).toHaveLength(1);
+      expect(result.state.dataOutputs[0].base64).toBe("fallback-image");
+      expect(result.state.lastProgress?.message).toBe("fallback");
+    });
+  });
 });

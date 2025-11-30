@@ -14,6 +14,10 @@ export type {
   CategorizedNetworkError,
   RetryOptions,
   CheckpointValidationResult,
+  // Multimodal types
+  L0ContentType,
+  L0DataPayload,
+  L0Progress,
 } from "./l0";
 export {
   minimalGuardrails,

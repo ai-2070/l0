@@ -208,6 +208,8 @@ export async function l0<TOutput = unknown>(
     while (fallbackIndex < allStreams.length) {
       const currentStreamFactory = allStreams[fallbackIndex]!;
       let retryAttempt = 0;
+      // Track if this is a retry (network errors don't increment retryAttempt but still need state reset)
+      let isRetryAttempt = false;
       // Model failure retry limit (network errors don't count toward this)
       const modelRetryLimit = processedRetry.attempts ?? 2;
 
@@ -217,7 +219,9 @@ export async function l0<TOutput = unknown>(
       while (retryAttempt <= modelRetryLimit) {
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
-          if (retryAttempt > 0) {
+          // retryAttempt > 0: guardrail/drift retries increment this directly
+          // isRetryAttempt: network retries set this flag (don't count toward limit)
+          if (retryAttempt > 0 || isRetryAttempt) {
             // Check if we should continue from checkpoint
             if (
               processedContinueFromCheckpoint &&
@@ -259,6 +263,8 @@ export async function l0<TOutput = unknown>(
                 state.tokenCount = 0;
                 state.violations = [];
                 state.driftDetected = false;
+                state.dataOutputs = [];
+                state.lastProgress = undefined;
                 continue;
               }
 
@@ -294,6 +300,8 @@ export async function l0<TOutput = unknown>(
             }
             state.violations = [];
             state.driftDetected = false;
+            state.dataOutputs = [];
+            state.lastProgress = undefined;
           }
 
           // Get stream from factory
@@ -556,6 +564,28 @@ export async function l0<TOutput = unknown>(
               };
               if (processedOnEvent) processedOnEvent(messageEvent);
               yield messageEvent;
+            } else if (event.type === "data") {
+              // Handle multimodal data events (images, audio, etc.)
+              if (event.data) {
+                state.dataOutputs.push(event.data);
+              }
+              const dataEvent: L0Event = {
+                type: "data",
+                data: event.data,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(dataEvent);
+              yield dataEvent;
+            } else if (event.type === "progress") {
+              // Handle progress events for long-running operations
+              state.lastProgress = event.progress;
+              const progressEvent: L0Event = {
+                type: "progress",
+                progress: event.progress,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(progressEvent);
+              yield progressEvent;
             } else if (event.type === "error") {
               throw event.error || new Error("Stream error");
             } else if (event.type === "done") {
@@ -796,6 +826,8 @@ export async function l0<TOutput = unknown>(
             } else {
               state.networkRetries++;
             }
+            // Mark that next iteration is a retry (for state reset)
+            isRetryAttempt = true;
 
             // Record in monitoring
             monitor.recordRetry(isNetError);
@@ -918,6 +950,8 @@ export async function l0<TOutput = unknown>(
           }
           state.violations = [];
           state.driftDetected = false;
+          state.dataOutputs = [];
+          state.lastProgress = undefined;
           state.retryAttempts = 0;
 
           // Continue to next fallback
@@ -992,6 +1026,7 @@ function createInitialState(): L0State {
     completed: false,
     networkErrors: [],
     continuedFromCheckpoint: false,
+    dataOutputs: [],
   };
 }
 

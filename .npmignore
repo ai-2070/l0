@@ -25,6 +25,7 @@ vitest.*.config.*
 !QUICKSTART.md
 !STRUCTURED_OUTPUT.md
 !CUSTOM_ADAPTERS.md
+!MULTIMODAL.md
 .env*
 
 # Build artifacts
