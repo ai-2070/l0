@@ -298,7 +298,7 @@ const result = await l0({
 
 ### Retry Behavior
 
-| Error Type           | Retries | Counts Toward Limit |
+| Error Type           | Retries | Counts Toward `attempts` |
 | -------------------- | ------- | ------------------- |
 | Network disconnect   | Yes     | No                  |
 | Zero output          | Yes     | No                  |
