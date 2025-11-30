@@ -3,6 +3,7 @@
 import { describe, it, expect } from "vitest";
 import { l0 } from "../src/runtime/l0";
 import { jsonRule } from "../src/guardrails";
+import type { GuardrailRule } from "../src/types/guardrails";
 
 // Mock stream helper that matches what l0 expects
 function createMockStream(
@@ -1197,6 +1198,108 @@ describe("continueFromLastKnownGoodToken", () => {
       expect(result.state.content).toBe("Hello world");
       // The content should NOT be "Hello worldworld"
       expect(result.state.content).not.toBe("Hello worldworld");
+    });
+
+    it("should run guardrails on flushed deduplication tokens", async () => {
+      let attemptCount = 0;
+      const violations: any[] = [];
+
+      // Create a guardrail that flags "FORBIDDEN" content
+      const forbiddenRule: GuardrailRule = {
+        name: "no-forbidden",
+        streaming: true,
+        check: (context) => {
+          if (context.content.includes("FORBIDDEN")) {
+            return [
+              {
+                rule: "no-forbidden",
+                message: "Forbidden content detected",
+                severity: "fatal",
+                recoverable: false,
+              },
+            ];
+          }
+          return [];
+        },
+      };
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["Hello", " world"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // Continuation contains forbidden content that will be flushed
+          return {
+            textStream: createMockStream(["FORBIDDEN"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        guardrails: [forbiddenRule],
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1, guardrails: 1 },
+        detectZeroTokens: false,
+        onViolation: (v) => violations.push(v),
+      });
+
+      let threwError = false;
+      try {
+        for await (const _event of result.stream) {
+          // consume
+        }
+      } catch (error: any) {
+        threwError = true;
+        expect(error.message).toContain("Fatal guardrail violation");
+      }
+
+      // Should have thrown due to fatal guardrail violation on flushed content
+      expect(threwError).toBe(true);
+    });
+
+    it("should run drift detection on flushed deduplication tokens", async () => {
+      let attemptCount = 0;
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return {
+              textStream: createMockStream(["# Header\n\nSome text"], {
+                shouldError: true,
+              }),
+            };
+          }
+          // Continuation that might trigger drift (different format)
+          return {
+            textStream: createMockStream([" more content here"]),
+          };
+        },
+        continueFromLastKnownGoodToken: true,
+        detectDrift: true,
+        retry: {
+          attempts: 2,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error"],
+        },
+        checkIntervals: { checkpoint: 1, drift: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      // Drift detection should have been run (whether detected depends on content)
+      // This test ensures the code path is exercised without errors
+      expect(result.state.completed).toBe(true);
     });
   });
 });

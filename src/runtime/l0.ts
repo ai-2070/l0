@@ -707,6 +707,53 @@ export async function l0<TOutput = unknown>(
               tokenBuffer.push(flushedToken);
               state.tokenCount++;
 
+              // Update content for guardrail/drift checks
+              state.content = tokenBuffer.join("");
+
+              // Run guardrails on the flushed content
+              if (guardrailEngine) {
+                const context: GuardrailContext = {
+                  content: state.content,
+                  checkpoint: state.checkpoint,
+                  delta: flushedToken,
+                  tokenCount: state.tokenCount,
+                  completed: false,
+                };
+
+                const result = guardrailEngine.check(context);
+                if (result.violations.length > 0) {
+                  state.violations.push(...result.violations);
+                  monitor.recordGuardrailViolations(result.violations);
+                }
+
+                // Check for fatal violations
+                if (result.shouldHalt) {
+                  throw new L0Error(
+                    `Fatal guardrail violation: ${result.violations[0]?.message}`,
+                    {
+                      code: "FATAL_GUARDRAIL_VIOLATION",
+                      checkpoint: state.checkpoint,
+                      tokenCount: state.tokenCount,
+                      contentLength: state.content.length,
+                      retryAttempts: state.retryAttempts,
+                      networkRetries: state.networkRetries,
+                      fallbackIndex,
+                      recoverable: false,
+                      metadata: { violation: result.violations[0] },
+                    },
+                  );
+                }
+              }
+
+              // Run drift detection on flushed content
+              if (driftDetector) {
+                const drift = driftDetector.check(state.content, flushedToken);
+                if (drift.detected) {
+                  state.driftDetected = true;
+                  monitor.recordDrift(true, drift.types);
+                }
+              }
+
               // Emit the flushed token to the stream
               const flushedEvent: L0Event = {
                 type: "token",
