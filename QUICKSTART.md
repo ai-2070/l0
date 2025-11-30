@@ -173,8 +173,8 @@ try {
 ```typescript
 import {
   minimalGuardrails, // JSON + zero output
-  recommendedGuardrails, // + Markdown, drift, patterns
-  strictGuardrails, // + function calls, schema
+  recommendedGuardrails, // + Markdown, patterns
+  strictGuardrails, // + LaTeX
 } from "@ai2070/l0";
 ```
 
@@ -182,9 +182,9 @@ import {
 
 ```typescript
 import {
-  minimalRetry, // 1 attempt
-  recommendedRetry, // 2 attempts, exponential backoff
-  strictRetry, // 3 attempts, full-jitter
+  minimalRetry, // 2 attempts
+  recommendedRetry, // 3 attempts, fixed-jitter backoff
+  strictRetry, // 3 attempts, full-jitter backoff
 } from "@ai2070/l0";
 ```
 

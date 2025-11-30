@@ -25,7 +25,7 @@ npm install @ai2070/l0
 
 | Feature                                          | Description                                                                                                                                                                                           |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🔁 Smart Retries**                             | Model-aware retries with exponential backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.                                                       |
+| **🔁 Smart Retries**                             | Model-aware retries with fixed-jitter backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.                                                       |
 | **🌐 Network Protection**                        | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks.                                                                        |
 | **🔀 Model Fallbacks**                           | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic.                                                                                                |
 | **💥 Zero-Token/Stall Protection**               | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks.                                                                                             |
@@ -72,17 +72,17 @@ const result = await l0({
   // Other presets:
   // minimalGuardrails       // JSON + zero output
   // recommendedGuardrails   // + Markdown, patterns
-  // strictGuardrails        // + LaTeX, structure
+  // strictGuardrails        // + LaTeX
   // jsonOnlyGuardrails      // JSON only
   // markdownOnlyGuardrails  // Markdown only
   // latexOnlyGuardrails     // LaTeX only
 
   // Optional: Retry configuration
   retry: {
-    attempts: 2,
+    attempts: 3,
     baseDelay: 1000,
     maxDelay: 10000,
-    backoff: "exponential",
+    backoff: "fixed-jitter",
   },
   // Or simply:
   // retry: recommendedRetry,
@@ -180,6 +180,7 @@ for await (const event of result.stream) {
 | [Guardrails](#guardrails)                                             | JSON, Markdown, LaTeX validation, pattern detection             |
 | [Consensus](#consensus)                                               | Multi-model agreement with voting strategies                    |
 | [Parallel Operations](#parallel-operations)                           | Race, batch, pool patterns for concurrent LLM calls             |
+| [Type-Safe Generics](#type-safe-generics)                             | Forward output types through all L0 functions                   |
 | [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
 | [Testing](#testing)                                                   | 1300+ tests covering all features and SDK adapters              |
@@ -236,11 +237,11 @@ Smart retry system that distinguishes network errors from model errors:
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    attempts: 2, // Model errors only
-    maxRetries: 10, // Absolute cap across all error types
+    attempts: 3, // Model errors only (default: 3)
+    maxRetries: 6, // Absolute cap across all error types (default: 6)
     baseDelay: 1000,
     maxDelay: 10000,
-    backoff: "exponential", // or "linear", "fixed", "full-jitter"
+    backoff: "fixed-jitter", // or "exponential", "linear", "fixed", "full-jitter"
 
     // Optional: specify which error types to retry on, defaults to all recoverable errors
     retryOn: [
@@ -508,7 +509,7 @@ When a stream fails mid-generation, L0 can resume from the last known good check
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  retry: { attempts: 2 },
+  retry: { attempts: 3 },
 
   // Enable continuation from last checkpoint (opt-in)
   continueFromLastKnownGoodToken: true,
@@ -547,7 +548,7 @@ const result = await l0({
     continuationPrompt = `${originalPrompt}\n\nContinue from where you left off:\n${checkpoint}`;
     return continuationPrompt;
   },
-  retry: { attempts: 2 },
+  retry: { attempts: 3 },
 });
 ```
 
@@ -561,7 +562,7 @@ const result = await l0({
       prompt: "Write a detailed analysis of...",
     }),
   fallbackStreams: [() => streamText({ model: openai("gpt-5-nano"), prompt })],
-  retry: { attempts: 2 },
+  retry: { attempts: 3 },
   continueFromLastKnownGoodToken: true,
   checkIntervals: { checkpoint: 10 }, // Save checkpoint every 10 tokens
   monitoring: { enabled: true },
@@ -745,6 +746,43 @@ const result = await race([
   { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
   { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
 ]);
+```
+
+---
+
+## Type-Safe Generics
+
+All L0 functions support generic type parameters to forward your output types:
+
+```typescript
+import { l0, parallel, race, consensus } from "@ai2070/l0";
+
+// Typed output (compile-time type annotation)
+interface UserProfile {
+  name: string;
+  age: number;
+  email: string;
+}
+
+const result = await l0<UserProfile>({
+  stream: () => streamText({ model, prompt }),
+});
+// result is L0Result<UserProfile> - generic enables type inference in callbacks
+
+// Works with all parallel operations
+const raceResult = await race<UserProfile>([
+  { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
+  { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
+]);
+
+const parallelResults = await parallel<UserProfile>(operations);
+// parallelResults.results[0]?.state is typed
+
+// Consensus with type inference
+const consensusResult = await consensus<typeof schema>({
+  streams: [stream1, stream2, stream3],
+  schema,
+});
 ```
 
 ---

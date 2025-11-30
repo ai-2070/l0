@@ -92,7 +92,7 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
     attempts: 3,
-    backoff: "exponential",
+    backoff: "fixed-jitter",
     errorTypeDelays: {
       connectionDropped: 2000, // 2s for connection drops
       fetchError: 500, // 0.5s for fetch errors
@@ -146,7 +146,7 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
     attempts: 3,
-    backoff: "exponential",
+    backoff: "fixed-jitter",
     maxDelay: 5000, // Keep delays short
     errorTypeDelays: {
       runtimeKilled: 2000, // Quick retry on timeout

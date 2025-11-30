@@ -104,7 +104,7 @@ const results = await window.processSequential((chunk) => ({
 ```typescript
 const results = await window.processAll((chunk) => ({
   stream: () => streamText({ model: openai("gpt-4o"), prompt: chunk.content }),
-  retry: { attempts: 2 },
+  retry: { attempts: 3 },
   fallbackStreams: [
     () => streamText({ model: openai("gpt-5-nano"), prompt: chunk.content }),
   ],
@@ -261,7 +261,7 @@ const window = createWindow(document, {
 const results = await window.processAll(
   (chunk) => ({
     stream: () => streamText({ model, prompt: chunk.content }),
-    retry: { attempts: 2 },
+    retry: { attempts: 3 },
   }),
   { concurrency: 3 },
 );

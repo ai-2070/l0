@@ -26,7 +26,7 @@ async function basicRetry() {
       attempts: 3,
       baseDelay: 1000,
       maxDelay: 10000,
-      backoff: "exponential",
+      backoff: "fixed-jitter",
 
       // Optional: specify which error types to retry on, defaults to all recoverable errors
       retryOn: [

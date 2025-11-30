@@ -131,18 +131,21 @@ describe("RetryManager", () => {
   });
 
   describe("Backoff Patterns", () => {
-    it("should use exponential backoff by default", () => {
+    it("should use fixed-jitter backoff by default", () => {
+      // Don't explicitly set backoff to test the default
       const manager = new RetryManager({
         baseDelay: 100,
         maxDelay: 10000,
-        backoff: "exponential",
       });
 
       const error = new Error("Test error");
       const decision = manager.shouldRetry(error, "network_error");
 
       expect(decision.shouldRetry).toBe(true);
+      // Fixed-jitter adds random jitter (0 to 50% of baseDelay) to baseDelay
+      // So delay should be between 100 and 150
       expect(decision.delay).toBeGreaterThanOrEqual(100);
+      expect(decision.delay).toBeLessThanOrEqual(150);
     });
 
     it("should respect maxDelay cap", () => {
@@ -401,10 +404,10 @@ describe("RetryManager", () => {
       expect(finalDecision.reason).toContain("Absolute maximum retries");
     });
 
-    it("should allow unlimited retries when maxRetries is not set", () => {
+    it("should allow unlimited retries when maxRetries is Infinity", () => {
       const manager = new RetryManager({
         attempts: 2,
-        // maxRetries not set - unlimited
+        maxRetries: Infinity, // Explicitly set to unlimited
         baseDelay: 10,
       });
 

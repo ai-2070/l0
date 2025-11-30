@@ -32,8 +32,15 @@ export interface L0Event {
 
 /**
  * Configuration for the main l0() wrapper
+ *
+ * @typeParam TOutput - Optional type for the expected output (for type forwarding)
  */
-export interface L0Options {
+export interface L0Options<TOutput = unknown> {
+  /**
+   * Phantom type parameter for output type inference
+   * This field is never used at runtime - it only helps TypeScript infer the output type
+   */
+  __outputType?: TOutput;
   /**
    * Function that returns a streamText() result from Vercel AI SDK
    */
@@ -259,8 +266,14 @@ export interface L0Interceptor {
 
 /**
  * Result from l0() execution
+ *
+ * @typeParam TOutput - Optional type for the expected output (for type forwarding)
  */
-export interface L0Result {
+export interface L0Result<TOutput = unknown> {
+  /**
+   * Phantom type for output type inference (never used at runtime)
+   */
+  __outputType?: TOutput;
   /**
    * Async iterator for streaming events
    */
@@ -562,13 +575,13 @@ export interface CategorizedNetworkError {
  */
 export interface RetryOptions {
   /**
-   * Maximum retry attempts for model failures (default: 2)
+   * Maximum retry attempts for model failures (default: 3)
    * Network and transient errors do not count toward this limit.
    */
   attempts?: number;
 
   /**
-   * Absolute maximum number of retries across ALL error types (default: unlimited)
+   * Absolute maximum number of retries across ALL error types (default: 6)
    * This is a hard cap that includes network errors, transient errors, and model errors.
    * When set, no more than this many total retries will be attempted regardless of error type.
    * Useful for preventing infinite retry loops in degraded network conditions.
@@ -578,8 +591,8 @@ export interface RetryOptions {
    * // Allow up to 10 total retries, then fail
    * retry: { maxRetries: 10 }
    *
-   * // Allow 2 model retries, but cap total at 5 (including network retries)
-   * retry: { attempts: 2, maxRetries: 5 }
+   * // Allow 3 model retries, but cap total at 5 (including network retries)
+   * retry: { attempts: 3, maxRetries: 5 }
    * ```
    */
   maxRetries?: number;
@@ -587,7 +600,7 @@ export interface RetryOptions {
   /**
    * Backoff strategy
    */
-  backoff?: "exponential" | "linear" | "fixed" | "full-jitter";
+  backoff?: "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter";
 
   /**
    * Base delay in milliseconds (default: 1000)
@@ -643,6 +656,115 @@ export interface RetryOptions {
     timeout?: number;
     unknown?: number;
   };
+
+  /**
+   * Custom retry function to override default retry behavior.
+   * Return `true` to retry, `false` to stop retrying.
+   * This function is called before the default retry logic.
+   *
+   * @param error - The error that occurred
+   * @param context - Context about the current retry state
+   * @returns Whether to retry (true) or stop (false), or undefined to use default behavior
+   *
+   * @example
+   * ```typescript
+   * {
+   *   retry: {
+   *     attempts: 3,
+   *     shouldRetry: (error, context) => {
+   *       // Never retry after 5 total attempts
+   *       if (context.totalAttempts >= 5) return false;
+   *       // Always retry rate limits
+   *       if (error.message.includes('rate limit')) return true;
+   *       // Use default behavior for everything else
+   *       return undefined;
+   *     }
+   *   }
+   * }
+   * ```
+   */
+  shouldRetry?: (
+    error: Error,
+    context: {
+      /** Current retry attempt (0-based) */
+      attempt: number;
+      /** Total attempts including network retries */
+      totalAttempts: number;
+      /** Error category: network, transient, model, or fatal */
+      category: ErrorCategory;
+      /** Reason for the error */
+      reason: string;
+      /** Accumulated content so far */
+      content: string;
+      /** Token count so far */
+      tokenCount: number;
+    },
+  ) => boolean | undefined;
+
+  /**
+   * Custom delay calculation function to override default backoff behavior.
+   * Return a delay in milliseconds, or undefined to use the default backoff strategy.
+   *
+   * @param context - Context about the current retry state
+   * @returns Delay in milliseconds, or undefined to use default behavior
+   *
+   * @example
+   * ```typescript
+   * {
+   *   retry: {
+   *     // Custom exponential backoff with decorrelated jitter
+   *     calculateDelay: (context) => {
+   *       const base = 1000;
+   *       const cap = 30000;
+   *       const temp = Math.min(cap, base * Math.pow(2, context.attempt));
+   *       return Math.random() * temp;
+   *     }
+   *   }
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * {
+   *   retry: {
+   *     // Fixed delay with custom jitter range
+   *     calculateDelay: (context) => {
+   *       const base = 2000;
+   *       const jitter = Math.random() * 1000; // 0-1000ms jitter
+   *       return base + jitter;
+   *     }
+   *   }
+   * }
+   * ```
+   *
+   * @example
+   * ```typescript
+   * {
+   *   retry: {
+   *     // Different delays based on error type
+   *     calculateDelay: (context) => {
+   *       if (context.category === 'network') return 500;
+   *       if (context.reason === 'rate_limit') return 5000;
+   *       return undefined; // use default
+   *     }
+   *   }
+   * }
+   * ```
+   */
+  calculateDelay?: (context: {
+    /** Current retry attempt (0-based) */
+    attempt: number;
+    /** Total attempts including network retries */
+    totalAttempts: number;
+    /** Error category: network, transient, model, or fatal */
+    category: ErrorCategory;
+    /** Reason for the error */
+    reason: string;
+    /** The error that occurred */
+    error: Error;
+    /** Default delay that would be used */
+    defaultDelay: number;
+  }) => number | undefined;
 }
 
 /**
@@ -665,12 +787,13 @@ export const strictGuardrails: GuardrailRule[] = [];
  * Preset retry configurations
  */
 export const minimalRetry: RetryOptions = {
-  attempts: 1,
+  attempts: 2,
 };
 
 export const recommendedRetry: RetryOptions = {
-  attempts: 2,
-  backoff: "exponential",
+  attempts: 3,
+  maxRetries: 6,
+  backoff: "fixed-jitter",
   baseDelay: 1000,
   maxDelay: 10000,
   retryOn: [
@@ -687,6 +810,7 @@ export const recommendedRetry: RetryOptions = {
 
 export const strictRetry: RetryOptions = {
   attempts: 3,
+  maxRetries: 6,
   backoff: "full-jitter",
   baseDelay: 1000,
   maxDelay: 10000,

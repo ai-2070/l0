@@ -405,6 +405,7 @@ export {
   exponentialBackoff,
   linearBackoff,
   fixedBackoff,
+  fixedJitterBackoff,
   fullJitterBackoff,
   calculateBackoff,
   sleep,

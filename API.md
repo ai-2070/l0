@@ -5,6 +5,7 @@ Complete API reference for L0.
 ## Table of Contents
 
 - [Core Functions](#core-functions)
+- [Type-Safe Generics](#type-safe-generics)
 - [Structured Output](#structured-output)
 - [Document Windows](#document-windows)
 - [Consensus](#consensus)
@@ -39,10 +40,10 @@ const result = await l0({
 
   // Optional: Retry configuration
   retry: {
-    attempts: 2,
+    attempts: 3,
     baseDelay: 1000,
     maxDelay: 10000,
-    backoff: "exponential",
+    backoff: "fixed-jitter",
 
     // Optional: specify which error types to retry on, defaults to all recoverable errors
     retryOn: [
@@ -112,6 +113,216 @@ console.log(result.state.tokenCount);
 
 ---
 
+## Type-Safe Generics
+
+All L0 functions support generic type parameters to forward your output types through the entire call chain. This enables full type inference without manual casting.
+
+### l0\<TOutput\>()
+
+The core `l0()` function accepts a generic type parameter:
+
+```typescript
+import { l0 } from "@ai2070/l0";
+
+interface UserProfile {
+  name: string;
+  age: number;
+  email: string;
+}
+
+const result = await l0<UserProfile>({
+  stream: () => streamText({ model, prompt }),
+});
+
+// result is L0Result<UserProfile>
+// Generic enables type inference in structured output and callbacks
+```
+
+### parallel\<TOutput\>()
+
+Run multiple operations with typed results:
+
+```typescript
+import { parallel } from "@ai2070/l0";
+
+interface TaskResult {
+  summary: string;
+  score: number;
+}
+
+const results = await parallel<TaskResult>([
+  { stream: () => streamText({ model, prompt: "Task 1" }) },
+  { stream: () => streamText({ model, prompt: "Task 2" }) },
+  { stream: () => streamText({ model, prompt: "Task 3" }) },
+]);
+
+// results is ParallelResult<TaskResult>
+// results.results is Array<L0Result<TaskResult> | null>
+for (const result of results.results) {
+  if (result) {
+    console.log(result.state.content); // typed access
+  }
+}
+```
+
+### parallelAll\<TOutput\>()
+
+Unlimited concurrency variant:
+
+```typescript
+import { parallelAll } from "@ai2070/l0";
+
+const results = await parallelAll<TaskResult>(operations);
+// Same typing as parallel<TOutput>()
+```
+
+### sequential\<TOutput\>()
+
+Sequential execution with typed results:
+
+```typescript
+import { sequential } from "@ai2070/l0";
+
+const results = await sequential<TaskResult>(operations);
+// Executes one at a time, same result type
+```
+
+### batched\<TOutput\>()
+
+Batch processing with typed results:
+
+```typescript
+import { batched } from "@ai2070/l0";
+
+const results = await batched<TaskResult>(operations, 3);
+// Processes in batches of 3
+```
+
+### race\<TOutput\>()
+
+First successful result wins:
+
+```typescript
+import { race } from "@ai2070/l0";
+
+interface FastResponse {
+  answer: string;
+  confidence: number;
+}
+
+const result = await race<FastResponse>([
+  { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
+  { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
+  { stream: () => streamText({ model: google("gemini-pro"), prompt }) },
+]);
+
+// result is RaceResult<FastResponse>
+// result.winnerIndex tells you which model won
+console.log(`Model ${result.winnerIndex} won`);
+```
+
+### consensus\<TSchema\>()
+
+Multi-model agreement with schema inference:
+
+```typescript
+import { consensus } from "@ai2070/l0";
+import { z } from "zod";
+
+const schema = z.object({
+  answer: z.string(),
+  confidence: z.number(),
+});
+
+const result = await consensus<typeof schema>({
+  streams: [
+    () => streamText({ model: openai("gpt-4o"), prompt }),
+    () => streamText({ model: anthropic("claude-3-opus"), prompt }),
+    () => streamText({ model: google("gemini-pro"), prompt }),
+  ],
+  schema,
+  strategy: "majority",
+  threshold: 0.6,
+});
+
+// result.consensus is z.infer<typeof schema>
+console.log(result.consensus.answer);
+console.log(result.confidence);
+```
+
+### pipe\<TInput, TOutput\>()
+
+Pipelines with typed input and output:
+
+```typescript
+import { pipe } from "@ai2070/l0";
+
+interface DocumentInput {
+  text: string;
+  language: string;
+}
+
+interface AnalysisOutput {
+  sentiment: string;
+  keywords: string[];
+  summary: string;
+}
+
+const result = await pipe<DocumentInput, AnalysisOutput>({
+  input: { text: "Long document...", language: "en" },
+  stages: [
+    { name: "extract", stream: (input) => streamText({ model, prompt: `Extract from: ${input.text}` }) },
+    { name: "analyze", stream: (prev) => streamText({ model, prompt: `Analyze: ${prev}` }) },
+    { name: "summarize", stream: (prev) => streamText({ model, prompt: `Summarize: ${prev}` }) },
+  ],
+});
+```
+
+### Type Inference Table
+
+| Function | Generic | Result Type |
+| --- | --- | --- |
+| `l0<T>()` | `TOutput` | `L0Result<TOutput>` |
+| `parallel<T>()` | `TOutput` | `ParallelResult<TOutput>` |
+| `parallelAll<T>()` | `TOutput` | `ParallelResult<TOutput>` |
+| `sequential<T>()` | `TOutput` | `ParallelResult<TOutput>` |
+| `batched<T>()` | `TOutput` | `ParallelResult<TOutput>` |
+| `race<T>()` | `TOutput` | `RaceResult<TOutput>` |
+| `consensus<T>()` | `TSchema` | `ConsensusResult<T>` |
+| `pipe<I, O>()` | `TInput, TOutput` | `PipeResult<TOutput>` |
+
+### Best Practices
+
+1. **Define interfaces for your outputs** - Create explicit interfaces for structured data:
+
+```typescript
+interface ChatResponse {
+  message: string;
+  tokens: number;
+  model: string;
+}
+
+const result = await l0<ChatResponse>({ stream });
+```
+
+2. **Use Zod inference with structured()** - The `structured()` function already infers types from your schema:
+
+```typescript
+const schema = z.object({ name: z.string(), age: z.number() });
+const result = await structured({ schema, stream });
+// result.data is automatically typed as { name: string; age: number }
+```
+
+3. **Combine with const assertions** - For literal types:
+
+```typescript
+const result = await l0<{ status: "success" | "error"; code: number }>({
+  stream,
+});
+```
+
+---
+
 ## Structured Output
 
 ### structured(options)
@@ -139,7 +350,7 @@ const result = await structured({
   autoCorrect: true,
 
   // Optional: Validation retries
-  retry: { attempts: 2 }
+  retry: { attempts: 3 }
 });
 
 // Type-safe access
@@ -267,8 +478,8 @@ import {
 ```typescript
 import {
   minimalGuardrails, // JSON + zero output
-  recommendedGuardrails, // + Markdown, drift, patterns
-  strictGuardrails, // All rules
+  recommendedGuardrails, // + Markdown, patterns
+  strictGuardrails, // + LaTeX
   jsonOnlyGuardrails,
   markdownOnlyGuardrails,
   latexOnlyGuardrails,
@@ -325,9 +536,9 @@ const result = engine.check({
 
 ```typescript
 import {
-  minimalRetry, // { attempts: 1 }
-  recommendedRetry, // { attempts: 2, backoff: "exponential" }
-  strictRetry, // { attempts: 3, backoff: "full-jitter" }
+  minimalRetry, // { attempts: 2 }
+  recommendedRetry, // { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
+  strictRetry, // { attempts: 3, maxRetries: 6, backoff: "full-jitter" }
 } from "@ai2070/l0";
 ```
 
@@ -337,7 +548,7 @@ import {
 import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 // RETRY_DEFAULTS
-// { attempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
+// { attempts: 3, maxRetries: 6, baseDelay: 1000, maxDelay: 10000, backoff: "fixed-jitter", ... }
 
 // ERROR_TYPE_DELAY_DEFAULTS
 // { connectionDropped: 1000, fetchError: 500, timeout: 1000, ... }
@@ -350,10 +561,10 @@ const result = await l0({
   stream,
   retry: {
     attempts: 3,
-    maxRetries: 10, // Absolute cap (all error types)
+    maxRetries: 6, // Absolute cap (all error types)
     baseDelay: 1000,
     maxDelay: 10000,
-    backoff: "exponential", // "exponential" | "linear" | "fixed" | "full-jitter"
+    backoff: "fixed-jitter", // "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter"
 
     // Optional: specify which error types to retry on, defaults to all recoverable errors
     retryOn: [
@@ -377,6 +588,72 @@ const result = await l0({
   },
 });
 ```
+
+### Custom Retry Logic
+
+Override default retry behavior with custom functions:
+
+```typescript
+const result = await l0({
+  stream,
+  retry: {
+    attempts: 3,
+    // Custom function to control whether to retry
+    shouldRetry: (error, context) => {
+      // context: { attempt, totalAttempts, category, reason, content, tokenCount }
+      
+      // Never retry after 5 total attempts
+      if (context.totalAttempts >= 5) return false;
+      
+      // Always retry rate limits
+      if (context.reason === "rate_limit") return true;
+      
+      // Don't retry if we already have significant content
+      if (context.tokenCount > 100) return false;
+      
+      // Return undefined to use default behavior
+      return undefined;
+    },
+    
+    // Custom function to calculate retry delay
+    calculateDelay: (context) => {
+      // context: { attempt, totalAttempts, category, reason, error, defaultDelay }
+      
+      // Different delays based on error category
+      if (context.category === "network") return 500;
+      if (context.reason === "rate_limit") return 5000;
+      
+      // Custom exponential backoff with full jitter
+      const base = 1000;
+      const cap = 30000;
+      const temp = Math.min(cap, base * Math.pow(2, context.attempt));
+      return Math.random() * temp;
+    },
+  },
+});
+```
+
+#### shouldRetry Context
+
+| Property        | Type   | Description                          |
+| --------------- | ------ | ------------------------------------ |
+| `attempt`       | number | Current retry attempt (0-based)      |
+| `totalAttempts` | number | Total attempts including network     |
+| `category`      | string | Error category (network/model/fatal) |
+| `reason`        | string | Error reason code                    |
+| `content`       | string | Accumulated content so far           |
+| `tokenCount`    | number | Token count so far                   |
+
+#### calculateDelay Context
+
+| Property       | Type   | Description                          |
+| -------------- | ------ | ------------------------------------ |
+| `attempt`      | number | Current retry attempt (0-based)      |
+| `totalAttempts`| number | Total attempts including network     |
+| `category`     | string | Error category (network/model/fatal) |
+| `reason`       | string | Error reason code                    |
+| `error`        | Error  | The error that occurred              |
+| `defaultDelay` | number | Default delay that would be used     |
 
 ### Error Type Delays
 
@@ -415,7 +692,7 @@ import { RetryManager } from "@ai2070/l0";
 
 const manager = new RetryManager({
   attempts: 3,
-  backoff: "exponential",
+  backoff: "fixed-jitter",
 });
 
 const result = await manager.execute(async () => {
@@ -1172,16 +1449,16 @@ Retry configuration options.
 
 ```typescript
 interface RetryOptions {
-  // Max retry attempts for model failures (default: 2)
+  // Max retry attempts for model failures (default: 3)
   // Network and transient errors do not count toward this limit
   attempts?: number;
 
-  // Absolute maximum retries across ALL error types (default: unlimited)
+  // Absolute maximum retries across ALL error types (default: 6)
   // Hard cap including network errors, transient errors, and model errors
   maxRetries?: number;
 
-  // Backoff strategy
-  backoff?: "exponential" | "linear" | "fixed" | "full-jitter";
+  // Backoff strategy (default: "fixed-jitter")
+  backoff?: "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter";
 
   // Base delay in milliseconds (default: 1000)
   baseDelay?: number;
@@ -1216,6 +1493,31 @@ interface RetryOptions {
     timeout?: number;
     unknown?: number;
   };
+
+  // Custom function to override default retry behavior
+  // Return true to retry, false to stop, undefined to use default logic
+  shouldRetry?: (
+    error: Error,
+    context: {
+      attempt: number;
+      totalAttempts: number;
+      category: ErrorCategory;
+      reason: string;
+      content: string;
+      tokenCount: number;
+    },
+  ) => boolean | undefined;
+
+  // Custom function to calculate retry delay
+  // Return number for custom delay, undefined to use default calculation
+  calculateDelay?: (context: {
+    attempt: number;
+    totalAttempts: number;
+    category: ErrorCategory;
+    reason: string;
+    error: Error;
+    defaultDelay: number;
+  }) => number | undefined;
 }
 ```
 

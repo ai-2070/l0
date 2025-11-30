@@ -354,7 +354,7 @@ export const recommendedStructured: Partial<StructuredOptions> = {
   strictMode: false,
   retry: {
     attempts: 2,
-    backoff: "exponential",
+    backoff: "fixed-jitter",
     baseDelay: 1000,
     maxDelay: 5000,
   },
@@ -368,7 +368,7 @@ export const strictStructured: Partial<StructuredOptions> = {
   strictMode: true,
   retry: {
     attempts: 3,
-    backoff: "exponential",
+    backoff: "fixed-jitter",
     baseDelay: 1000,
     maxDelay: 10000,
   },

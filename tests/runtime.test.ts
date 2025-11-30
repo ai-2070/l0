@@ -1054,4 +1054,451 @@ describe("L0 Runtime", () => {
       expect(result.state.tokenCount).toBe(100);
     });
   });
+
+  describe("Custom Retry Functions", () => {
+    describe("shouldRetry", () => {
+      it("should use custom shouldRetry function to force retry", async () => {
+        let attempts = 0;
+        let shouldRetryCalled = false;
+
+        const streamFactory = () => {
+          attempts++;
+          if (attempts === 1) {
+            return {
+              textStream: createMockStream(["fail"], {
+                shouldError: true,
+                errorAfter: 0,
+              }),
+            };
+          }
+          return {
+            textStream: createMockStream(["success", " ", "content"]),
+          };
+        };
+
+        const result = await l0({
+          stream: streamFactory,
+          retry: {
+            attempts: 3,
+            baseDelay: 10,
+            shouldRetry: (error, context) => {
+              shouldRetryCalled = true;
+              expect(error).toBeInstanceOf(Error);
+              expect(context.attempt).toBeGreaterThanOrEqual(0);
+              expect(context.category).toBeDefined();
+              expect(context.reason).toBeDefined();
+              return true; // Force retry
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        expect(shouldRetryCalled).toBe(true);
+        expect(attempts).toBe(2);
+        expect(result.state.content).toBe("success content");
+      });
+
+      it("should use custom shouldRetry function to prevent retry", async () => {
+        let attempts = 0;
+        let shouldRetryCalled = false;
+
+        const streamFactory = () => {
+          attempts++;
+          return {
+            textStream: createMockStream(["fail"], {
+              shouldError: true,
+              errorAfter: 0,
+            }),
+          };
+        };
+
+        let errorThrown = false;
+        try {
+          const result = await l0({
+            stream: streamFactory,
+            retry: {
+              attempts: 5,
+              baseDelay: 10,
+              shouldRetry: (error, context) => {
+                shouldRetryCalled = true;
+                return false; // Prevent retry
+              },
+            },
+            detectZeroTokens: false,
+          });
+
+          for await (const event of result.stream) {
+            // Consume stream
+          }
+        } catch (error) {
+          errorThrown = true;
+        }
+
+        expect(shouldRetryCalled).toBe(true);
+        expect(attempts).toBe(1); // Only one attempt, no retries
+        expect(errorThrown).toBe(true);
+      });
+
+      it("should fall back to default behavior when shouldRetry returns undefined", async () => {
+        let attempts = 0;
+        let shouldRetryCalled = false;
+
+        const streamFactory = () => {
+          attempts++;
+          if (attempts <= 2) {
+            return {
+              textStream: createMockStream(["fail"], {
+                shouldError: true,
+                errorAfter: 0,
+              }),
+            };
+          }
+          return {
+            textStream: createMockStream(["success"]),
+          };
+        };
+
+        const result = await l0({
+          stream: streamFactory,
+          retry: {
+            attempts: 5,
+            baseDelay: 10,
+            retryOn: ["unknown"], // Enable retry for unknown errors
+            shouldRetry: (error, context) => {
+              shouldRetryCalled = true;
+              return undefined; // Use default behavior
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        expect(shouldRetryCalled).toBe(true);
+        expect(attempts).toBeGreaterThan(1);
+      });
+
+      it("should provide correct context to shouldRetry", async () => {
+        let capturedContext: any = null;
+        let attempts = 0;
+
+        const streamFactory = () => {
+          attempts++;
+          if (attempts === 1) {
+            return {
+              textStream: createMockStream(["fail"], {
+                shouldError: true,
+                errorAfter: 0,
+              }),
+            };
+          }
+          return {
+            textStream: createMockStream(["success"]),
+          };
+        };
+
+        const result = await l0({
+          stream: streamFactory,
+          retry: {
+            attempts: 3,
+            baseDelay: 10,
+            shouldRetry: (error, context) => {
+              capturedContext = context;
+              return true; // Force retry to ensure we capture context
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        expect(capturedContext).not.toBeNull();
+        expect(capturedContext.attempt).toBeDefined();
+        expect(capturedContext.totalAttempts).toBeDefined();
+        expect(capturedContext.category).toBeDefined();
+        expect(capturedContext.reason).toBeDefined();
+        expect(typeof capturedContext.content).toBe("string");
+        expect(typeof capturedContext.tokenCount).toBe("number");
+      });
+    });
+
+    describe("calculateDelay", () => {
+      it("should use custom calculateDelay function", async () => {
+        let attempts = 0;
+        let calculateDelayCalled = false;
+        const customDelay = 50;
+
+        const streamFactory = () => {
+          attempts++;
+          if (attempts === 1) {
+            return {
+              textStream: createMockStream(["fail"], {
+                shouldError: true,
+                errorAfter: 0,
+              }),
+            };
+          }
+          return {
+            textStream: createMockStream(["success"]),
+          };
+        };
+
+        const startTime = Date.now();
+        const result = await l0({
+          stream: streamFactory,
+          retry: {
+            attempts: 3,
+            baseDelay: 1000, // High base delay
+            retryOn: ["unknown"], // Enable retry for unknown errors
+            calculateDelay: (context) => {
+              calculateDelayCalled = true;
+              expect(context.attempt).toBeGreaterThanOrEqual(0);
+              expect(context.defaultDelay).toBeDefined();
+              expect(context.error).toBeInstanceOf(Error);
+              return customDelay; // Override with short delay
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        const duration = Date.now() - startTime;
+
+        expect(calculateDelayCalled).toBe(true);
+        // Should be much faster than 1000ms base delay
+        expect(duration).toBeLessThan(500);
+      });
+
+      it("should fall back to default delay when calculateDelay returns undefined", async () => {
+        let attempts = 0;
+        let calculateDelayCalled = false;
+
+        const streamFactory = () => {
+          attempts++;
+          if (attempts === 1) {
+            return {
+              textStream: createMockStream(["fail"], {
+                shouldError: true,
+                errorAfter: 0,
+              }),
+            };
+          }
+          return {
+            textStream: createMockStream(["success"]),
+          };
+        };
+
+        const result = await l0({
+          stream: streamFactory,
+          retry: {
+            attempts: 3,
+            baseDelay: 10,
+            retryOn: ["unknown"], // Enable retry for unknown errors
+            calculateDelay: (context) => {
+              calculateDelayCalled = true;
+              return undefined; // Use default
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        expect(calculateDelayCalled).toBe(true);
+        expect(attempts).toBe(2);
+      });
+
+      it("should provide correct context to calculateDelay", async () => {
+        let capturedContext: any = null;
+        let attempts = 0;
+
+        const streamFactory = () => {
+          attempts++;
+          if (attempts === 1) {
+            return {
+              textStream: createMockStream(["fail"], {
+                shouldError: true,
+                errorAfter: 0,
+              }),
+            };
+          }
+          return {
+            textStream: createMockStream(["success"]),
+          };
+        };
+
+        const result = await l0({
+          stream: streamFactory,
+          retry: {
+            attempts: 3,
+            baseDelay: 100,
+            retryOn: ["unknown"], // Enable retry for unknown errors
+            calculateDelay: (context) => {
+              capturedContext = context;
+              return 10;
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        expect(capturedContext).not.toBeNull();
+        expect(capturedContext.attempt).toBeDefined();
+        expect(capturedContext.totalAttempts).toBeDefined();
+        expect(capturedContext.category).toBeDefined();
+        expect(capturedContext.reason).toBeDefined();
+        expect(capturedContext.error).toBeInstanceOf(Error);
+        expect(typeof capturedContext.defaultDelay).toBe("number");
+      });
+
+      it("should allow different delays based on error category", async () => {
+        let attempts = 0;
+        const delays: number[] = [];
+
+        const streamFactory = () => {
+          attempts++;
+          if (attempts <= 2) {
+            return {
+              textStream: createMockStream(["fail"], {
+                shouldError: true,
+                errorAfter: 0,
+              }),
+            };
+          }
+          return {
+            textStream: createMockStream(["success"]),
+          };
+        };
+
+        const result = await l0({
+          stream: streamFactory,
+          retry: {
+            attempts: 5,
+            baseDelay: 100,
+            retryOn: ["unknown"], // Enable retry for unknown errors
+            calculateDelay: (context) => {
+              const delay =
+                context.category === "network"
+                  ? 20
+                  : context.category === "model"
+                    ? 50
+                    : 100;
+              delays.push(delay);
+              return delay;
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        expect(delays.length).toBeGreaterThan(0);
+        // All delays should be one of our custom values
+        delays.forEach((d) => expect([20, 50, 100]).toContain(d));
+      });
+    });
+
+    describe("shouldRetry and calculateDelay combined", () => {
+      it("should use both custom functions together", async () => {
+        let attempts = 0;
+        let shouldRetryCalls = 0;
+        let calculateDelayCalls = 0;
+
+        const streamFactory = () => {
+          attempts++;
+          if (attempts <= 2) {
+            return {
+              textStream: createMockStream(["fail"], {
+                shouldError: true,
+                errorAfter: 0,
+              }),
+            };
+          }
+          return {
+            textStream: createMockStream(["final", " ", "success"]),
+          };
+        };
+
+        const result = await l0({
+          stream: streamFactory,
+          retry: {
+            attempts: 5,
+            baseDelay: 1000,
+            shouldRetry: (error, context) => {
+              shouldRetryCalls++;
+              return context.totalAttempts < 3;
+            },
+            calculateDelay: (context) => {
+              calculateDelayCalls++;
+              return 10; // Fast retry
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // Consume stream
+        }
+
+        expect(shouldRetryCalls).toBeGreaterThan(0);
+        expect(calculateDelayCalls).toBeGreaterThan(0);
+        expect(result.state.content).toBe("final success");
+      });
+
+      it("should not call calculateDelay when shouldRetry returns false", async () => {
+        let calculateDelayCalled = false;
+
+        const streamFactory = () => ({
+          textStream: createMockStream(["fail"], {
+            shouldError: true,
+            errorAfter: 0,
+          }),
+        });
+
+        try {
+          const result = await l0({
+            stream: streamFactory,
+            retry: {
+              attempts: 5,
+              baseDelay: 100,
+              shouldRetry: () => false,
+              calculateDelay: () => {
+                calculateDelayCalled = true;
+                return 10;
+              },
+            },
+            detectZeroTokens: false,
+          });
+
+          for await (const event of result.stream) {
+            // Consume stream
+          }
+        } catch (error) {
+          // Expected to throw
+        }
+
+        // When shouldRetry returns false, we don't need to calculate delay
+        // since we're not retrying anyway
+        expect(calculateDelayCalled).toBe(false);
+      });
+    });
+  });
 });

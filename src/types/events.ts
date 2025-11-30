@@ -24,7 +24,12 @@ export interface SerializedOptions {
     maxRetries?: number;
     baseDelay?: number;
     maxDelay?: number;
-    backoff?: "exponential" | "linear" | "fixed";
+    backoff?:
+      | "exponential"
+      | "linear"
+      | "fixed"
+      | "full-jitter"
+      | "fixed-jitter";
   };
   /** Timeout configuration */
   timeout?: {

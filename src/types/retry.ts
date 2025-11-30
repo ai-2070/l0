@@ -70,13 +70,13 @@ export interface ErrorTypeDelays {
  */
 export interface RetryConfig {
   /**
-   * Maximum retry attempts for model failures (default: 2)
+   * Maximum retry attempts for model failures (default: 3)
    * Network and transient errors do not count toward this limit.
    */
   attempts: number;
 
   /**
-   * Absolute maximum number of retries across ALL error types (default: undefined = unlimited)
+   * Absolute maximum number of retries across ALL error types (default: 6)
    * This is a hard cap that includes network errors, transient errors, and model errors.
    * When set, no more than this many total retries will be attempted regardless of error type.
    * Useful for preventing infinite retry loops in degraded network conditions.
@@ -96,7 +96,7 @@ export interface RetryConfig {
   /**
    * Backoff strategy
    */
-  backoff: "exponential" | "linear" | "fixed" | "full-jitter";
+  backoff: "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter";
 
   /**
    * What types of errors to retry on
@@ -137,15 +137,17 @@ export type RetryReason =
  */
 export const RETRY_DEFAULTS = {
   /** Maximum retry attempts for model failures */
-  attempts: 2,
+  attempts: 3,
+  /** Absolute maximum retries across all error types */
+  maxRetries: 6,
   /** Base delay in milliseconds */
   baseDelay: 1000,
   /** Maximum delay cap in milliseconds */
   maxDelay: 10000,
   /** Maximum delay for network error suggestions */
   networkMaxDelay: 30000,
-  /** Default backoff strategy */
-  backoff: "exponential" as const,
+  /** Default backoff strategy (AWS-style fixed jitter for predictable retry timing) */
+  backoff: "fixed-jitter" as const,
   /** Default retry reasons (unknown errors are not retried by default) */
   retryOn: [
     "zero_output",

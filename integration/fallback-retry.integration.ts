@@ -264,4 +264,230 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
       LLM_TIMEOUT,
     );
   });
+
+  describe("Custom Retry Functions", () => {
+    it(
+      "should use custom shouldRetry function with real LLM",
+      async () => {
+        let shouldRetryCalled = false;
+        let capturedContext: any = null;
+
+        const result = await l0({
+          stream: () =>
+            streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "Say 'hello world' and nothing else",
+            }),
+          retry: {
+            attempts: 3,
+            shouldRetry: (error, context) => {
+              shouldRetryCalled = true;
+              capturedContext = context;
+              // Don't actually retry - just capture context
+              return false;
+            },
+          },
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        // With a successful stream, shouldRetry should NOT be called
+        expect(shouldRetryCalled).toBe(false);
+        expectValidResponse(result.state.content);
+      },
+      LLM_TIMEOUT,
+    );
+
+    it(
+      "should use custom shouldRetry to control retry on failure",
+      async () => {
+        let attempts = 0;
+        let shouldRetryCalls = 0;
+
+        const result = await l0({
+          stream: () => {
+            attempts++;
+            if (attempts === 1) {
+              throw new Error("Simulated first attempt failure");
+            }
+            return streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "Say 'retry success'",
+            });
+          },
+          retry: {
+            attempts: 3,
+            baseDelay: 100,
+            retryOn: ["unknown"], // Enable retry for simulated errors
+            shouldRetry: (error, context) => {
+              shouldRetryCalls++;
+              expect(error.message).toContain("Simulated");
+              expect(context.attempt).toBeGreaterThanOrEqual(0);
+              expect(context.category).toBeDefined();
+              return true; // Force retry
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        expect(shouldRetryCalls).toBeGreaterThan(0);
+        expect(attempts).toBe(2);
+        expectValidResponse(result.state.content);
+      },
+      LLM_TIMEOUT,
+    );
+
+    it(
+      "should use custom calculateDelay function with real LLM",
+      async () => {
+        let attempts = 0;
+        let calculateDelayCalled = false;
+        const customDelay = 50;
+
+        const startTime = Date.now();
+        const result = await l0({
+          stream: () => {
+            attempts++;
+            if (attempts === 1) {
+              throw new Error("Simulated failure for delay test");
+            }
+            return streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "Say 'delay test passed'",
+            });
+          },
+          retry: {
+            attempts: 3,
+            baseDelay: 2000, // High base delay
+            retryOn: ["unknown"], // Enable retry for simulated errors
+            calculateDelay: (context) => {
+              calculateDelayCalled = true;
+              expect(context.attempt).toBeGreaterThanOrEqual(0);
+              expect(context.defaultDelay).toBeDefined();
+              expect(context.error).toBeInstanceOf(Error);
+              return customDelay; // Override with short delay
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        const duration = Date.now() - startTime;
+
+        expect(calculateDelayCalled).toBe(true);
+        expect(attempts).toBe(2);
+        // Should be much faster than 2000ms base delay (account for LLM time)
+        expect(duration).toBeLessThan(LLM_TIMEOUT / 2);
+        expectValidResponse(result.state.content);
+      },
+      LLM_TIMEOUT,
+    );
+
+    it(
+      "should use both shouldRetry and calculateDelay together",
+      async () => {
+        let attempts = 0;
+        let shouldRetryCalls = 0;
+        let calculateDelayCalls = 0;
+
+        const result = await l0({
+          stream: () => {
+            attempts++;
+            if (attempts <= 2) {
+              throw new Error("Simulated failure " + attempts);
+            }
+            return streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "Say 'combined test success'",
+            });
+          },
+          retry: {
+            attempts: 5,
+            baseDelay: 1000,
+            retryOn: ["unknown"], // Enable retry for simulated errors
+            shouldRetry: (error, context) => {
+              shouldRetryCalls++;
+              // Only retry if we haven't exceeded 3 total attempts
+              return context.totalAttempts < 3;
+            },
+            calculateDelay: (context) => {
+              calculateDelayCalls++;
+              // Use fast delay for testing
+              return 50;
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        expect(shouldRetryCalls).toBeGreaterThan(0);
+        expect(calculateDelayCalls).toBeGreaterThan(0);
+        expect(attempts).toBe(3);
+        expectValidResponse(result.state.content);
+      },
+      LLM_TIMEOUT,
+    );
+
+    it(
+      "should provide accurate context in shouldRetry",
+      async () => {
+        let capturedContexts: any[] = [];
+
+        const result = await l0({
+          stream: () => {
+            throw new Error("Always fail for context test");
+          },
+          fallbackStreams: [
+            () =>
+              streamText({
+                model: openai("gpt-5-nano"),
+                prompt: "Say 'fallback after context capture'",
+              }),
+          ],
+          retry: {
+            attempts: 2,
+            baseDelay: 50,
+            retryOn: ["unknown"], // Enable retry for simulated errors
+            shouldRetry: (error, context) => {
+              capturedContexts.push({ ...context });
+              return true; // Keep retrying until limit
+            },
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        // Should have captured contexts from retry attempts
+        expect(capturedContexts.length).toBeGreaterThan(0);
+
+        // Verify context structure
+        capturedContexts.forEach((ctx) => {
+          expect(typeof ctx.attempt).toBe("number");
+          expect(typeof ctx.totalAttempts).toBe("number");
+          expect(typeof ctx.category).toBe("string");
+          expect(typeof ctx.reason).toBe("string");
+          expect(typeof ctx.content).toBe("string");
+          expect(typeof ctx.tokenCount).toBe("number");
+        });
+
+        expectValidResponse(result.state.content);
+      },
+      LLM_TIMEOUT,
+    );
+  });
 });
