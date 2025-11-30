@@ -220,26 +220,30 @@ export class FileEventStore extends BaseEventStoreWithSnapshots {
   }
 
   /**
-   * Sanitize stream ID to prevent path traversal attacks.
+   * Validate stream ID to prevent path traversal attacks.
    * Only allows alphanumeric characters, hyphens, and underscores.
    * @internal Exposed as static for testing
+   * @throws Error if stream ID contains invalid characters
    */
-  static sanitizeStreamId(streamId: string): string {
-    // Remove any path traversal attempts and invalid characters
-    const sanitized = streamId.replace(/[^a-zA-Z0-9_-]/g, "_");
-    if (sanitized.length === 0) {
-      throw new Error("Invalid stream ID: must contain valid characters");
+  static validateStreamId(streamId: string): string {
+    if (!streamId || streamId.length === 0) {
+      throw new Error("Invalid stream ID: must not be empty");
     }
-    return sanitized;
+    if (!/^[a-zA-Z0-9_-]+$/.test(streamId)) {
+      throw new Error(
+        "Invalid stream ID: only alphanumeric characters, hyphens, and underscores are allowed",
+      );
+    }
+    return streamId;
   }
 
   private getFilePath(streamId: string): string {
-    const safeId = FileEventStore.sanitizeStreamId(streamId);
+    const safeId = FileEventStore.validateStreamId(streamId);
     return this.path!.join(this.basePath, `${safeId}.json`);
   }
 
   private getSnapshotFilePath(streamId: string): string {
-    const safeId = FileEventStore.sanitizeStreamId(streamId);
+    const safeId = FileEventStore.validateStreamId(streamId);
     return this.path!.join(this.basePath, `${safeId}.snapshot.json`);
   }
 

@@ -501,52 +501,53 @@ describe("Storage Adapters", () => {
   });
 
   describe("FileEventStore Path Traversal Protection", () => {
-    const sanitize = FileEventStore.sanitizeStreamId;
+    const validate = FileEventStore.validateStreamId;
 
-    it("should sanitize stream IDs with path traversal attempts", () => {
-      // Path traversal attempts should be sanitized
-      // "../../../etc/passwd" = 9 special chars (. . / . . / . . /) + etc_passwd
-      expect(sanitize("../../../etc/passwd")).toBe("_________etc_passwd");
-      // "..\..\windows\system32" = 6 special chars (dots and backslashes)
-      expect(sanitize("..\\..\\windows\\system32")).toBe(
-        "______windows_system32",
+    it("should reject stream IDs with path traversal attempts", () => {
+      expect(() => validate("../../../etc/passwd")).toThrow(
+        /Invalid stream ID/,
       );
-      expect(sanitize("foo/../bar")).toBe("foo____bar");
+      expect(() => validate("..\\..\\windows\\system32")).toThrow(
+        /Invalid stream ID/,
+      );
+      expect(() => validate("foo/../bar")).toThrow(/Invalid stream ID/);
     });
 
-    it("should sanitize stream IDs with special characters", () => {
-      // Special characters should be replaced with underscores
-      expect(sanitize("stream:with:colons")).toBe("stream_with_colons");
-      expect(sanitize("stream/with/slashes")).toBe("stream_with_slashes");
-      expect(sanitize("stream<with>brackets")).toBe("stream_with_brackets");
-      expect(sanitize("stream|with|pipes")).toBe("stream_with_pipes");
+    it("should reject stream IDs with special characters", () => {
+      expect(() => validate("stream:with:colons")).toThrow(/Invalid stream ID/);
+      expect(() => validate("stream/with/slashes")).toThrow(
+        /Invalid stream ID/,
+      );
+      expect(() => validate("stream<with>brackets")).toThrow(
+        /Invalid stream ID/,
+      );
+      expect(() => validate("stream|with|pipes")).toThrow(/Invalid stream ID/);
     });
 
     it("should allow valid stream IDs unchanged", () => {
       // Valid IDs should pass through
-      expect(sanitize("valid-stream-id")).toBe("valid-stream-id");
-      expect(sanitize("stream_with_underscores")).toBe(
+      expect(validate("valid-stream-id")).toBe("valid-stream-id");
+      expect(validate("stream_with_underscores")).toBe(
         "stream_with_underscores",
       );
-      expect(sanitize("Stream123")).toBe("Stream123");
-      expect(sanitize("UPPERCASE")).toBe("UPPERCASE");
+      expect(validate("Stream123")).toBe("Stream123");
+      expect(validate("UPPERCASE")).toBe("UPPERCASE");
+      expect(validate("a")).toBe("a");
+      expect(validate("123")).toBe("123");
     });
 
     it("should throw for empty stream ID", () => {
-      // Empty string should throw
-      expect(() => sanitize("")).toThrow(/Invalid stream ID/);
+      expect(() => validate("")).toThrow(/must not be empty/);
     });
 
-    it("should convert all-special-char IDs to underscores", () => {
-      // IDs with only special chars become all underscores (still valid, prevents traversal)
-      expect(sanitize("...")).toBe("___");
-      expect(sanitize("///")).toBe("___");
+    it("should reject IDs with only special characters", () => {
+      expect(() => validate("...")).toThrow(/Invalid stream ID/);
+      expect(() => validate("///")).toThrow(/Invalid stream ID/);
     });
 
-    it("should prevent null byte injection", () => {
-      // Null bytes should be sanitized
-      expect(sanitize("stream\x00.json")).toBe("stream__json");
-      expect(sanitize("test\x00../etc")).toBe("test____etc");
+    it("should reject null byte injection", () => {
+      expect(() => validate("stream\x00.json")).toThrow(/Invalid stream ID/);
+      expect(() => validate("test\x00../etc")).toThrow(/Invalid stream ID/);
     });
   });
 });
