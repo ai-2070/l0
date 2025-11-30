@@ -17,6 +17,12 @@ import {
   createAudioEvent,
   createAdapterProgressEvent,
   createAdapterDoneEvent,
+  parallel,
+  race,
+  pipe,
+  createInMemoryEventStore,
+  createEventRecorder,
+  createEventReplayer,
   type L0Adapter,
   type L0Event,
   type L0DataPayload,
@@ -510,6 +516,450 @@ describeIf(hasOpenAI)("Multimodal Integration", () => {
       expect(result.state.dataOutputs[0].url).toBe(
         "https://example.com/image-2.png",
       );
+    });
+
+    it("should clear dataOutputs on fallback", async () => {
+      let streamCall = 0;
+      const combinedAdapter: L0Adapter<any> = {
+        name: "combined",
+        detect(input): input is any {
+          return false; // Always use explicitly
+        },
+        async *wrap(_input: any): AsyncGenerator<L0Event> {
+          streamCall++;
+          if (streamCall === 1) {
+            yield createImageEvent({ url: "https://example.com/primary.png" });
+            yield createAdapterProgressEvent({
+              percent: 50,
+              message: "Primary",
+            });
+            throw new Error("Primary failed");
+          } else {
+            yield createImageEvent({ url: "https://example.com/fallback.png" });
+            yield createAdapterProgressEvent({
+              percent: 100,
+              message: "Fallback",
+            });
+            yield createAdapterDoneEvent();
+          }
+        },
+      };
+
+      const result = await l0({
+        stream: () => ({}),
+        adapter: combinedAdapter,
+        fallbackStreams: [() => ({})],
+        retry: { attempts: 1 },
+        detectZeroTokens: false,
+      });
+
+      for await (const _ of result.stream) {
+        // consume
+      }
+
+      // Should only have data from fallback
+      expect(streamCall).toBe(2);
+      expect(result.state.dataOutputs).toHaveLength(1);
+      expect(result.state.dataOutputs[0].url).toBe(
+        "https://example.com/fallback.png",
+      );
+      expect(result.state.lastProgress?.message).toBe("Fallback");
+    });
+  });
+
+  describe("Parallel Operations with Multimodal", () => {
+    // Mock stream marker interface
+    interface MockImageStream {
+      __mockImage: true;
+      id: string;
+      delay: number;
+    }
+
+    // Adapter for mock image streams
+    const mockImageAdapter: L0Adapter<MockImageStream> = {
+      name: "mock-image",
+
+      detect(input): input is MockImageStream {
+        return !!input && typeof input === "object" && "__mockImage" in input;
+      },
+
+      async *wrap(stream: MockImageStream): AsyncGenerator<L0Event> {
+        const { id, delay } = stream;
+        yield createAdapterProgressEvent({
+          percent: 0,
+          message: `Starting ${id}`,
+        });
+        await new Promise((r) => setTimeout(r, delay));
+        yield createAdapterProgressEvent({
+          percent: 50,
+          message: `Processing ${id}`,
+        });
+        await new Promise((r) => setTimeout(r, delay));
+        yield createImageEvent({
+          url: `https://example.com/${id}.png`,
+        });
+        yield createAdapterProgressEvent({
+          percent: 100,
+          message: `Complete ${id}`,
+        });
+        yield createAdapterDoneEvent();
+      },
+    };
+
+    // Helper to create a mock multimodal stream config
+    function createMockImageStream(
+      id: string,
+      delay: number = 100,
+    ): MockImageStream {
+      return { __mockImage: true, id, delay };
+    }
+
+    it("should handle parallel() with multiple multimodal streams", async () => {
+      const parallelResult = await parallel([
+        {
+          stream: () => createMockImageStream("image-1", 50),
+          adapter: mockImageAdapter,
+          detectZeroTokens: false,
+        },
+        {
+          stream: () => createMockImageStream("image-2", 100),
+          adapter: mockImageAdapter,
+          detectZeroTokens: false,
+        },
+        {
+          stream: () => createMockImageStream("image-3", 75),
+          adapter: mockImageAdapter,
+          detectZeroTokens: false,
+        },
+      ]);
+
+      // parallel() consumes streams internally, so check state directly
+      expect(parallelResult.results).toHaveLength(3);
+
+      for (let i = 0; i < 3; i++) {
+        const result = parallelResult.results[i];
+        expect(result).not.toBeNull();
+
+        // State should track the image from each stream
+        expect(result!.state.dataOutputs).toHaveLength(1);
+        expect(result!.state.dataOutputs[0].url).toContain(`image-${i + 1}`);
+
+        // Progress should have been tracked
+        expect(result!.state.lastProgress?.percent).toBe(100);
+      }
+    });
+
+    it("should handle race() with multimodal streams - fastest wins", async () => {
+      const raceResult = await race([
+        {
+          stream: () => createMockImageStream("slow", 500),
+          adapter: mockImageAdapter,
+          detectZeroTokens: false,
+        },
+        {
+          stream: () => createMockImageStream("fast", 50),
+          adapter: mockImageAdapter,
+          detectZeroTokens: false,
+        },
+        {
+          stream: () => createMockImageStream("medium", 200),
+          adapter: mockImageAdapter,
+          detectZeroTokens: false,
+        },
+      ]);
+
+      // race() extends L0Result, so winning result is directly on raceResult
+      expect(raceResult.winnerIndex).toBe(1); // "fast" is at index 1
+
+      // State should only have the winning image (state is directly on raceResult)
+      expect(raceResult.state.dataOutputs).toHaveLength(1);
+      expect(raceResult.state.dataOutputs[0].url).toContain("fast");
+
+      // Progress should have been tracked
+      expect(raceResult.state.lastProgress?.percent).toBe(100);
+    });
+
+    it("should forward all event types unchanged in parallel()", async () => {
+      // Marker interface for full event stream
+      interface FullEventStream {
+        __fullEvent: true;
+      }
+
+      // Adapter that emits all multimodal event types
+      const fullEventAdapter: L0Adapter<FullEventStream> = {
+        name: "full-event",
+
+        detect(input): input is FullEventStream {
+          return !!input && typeof input === "object" && "__fullEvent" in input;
+        },
+
+        async *wrap(_stream: FullEventStream): AsyncGenerator<L0Event> {
+          yield { type: "token", value: "Hello ", timestamp: Date.now() };
+          yield createAdapterProgressEvent({
+            percent: 25,
+            step: 1,
+            totalSteps: 4,
+          });
+          yield { type: "token", value: "world", timestamp: Date.now() };
+          yield createAdapterProgressEvent({
+            percent: 50,
+            step: 2,
+            totalSteps: 4,
+          });
+          yield createImageEvent({
+            base64: "iVBORw0KGgo=",
+            mimeType: "image/png",
+            width: 256,
+            height: 256,
+          });
+          yield createAdapterProgressEvent({
+            percent: 75,
+            step: 3,
+            totalSteps: 4,
+          });
+          yield createAudioEvent({
+            base64: "SUQzBAA=",
+            mimeType: "audio/mpeg",
+            duration: 5.0,
+          });
+          yield createAdapterProgressEvent({
+            percent: 100,
+            step: 4,
+            totalSteps: 4,
+          });
+          yield createAdapterDoneEvent();
+        },
+      };
+
+      const parallelResult = await parallel([
+        {
+          stream: () => ({ __fullEvent: true }) as FullEventStream,
+          adapter: fullEventAdapter,
+          detectZeroTokens: false,
+        },
+        {
+          stream: () => ({ __fullEvent: true }) as FullEventStream,
+          adapter: fullEventAdapter,
+          detectZeroTokens: false,
+        },
+      ]);
+
+      // parallel() consumes streams internally, verify state captures all data
+      expect(parallelResult.results).toHaveLength(2);
+
+      for (const result of parallelResult.results) {
+        expect(result).not.toBeNull();
+
+        // State should have both data outputs (image + audio)
+        expect(result!.state.dataOutputs).toHaveLength(2);
+
+        // Verify image data is preserved
+        const imageOutput = result!.state.dataOutputs.find(
+          (d) => d.contentType === "image",
+        );
+        expect(imageOutput?.base64).toBe("iVBORw0KGgo=");
+        expect(imageOutput?.metadata?.width).toBe(256);
+        expect(imageOutput?.metadata?.height).toBe(256);
+
+        // Verify audio data is preserved
+        const audioOutput = result!.state.dataOutputs.find(
+          (d) => d.contentType === "audio",
+        );
+        expect(audioOutput?.base64).toBe("SUQzBAA=");
+        expect(audioOutput?.metadata?.duration).toBe(5.0);
+
+        // Text tokens should be accumulated
+        expect(result!.state.content).toBe("Hello world");
+
+        // Progress should have been tracked
+        expect(result!.state.lastProgress?.percent).toBe(100);
+        expect(result!.state.lastProgress?.step).toBe(4);
+      }
+    });
+  });
+
+  describe("Pipeline with Multimodal Events", () => {
+    it("should forward multimodal events through pipeline stages", async () => {
+      // Stage 1: Generate an image
+      const stage1 = {
+        name: "generate-image",
+        fn: (_input: string) => ({
+          stream: (): AsyncIterable<L0Event> => ({
+            async *[Symbol.asyncIterator]() {
+              yield createAdapterProgressEvent({
+                percent: 0,
+                message: "Generating",
+              });
+              yield createImageEvent({
+                url: "https://example.com/generated.png",
+                width: 512,
+                height: 512,
+                model: "test-model",
+              });
+              yield {
+                type: "token",
+                value: "Image generated",
+                timestamp: Date.now(),
+              };
+              yield createAdapterProgressEvent({
+                percent: 100,
+                message: "Done",
+              });
+              yield { type: "done", timestamp: Date.now() };
+            },
+          }),
+          detectZeroTokens: false,
+        }),
+      };
+
+      // Stage 2: Describe the image (receives previous output)
+      const stage2 = {
+        name: "describe-image",
+        fn: (prevOutput: string, context: any) => ({
+          stream: (): AsyncIterable<L0Event> => ({
+            async *[Symbol.asyncIterator]() {
+              // Access the image URL from previous stage output
+              yield {
+                type: "token",
+                value: `Describing: ${prevOutput}`,
+                timestamp: Date.now(),
+              };
+              yield createAdapterProgressEvent({
+                percent: 100,
+                message: "Described",
+              });
+              yield { type: "done", timestamp: Date.now() };
+            },
+          }),
+        }),
+      };
+
+      const result = await pipe([stage1, stage2], "test-prompt");
+
+      // Pipeline returns stepResults, not a stream
+      expect(result.steps).toHaveLength(2);
+      expect(result.steps[0].output).toContain("Image generated");
+      expect(result.steps[1].output).toContain("Describing");
+    });
+
+    it("should preserve L0Event.data through pipeline", async () => {
+      const imageData: L0DataPayload = {
+        contentType: "image",
+        mimeType: "image/png",
+        base64:
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        metadata: {
+          width: 1,
+          height: 1,
+          seed: 12345,
+          model: "test",
+          custom: "value",
+        },
+      };
+
+      const stage1 = {
+        name: "emit-data",
+        fn: (_input: string) => ({
+          stream: (): AsyncIterable<L0Event> => ({
+            async *[Symbol.asyncIterator]() {
+              yield { type: "data", data: imageData, timestamp: Date.now() };
+              yield {
+                type: "token",
+                value: "with-data",
+                timestamp: Date.now(),
+              };
+              yield { type: "done", timestamp: Date.now() };
+            },
+          }),
+        }),
+      };
+
+      const result = await pipe([stage1], "input");
+
+      // Verify stage completed and has data outputs
+      expect(result.steps).toHaveLength(1);
+      expect(result.steps[0].l0Result.state.dataOutputs).toHaveLength(1);
+      expect(result.steps[0].l0Result.state.dataOutputs[0].contentType).toBe(
+        "image",
+      );
+      expect(result.steps[0].l0Result.state.dataOutputs[0].base64).toBe(
+        imageData.base64,
+      );
+      expect(result.steps[0].l0Result.state.dataOutputs[0].metadata?.seed).toBe(
+        12345,
+      );
+    });
+  });
+
+  describe("Event Recording and Replay with Multimodal", () => {
+    it("should record and replay multimodal tokens", async () => {
+      const store = createInMemoryEventStore();
+      const streamId = `multimodal-test-${Date.now()}`;
+      const recorder = createEventRecorder(store, streamId);
+
+      // Record a multimodal stream
+      await recorder.recordStart({ prompt: "Generate image" });
+      await recorder.recordToken("Processing ", 0);
+      await recorder.recordToken("image...", 1);
+      await recorder.recordComplete("Processing image...", 2);
+
+      // Replay and verify
+      const replayer = createEventReplayer(store);
+      const tokens: string[] = [];
+      for await (const token of replayer.replayTokens(streamId)) {
+        tokens.push(token);
+      }
+
+      expect(tokens.join("")).toBe("Processing image...");
+    });
+
+    it("should preserve event sequence during replay", async () => {
+      const store = createInMemoryEventStore();
+      const streamId = `sequence-test-${Date.now()}`;
+      const recorder = createEventRecorder(store, streamId);
+
+      // Record events
+      await recorder.recordStart({ prompt: "test" });
+      await recorder.recordToken("A", 0);
+      await recorder.recordToken("B", 1);
+      await recorder.recordToken("C", 2);
+      await recorder.recordComplete("ABC", 3);
+
+      // Verify sequence via getEvents
+      const events = await store.getEvents(streamId);
+      expect(events).toHaveLength(5); // START + 3 tokens + COMPLETE
+
+      // Verify sequence numbers
+      for (let i = 0; i < events.length; i++) {
+        expect(events[i].seq).toBe(i);
+      }
+
+      // Verify token order
+      const tokenEvents = events.filter((e) => e.event.type === "TOKEN");
+      expect(tokenEvents[0].event).toMatchObject({ type: "TOKEN", value: "A" });
+      expect(tokenEvents[1].event).toMatchObject({ type: "TOKEN", value: "B" });
+      expect(tokenEvents[2].event).toMatchObject({ type: "TOKEN", value: "C" });
+    });
+
+    it("should replay to correct final state", async () => {
+      const store = createInMemoryEventStore();
+      const streamId = `state-test-${Date.now()}`;
+      const recorder = createEventRecorder(store, streamId);
+
+      const content = "Hello multimodal world!";
+
+      await recorder.recordStart({ prompt: "test", model: "test-model" });
+      for (let i = 0; i < content.length; i++) {
+        await recorder.recordToken(content[i], i);
+      }
+      await recorder.recordComplete(content, content.length);
+
+      // Replay to state
+      const replayer = createEventReplayer(store);
+      const state = await replayer.replayToState(streamId);
+
+      expect(state.content).toBe(content);
+      expect(state.completed).toBe(true);
     });
   });
 });
