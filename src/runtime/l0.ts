@@ -337,10 +337,10 @@ export async function l0<TOutput = unknown>(
             sourceStream = streamResult.textStream;
           } else if (streamResult.fullStream) {
             sourceStream = streamResult.fullStream;
-          } else if (Symbol.asyncIterator in streamResult) {
-            sourceStream = streamResult;
           }
-          // 3. Auto-detection via registered adapters (last resort)
+          // 3. Auto-detection via registered adapters
+          // MUST come before generic Symbol.asyncIterator check!
+          // Provider streams are async iterables but need adapters to convert to L0Events
           else if (hasMatchingAdapter(streamResult)) {
             const adapter = detectAdapter(streamResult);
             sourceStream = adapter.wrap(
@@ -348,7 +348,11 @@ export async function l0<TOutput = unknown>(
               processedOptions.adapterOptions,
             );
           }
-          // 4. No valid stream found
+          // 4. Generic async iterable (already L0Events or compatible)
+          else if (Symbol.asyncIterator in streamResult) {
+            sourceStream = streamResult;
+          }
+          // 5. No valid stream found
           else {
             throw new L0Error(
               "Invalid stream result - no iterable stream found and no adapter matched. " +
