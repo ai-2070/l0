@@ -427,14 +427,14 @@ const result = await consensus({
   // Optional: Schema for structured consensus
   schema: z.object({ answer: z.string() }),
 
-  // Optional: Strategy
+  // Optional: Strategy, default as follows
   strategy: "majority", // "majority" | "unanimous" | "weighted" | "best"
   threshold: 0.8,
 
-  // Optional: Conflict resolution
+  // Optional: Conflict resolution, default as follows
   resolveConflicts: "vote", // "vote" | "merge" | "best" | "fail"
 
-  // Optional: Weights (for "weighted" strategy)
+  // Optional: Weights (for "weighted" strategy), default: equal-weighted
   weights: [1.0, 0.8, 0.6],
 });
 
@@ -568,6 +568,7 @@ import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 ```typescript
 const result = await l0({
   stream,
+  // Optional: default as follows
   retry: {
     attempts: 3, // LLM errors only
     maxRetries: 6, // Absolute cap (LLM + network)
@@ -587,7 +588,7 @@ const result = await l0({
       "server_error",
     ],
 
-    maxErrorHistory: 100, // Prevent memory leaks
+    maxErrorHistory: 100, // Default: Infinite
     errorTypeDelays: {
       connectionDropped: 2000,
       timeout: 1500,
@@ -669,7 +670,7 @@ Custom delays for specific network error types. Overrides `baseDelay` for fine-g
 
 ```typescript
 errorTypeDelays: {
-  // Connection errors
+  // Connection errors, default as follows
   connectionDropped: 2000,  // Connection dropped mid-stream
   econnreset: 1500,         // Connection reset by peer
   econnrefused: 3000,       // Connection refused
