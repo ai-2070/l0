@@ -187,6 +187,7 @@ import {
   minimalRetry, // 2 attempts
   recommendedRetry, // 3 attempts, fixed-jitter backoff
   strictRetry, // 3 attempts, full-jitter backoff
+  exponentialRetry, // 4 attempts, exponential backoff
 } from "@ai2070/l0";
 ```
 

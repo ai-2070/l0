@@ -126,7 +126,7 @@ export {
 } from "./guardrails";
 
 // Retry presets
-export { minimalRetry, recommendedRetry, strictRetry } from "./types/l0";
+export { minimalRetry, recommendedRetry, strictRetry, exponentialRetry } from "./types/l0";
 
 // Retry utilities
 export {

@@ -26,4 +26,5 @@ export {
   minimalRetry,
   recommendedRetry,
   strictRetry,
+  exponentialRetry,
 } from "./l0";
