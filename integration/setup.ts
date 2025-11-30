@@ -7,10 +7,8 @@ config(); // Load .env file
 import { describe, it, expect, beforeAll } from "vitest";
 
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 export const hasOpenAI = !!OPENAI_API_KEY;
-export const hasAnthropic = !!ANTHROPIC_API_KEY;
 
 // Skip helper for conditional tests
 export const describeIf = (condition: boolean) =>
@@ -25,14 +23,11 @@ export const LLM_TIMEOUT = 30000;
 beforeAll(() => {
   console.log("\n=== Integration Test Environment ===");
   console.log(`OpenAI API Key: ${hasOpenAI ? "✓ Available" : "✗ Missing"}`);
-  console.log(
-    `Anthropic API Key: ${hasAnthropic ? "✓ Available" : "✗ Missing"}`,
-  );
   console.log("");
 
-  if (!hasOpenAI && !hasAnthropic) {
+  if (!hasOpenAI) {
     console.log(
-      "⚠ No API keys found. Set OPENAI_API_KEY or ANTHROPIC_API_KEY to run integration tests.",
+      "⚠ No API keys found. Set OPENAI_API_KEY to run integration tests.",
     );
   }
 });
