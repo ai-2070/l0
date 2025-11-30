@@ -78,7 +78,7 @@ const result = await l0({
 for await (const event of result.stream) {
 ```
 
-### With Vercel AI SDK: Expanded
+### Vercel AI SDK: Expanded
 
 ```typescript
 import { l0, recommendedGuardrails, recommendedRetry } from "@ai2070/l0";
