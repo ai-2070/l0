@@ -236,7 +236,7 @@ switch (category) {
 **MODEL (retry with limit)**
 
 - Guardrail violations
-- Malformed output
+- Server error (model-side)
 - Drift detected
 - Incomplete structure
 
