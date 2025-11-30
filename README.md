@@ -72,7 +72,7 @@ const result = await l0({
   // Other presets:
   // minimalGuardrails       // JSON + zero output
   // recommendedGuardrails   // + Markdown, patterns
-  // strictGuardrails        // + LaTeX, structure
+  // strictGuardrails        // + LaTeX
   // jsonOnlyGuardrails      // JSON only
   // markdownOnlyGuardrails  // Markdown only
   // latexOnlyGuardrails     // LaTeX only

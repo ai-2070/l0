@@ -70,13 +70,13 @@ export interface ErrorTypeDelays {
  */
 export interface RetryConfig {
   /**
-   * Maximum retry attempts for model failures (default: 2)
+   * Maximum retry attempts for model failures (default: 3)
    * Network and transient errors do not count toward this limit.
    */
   attempts: number;
 
   /**
-   * Absolute maximum number of retries across ALL error types (default: undefined = unlimited)
+   * Absolute maximum number of retries across ALL error types (default: 6)
    * This is a hard cap that includes network errors, transient errors, and model errors.
    * When set, no more than this many total retries will be attempted regardless of error type.
    * Useful for preventing infinite retry loops in degraded network conditions.

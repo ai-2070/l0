@@ -478,8 +478,8 @@ import {
 ```typescript
 import {
   minimalGuardrails, // JSON + zero output
-  recommendedGuardrails, // + Markdown, drift, patterns
-  strictGuardrails, // All rules
+  recommendedGuardrails, // + Markdown, patterns
+  strictGuardrails, // + LaTeX
   jsonOnlyGuardrails,
   markdownOnlyGuardrails,
   latexOnlyGuardrails,
@@ -536,9 +536,9 @@ const result = engine.check({
 
 ```typescript
 import {
-  minimalRetry, // { attempts: 1 }
-  recommendedRetry, // { attempts: 3, backoff: "fixed-jitter" }
-  strictRetry, // { attempts: 3, backoff: "full-jitter" }
+  minimalRetry, // { attempts: 2 }
+  recommendedRetry, // { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
+  strictRetry, // { attempts: 3, maxRetries: 6, backoff: "full-jitter" }
 } from "@ai2070/l0";
 ```
 

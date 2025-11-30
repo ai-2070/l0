@@ -575,13 +575,13 @@ export interface CategorizedNetworkError {
  */
 export interface RetryOptions {
   /**
-   * Maximum retry attempts for model failures (default: 2)
+   * Maximum retry attempts for model failures (default: 3)
    * Network and transient errors do not count toward this limit.
    */
   attempts?: number;
 
   /**
-   * Absolute maximum number of retries across ALL error types (default: unlimited)
+   * Absolute maximum number of retries across ALL error types (default: 6)
    * This is a hard cap that includes network errors, transient errors, and model errors.
    * When set, no more than this many total retries will be attempted regardless of error type.
    * Useful for preventing infinite retry loops in degraded network conditions.
@@ -591,8 +591,8 @@ export interface RetryOptions {
    * // Allow up to 10 total retries, then fail
    * retry: { maxRetries: 10 }
    *
-   * // Allow 2 model retries, but cap total at 5 (including network retries)
-   * retry: { attempts: 2, maxRetries: 5 }
+   * // Allow 3 model retries, but cap total at 5 (including network retries)
+   * retry: { attempts: 3, maxRetries: 5 }
    * ```
    */
   maxRetries?: number;
