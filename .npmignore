@@ -1,21 +1,30 @@
 # Source files (dist is published)
 src/
-
-# Tests
+examples/
 tests/
 integration/
-*.test.ts
-vitest.config.ts
-vitest.integration.config.ts
 coverage/
+
+# Tests
+*.test.*
+vitest.config.*
+vitest.*.config.*
 
 # Documentation (README is included via package.json files)
 *.md
 !README.md
-.env.*
-
-# Examples
-examples/
+!API.md
+!DOCUMENT_WINDOWS.md
+!MONITORING.md
+!ERROR_HANDLING.md
+!FORMATTING.md
+!GUARDRAILS.md
+!INTERCEPTORS_AND_PARALLEL.md
+!NETWORK_ERRORS.md
+!PERFORMANCE.md
+!QUICKSTART.md
+!STRUCTURED_OUTPUT.md
+.env*
 
 # Build artifacts
 html/
@@ -33,10 +42,13 @@ Thumbs.db
 
 # Dev dependencies config
 tsconfig.json
+tsconfig.*.json
 renovate.json
 
 # Lock files (users have their own)
 package-lock.json
+pnpm-lock.yaml
+yarn.lock
 
 # Git
 .git/
