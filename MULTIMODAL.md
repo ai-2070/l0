@@ -220,6 +220,24 @@ interface L0State {
 }
 ```
 
+## Important Notes
+
+### Zero Token Detection
+
+For streams that only produce `data` or `progress` events (no text tokens), disable zero token detection:
+
+```typescript
+const result = await l0({
+  stream: () => imageGenerator.generate(prompt),
+  adapter: imageAdapter,
+  detectZeroTokens: false, // Required for non-text streams
+});
+```
+
+### Checkpoint Continuation
+
+`continueFromLastKnownGoodToken` only works with text content. It has no effect on data-only streams since there's no text to checkpoint. For multimodal streams that include text, only the text portion will be checkpointed and resumed.
+
 ## Complete Example: Flux Image Generation
 
 ```typescript
