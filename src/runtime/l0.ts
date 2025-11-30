@@ -6,9 +6,7 @@ import type {
   L0State,
   L0Event,
   L0Adapter,
-  CheckpointValidationResult,
 } from "../types/l0";
-import type { GuardrailContext } from "../types/guardrails";
 import { GuardrailEngine } from "../guardrails/engine";
 import { RetryManager } from "./retry";
 import { DriftDetector } from "./drift";
@@ -24,55 +22,13 @@ import {
   hasMatchingAdapter,
 } from "../adapters/registry";
 
-/**
- * Validate checkpoint content before using for continuation
- * This ensures all protections apply to the resumed content
- */
-function validateCheckpointForContinuation(
-  checkpointContent: string,
-  guardrailEngine: GuardrailEngine | null,
-  driftDetector: DriftDetector | null,
-): CheckpointValidationResult {
-  const result: CheckpointValidationResult = {
-    skipContinuation: false,
-    violations: [],
-    driftDetected: false,
-    driftTypes: [],
-  };
+// Import from extracted modules
+import { createInitialState, resetStateForRetry } from "./state";
+import { validateCheckpointForContinuation } from "./checkpoint";
+import { safeInvokeCallback } from "./callbacks";
 
-  // Run guardrails on checkpoint content
-  if (guardrailEngine) {
-    const checkpointContext: GuardrailContext = {
-      content: checkpointContent,
-      checkpoint: "",
-      delta: checkpointContent,
-      tokenCount: 1,
-      completed: false,
-    };
-    const checkpointResult = guardrailEngine.check(checkpointContext);
-    if (checkpointResult.violations.length > 0) {
-      result.violations = checkpointResult.violations;
-      // Check for fatal violations - if any, skip continuation
-      const hasFatal = checkpointResult.violations.some(
-        (v) => v.severity === "fatal",
-      );
-      if (hasFatal) {
-        result.skipContinuation = true;
-      }
-    }
-  }
-
-  // Run drift detection on checkpoint content (only if not already skipping)
-  if (!result.skipContinuation && driftDetector) {
-    const driftResult = driftDetector.check(checkpointContent);
-    if (driftResult.detected) {
-      result.driftDetected = true;
-      result.driftTypes = driftResult.types;
-    }
-  }
-
-  return result;
-}
+// Re-export helpers for backward compatibility
+export { getText, consumeStream } from "./helpers";
 
 /**
  * Main L0 wrapper function
@@ -1233,114 +1189,4 @@ export async function l0<TOutput = unknown>(
 
   // Return processed result
   return result;
-}
-
-/**
- * Safely invoke a user callback, catching and logging any errors
- * This prevents callback errors from crashing the stream
- */
-function safeInvokeCallback<T>(
-  callback: ((arg: T) => void) | undefined,
-  arg: T,
-  monitor: L0Monitor,
-  callbackName: string = "callback",
-): void {
-  if (!callback) return;
-  try {
-    callback(arg);
-  } catch (error) {
-    monitor.logEvent({
-      type: "warning",
-      message: `${callbackName} threw: ${error instanceof Error ? error.message : String(error)}`,
-    });
-  }
-}
-
-/**
- * Create initial L0 state
- */
-function createInitialState(): L0State {
-  return {
-    content: "",
-    checkpoint: "",
-    tokenCount: 0,
-    retryAttempts: 0,
-    networkRetries: 0,
-    fallbackIndex: 0,
-    violations: [],
-    driftDetected: false,
-    completed: false,
-    networkErrors: [],
-    continuedFromCheckpoint: false,
-    dataOutputs: [],
-  };
-}
-
-/**
- * Reset L0 state for retry/fallback while preserving specific fields
- * This centralizes state reset logic to prevent inconsistencies
- */
-function resetStateForRetry(
-  state: L0State,
-  preserve: {
-    checkpoint?: string;
-    continuedFromCheckpoint?: boolean;
-    continuationCheckpoint?: string;
-    retryAttempts?: number;
-    networkRetries?: number;
-    fallbackIndex?: number;
-  } = {},
-): void {
-  state.content = "";
-  state.tokenCount = 0;
-  state.violations = [];
-  state.driftDetected = false;
-  state.dataOutputs = [];
-  state.lastProgress = undefined;
-  state.completed = false;
-
-  // Restore preserved fields
-  if (preserve.checkpoint !== undefined) {
-    state.checkpoint = preserve.checkpoint;
-  }
-  if (preserve.continuedFromCheckpoint !== undefined) {
-    state.continuedFromCheckpoint = preserve.continuedFromCheckpoint;
-  }
-  if (preserve.continuationCheckpoint !== undefined) {
-    state.continuationCheckpoint = preserve.continuationCheckpoint;
-  }
-  if (preserve.retryAttempts !== undefined) {
-    state.retryAttempts = preserve.retryAttempts;
-  }
-  if (preserve.networkRetries !== undefined) {
-    state.networkRetries = preserve.networkRetries;
-  }
-  if (preserve.fallbackIndex !== undefined) {
-    state.fallbackIndex = preserve.fallbackIndex;
-  }
-}
-
-/**
- * Helper to consume stream and get final text
- */
-export async function getText(result: L0Result): Promise<string> {
-  for await (const _event of result.stream) {
-    // Just consume the stream
-  }
-  return result.state.content;
-}
-
-/**
- * Helper to consume stream with callback
- */
-export async function consumeStream(
-  result: L0Result,
-  onToken: (token: string) => void,
-): Promise<string> {
-  for await (const event of result.stream) {
-    if (event.type === "token" && event.value) {
-      onToken(event.value);
-    }
-  }
-  return result.state.content;
 }
