@@ -45,7 +45,8 @@ npm install @ai2070/l0
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
 | **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
-| **🧪 Battle-Tested**                             | 1,400+ unit tests and 230+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
+| **🧪 Battle-Tested**                             | 1,500+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
+| **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                      |
 
 ## Quick Start
 
@@ -929,6 +930,66 @@ See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for complete guide.
 
 ---
 
+## Custom Adapters (BYOA)
+
+L0 supports custom adapters for integrating any LLM provider. Built-in adapters include `openaiAdapter`, `mastraAdapter`, and `anthropicAdapter` (reference implementation).
+
+### Explicit Adapter Usage
+
+```typescript
+import { l0, openaiAdapter } from "@ai2070/l0";
+import OpenAI from "openai";
+
+const openai = new OpenAI();
+
+const result = await l0({
+  stream: () =>
+    openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [{ role: "user", content: "Hello!" }],
+      stream: true,
+    }),
+  adapter: openaiAdapter,
+});
+```
+
+### Building Custom Adapters
+
+```typescript
+import { toL0Events, type L0Adapter } from "@ai2070/l0";
+
+interface MyChunk {
+  text?: string;
+}
+
+const myAdapter: L0Adapter<AsyncIterable<MyChunk>> = {
+  name: "myai",
+
+  // Optional: Enable auto-detection
+  detect(input): input is AsyncIterable<MyChunk> {
+    return !!input && typeof input === "object" && "__myMarker" in input;
+  },
+
+  // Convert provider stream to L0 events
+  wrap(stream) {
+    return toL0Events(stream, (chunk) => chunk.text ?? null);
+  },
+};
+```
+
+### Adapter Invariants
+
+Adapters MUST:
+
+- Preserve text exactly (no trimming, no modification)
+- Include timestamps on every event
+- Convert errors to error events (never throw)
+- Emit done event exactly once at end
+
+See [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md) for complete guide including helper functions, registry API, and testing patterns.
+
+---
+
 ## Error Handling
 
 L0 provides detailed error context for debugging and recovery:
@@ -970,8 +1031,8 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 
 | Category          | Tests  | Description                      |
 | ----------------- | ------ | -------------------------------- |
-| Unit Tests        | 1,400+ | Fast, mocked, no API calls       |
-| Integration Tests | 230+   | Real API calls, all SDK adapters |
+| Unit Tests        | 1,500+ | Fast, mocked, no API calls       |
+| Integration Tests | 250+   | Real API calls, all SDK adapters |
 
 ```bash
 # Run unit tests (fast, no API keys needed)
@@ -1032,6 +1093,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics       |
 | [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails |
 | [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers          |
+| [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md)                     | Build your own adapters     |
 
 ---
 

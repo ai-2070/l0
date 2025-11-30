@@ -11,6 +11,7 @@ import {
 import {
   l0,
   openaiStream,
+  openaiAdapter,
   openaiText,
   openaiJSON,
   openaiWithTools,
@@ -21,6 +22,31 @@ import OpenAI from "openai";
 const client = hasOpenAI ? new OpenAI() : null;
 
 describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
+  describe("openaiAdapter", () => {
+    it(
+      "should stream with explicit adapter",
+      async () => {
+        const result = await l0({
+          stream: () =>
+            client!.chat.completions.create({
+              model: "gpt-5-nano",
+              messages: [{ role: "user", content: "Say 'adapter'" }],
+              stream: true,
+            }),
+          adapter: openaiAdapter,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        expectValidResponse(result.state.content);
+        expect(result.state.content.toLowerCase()).toContain("adapter");
+      },
+      LLM_TIMEOUT,
+    );
+  });
+
   describe("openaiStream", () => {
     it(
       "should stream with openaiStream helper",

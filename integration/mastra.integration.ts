@@ -11,6 +11,7 @@ import {
 import {
   l0,
   mastraStream,
+  mastraAdapter,
   wrapMastraStream,
   extractMastraText,
   recommendedGuardrails,
@@ -68,6 +69,28 @@ describeIf(hasOpenAI)("Mastra AI Integration", () => {
 
         expectValidResponse(result.state.content);
         expect(result.state.content).toContain("2");
+      },
+      LLM_TIMEOUT,
+    );
+  });
+
+  describe("mastraAdapter", () => {
+    it(
+      "should stream with explicit adapter",
+      async () => {
+        const agent = createTestAgent();
+
+        const result = await l0({
+          stream: () => agent.stream("Say 'adapter' and nothing else"),
+          adapter: mastraAdapter,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        expectValidResponse(result.state.content);
+        expect(result.state.content.toLowerCase()).toContain("adapter");
       },
       LLM_TIMEOUT,
     );

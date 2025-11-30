@@ -4,7 +4,7 @@
 // This adapter works with the `@mastra/core` package (v0.18+).
 // Install it with: npm install @mastra/core
 
-import type { L0Event } from "../types/l0";
+import type { L0Event, L0Adapter } from "../types/l0";
 import type { Agent } from "@mastra/core/agent";
 import type { MastraModelOutput } from "@mastra/core/stream";
 
@@ -508,6 +508,38 @@ export async function extractMastraObject<T>(
 ): Promise<T> {
   return streamResult.object as Promise<T>;
 }
+
+/**
+ * Mastra adapter for L0
+ *
+ * Use with `registerAdapter()` for auto-detection or pass directly to `l0({ adapter })`.
+ *
+ * @example
+ * ```typescript
+ * import { l0, mastraAdapter } from '@ai2070/l0';
+ * import { Agent } from '@mastra/core';
+ *
+ * const agent = new Agent({
+ *   name: 'my-agent',
+ *   instructions: 'You are a helpful assistant.',
+ *   model: openai('gpt-5-micro'),
+ * });
+ *
+ * // Explicit adapter usage
+ * const result = await l0({
+ *   stream: () => agent.stream('Hello!'),
+ *   adapter: mastraAdapter,
+ * });
+ * ```
+ */
+export const mastraAdapter: L0Adapter<
+  MastraModelOutput<any>,
+  MastraAdapterOptions
+> = {
+  name: "mastra",
+  detect: isMastraStream,
+  wrap: wrapMastraStream,
+};
 
 // Re-export Mastra types for convenience
 export type { Agent } from "@mastra/core/agent";

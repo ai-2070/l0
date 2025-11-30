@@ -1,8 +1,9 @@
 // Comprehensive runtime l0() tests
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { l0, getText } from "../src/runtime/l0";
 import type { L0Options, L0Event } from "../src/types/l0";
 import { jsonRule, zeroOutputRule } from "../src/guardrails";
+import { registerAdapter, clearAdapters } from "../src/adapters/registry";
 
 // Mock stream helpers
 function createMockStream(
@@ -1499,6 +1500,302 @@ describe("L0 Runtime", () => {
         // since we're not retrying anyway
         expect(calculateDelayCalled).toBe(false);
       });
+    });
+  });
+
+  describe("Adapter Auto-Detection", () => {
+    beforeEach(() => {
+      clearAdapters();
+    });
+
+    afterEach(() => {
+      clearAdapters();
+    });
+
+    it("should auto-detect and use registered adapter for async iterable streams", async () => {
+      // This test ensures adapters are checked BEFORE the generic Symbol.asyncIterator branch
+      interface CustomChunk {
+        customText: string;
+        __customMarker: true;
+      }
+
+      type CustomStream = AsyncIterable<CustomChunk> & { __customMarker: true };
+
+      // Create a custom stream that is async iterable but needs an adapter
+      function createCustomStream(texts: string[]): CustomStream {
+        const stream = {
+          __customMarker: true as const,
+          async *[Symbol.asyncIterator]() {
+            for (const text of texts) {
+              yield { customText: text, __customMarker: true as const };
+            }
+          },
+        };
+        return stream as CustomStream;
+      }
+
+      // Register adapter with detect()
+      const customAdapter = {
+        name: "custom-test",
+        detect(input: unknown): input is CustomStream {
+          return (
+            !!input &&
+            typeof input === "object" &&
+            "__customMarker" in input &&
+            Symbol.asyncIterator in input
+          );
+        },
+        async *wrap(stream: CustomStream) {
+          for await (const chunk of stream) {
+            yield {
+              type: "token" as const,
+              value: chunk.customText,
+              timestamp: Date.now(),
+            };
+          }
+          yield { type: "done" as const, timestamp: Date.now() };
+        },
+      };
+
+      registerAdapter(customAdapter);
+
+      // Use l0 WITHOUT explicit adapter - should auto-detect
+      const result = await l0({
+        stream: () => createCustomStream(["Hello", " ", "World"]),
+        // No adapter specified!
+      });
+
+      const events: L0Event[] = [];
+      for await (const event of result.stream) {
+        events.push(event);
+      }
+
+      // Verify adapter was used (tokens extracted correctly)
+      const tokens = events
+        .filter((e) => e.type === "token")
+        .map((e) => (e as any).value);
+      expect(tokens).toEqual(["Hello", " ", "World"]);
+      expect(events.some((e) => e.type === "done")).toBe(true);
+    });
+
+    it("should prefer explicit adapter over auto-detection", async () => {
+      interface CustomChunk {
+        text: string;
+        __marker: true;
+      }
+
+      type CustomStream = AsyncIterable<CustomChunk> & { __marker: true };
+
+      function createCustomStream(texts: string[]): CustomStream {
+        const stream = {
+          __marker: true as const,
+          async *[Symbol.asyncIterator]() {
+            for (const text of texts) {
+              yield { text, __marker: true as const };
+            }
+          },
+        };
+        return stream as CustomStream;
+      }
+
+      // Register auto-detect adapter
+      const autoAdapter = {
+        name: "auto-adapter",
+        detect(input: unknown): input is CustomStream {
+          return !!input && typeof input === "object" && "__marker" in input;
+        },
+        async *wrap(stream: CustomStream) {
+          for await (const chunk of stream) {
+            yield {
+              type: "token" as const,
+              value: "AUTO:" + chunk.text,
+              timestamp: Date.now(),
+            };
+          }
+          yield { type: "done" as const, timestamp: Date.now() };
+        },
+      };
+
+      // Explicit adapter (different behavior)
+      const explicitAdapter = {
+        name: "explicit-adapter",
+        async *wrap(stream: CustomStream) {
+          for await (const chunk of stream) {
+            yield {
+              type: "token" as const,
+              value: "EXPLICIT:" + chunk.text,
+              timestamp: Date.now(),
+            };
+          }
+          yield { type: "done" as const, timestamp: Date.now() };
+        },
+      };
+
+      registerAdapter(autoAdapter);
+
+      // Use explicit adapter
+      const result = await l0({
+        stream: () => createCustomStream(["Test"]),
+        adapter: explicitAdapter,
+      });
+
+      const events: L0Event[] = [];
+      for await (const event of result.stream) {
+        events.push(event);
+      }
+
+      // Should use explicit adapter, not auto-detected one
+      const tokens = events
+        .filter((e) => e.type === "token")
+        .map((e) => (e as any).value);
+      expect(tokens).toEqual(["EXPLICIT:Test"]);
+    });
+
+    it("should fall back to generic async iterable when no adapter matches", async () => {
+      // Create a stream that yields L0Events directly (no adapter needed)
+      function createL0EventStream(texts: string[]) {
+        return {
+          async *[Symbol.asyncIterator]() {
+            for (const text of texts) {
+              yield {
+                type: "token" as const,
+                value: text,
+                timestamp: Date.now(),
+              };
+            }
+            yield { type: "done" as const, timestamp: Date.now() };
+          },
+        };
+      }
+
+      // No adapters registered, stream is already L0Events
+      const result = await l0({
+        stream: () => createL0EventStream(["A", "B", "C"]),
+      });
+
+      const events: L0Event[] = [];
+      for await (const event of result.stream) {
+        events.push(event);
+      }
+
+      const tokens = events
+        .filter((e) => e.type === "token")
+        .map((e) => (e as any).value);
+      expect(tokens).toEqual(["A", "B", "C"]);
+    });
+
+    it("should use adapter by name when registered", async () => {
+      interface NamedChunk {
+        content: string;
+      }
+
+      const namedAdapter = {
+        name: "named-test-adapter",
+        async *wrap(stream: AsyncIterable<NamedChunk>) {
+          for await (const chunk of stream) {
+            yield {
+              type: "token" as const,
+              value: chunk.content,
+              timestamp: Date.now(),
+            };
+          }
+          yield { type: "done" as const, timestamp: Date.now() };
+        },
+      };
+
+      registerAdapter(namedAdapter, { silent: true });
+
+      function createStream(): AsyncIterable<NamedChunk> {
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield { content: "Named" };
+            yield { content: "Adapter" };
+          },
+        };
+      }
+
+      const result = await l0({
+        stream: createStream,
+        adapter: "named-test-adapter",
+      });
+
+      const events: L0Event[] = [];
+      for await (const event of result.stream) {
+        events.push(event);
+      }
+
+      const tokens = events
+        .filter((e) => e.type === "token")
+        .map((e) => (e as any).value);
+      expect(tokens).toEqual(["Named", "Adapter"]);
+    });
+
+    it("should throw when adapter name is not found", async () => {
+      const result = await l0({
+        stream: () => ({ async *[Symbol.asyncIterator]() {} }),
+        adapter: "nonexistent-adapter",
+      });
+
+      // Error is thrown when consuming the stream
+      await expect(async () => {
+        for await (const _ of result.stream) {
+          // consume
+        }
+      }).rejects.toThrow('Adapter "nonexistent-adapter" not found');
+    });
+
+    it("should prefer textStream over auto-detection", async () => {
+      // Vercel AI SDK pattern - has textStream property
+      // Should use textStream even if adapter could match
+
+      const adapterWasCalled = { value: false };
+
+      const greedyAdapter = {
+        name: "greedy",
+        detect(input: unknown): input is any {
+          // Would match anything with asyncIterator
+          return (
+            !!input &&
+            typeof input === "object" &&
+            Symbol.asyncIterator in input
+          );
+        },
+        async *wrap(stream: any) {
+          adapterWasCalled.value = true;
+          for await (const chunk of stream) {
+            yield {
+              type: "token" as const,
+              value: chunk,
+              timestamp: Date.now(),
+            };
+          }
+          yield { type: "done" as const, timestamp: Date.now() };
+        },
+      };
+
+      registerAdapter(greedyAdapter);
+
+      // Vercel AI SDK-like result with textStream
+      const vercelLikeResult = {
+        textStream: {
+          async *[Symbol.asyncIterator]() {
+            yield { type: "text-delta", textDelta: "Vercel" };
+            yield { type: "text-delta", textDelta: "Stream" };
+          },
+        },
+      };
+
+      const result = await l0({
+        stream: () => vercelLikeResult,
+      });
+
+      const events: L0Event[] = [];
+      for await (const event of result.stream) {
+        events.push(event);
+      }
+
+      // Should NOT have called the adapter - textStream takes priority
+      expect(adapterWasCalled.value).toBe(false);
     });
   });
 });

@@ -10,6 +10,7 @@ export type {
   L0Result,
   L0State,
   L0Telemetry,
+  L0Adapter,
   CategorizedNetworkError,
   RetryOptions,
   CheckpointValidationResult,

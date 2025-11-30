@@ -1,4 +1,47 @@
 // L0 SDK Adapters
 // Adapters for using various LLM SDKs with L0
 
-export * from "./openai";
+// Adapter registry (BYOA - Bring Your Own Adapter)
+export {
+  registerAdapter,
+  unregisterAdapter,
+  getAdapter,
+  getRegisteredStreamAdapters,
+  clearAdapters,
+  detectAdapter,
+  hasMatchingAdapter,
+} from "./registry";
+
+// Adapter helpers for building custom adapters
+export {
+  toL0Events,
+  toL0EventsWithMessages,
+  createAdapterTokenEvent,
+  createAdapterDoneEvent,
+  createAdapterErrorEvent,
+  createAdapterMessageEvent,
+} from "./helpers";
+
+// Built-in adapters
+// Note: Using explicit exports to avoid forcing SDK imports at runtime.
+// Users who don't use a specific adapter won't need that SDK installed.
+export {
+  wrapOpenAIStream,
+  openaiAdapter,
+  openaiStream,
+  openaiText,
+  openaiJSON,
+  openaiWithTools,
+  isOpenAIChunk,
+  isOpenAIStream,
+  extractOpenAIText,
+} from "./openai";
+
+export {
+  wrapAnthropicStream,
+  anthropicAdapter,
+  anthropicStream,
+  anthropicText,
+  isAnthropicStream,
+  isAnthropicStreamEvent,
+} from "./anthropic";

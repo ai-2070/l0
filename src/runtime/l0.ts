@@ -5,6 +5,7 @@ import type {
   L0Result,
   L0State,
   L0Event,
+  L0Adapter,
   CheckpointValidationResult,
 } from "../types/l0";
 import type { GuardrailContext } from "../types/guardrails";
@@ -18,6 +19,11 @@ import { normalizeStreamEvent } from "./events";
 import { L0Monitor } from "./monitoring";
 import { isNetworkError, L0Error } from "../utils/errors";
 import { InterceptorManager } from "./interceptors";
+import {
+  getAdapter,
+  detectAdapter,
+  hasMatchingAdapter,
+} from "../adapters/registry";
 
 /**
  * Validate checkpoint content before using for continuation
@@ -295,15 +301,62 @@ export async function l0<TOutput = unknown>(
 
           // Handle different stream result types
           let sourceStream: AsyncIterable<any>;
-          if (streamResult.textStream) {
+
+          // 1. Explicit adapter (highest priority)
+          if (processedOptions.adapter) {
+            let adapter: L0Adapter | undefined;
+
+            if (typeof processedOptions.adapter === "string") {
+              // Lookup by name
+              adapter = getAdapter(processedOptions.adapter);
+              if (!adapter) {
+                throw new L0Error(
+                  `Adapter "${processedOptions.adapter}" not found. ` +
+                    `Use registerAdapter() to register it first.`,
+                  {
+                    code: "ADAPTER_NOT_FOUND",
+                    retryAttempts: state.retryAttempts,
+                    networkRetries: state.networkRetries,
+                    fallbackIndex,
+                    recoverable: false,
+                  },
+                );
+              }
+            } else {
+              // Direct adapter object
+              adapter = processedOptions.adapter;
+            }
+
+            sourceStream = adapter.wrap(
+              streamResult,
+              processedOptions.adapterOptions,
+            );
+          }
+          // 2. Native L0-compatible streams (Vercel AI SDK pattern)
+          else if (streamResult.textStream) {
             sourceStream = streamResult.textStream;
           } else if (streamResult.fullStream) {
             sourceStream = streamResult.fullStream;
-          } else if (Symbol.asyncIterator in streamResult) {
+          }
+          // 3. Auto-detection via registered adapters
+          // MUST come before generic Symbol.asyncIterator check!
+          // Provider streams are async iterables but need adapters to convert to L0Events
+          else if (hasMatchingAdapter(streamResult)) {
+            const adapter = detectAdapter(streamResult);
+            sourceStream = adapter.wrap(
+              streamResult,
+              processedOptions.adapterOptions,
+            );
+          }
+          // 4. Generic async iterable (already L0Events or compatible)
+          else if (Symbol.asyncIterator in streamResult) {
             sourceStream = streamResult;
-          } else {
+          }
+          // 5. No valid stream found
+          else {
             throw new L0Error(
-              "Invalid stream result - no iterable stream found",
+              "Invalid stream result - no iterable stream found and no adapter matched. " +
+                "Use explicit `adapter: myAdapter` or register an adapter with detect().",
               {
                 code: "INVALID_STREAM",
                 retryAttempts: state.retryAttempts,

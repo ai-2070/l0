@@ -59,7 +59,7 @@ describe("Prometheus Integration", () => {
 
     it("should set gauge value", () => {
       registry.setGauge("active_streams", "Active streams", 5, {
-        model: "gpt-4",
+        model: "gpt-5-micro",
       });
       registry.setGauge("active_streams", "Active streams", 3, {
         model: "gpt-3.5",
@@ -67,7 +67,7 @@ describe("Prometheus Integration", () => {
 
       const metrics = registry.expose();
       expect(metrics).toContain("test_l0_active_streams");
-      expect(metrics).toContain('model="gpt-4"');
+      expect(metrics).toContain('model="gpt-5-micro"');
     });
 
     it("should observe histogram values", () => {
