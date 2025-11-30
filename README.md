@@ -1,6 +1,6 @@
-# L0 - The Missing Reliability Layer for AI
+# L0 - The Missing Reliability Substrate for AI
 
-**Tiny. Predictable. Streaming-first.**
+**Tiny. Predictable. Replayable. Streaming-first.**
 
 > _LLMs are extraordinary minds wrapped in fragile interfaces._
 > _The reasoning is brilliant._
