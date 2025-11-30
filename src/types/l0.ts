@@ -1,9 +1,13 @@
 // Top-level L0 runtime types
 
 import type { GuardrailRule, GuardrailViolation } from "./guardrails";
+import type { BackoffStrategy } from "./retry";
+import { RETRY_DEFAULTS } from "./retry";
 
 // Re-export for convenience
 export type { GuardrailRule, GuardrailViolation } from "./guardrails";
+export type { BackoffStrategy } from "./retry";
+export { RETRY_DEFAULTS } from "./retry";
 
 /**
  * Result of checkpoint validation for continuation
@@ -598,9 +602,9 @@ export interface RetryOptions {
   maxRetries?: number;
 
   /**
-   * Backoff strategy
+   * Backoff strategy (default: "fixed-jitter")
    */
-  backoff?: "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter";
+  backoff?: BackoffStrategy;
 
   /**
    * Base delay in milliseconds (default: 1000)
@@ -791,37 +795,19 @@ export const minimalRetry: RetryOptions = {
 };
 
 export const recommendedRetry: RetryOptions = {
-  attempts: 3,
-  maxRetries: 6,
-  backoff: "fixed-jitter",
-  baseDelay: 1000,
-  maxDelay: 10000,
-  retryOn: [
-    "zero_output",
-    "guardrail_violation",
-    "drift",
-    "incomplete",
-    "network_error",
-    "timeout",
-    "rate_limit",
-    "server_error",
-  ],
+  attempts: RETRY_DEFAULTS.attempts,
+  maxRetries: RETRY_DEFAULTS.maxRetries,
+  backoff: RETRY_DEFAULTS.backoff,
+  baseDelay: RETRY_DEFAULTS.baseDelay,
+  maxDelay: RETRY_DEFAULTS.maxDelay,
+  retryOn: [...RETRY_DEFAULTS.retryOn],
 };
 
 export const strictRetry: RetryOptions = {
-  attempts: 3,
-  maxRetries: 6,
+  attempts: RETRY_DEFAULTS.attempts,
+  maxRetries: RETRY_DEFAULTS.maxRetries,
   backoff: "full-jitter",
-  baseDelay: 1000,
-  maxDelay: 10000,
-  retryOn: [
-    "zero_output",
-    "guardrail_violation",
-    "drift",
-    "incomplete",
-    "network_error",
-    "timeout",
-    "rate_limit",
-    "server_error",
-  ],
+  baseDelay: RETRY_DEFAULTS.baseDelay,
+  maxDelay: RETRY_DEFAULTS.maxDelay,
+  retryOn: [...RETRY_DEFAULTS.retryOn],
 };

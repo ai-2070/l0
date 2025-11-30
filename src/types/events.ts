@@ -8,6 +8,7 @@
 // not recomputed on replay.
 
 import type { GuardrailViolation } from "./guardrails";
+import type { BackoffStrategy } from "./retry";
 
 /**
  * Serialized L0 options for event storage
@@ -24,12 +25,7 @@ export interface SerializedOptions {
     maxRetries?: number;
     baseDelay?: number;
     maxDelay?: number;
-    backoff?:
-      | "exponential"
-      | "linear"
-      | "fixed"
-      | "full-jitter"
-      | "fixed-jitter";
+    backoff?: BackoffStrategy;
   };
   /** Timeout configuration */
   timeout?: {

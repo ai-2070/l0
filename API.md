@@ -50,7 +50,6 @@ const result = await l0({
       "zero_output",
       "guardrail_violation",
       "drift",
-      "malformed",
       "incomplete",
       "network_error",
       "timeout",
@@ -581,7 +580,6 @@ const result = await l0({
       "zero_output",
       "guardrail_violation",
       "drift",
-      "malformed",
       "incomplete",
       "network_error",
       "timeout",
@@ -1481,9 +1479,9 @@ interface RetryOptions {
     | "zero_output"
     | "guardrail_violation"
     | "drift"
-    | "malformed"
     | "incomplete"
     | "network_error"
+    | "server_error"
     | "timeout"
     | "rate_limit"
   >;

@@ -112,7 +112,6 @@ retry: {
     "zero_output",
     "guardrail_violation",
     "drift",
-    "malformed",
     "incomplete",
     "network_error",
     "timeout",
