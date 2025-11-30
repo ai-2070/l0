@@ -375,15 +375,21 @@ export async function race(
   });
 
   try {
-    const { result, index } = await Promise.race(promises);
+    // Use Promise.any to get the first successful result
+    // Promise.race would reject on first failure, but we want first success
+    const { result, index } = await Promise.any(promises);
 
     // Abort all other operations
     controllers.forEach((controller) => controller.abort());
 
     return { ...result, winnerIndex: index };
   } catch (error) {
-    // All operations failed
+    // All operations failed (AggregateError from Promise.any)
     controllers.forEach((controller) => controller.abort());
+    if (error instanceof AggregateError) {
+      // Throw the first error from the aggregate
+      throw error.errors[0] || new Error("All operations failed");
+    }
     throw error;
   }
 }
