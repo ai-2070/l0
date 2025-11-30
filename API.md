@@ -11,7 +11,7 @@ Complete API reference for L0.
 - [Consensus](#consensus)
 - [Guardrails](#guardrails)
 - [Retry Configuration](#retry-configuration)
-- [Overlap Deduplication](#overlap-deduplication)
+- [Smart Continuation Deduplication](#smart-continuation-deduplication)
 - [Error Handling](#error-handling)
 - [Formatting Helpers](#formatting-helpers)
 - [Utility Functions](#utility-functions)
@@ -713,7 +713,7 @@ const result = await manager.execute(async () => {
 
 ---
 
-## Overlap Deduplication
+## Smart Continuation Deduplication
 
 When using `continueFromLastKnownGoodToken`, LLMs often repeat words from the end of the checkpoint at the beginning of their continuation. L0 automatically detects and removes this overlap.
 
