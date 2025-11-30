@@ -964,7 +964,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | **Network Errors**    | ✓    | –           | 12+ simulated error types                |
 | **Fallback Models**   | ✓    | ✓           | Sequential fallthrough                   |
 | **Parallel / Race**   | ✓    | ✓           | Concurrency, cancellation                |
-| **Pipeline**          | ✓    | –           | Multi-step streaming workflows           |
+| **Pipeline**          | ✓    | ✓           | Multi-step streaming workflows           |
 | **Consensus**         | ✓    | ✓           | Unanimous, weighted, best-match          |
 | **Document Windows**  | ✓    | ✓           | Token, paragraph, sentence chunking      |
 | **Continuation**      | ✓    | ✓           | Last-known-good token resumption         |
