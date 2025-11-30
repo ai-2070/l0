@@ -97,7 +97,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,
@@ -137,7 +137,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,
@@ -182,7 +182,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 1,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,
@@ -228,7 +228,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 1,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,
@@ -271,7 +271,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,
@@ -306,7 +306,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 10 },
         detectZeroTokens: false,
@@ -361,7 +361,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         monitoring: { enabled: true },
@@ -418,7 +418,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 10 }, // High interval so no checkpoint is saved
         monitoring: { enabled: true },
@@ -459,7 +459,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         detectZeroTokens: false,
       });
@@ -495,7 +495,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 3,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,
@@ -536,7 +536,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5, guardrails: 1 },
         detectZeroTokens: false,
@@ -576,7 +576,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,
@@ -618,7 +618,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,
@@ -660,7 +660,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 1,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,
@@ -707,7 +707,7 @@ describe("continueFromLastKnownGoodToken", () => {
         retry: {
           attempts: 2,
           baseDelay: 10,
-          retryOn: ["malformed", "network_error"],
+          retryOn: ["unknown", "network_error"],
         },
         checkIntervals: { checkpoint: 5 },
         detectZeroTokens: false,

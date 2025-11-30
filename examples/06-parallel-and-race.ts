@@ -13,7 +13,7 @@ async function raceExample() {
     {
       stream: () =>
         streamText({
-          model: openai("gpt-4o-mini"),
+          model: openai("gpt-5-nano"),
           prompt: "What is 2+2? Answer in one word.",
         }),
     },
@@ -40,7 +40,7 @@ async function parallelExample() {
     prompts.map((prompt) => ({
       stream: () =>
         streamText({
-          model: openai("gpt-4o-mini"),
+          model: openai("gpt-5-nano"),
           prompt,
         }),
       guardrails: recommendedGuardrails,
@@ -62,7 +62,7 @@ async function batchedParallel() {
   const tasks = Array.from({ length: 5 }, (_, i) => ({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: `Count to ${i + 1}`,
       }),
   }));

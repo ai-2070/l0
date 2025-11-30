@@ -430,7 +430,7 @@ export async function l0WithWindow(options: L0WindowOptions) {
   const {
     enabled = true,
     strategy = "adjacent",
-    maxAttempts = RETRY_DEFAULTS.maxAttempts,
+    maxAttempts = RETRY_DEFAULTS.attempts,
     onRestore,
   } = contextRestoration || {};
 

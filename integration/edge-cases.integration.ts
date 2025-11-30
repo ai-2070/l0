@@ -23,21 +23,26 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
     it(
       "should handle all fallbacks exhausted",
       async () => {
-        await expect(
-          l0({
-            stream: () => {
-              throw new Error("Primary failed");
+        // l0() returns immediately - errors occur when iterating the stream
+        const result = await l0({
+          stream: () => {
+            throw new Error("Primary failed");
+          },
+          fallbackStreams: [
+            () => {
+              throw new Error("Fallback 1 failed");
             },
-            fallbackStreams: [
-              () => {
-                throw new Error("Fallback 1 failed");
-              },
-              () => {
-                throw new Error("Fallback 2 failed");
-              },
-            ],
-          }),
-        ).rejects.toThrow();
+            () => {
+              throw new Error("Fallback 2 failed");
+            },
+          ],
+        });
+
+        await expect(async () => {
+          for await (const event of result.stream) {
+            // consume stream
+          }
+        }).rejects.toThrow();
       },
       LLM_TIMEOUT,
     );
@@ -45,14 +50,19 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
     it(
       "should handle empty fallback array",
       async () => {
-        await expect(
-          l0({
-            stream: () => {
-              throw new Error("Primary failed");
-            },
-            fallbackStreams: [],
-          }),
-        ).rejects.toThrow("Primary failed");
+        // l0() returns immediately - errors occur when iterating the stream
+        const result = await l0({
+          stream: () => {
+            throw new Error("Primary failed");
+          },
+          fallbackStreams: [],
+        });
+
+        await expect(async () => {
+          for await (const event of result.stream) {
+            // consume stream
+          }
+        }).rejects.toThrow("Primary failed");
       },
       LLM_TIMEOUT,
     );
@@ -95,8 +105,9 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Write a very long story about the history of computing",
+              abortSignal: controller.signal,
             }),
           signal: controller.signal,
         });
@@ -126,10 +137,11 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
-              prompt: "Say 'hi'",
+              model: openai("gpt-5-nano"),
+              prompt: "Say 'hello world'",
             }),
           signal: controller.signal,
+          detectZeroTokens: false, // Disable for short response test
         });
 
         for await (const event of result.stream) {
@@ -151,9 +163,10 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Reply with only the letter 'X' and nothing else",
             }),
+          detectZeroTokens: false, // Disable for minimal response test
         });
 
         for await (const event of result.stream) {
@@ -172,10 +185,11 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt:
                 'Reply with these exact characters: @#$%^&*(){}[]|\\:";<>?,./~`',
             }),
+          detectZeroTokens: false, // Disable for special characters test
         });
 
         for await (const event of result.stream) {
@@ -193,9 +207,10 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Reply with 3 different emojis",
             }),
+          detectZeroTokens: false, // Emoji-only responses may trigger zero output detection
         });
 
         for await (const event of result.stream) {
@@ -215,7 +230,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say hello",
             }),
           guardrails: [],
@@ -244,7 +259,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say 'Hello! Hi there!'",
             }),
           guardrails: strictGuardrails,
@@ -267,7 +282,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Start your response with 'As an AI'",
             }),
           guardrails: recommendedGuardrails,
@@ -303,17 +318,18 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
               throw new Error("Transient error");
             }
             return streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Say 'success'",
             });
           },
           retry: {
             attempts: 3,
-            retryOn: ["network_error", "timeout"],
+            retryOn: ["network_error", "timeout", "unknown", "server_error"],
           },
           onRetry: () => {
             retryCount++;
           },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
@@ -383,7 +399,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
               stream: () => {
                 operationsStarted++;
                 return streamText({
-                  model: openai("gpt-4o-mini"),
+                  model: openai("gpt-5-nano"),
                   prompt: "Say 'hello'",
                 });
               },
@@ -406,7 +422,7 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
           {
             stream: () =>
               streamText({
-                model: openai("gpt-4o-mini"),
+                model: openai("gpt-5-nano"),
                 prompt: "Say 'only one'",
               }),
           },
@@ -471,11 +487,17 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
           fallbackStreams: [
             () =>
               streamText({
-                model: openai("gpt-4o-mini"),
-                prompt: "Say 'fallback'",
+                model: openai("gpt-5-nano"),
+                prompt: "Say 'fallback worked successfully'",
               }),
           ],
           monitoring: { enabled: true },
+          // Enable retry with unknown so thrown errors trigger fallback
+          retry: {
+            attempts: 1,
+            retryOn: ["unknown", "server_error"],
+          },
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
@@ -498,8 +520,9 @@ describeIf(hasOpenAI)("Edge Cases Integration", () => {
         const result = await l0({
           stream: () =>
             streamText({
-              model: openai("gpt-4o-mini"),
+              model: openai("gpt-5-nano"),
               prompt: "Write a long essay",
+              abortSignal: controller.signal,
             }),
           signal: controller.signal,
         });

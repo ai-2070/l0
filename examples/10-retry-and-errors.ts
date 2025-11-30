@@ -19,7 +19,7 @@ async function basicRetry() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Say hello",
       }),
     retry: {
@@ -27,7 +27,19 @@ async function basicRetry() {
       baseDelay: 1000,
       maxDelay: 10000,
       backoff: "exponential",
-      retryOn: ["zero_output", "guardrail_violation", "network_error"],
+
+      // Optional: specify which error types to retry on, defaults to all recoverable errors
+      retryOn: [
+        "zero_output",
+        "guardrail_violation",
+        "drift",
+        "malformed",
+        "incomplete",
+        "network_error",
+        "timeout",
+        "rate_limit",
+        "server_error",
+      ],
     },
     onRetry: (attempt, reason) => {
       console.log(`Retry attempt ${attempt}: ${reason}`);
@@ -51,7 +63,7 @@ async function recommendedRetryExample() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Generate a random number between 1 and 100",
       }),
     retry: recommendedRetry,
@@ -74,7 +86,7 @@ async function errorHandling() {
     const result = await l0({
       stream: () =>
         streamText({
-          model: openai("gpt-4o-mini"),
+          model: openai("gpt-5-nano"),
           prompt: "Hello",
         }),
       guardrails: recommendedGuardrails,
@@ -113,7 +125,7 @@ async function timeouts() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Write a haiku",
       }),
     timeout: {
@@ -151,7 +163,7 @@ async function abortHandling() {
     const result = await l0({
       stream: () =>
         streamText({
-          model: openai("gpt-4o-mini"),
+          model: openai("gpt-5-nano"),
           prompt: "Write a long story about a dragon",
         }),
       signal: controller.signal,

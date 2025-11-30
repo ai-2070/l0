@@ -48,7 +48,7 @@ export interface L0Options {
    * {
    *   stream: () => streamText({ model: openai('gpt-4o'), prompt }),
    *   fallbackStreams: [
-   *     () => streamText({ model: openai('gpt-4o-mini'), prompt }),
+   *     () => streamText({ model: openai('gpt-5-mini'), prompt }),
    *     () => streamText({ model: openai('gpt-3.5-turbo'), prompt })
    *   ]
    * }
@@ -600,17 +600,20 @@ export interface RetryOptions {
   maxDelay?: number;
 
   /**
-   * What types of errors to retry on
+   * What types of errors to retry on.
+   * Default: zero_output, guardrail_violation, drift, incomplete, network_error, timeout, rate_limit, server_error
+   * Note: "unknown" errors are NOT retried by default (opt-in only)
    */
   retryOn?: Array<
     | "zero_output"
     | "guardrail_violation"
     | "drift"
-    | "malformed"
+    | "unknown"
     | "incomplete"
     | "network_error"
     | "timeout"
     | "rate_limit"
+    | "server_error"
   >;
 
   /**
@@ -670,7 +673,16 @@ export const recommendedRetry: RetryOptions = {
   backoff: "exponential",
   baseDelay: 1000,
   maxDelay: 10000,
-  retryOn: ["zero_output", "guardrail_violation", "drift"],
+  retryOn: [
+    "zero_output",
+    "guardrail_violation",
+    "drift",
+    "incomplete",
+    "network_error",
+    "timeout",
+    "rate_limit",
+    "server_error",
+  ],
 };
 
 export const strictRetry: RetryOptions = {
@@ -678,5 +690,14 @@ export const strictRetry: RetryOptions = {
   backoff: "full-jitter",
   baseDelay: 1000,
   maxDelay: 10000,
-  retryOn: ["zero_output", "drift", "malformed", "incomplete"],
+  retryOn: [
+    "zero_output",
+    "guardrail_violation",
+    "drift",
+    "incomplete",
+    "network_error",
+    "timeout",
+    "rate_limit",
+    "server_error",
+  ],
 };

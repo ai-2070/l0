@@ -1,17 +1,17 @@
-# L0 - The Missing Reliability Layer for AI
+# L0 - The Missing Reliability Substrate for AI
 
-**Tiny. Predictable. Streaming-first.**
+**Tiny. Predictable. Replayable. Streaming-first.**
 
-> *LLMs are extraordinary minds wrapped in fragile interfaces.*
-> *The reasoning is brilliant.*
-> *The capability is vast.*
-> *The potential is limitless.*
+> _LLMs are extraordinary minds wrapped in fragile interfaces._
+> _The reasoning is brilliant._
+> _The capability is vast._
+> _The potential is limitless._
 >
-> *Yet the surface - the streaming layer -*
-> *can flicker, stall, or fracture without warning.*
+> _Yet the surface - the streaming layer -_
+> _can flicker, stall, or fracture without warning._
 >
-> *L0 is the missing foundation.*
-> *A reliability layer that stabilizes the interface so the model's intelligence can actually reach you.*
+> _L0 is the missing foundation._
+> _A reliability layer that stabilizes the interface so the model's intelligence can actually reach you._
 
 L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, and **Mastra AI** directly.
 
@@ -23,7 +23,7 @@ npm install @ai2070/l0
 
 | Feature                                   | Description                                                                                                                                         |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🔁 Smart Retries**                      | Model-aware retries with exponential backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.          |
+| **🔁 Smart Retries**                      | Model-aware retries with exponential backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.     |
 | **🌐 Network Protection**                 | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks.                      |
 | **🔀 Model Fallbacks**                    | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic.                                              |
 | **💥 Zero-Token/Stall Protection**        | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks.                                           |
@@ -54,12 +54,12 @@ const result = await l0({
   // Primary model stream
   stream: () =>
     streamText({
-      model: openai("gpt-4o"),
+      model: openai("gpt-5-mini"),
       prompt: "Generate a haiku about coding",
     }),
 
   // Optional: Fallback models
-  fallbackStreams: [() => streamText({ model: openai("gpt-4o-mini"), prompt })],
+  fallbackStreams: [() => streamText({ model: openai("gpt-5-mini"), prompt })],
 
   // Optional: Guardrails
   guardrails: recommendedGuardrails,
@@ -77,7 +77,6 @@ const result = await l0({
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential",
-    retryOn: ["zero_output", "guardrail_violation"],
   },
   // Or simply:
   // retry: recommendedRetry,
@@ -162,22 +161,22 @@ for await (const event of result.stream) {
 
 ## Core Features
 
-| Feature                                     | Description                                                     |
-| ------------------------------------------- | --------------------------------------------------------------- |
-| [Streaming Runtime](#streaming-runtime)     | Token-by-token normalization, checkpoints, resumable generation |
-| [Retry Logic](#retry-logic)                 | Smart retries with backoff, network vs model error distinction  |
-| [Network Protection](#network-protection)   | Auto-recovery from 12+ network failure types                    |
-| [Structured Output](#structured-output)     | Guaranteed valid JSON with Zod schema validation                |
-| [Fallback Models](#fallback-models)         | Sequential fallback when primary model fails                    |
-| [Document Windows](#document-windows)       | Automatic chunking for long documents                           |
-| [Formatting Helpers](#formatting-helpers)   | Context, memory, tools, and output formatting utilities         |
+| Feature                                                               | Description                                                     |
+| --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [Streaming Runtime](#streaming-runtime)                               | Token-by-token normalization, checkpoints, resumable generation |
+| [Retry Logic](#retry-logic)                                           | Smart retries with backoff, network vs model error distinction  |
+| [Network Protection](#network-protection)                             | Auto-recovery from 12+ network failure types                    |
+| [Structured Output](#structured-output)                               | Guaranteed valid JSON with Zod schema validation                |
+| [Fallback Models](#fallback-models)                                   | Sequential fallback when primary model fails                    |
+| [Document Windows](#document-windows)                                 | Automatic chunking for long documents                           |
+| [Formatting Helpers](#formatting-helpers)                             | Context, memory, tools, and output formatting utilities         |
 | [Last-Known-Good Token Resumption](#last-known-good-token-resumption) | Resume from last checkpoint on retry/fallback (opt-in)          |
-| [Guardrails](#guardrails)                   | JSON, Markdown, LaTeX validation, pattern detection             |
-| [Consensus](#consensus)                     | Multi-model agreement with voting strategies                    |
-| [Parallel Operations](#parallel-operations) | Race, batch, pool patterns for concurrent LLM calls             |
-| [Monitoring](#monitoring)                   | Built-in Prometheus, OTel and Sentry integrations               |
-| [Error Handling](#error-handling)           | Typed errors with categorization and recovery hints             |
-| [Testing](#testing)                         | 1200+ tests covering all features and SDK adapters              |
+| [Guardrails](#guardrails)                                             | JSON, Markdown, LaTeX validation, pattern detection             |
+| [Consensus](#consensus)                                               | Multi-model agreement with voting strategies                    |
+| [Parallel Operations](#parallel-operations)                           | Race, batch, pool patterns for concurrent LLM calls             |
+| [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
+| [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
+| [Testing](#testing)                                                   | 1300+ tests covering all features and SDK adapters              |
 
 ---
 
@@ -236,7 +235,20 @@ const result = await l0({
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "exponential", // or "linear", "fixed", "full-jitter"
-    retryOn: ["zero_output", "guardrail_violation", "drift", "network_error", "timeout", "rate_limit"],
+
+    // Optional: specify which error types to retry on, defaults to all recoverable errors
+    retryOn: [
+      "zero_output",
+      "guardrail_violation",
+      "drift",
+      "malformed",
+      "incomplete",
+      "network_error",
+      "timeout",
+      "rate_limit",
+      "server_error",
+    ],
+
     // Custom delays per error type (overrides baseDelay)
     errorTypeDelays: {
       connectionDropped: 2000,
@@ -322,7 +334,7 @@ Sequential fallback when primary model fails:
 const result = await l0({
   stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: openai("gpt-5-nano"), prompt }),
     () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
   ],
 });
@@ -392,14 +404,14 @@ When a stream fails mid-generation, L0 can resume from the last known good check
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: { attempts: 2 },
-  
+
   // Enable continuation from last checkpoint (opt-in)
   continueFromLastKnownGoodToken: true,
 });
 
 // Check if continuation was used
 console.log(result.state.continuedFromCheckpoint); // true if resumed
-console.log(result.state.continuationCheckpoint);  // The checkpoint content
+console.log(result.state.continuationCheckpoint); // The checkpoint content
 ```
 
 ### How It Works
@@ -419,10 +431,11 @@ let continuationPrompt = "";
 const originalPrompt = "Write a detailed analysis of...";
 
 const result = await l0({
-  stream: () => streamText({ 
-    model: openai("gpt-4o"), 
-    prompt: continuationPrompt || originalPrompt,
-  }),
+  stream: () =>
+    streamText({
+      model: openai("gpt-4o"),
+      prompt: continuationPrompt || originalPrompt,
+    }),
   continueFromLastKnownGoodToken: true,
   buildContinuationPrompt: (checkpoint) => {
     // Update the prompt to tell the LLM to continue from checkpoint
@@ -437,13 +450,12 @@ const result = await l0({
 
 ```typescript
 const result = await l0({
-  stream: () => streamText({ 
-    model: openai("gpt-4o"), 
-    prompt: "Write a detailed analysis of..." 
-  }),
-  fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-  ],
+  stream: () =>
+    streamText({
+      model: openai("gpt-4o"),
+      prompt: "Write a detailed analysis of...",
+    }),
+  fallbackStreams: [() => streamText({ model: openai("gpt-5-nano"), prompt })],
   retry: { attempts: 2 },
   continueFromLastKnownGoodToken: true,
   checkIntervals: { checkpoint: 10 }, // Save checkpoint every 10 tokens
@@ -458,8 +470,10 @@ for await (const event of result.stream) {
 
 // Check telemetry for continuation usage
 if (result.telemetry?.continuation?.used) {
-  console.log("\nResumed from checkpoint of length:", 
-    result.telemetry.continuation.checkpointLength);
+  console.log(
+    "\nResumed from checkpoint of length:",
+    result.telemetry.continuation.checkpointLength,
+  );
 }
 ```
 
@@ -476,6 +490,7 @@ Before using a checkpoint for continuation, L0 validates it:
 > ⚠️ **Do NOT use `continueFromLastKnownGoodToken` with structured output or `streamObject()`.**
 >
 > Continuation works by prepending checkpoint content to the next generation. For JSON/structured output, this can corrupt the data structure because:
+>
 > - The model may not properly continue the JSON syntax
 > - Partial objects could result in invalid JSON
 > - Schema validation may fail on malformed output
@@ -615,7 +630,7 @@ console.log(results.results[0]?.state.content);
 const result = await l0({
   stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: openai("gpt-5-nano"), prompt }),
     () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
   ],
 });
@@ -726,6 +741,51 @@ See [MONITORING.md](./MONITORING.md) for complete integration guides.
 
 ---
 
+## Event Sourcing
+
+Every L0 stream operation can be recorded and replayed deterministically. This enables testing, debugging, and audit trails.
+
+```typescript
+import {
+  createInMemoryEventStore,
+  createEventRecorder,
+  replay,
+} from "@ai2070/l0";
+
+// Record a stream
+const store = createInMemoryEventStore();
+const recorder = createEventRecorder(store, "my-stream");
+
+await recorder.recordStart({ prompt: "test", model: "gpt-4" });
+await recorder.recordToken("Hello", 0);
+await recorder.recordToken(" World", 1);
+await recorder.recordComplete("Hello World", 2);
+
+// Replay it - exact same output, no API calls
+const result = await replay({
+  streamId: "my-stream",
+  eventStore: store,
+  fireCallbacks: true, // onToken still fires!
+});
+
+for await (const event of result.stream) {
+  console.log(event); // Same events as original
+}
+```
+
+**Key insight:** Replay is pure stream rehydration. No network, no retries, no guardrail evaluation - derived computations are stored as events.
+
+**Use cases:**
+- Deterministic testing - record once, replay in tests
+- Production failure reproduction
+- Time-travel debugging
+- Complete audit trails
+- Response caching
+
+See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for complete guide.
+
+---
+
 ## Error Handling
 
 L0 provides detailed error context for debugging and recovery:
@@ -761,7 +821,14 @@ Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `
 
 ## Testing
 
-L0 has comprehensive test coverage with both unit and integration tests.
+L0 ships with **comprehensive test coverage** across all core reliability systems - including streaming, guardrails, structured output, retry logic, fallbacks, pipelines, consensus, observability, and distributed tracing.
+
+### Test Coverage
+
+| Category          | Tests | Description                      |
+| ----------------- | ----- | -------------------------------- |
+| Unit Tests        | 1300+  | Fast, mocked, no API calls       |
+| Integration Tests | 194   | Real API calls, all SDK adapters |
 
 ```bash
 # Run unit tests (fast, no API keys needed)
@@ -771,38 +838,39 @@ npm test
 OPENAI_API_KEY=sk-... npm run test:integration
 ```
 
-### Test Coverage
-
-| Category          | Tests | Description                      |
-| ----------------- | ----- | -------------------------------- |
-| Unit Tests        | 1211  | Fast, mocked, no API calls       |
-| Integration Tests | 40+   | Real API calls, all SDK adapters |
-
 ### SDK Adapter Matrix
 
-| Adapter       | Unit Tests | Integration Tests | Version                        |
-| ------------- | ---------- | ----------------- | ------------------------------ |
-| Vercel AI SDK | ✓          | ✓                 | ^5.0.0                         |
-| OpenAI SDK    | ✓          | ✓                 | ^4.0.0 \|\| ^5.0.0 \|\| ^6.0.0 |
-| Mastra AI     | ✓          | ✓                 | >=0.24.0                       |
+L0 supports all major provider SDKs with full end-to-end testing:
+
+| Adapter | Integration | Version Range |
+| --- | --- | --- |
+| **Vercel AI SDK** | ✓ | `^5.0.0` |
+| **OpenAI SDK** | ✓ | `^4.0.0` · `^5.0.0` · `^6.0.0` |
+| **Mastra AI** | ✓ | `>= 0.24.0` |
 
 ### Feature Test Matrix
 
-| Feature           | Unit | Integration | Notes                     |
-| ----------------- | ---- | ----------- | ------------------------- |
-| Streaming         | ✓    | ✓           | Token events, completion  |
-| Guardrails        | ✓    | ✓           | All rules, presets        |
-| Structured Output | ✓    | ✓           | Zod schemas, auto-correct |
-| Retry Logic       | ✓    | ✓           | Backoff strategies        |
-| Network Errors    | ✓    | -           | 12+ error types           |
-| Fallback Models   | ✓    | ✓           | Sequential fallback       |
-| Parallel/Race     | ✓    | ✓           | Concurrency patterns      |
-| Pipeline          | ✓    | -           | Multi-step workflows      |
-| Consensus         | ✓    | ✓           | Voting strategies         |
-| Document Windows  | ✓    | -           | Chunking strategies       |
-| Monitoring        | ✓    | ✓           | Telemetry, Prometheus     |
-| Interceptors      | ✓    | -           | All built-in interceptors |
-| Drift Detection   | ✓    | -           | Pattern detection         |
+Every major reliability feature in L0 has dedicated test suites:
+
+| Feature | Unit | Integration | Notes |
+| --- | --- | --- | --- |
+| **Streaming** | ✓ | ✓ | Token events, completion |
+| **Guardrails** | ✓ | ✓ | JSON/Markdown/LaTeX, patterns, drift |
+| **Structured Output** | ✓ | ✓ | Zod schemas, auto-correction |
+| **Retry Logic** | ✓ | ✓ | Backoff, error classification |
+| **Network Errors** | ✓ | – | 12+ simulated error types |
+| **Fallback Models** | ✓ | ✓ | Sequential fallthrough |
+| **Parallel / Race** | ✓ | ✓ | Concurrency, cancellation |
+| **Pipeline** | ✓ | – | Multi-step streaming workflows |
+| **Consensus** | ✓ | ✓ | Unanimous, weighted, best-match |
+| **Document Windows** | ✓ | ✓ | Token, paragraph, sentence chunking |
+| **Continuation** | ✓ | ✓ | Last-known-good token resumption |
+| **Monitoring** | ✓ | ✓ | Prometheus, metrics, tokens, retries |
+| **Sentry** | ✓ | ✓ | Error tagging, breadcrumbs, performance |
+| **OpenTelemetry** | ✓ | ✓ | GenAI semantic conventions, spans, TTFT |
+| **Event Sourcing** | ✓ | – | Record/replay, deterministic testing |
+| **Interceptors** | ✓ | – | All built-in interceptors validated |
+| **Drift Detection** | ✓ | – | Pattern detection, entropy, format drift |
 
 ---
 
@@ -819,6 +887,7 @@ OPENAI_API_KEY=sk-... npm run test:integration
 | [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)                       | Network error handling     |
 | [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Parallel operations        |
 | [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics      |
+| [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails|
 | [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers         |
 
 ---

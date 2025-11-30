@@ -302,10 +302,11 @@ export class L0Monitor {
 
   /**
    * Get current telemetry data
+   * Returns the live telemetry object (not a copy) so updates are reflected
    */
   getTelemetry(): L0Telemetry | undefined {
     if (!this.isEnabled()) return undefined;
-    return { ...this.telemetry };
+    return this.telemetry;
   }
 
   /**

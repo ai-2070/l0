@@ -10,7 +10,7 @@ import type {
 } from "./types/structured";
 import type { L0Options, L0Event } from "./types/l0";
 import { l0 } from "./runtime/l0";
-import { autoCorrectJSON, isValidJSON } from "./utils/autoCorrect";
+import { autoCorrectJSON, isValidJSON, extractJSON } from "./utils/autoCorrect";
 
 /**
  * L0 Structured Output - Guaranteed valid JSON matching your schema
@@ -56,6 +56,7 @@ export async function structured<T extends z.ZodTypeAny>(
     timeout,
     signal,
     monitoring,
+    detectZeroTokens,
     onValidationError,
     onAutoCorrect,
     onRetry,
@@ -94,19 +95,14 @@ export async function structured<T extends z.ZodTypeAny>(
       backoff: retry.backoff ?? "exponential",
       baseDelay: retry.baseDelay ?? 1000,
       maxDelay: retry.maxDelay ?? 5000,
-      retryOn: [
-        ...(retry.retryOn || []),
-        "guardrail_violation",
-        "malformed",
-        "incomplete",
-      ],
+      retryOn: [...(retry.retryOn || []), "guardrail_violation", "incomplete"],
       errorTypeDelays: retry.errorTypeDelays,
     },
     timeout,
     signal: signal || abortController.signal,
-    // Disable zero-token detection for structured output
-    // Short valid JSON (like "[]" or "{}") should not be rejected
-    detectZeroTokens: false,
+    // Default to disabled for structured output since short valid JSON
+    // (like "[]" or "{}") should not be rejected
+    detectZeroTokens: detectZeroTokens ?? false,
     monitoring: {
       enabled: monitoring?.enabled ?? false,
       sampleRate: monitoring?.sampleRate ?? 1.0,
@@ -217,8 +213,41 @@ export async function structured<T extends z.ZodTypeAny>(
             : new Error(String(parseError));
         errors.push(err);
 
-        // Try one more auto-correction attempt if not already done
-        if (!autoCorrect) {
+        // Try extractJSON to find JSON within surrounding text
+        const extracted = extractJSON(correctedOutput);
+        if (extracted !== correctedOutput) {
+          try {
+            // Try parsing the extracted JSON
+            parsedData = JSON.parse(extracted);
+            correctedOutput = extracted;
+            wasAutoCorrected = true;
+            if (!appliedCorrections.includes("extract_json")) {
+              appliedCorrections.push("extract_json");
+              correctionTypes.push("extract_json");
+            }
+            autoCorrections++;
+          } catch {
+            // Try auto-correction on the extracted content
+            const rescueResult = autoCorrectJSON(extracted, {
+              structural: true,
+              stripFormatting: true,
+            });
+
+            if (rescueResult.success) {
+              parsedData = JSON.parse(rescueResult.corrected);
+              correctedOutput = rescueResult.corrected;
+              wasAutoCorrected = true;
+              appliedCorrections.push(...rescueResult.corrections);
+              autoCorrections++;
+              correctionTypes.push(...rescueResult.corrections);
+            } else {
+              throw new Error(
+                `Invalid JSON after auto-correction: ${err.message}`,
+              );
+            }
+          }
+        } else if (!autoCorrect) {
+          // Try one more auto-correction attempt if not already done
           const rescueResult = autoCorrectJSON(correctedOutput, {
             structural: true,
             stripFormatting: true,
@@ -228,14 +257,51 @@ export async function structured<T extends z.ZodTypeAny>(
             parsedData = JSON.parse(rescueResult.corrected);
             correctedOutput = rescueResult.corrected;
             wasAutoCorrected = true;
-            appliedCorrections = rescueResult.corrections;
+            appliedCorrections.push(...rescueResult.corrections);
             autoCorrections++;
             correctionTypes.push(...rescueResult.corrections);
           } else {
             throw new Error(`Invalid JSON: ${err.message}`);
           }
         } else {
-          throw new Error(`Invalid JSON after auto-correction: ${err.message}`);
+          // Auto-correction was applied but parsing still failed and extractJSON didn't help
+          // Try one more aggressive extraction - look for the first complete JSON structure
+          const rawExtracted = extractJSON(rawOutput);
+          if (rawExtracted !== rawOutput) {
+            const rescueResult = autoCorrectJSON(rawExtracted, {
+              structural: true,
+              stripFormatting: true,
+            });
+
+            if (rescueResult.success) {
+              try {
+                parsedData = JSON.parse(rescueResult.corrected);
+                correctedOutput = rescueResult.corrected;
+                wasAutoCorrected = true;
+                appliedCorrections.push(
+                  "extract_json",
+                  ...rescueResult.corrections,
+                );
+                autoCorrections++;
+                correctionTypes.push(
+                  "extract_json",
+                  ...rescueResult.corrections,
+                );
+              } catch {
+                throw new Error(
+                  `Invalid JSON after auto-correction: ${err.message}`,
+                );
+              }
+            } else {
+              throw new Error(
+                `Invalid JSON after auto-correction: ${err.message}`,
+              );
+            }
+          } else {
+            throw new Error(
+              `Invalid JSON after auto-correction: ${err.message}`,
+            );
+          }
         }
       }
 

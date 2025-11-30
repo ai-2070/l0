@@ -79,6 +79,12 @@ export interface StructuredOptions<T extends z.ZodTypeAny = z.ZodTypeAny> {
   };
 
   /**
+   * Detect zero-token outputs (likely API issues)
+   * @default false
+   */
+  detectZeroTokens?: boolean;
+
+  /**
    * Optional callback for validation errors (before retry)
    */
   onValidationError?: (error: z.ZodError, attempt: number) => void;
@@ -245,7 +251,8 @@ export type CorrectionType =
   | "escape_control_chars"
   | "fill_missing_fields"
   | "remove_unknown_fields"
-  | "coerce_types";
+  | "coerce_types"
+  | "extract_json";
 
 /**
  * Auto-correction options

@@ -11,7 +11,7 @@ async function main() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Write a haiku about TypeScript",
       }),
     guardrails: recommendedGuardrails,

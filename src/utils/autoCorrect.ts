@@ -75,11 +75,23 @@ function stripUnwantedFormatting(text: string): {
   let result = text;
   const applied: CorrectionType[] = [];
 
-  // Remove markdown code fences
-  const markdownFenceRegex = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/;
-  if (markdownFenceRegex.test(result)) {
-    result = result.replace(markdownFenceRegex, "$1");
+  // Remove markdown code fences - handle both strict and embedded cases
+  // First try strict case (fence at start/end)
+  const strictFenceRegex = /^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/;
+  if (strictFenceRegex.test(result)) {
+    result = result.replace(strictFenceRegex, "$1");
     applied.push("strip_markdown_fence");
+  } else {
+    // Try to extract content from embedded fence
+    // Use greedy match but require the closing fence to be on its own line or at string end
+    // This handles cases where JSON contains literal ``` sequences
+    const embeddedFenceRegex =
+      /```(?:json)?\s*\n([\s\S]*?)\n[ \t]*```(?:\s*$|\n)/;
+    const match = result.match(embeddedFenceRegex);
+    if (match && match[1]) {
+      result = match[1];
+      applied.push("strip_markdown_fence");
+    }
   }
 
   // Remove "json" prefix at start
@@ -230,19 +242,110 @@ function fixQuotesAndEscapes(text: string): {
 }
 
 /**
+ * Find the first JSON delimiter ({ or [) that is NOT inside a quoted string
+ *
+ * @param text - Text to search
+ * @returns Object with startIndex, openChar, closeChar or null if not found
+ */
+function findFirstJSONDelimiter(
+  text: string,
+): { startIndex: number; openChar: string; closeChar: string } | null {
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    // Only consider delimiters outside of strings
+    if (!inString) {
+      if (char === "{") {
+        return { startIndex: i, openChar: "{", closeChar: "}" };
+      }
+      if (char === "[") {
+        return { startIndex: i, openChar: "[", closeChar: "]" };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Attempt to extract JSON from text that may contain other content
+ * Uses balanced brace matching to find the first complete JSON object or array
+ * Correctly ignores braces that appear inside quoted strings in surrounding prose
  *
  * @param text - Text that may contain JSON
  * @returns Extracted JSON string or original text
  */
 export function extractJSON(text: string): string {
-  // Try to find JSON object
+  // Find the first { or [ that is NOT inside a quoted string
+  const delimiter = findFirstJSONDelimiter(text);
+
+  if (!delimiter) {
+    return text;
+  }
+
+  const { startIndex, openChar, closeChar } = delimiter;
+
+  // Use balanced brace matching to find the end
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = startIndex; i < text.length; i++) {
+    const char = text[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === openChar) {
+      depth++;
+    } else if (char === closeChar) {
+      depth--;
+      if (depth === 0) {
+        return text.substring(startIndex, i + 1);
+      }
+    }
+  }
+
+  // Couldn't find balanced braces, fall back to greedy regex
   const objectMatch = text.match(/\{[\s\S]*\}/);
   if (objectMatch) {
     return objectMatch[0];
   }
 
-  // Try to find JSON array
   const arrayMatch = text.match(/\[[\s\S]*\]/);
   if (arrayMatch) {
     return arrayMatch[0];

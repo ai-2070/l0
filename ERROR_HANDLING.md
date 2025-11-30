@@ -345,7 +345,7 @@ Automatically try cheaper models on failure:
 const result = await l0({
   stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: openai("gpt-5-mini"), prompt }),
     () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
   ],
 });
@@ -421,7 +421,7 @@ catch (error) {
 ```typescript
 // Production: balance reliability vs latency
 retry: {
-  maxAttempts: 2,        // Model errors
+  attempts: 2,           // Model errors
   maxRetries: 10,        // Absolute cap (all errors)
   maxErrorHistory: 50    // Prevent memory leaks
 }

@@ -19,7 +19,7 @@ async function basicTelemetry() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Write a short poem about monitoring",
       }),
     guardrails: recommendedGuardrails,
@@ -53,7 +53,7 @@ async function prometheusMetrics() {
     const result = await l0({
       stream: () =>
         streamText({
-          model: openai("gpt-4o-mini"),
+          model: openai("gpt-5-nano"),
           prompt: `Say "hello ${i}"`,
         }),
       monitoring: { enabled: true },
@@ -63,7 +63,7 @@ async function prometheusMetrics() {
       // consume stream
     }
 
-    collector.record(result.telemetry!, { model: "gpt-4o-mini" });
+    collector.record(result.telemetry!, { model: "gpt-5-nano" });
   }
 
   console.log("Prometheus metrics output:\n");
@@ -77,7 +77,7 @@ async function customMetadata() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: "Summarize: The quick brown fox jumps over the lazy dog.",
       }),
     monitoring: {
@@ -108,7 +108,7 @@ async function sentryExample() {
   // Sentry.init({ dsn: "your-dsn" });
   //
   // const result = await l0({
-  //   stream: () => streamText({ model: openai("gpt-4o-mini"), prompt: "Hello" }),
+  //   stream: () => streamText({ model: openai("gpt-5-nano"), prompt: "Hello" }),
   //   interceptors: [
   //     sentryInterceptor({ sentry: Sentry, enableTracing: true })
   //   ],
@@ -144,7 +144,7 @@ async function openTelemetryExample() {
   // // Option 1: Manual tracing with full control
   // const result = await otel.traceStream("chat-completion", async (span) => {
   //   const res = await l0({
-  //     stream: () => streamText({ model: openai("gpt-4o-mini"), prompt: "Hello" }),
+  //     stream: () => streamText({ model: openai("gpt-5-nano"), prompt: "Hello" }),
   //     monitoring: { enabled: true },
   //   });
   //
@@ -160,7 +160,7 @@ async function openTelemetryExample() {
   //
   // // Option 2: Use the interceptor for automatic tracing
   // const result = await l0({
-  //   stream: () => streamText({ model: openai("gpt-4o-mini"), prompt: "Hello" }),
+  //   stream: () => streamText({ model: openai("gpt-5-nano"), prompt: "Hello" }),
   //   interceptors: [
   //     openTelemetryInterceptor({
   //       tracer: trace.getTracer("my-app"),

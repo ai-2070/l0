@@ -66,6 +66,23 @@ describe("Auto-Correction Utilities", () => {
       expect(result.corrections).toContain("strip_markdown_fence");
     });
 
+    it("should remove indented markdown code fences", () => {
+      // Common in list-formatted Markdown where closing fence is indented
+      const input = '```json\n{"name": "John"}\n  ```';
+      const result = autoCorrectJSON(input);
+      expect(result.success).toBe(true);
+      expect(result.corrected).toBe('{"name": "John"}');
+      expect(result.corrections).toContain("strip_markdown_fence");
+    });
+
+    it("should remove tab-indented markdown code fences", () => {
+      const input = '```json\n{"items": [1, 2, 3]}\n\t```';
+      const result = autoCorrectJSON(input);
+      expect(result.success).toBe(true);
+      expect(result.corrected).toBe('{"items": [1, 2, 3]}');
+      expect(result.corrections).toContain("strip_markdown_fence");
+    });
+
     it("should close missing braces", () => {
       const input = '{"name": "John", "age": 30';
       const result = autoCorrectJSON(input);
@@ -233,16 +250,168 @@ describe("Auto-Correction Utilities", () => {
       expect(result).toBe(text);
     });
 
-    it("should prefer object over array", () => {
-      const text = '[1, 2] and {"name": "John"}';
-      const result = extractJSON(text);
-      expect(result).toContain("{");
+    it("should prefer whichever comes first - object or array", () => {
+      const textObjectFirst = '{"name": "John"} and [1, 2]';
+      expect(extractJSON(textObjectFirst)).toBe('{"name": "John"}');
+
+      const textArrayFirst = '[1, 2] and {"name": "John"}';
+      expect(extractJSON(textArrayFirst)).toBe("[1, 2]");
     });
 
     it("should handle nested JSON", () => {
       const text = 'Result: {"data": {"nested": true}} end';
       const result = extractJSON(text);
       expect(result).toBe('{"data": {"nested": true}}');
+    });
+
+    // New tests for balanced brace matching
+    it("should extract only the first complete JSON object when followed by braces in text", () => {
+      const text = '{"name": "test"}\n{more text}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"name": "test"}');
+      expect(JSON.parse(result)).toEqual({ name: "test" });
+    });
+
+    it("should handle JSON with trailing text containing braces", () => {
+      const text = '{"value": 42}\nSome {random} text with {braces}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"value": 42}');
+    });
+
+    it("should handle braces inside string values", () => {
+      const text = 'Prefix: {"data": "a { b } c"} Suffix';
+      const result = extractJSON(text);
+      expect(result).toBe('{"data": "a { b } c"}');
+      expect(JSON.parse(result)).toEqual({ data: "a { b } c" });
+    });
+
+    it("should handle escaped quotes inside strings", () => {
+      const text = 'Result: {"message": "Say \\"hello\\""} done';
+      const result = extractJSON(text);
+      expect(result).toBe('{"message": "Say \\"hello\\""}');
+      expect(JSON.parse(result)).toEqual({ message: 'Say "hello"' });
+    });
+
+    it("should handle deeply nested objects", () => {
+      const text = 'Data: {"a": {"b": {"c": {"d": "value"}}}} end';
+      const result = extractJSON(text);
+      expect(result).toBe('{"a": {"b": {"c": {"d": "value"}}}}');
+      expect(JSON.parse(result).a.b.c.d).toBe("value");
+    });
+
+    it("should handle nested arrays", () => {
+      const text = "List: [[1, 2], [3, 4], [5, 6]] done";
+      const result = extractJSON(text);
+      expect(result).toBe("[[1, 2], [3, 4], [5, 6]]");
+      expect(JSON.parse(result)).toEqual([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ]);
+    });
+
+    it("should handle mixed nested structures", () => {
+      const text = 'Mixed: {"arr": [1, {"nested": true}]} end';
+      const result = extractJSON(text);
+      expect(result).toBe('{"arr": [1, {"nested": true}]}');
+    });
+
+    it("should handle JSON immediately followed by more text", () => {
+      const text =
+        '{"name": "test", "value": 42}\nHere is the JSON you requested!';
+      const result = extractJSON(text);
+      expect(result).toBe('{"name": "test", "value": 42}');
+    });
+
+    it("should handle newlines inside JSON", () => {
+      const text = `Prefix
+{"name": "test",
+"value": 42}
+Suffix`;
+      const result = extractJSON(text);
+      expect(result).toBe(`{"name": "test",
+"value": 42}`);
+    });
+
+    it("should handle empty objects", () => {
+      const text = "Empty: {} done";
+      const result = extractJSON(text);
+      expect(result).toBe("{}");
+    });
+
+    it("should handle empty arrays", () => {
+      const text = "Empty: [] done";
+      const result = extractJSON(text);
+      expect(result).toBe("[]");
+    });
+
+    it("should handle backslashes in strings", () => {
+      const text = 'Path: {"path": "C:\\\\Users\\\\test"} end';
+      const result = extractJSON(text);
+      expect(result).toBe('{"path": "C:\\\\Users\\\\test"}');
+    });
+
+    it("should extract from markdown code block with surrounding text", () => {
+      const text =
+        'Here is your JSON:\n```json\n{"result": true}\n```\nLet me know if you need more!';
+      // First extractJSON gets the whole thing, but after stripFormatting we should get clean JSON
+      const result = extractJSON(text);
+      expect(result).toBe('{"result": true}');
+    });
+
+    // Tests for ignoring braces inside quoted prose before actual JSON
+    it("should ignore braces inside quoted strings in prose before JSON", () => {
+      const text =
+        'The user said "use {} for objects" and here is the data: {"name": "Alice"}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"name": "Alice"}');
+      expect(JSON.parse(result)).toEqual({ name: "Alice" });
+    });
+
+    it("should ignore brackets inside quoted strings in prose before JSON array", () => {
+      const text =
+        'Remember that "arrays use []" notation. Here is the list: [1, 2, 3]';
+      const result = extractJSON(text);
+      expect(result).toBe("[1, 2, 3]");
+      expect(JSON.parse(result)).toEqual([1, 2, 3]);
+    });
+
+    it("should handle multiple quoted braces in prose before JSON", () => {
+      const text =
+        'First "{}", then "[]", and finally "{nested: true}" - actual JSON: {"valid": true}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"valid": true}');
+    });
+
+    it("should handle escaped quotes within prose strings", () => {
+      const text =
+        'He said "the format is \\"{key: value}\\"" and the data is: {"result": 42}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"result": 42}');
+    });
+
+    it("should handle prose with explanations mentioning JSON syntax before actual JSON", () => {
+      // Note: bare {} in prose WILL be detected as JSON (it's valid JSON for empty object)
+      // This test shows the expected behavior when braces are inside quotes
+      const text = `In JavaScript, objects use "{}" braces and "[]" brackets.
+For example, an empty object looks like "{}".
+Here is your requested data:
+{"users": [{"id": 1, "name": "Bob"}]}`;
+      const result = extractJSON(text);
+      expect(result).toBe('{"users": [{"id": 1, "name": "Bob"}]}');
+      expect(JSON.parse(result)).toEqual({ users: [{ id: 1, name: "Bob" }] });
+    });
+
+    it("should correctly find JSON when prose contains unbalanced braces in quotes", () => {
+      const text = 'The pattern "{{" is invalid, use: {"key": "value"}';
+      const result = extractJSON(text);
+      expect(result).toBe('{"key": "value"}');
+    });
+
+    it("should return original text when only braces inside quotes exist", () => {
+      const text = 'Just some text with "{}" in quotes and nothing else';
+      const result = extractJSON(text);
+      expect(result).toBe(text);
     });
   });
 });

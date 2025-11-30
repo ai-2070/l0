@@ -73,7 +73,7 @@ export interface RetryConfig {
    * Maximum retry attempts for model failures (default: 2)
    * Network and transient errors do not count toward this limit.
    */
-  maxAttempts: number;
+  attempts: number;
 
   /**
    * Absolute maximum number of retries across ALL error types (default: undefined = unlimited)
@@ -124,13 +124,12 @@ export type RetryReason =
   | "zero_output"
   | "guardrail_violation"
   | "drift"
-  | "malformed"
+  | "unknown"
   | "incomplete"
   | "network_error"
   | "timeout"
   | "rate_limit"
-  | "server_error"
-  | "pattern_violation";
+  | "server_error";
 
 /**
  * Centralized retry configuration defaults
@@ -138,7 +137,7 @@ export type RetryReason =
  */
 export const RETRY_DEFAULTS = {
   /** Maximum retry attempts for model failures */
-  maxAttempts: 2,
+  attempts: 2,
   /** Base delay in milliseconds */
   baseDelay: 1000,
   /** Maximum delay cap in milliseconds */
@@ -147,14 +146,16 @@ export const RETRY_DEFAULTS = {
   networkMaxDelay: 30000,
   /** Default backoff strategy */
   backoff: "exponential" as const,
-  /** Default retry reasons */
+  /** Default retry reasons (unknown errors are not retried by default) */
   retryOn: [
     "zero_output",
     "guardrail_violation",
     "drift",
+    "incomplete",
     "network_error",
     "timeout",
     "rate_limit",
+    "server_error",
   ] as RetryReason[],
 } as const;
 

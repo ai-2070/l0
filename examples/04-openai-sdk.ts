@@ -17,7 +17,7 @@ async function withOpenaiStream() {
 
   const result = await l0({
     stream: openaiStream(client, {
-      model: "gpt-4o-mini",
+      model: "gpt-5-nano",
       messages: [{ role: "user", content: "Write a limerick about APIs" }],
     }),
     guardrails: recommendedGuardrails,
@@ -36,7 +36,7 @@ async function withOpenaiText() {
   console.log("=== OpenAI SDK with openaiText ===\n");
 
   const result = await l0({
-    stream: openaiText(client, "gpt-4o-mini", "What is 2 + 2? Answer briefly."),
+    stream: openaiText(client, "gpt-5-nano", "What is 2 + 2? Answer briefly."),
     guardrails: recommendedGuardrails,
   });
 
@@ -54,7 +54,7 @@ async function withTools() {
 
   const result = await l0({
     stream: openaiStream(client, {
-      model: "gpt-4o-mini",
+      model: "gpt-5-nano",
       messages: [{ role: "user", content: "What's the weather in Paris?" }],
       tools: [
         {

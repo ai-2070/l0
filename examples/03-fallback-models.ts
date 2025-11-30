@@ -22,7 +22,7 @@ async function main() {
     fallbackStreams: [
       () =>
         streamText({
-          model: openai("gpt-4o-mini"),
+          model: openai("gpt-5-nano"),
           prompt,
         }),
       () =>

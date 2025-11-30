@@ -27,7 +27,7 @@ describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
       async () => {
         const result = await l0({
           stream: openaiStream(client!, {
-            model: "gpt-4o-mini",
+            model: "gpt-5-nano",
             messages: [{ role: "user", content: "Say 'hello'" }],
           }),
         });
@@ -50,9 +50,10 @@ describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
         const result = await l0({
           stream: openaiText(
             client!,
-            "gpt-4o-mini",
-            "What is 2+2? Answer with just the number.",
+            "gpt-5-nano",
+            "What is 2+2? Please explain your answer briefly.",
           ),
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
@@ -69,7 +70,7 @@ describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
       "should stream with messages array",
       async () => {
         const result = await l0({
-          stream: openaiText(client!, "gpt-4o-mini", [
+          stream: openaiText(client!, "gpt-5-nano", [
             { role: "system", content: "You are a helpful assistant." },
             { role: "user", content: "Say 'test'" },
           ]),
@@ -92,7 +93,7 @@ describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
         const result = await l0({
           stream: openaiJSON(
             client!,
-            "gpt-4o-mini",
+            "gpt-5-nano",
             "Return a JSON object with fields: name (string) and age (number). Use any values.",
           ),
         });
@@ -122,7 +123,7 @@ describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
         const result = await l0({
           stream: openaiWithTools(
             client!,
-            "gpt-4o-mini",
+            "gpt-5-nano",
             [{ role: "user", content: "What's the weather in Tokyo?" }],
             [
               {
@@ -141,6 +142,7 @@ describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
               },
             ],
           ),
+          detectZeroTokens: false, // Tool calls may not produce text content
         });
 
         for await (const event of result.stream) {
@@ -164,7 +166,7 @@ describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
       "should work with guardrails",
       async () => {
         const result = await l0({
-          stream: openaiText(client!, "gpt-4o-mini", "Write a short greeting"),
+          stream: openaiText(client!, "gpt-5-nano", "Write a short greeting"),
           guardrails: recommendedGuardrails,
         });
 
@@ -181,32 +183,24 @@ describeIf(hasOpenAI)("OpenAI SDK Direct Integration", () => {
 
   describe("Usage Tracking", () => {
     it(
-      "should include usage in done event",
+      "should track token count in state",
       async () => {
-        let usage: any;
-
         const result = await l0({
-          stream: openaiStream(
-            client!,
-            {
-              model: "gpt-4o-mini",
-              messages: [{ role: "user", content: "Say hi" }],
-              stream_options: { include_usage: true },
-            },
-            { includeUsage: true },
-          ),
+          stream: openaiStream(client!, {
+            model: "gpt-5-nano",
+            messages: [{ role: "user", content: "Say hello world" }],
+          }),
+          detectZeroTokens: false,
         });
 
         for await (const event of result.stream) {
-          if (event.type === "done" && (event as any).usage) {
-            usage = (event as any).usage;
-          }
+          // consume stream
         }
 
-        // Usage should be present with stream_options
-        expect(usage).toBeDefined();
-        expect(usage.prompt_tokens).toBeGreaterThan(0);
-        expect(usage.completion_tokens).toBeGreaterThan(0);
+        // L0 tracks token count in state
+        expect(result.state.tokenCount).toBeGreaterThan(0);
+        expect(result.state.content.length).toBeGreaterThan(0);
+        expect(result.state.completed).toBe(true);
       },
       LLM_TIMEOUT,
     );

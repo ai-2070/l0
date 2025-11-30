@@ -164,7 +164,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
       : null;
 
   const retryManager = new RetryManager({
-    maxAttempts: processedRetry.attempts ?? 2,
+    attempts: processedRetry.attempts ?? 2,
     maxRetries: processedRetry.maxRetries,
     baseDelay: processedRetry.baseDelay ?? 1000,
     maxDelay: processedRetry.maxDelay ?? 10000,
@@ -173,9 +173,11 @@ export async function l0(options: L0Options): Promise<L0Result> {
       "zero_output",
       "guardrail_violation",
       "drift",
+      "incomplete",
       "network_error",
       "timeout",
       "rate_limit",
+      "server_error",
     ],
   });
 
@@ -486,6 +488,17 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
               if (processedOnEvent) processedOnEvent(l0Event);
               yield l0Event;
+            } else if (event.type === "message") {
+              // Pass through message events (e.g., tool calls, function calls)
+              // Preserve all original event properties including role
+              const messageEvent: L0Event = {
+                type: "message",
+                value: event.value,
+                role: event.role,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(messageEvent);
+              yield messageEvent;
             } else if (event.type === "error") {
               throw event.error || new Error("Stream error");
             } else if (event.type === "done") {
@@ -704,7 +717,13 @@ export async function l0(options: L0Options): Promise<L0Result> {
             continue;
           }
 
-          // Not retryable - emit error and throw
+          // Not retryable - check if we have fallbacks available
+          if (fallbackIndex < allStreams.length - 1) {
+            // Break out of retry loop to try fallback
+            break;
+          }
+
+          // No fallbacks available - emit error and throw
           const errorEvent: L0Event = {
             type: "error",
             error: err,
@@ -720,7 +739,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
         }
       }
 
-      // If we exhausted retries for this stream, try fallback
+      // If we exhausted retries for this stream (or error not retryable), try fallback
       if (!state.completed) {
         if (fallbackIndex < allStreams.length - 1) {
           // Move to next fallback

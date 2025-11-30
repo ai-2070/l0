@@ -258,8 +258,8 @@ Weight models differently:
 const result = await consensus({
   streams: [
     () => streamText({ model: openai("gpt-4o"), prompt }), // Expert
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }), // Fast
-    () => streamText({ model: openai("gpt-4o-mini"), prompt }), // Fast
+    () => streamText({ model: openai("gpt-5-mini"), prompt }), // Fast
+    () => streamText({ model: openai("gpt-5-nano"), prompt }), // Fast
   ],
   strategy: "weighted",
   weights: [2.0, 1.0, 1.0], // GPT-4o counts double

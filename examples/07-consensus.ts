@@ -14,9 +14,9 @@ async function majorityConsensus() {
 
   const result = await consensus({
     streams: [
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+      () => streamText({ model: openai("gpt-5-nano"), prompt }),
+      () => streamText({ model: openai("gpt-5-nano"), prompt }),
+      () => streamText({ model: openai("gpt-5-nano"), prompt }),
     ],
     strategy: "majority",
     threshold: 0.66,
@@ -38,9 +38,9 @@ async function unanimousConsensus() {
 
   const result = await consensus({
     streams: [
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+      () => streamText({ model: openai("gpt-5-nano"), prompt }),
+      () => streamText({ model: openai("gpt-5-nano"), prompt }),
+      () => streamText({ model: openai("gpt-5-nano"), prompt }),
     ],
     strategy: "unanimous",
   });
@@ -58,9 +58,9 @@ async function bestResponse() {
 
   const result = await consensus({
     streams: [
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
-      () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+      () => streamText({ model: openai("gpt-5-nano"), prompt }),
+      () => streamText({ model: openai("gpt-5-nano"), prompt }),
+      () => streamText({ model: openai("gpt-5-nano"), prompt }),
     ],
     strategy: "best",
     scorer: (response) => {

@@ -50,7 +50,7 @@ async function processChunks() {
     console.log(`Processing chunk ${i + 1}/${window.totalChunks}...`);
 
     const result = await streamText({
-      model: openai("gpt-4o-mini"),
+      model: openai("gpt-5-nano"),
       prompt: `Summarize this text in one sentence:\n\n${chunk.content}`,
     });
 
@@ -102,7 +102,7 @@ async function processAllWithL0() {
   const results = await window.processAll((chunk) => ({
     stream: () =>
       streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai("gpt-5-nano"),
         prompt: `Extract 2-3 key terms from this text. Return only the terms, comma-separated:\n\n${chunk.content}`,
       }),
   }));

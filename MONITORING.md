@@ -181,11 +181,11 @@ interface L0Telemetry {
 
   // Continuation tracking (when continueFromLastKnownGoodToken is enabled)
   continuation?: {
-    enabled: boolean;              // Whether continuation was enabled
-    used: boolean;                 // Whether continuation was actually used
-    checkpointContent?: string;    // The checkpoint content used for continuation
-    checkpointLength?: number;     // Length of checkpoint in characters
-    continuationCount?: number;    // Number of times continuation was triggered
+    enabled: boolean; // Whether continuation was enabled
+    used: boolean; // Whether continuation was actually used
+    checkpointContent?: string; // The checkpoint content used for continuation
+    checkpointLength?: number; // Length of checkpoint in characters
+    continuationCount?: number; // Number of times continuation was triggered
   };
 
   // Custom metadata
@@ -282,7 +282,7 @@ console.log("  Total duration:", telemetry.duration, "ms");
 if (telemetry.continuation) {
   console.log("Continuation enabled:", telemetry.continuation.enabled);
   console.log("Continuation used:", telemetry.continuation.used);
-  
+
   if (telemetry.continuation.used) {
     console.log("Resumed from checkpoint:");
     console.log("  Length:", telemetry.continuation.checkpointLength, "chars");
@@ -673,8 +673,8 @@ monitor.recordNetworkError(error, true, 1000, 1);
 monitor.recordRetry(true);
 
 // Record continuation events
-monitor.recordContinuation(true, false);  // Enabled but not used yet
-monitor.recordContinuation(true, true, "checkpoint content");  // Used with checkpoint
+monitor.recordContinuation(true, false); // Enabled but not used yet
+monitor.recordContinuation(true, true, "checkpoint content"); // Used with checkpoint
 
 monitor.complete();
 
@@ -1046,7 +1046,7 @@ Sentry.init({ dsn: "your-sentry-dsn" });
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   monitoring: { enabled: true },
-  interceptors: [sentryInterceptor({ hub: Sentry })],
+  interceptors: [sentryInterceptor({ sentry: Sentry })],
 });
 ```
 
@@ -1056,7 +1056,7 @@ const result = await l0({
 import * as Sentry from "@sentry/node";
 import { l0, withSentry } from "l0";
 
-const result = await withSentry({ hub: Sentry }, () =>
+const result = await withSentry({ sentry: Sentry }, () =>
   l0({
     stream: () => streamText({ model, prompt }),
     monitoring: { enabled: true },
@@ -1070,7 +1070,7 @@ const result = await withSentry({ hub: Sentry }, () =>
 import { sentryInterceptor } from "l0";
 
 sentryInterceptor({
-  hub: Sentry, // Required: Sentry instance
+  sentry: Sentry, // Required: Sentry instance
   captureNetworkErrors: true, // Capture network failures (default: true)
   captureGuardrailViolations: true, // Capture guardrail violations (default: true)
   minGuardrailSeverity: "error", // Min severity to capture (default: 'error')
@@ -1116,7 +1116,7 @@ For fine-grained control:
 import * as Sentry from "@sentry/node";
 import { l0, createSentryIntegration } from "l0";
 
-const sentry = createSentryIntegration({ hub: Sentry });
+const sentry = createSentryIntegration({ sentry: Sentry });
 
 // Start tracking
 sentry.startExecution("my-chat-request", { user_id: "123" });
@@ -1146,7 +1146,7 @@ sentry.completeExecution(result.telemetry);
 ### Error Handling
 
 ```typescript
-const sentry = createSentryIntegration({ hub: Sentry });
+const sentry = createSentryIntegration({ sentry: Sentry });
 sentry.startExecution();
 
 let result;
@@ -1200,12 +1200,238 @@ Events you'll see in Sentry:
 
 ---
 
+## OpenTelemetry Integration
+
+L0 includes native OpenTelemetry support for distributed tracing and metrics, following GenAI semantic conventions.
+
+### Quick Start
+
+```typescript
+import { trace, metrics } from "@opentelemetry/api";
+import { l0, openTelemetryInterceptor } from "l0";
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  monitoring: { enabled: true },
+  interceptors: [
+    openTelemetryInterceptor({
+      tracer: trace.getTracer("my-app"),
+      meter: metrics.getMeter("my-app"),
+    }),
+  ],
+});
+```
+
+### Using L0OpenTelemetry Class
+
+For more control over tracing:
+
+```typescript
+import { trace, metrics } from "@opentelemetry/api";
+import { L0OpenTelemetry, createOpenTelemetry } from "l0";
+
+const otel = createOpenTelemetry({
+  tracer: trace.getTracer("l0"),
+  meter: metrics.getMeter("l0"),
+  serviceName: "my-llm-service",
+});
+
+// Create a traced execution
+const result = await otel.traceStream("chat-completion", async (span) => {
+  return l0({
+    stream: () => streamText({ model, prompt }),
+    monitoring: { enabled: true },
+  });
+});
+```
+
+### Configuration
+
+```typescript
+import { openTelemetryInterceptor } from "l0";
+
+openTelemetryInterceptor({
+  tracer: trace.getTracer("l0"), // Required: OTel tracer
+  meter: metrics.getMeter("l0"), // Optional: OTel meter for metrics
+  serviceName: "l0", // Service name for spans (default: 'l0')
+  traceTokens: false, // Create spans for individual tokens (default: false)
+  recordTokenContent: false, // Record token content in spans (default: false)
+  recordGuardrailViolations: true, // Record violations as span events (default: true)
+  defaultAttributes: {
+    // Custom attributes for all spans
+    "deployment.environment": "production",
+    "service.version": "1.0.0",
+  },
+});
+```
+
+### Semantic Attributes
+
+L0 follows OpenTelemetry GenAI semantic conventions:
+
+```typescript
+import { SemanticAttributes } from "l0";
+
+// Standard GenAI attributes
+SemanticAttributes.LLM_SYSTEM; // "gen_ai.system"
+SemanticAttributes.LLM_REQUEST_MODEL; // "gen_ai.request.model"
+SemanticAttributes.LLM_RESPONSE_MODEL; // "gen_ai.response.model"
+SemanticAttributes.LLM_USAGE_INPUT_TOKENS; // "gen_ai.usage.input_tokens"
+SemanticAttributes.LLM_USAGE_OUTPUT_TOKENS; // "gen_ai.usage.output_tokens"
+
+// L0-specific attributes
+SemanticAttributes.L0_SESSION_ID; // "l0.session_id"
+SemanticAttributes.L0_RETRY_COUNT; // "l0.retry.count"
+SemanticAttributes.L0_NETWORK_ERROR_COUNT; // "l0.network.error_count"
+SemanticAttributes.L0_TIME_TO_FIRST_TOKEN; // "l0.time_to_first_token_ms"
+SemanticAttributes.L0_TOKENS_PER_SECOND; // "l0.tokens_per_second"
+```
+
+### What Gets Traced
+
+**Spans:**
+
+- `l0.execution` - Full L0 execution span
+- `l0.stream` - Stream consumption span
+- `l0.token` - Individual token spans (if `traceTokens: true`)
+
+**Span Events:**
+
+- `l0.stream.start` - Stream started
+- `l0.token.first` - First token received (TTFT)
+- `l0.retry` - Retry attempt with reason
+- `l0.network.error` - Network error occurred
+- `l0.guardrail.violation` - Guardrail violation detected
+- `l0.stream.complete` - Stream completed
+
+**Metrics (if meter provided):**
+
+- `l0.request.duration` - Histogram of request durations
+- `l0.request.tokens` - Histogram of token counts
+- `l0.request.ttft` - Histogram of time-to-first-token
+- `l0.errors` - Counter of errors by type
+- `l0.retries` - Counter of retry attempts
+- `l0.guardrail.violations` - Counter of guardrail violations
+
+### Manual Tracing
+
+```typescript
+import { trace } from "@opentelemetry/api";
+import { L0OpenTelemetry, SemanticAttributes } from "l0";
+
+const otel = new L0OpenTelemetry({
+  tracer: trace.getTracer("l0"),
+});
+
+// Create a span manually
+const span = otel.createSpan("my-operation", {
+  attributes: {
+    [SemanticAttributes.LLM_REQUEST_MODEL]: "gpt-4",
+    "custom.attribute": "value",
+  },
+});
+
+try {
+  const result = await l0({
+    stream: () => streamText({ model, prompt }),
+    monitoring: { enabled: true },
+  });
+
+  for await (const event of result.stream) {
+    if (event.type === "token") {
+      otel.recordToken(span, event.value);
+    }
+  }
+
+  // Record telemetry to span
+  otel.recordTelemetry(result.telemetry, span);
+  otel.endSpan(span);
+} catch (error) {
+  otel.recordError(span, error);
+  otel.endSpan(span);
+  throw error;
+}
+```
+
+### With Jaeger/Zipkin
+
+```typescript
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { JaegerExporter } from "@opentelemetry/exporter-jaeger";
+import { SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { trace } from "@opentelemetry/api";
+
+// Setup Jaeger exporter
+const provider = new NodeTracerProvider();
+provider.addSpanProcessor(new SimpleSpanProcessor(new JaegerExporter()));
+provider.register();
+
+// Use with L0
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  interceptors: [
+    openTelemetryInterceptor({
+      tracer: trace.getTracer("my-app"),
+    }),
+  ],
+});
+```
+
+### Example Trace Output
+
+```
+Trace: l0.execution (1.5s)
+├── Attributes:
+│   ├── l0.session_id: "l0_abc123..."
+│   ├── gen_ai.request.model: "gpt-4"
+│   ├── l0.retry.count: 1
+│   └── l0.tokens_per_second: 166
+├── Events:
+│   ├── l0.stream.start (t=0ms)
+│   ├── l0.retry { reason: "rate_limit", attempt: 1 } (t=100ms)
+│   ├── l0.token.first { ttft_ms: 280 } (t=380ms)
+│   └── l0.stream.complete { tokens: 250 } (t=1500ms)
+└── Status: OK
+```
+
+### Integration with Existing OTel Setup
+
+If you already have OpenTelemetry configured in your application:
+
+```typescript
+import { trace, metrics, context, propagation } from "@opentelemetry/api";
+import { l0, openTelemetryInterceptor } from "l0";
+
+// L0 will automatically use the active context for trace propagation
+async function handleRequest(req) {
+  // Extract context from incoming request (if distributed tracing)
+  const activeContext = propagation.extract(context.active(), req.headers);
+
+  return context.with(activeContext, async () => {
+    // L0 traces will be children of the extracted context
+    const result = await l0({
+      stream: () => streamText({ model, prompt }),
+      interceptors: [
+        openTelemetryInterceptor({
+          tracer: trace.getTracer("my-app"),
+        }),
+      ],
+    });
+
+    // ... process result
+  });
+}
+```
+
+---
+
 ## Summary
 
 L0's built-in monitoring provides:
 
 - ✅ **Native Prometheus support** - built-in exporter with all metrics
 - ✅ **Native Sentry support** - error tracking and performance monitoring
+- ✅ **Native OpenTelemetry support** - distributed tracing with GenAI semantic conventions
 - ✅ **No external dependencies** - everything built-in
 - ✅ **Comprehensive metrics** - performance, errors, violations
 - ✅ **Flexible sampling** - control overhead

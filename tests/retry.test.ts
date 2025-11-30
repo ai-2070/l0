@@ -13,7 +13,7 @@ describe("RetryManager", () => {
 
   beforeEach(() => {
     retryManager = new RetryManager({
-      maxAttempts: 3,
+      attempts: 3,
       baseDelay: 100,
       maxDelay: 1000,
       backoff: "exponential",
@@ -93,18 +93,18 @@ describe("RetryManager", () => {
     it("should not retry when reason is not in retryOn list", () => {
       // Create manager that only retries on network_error
       const limitedManager = new RetryManager({
-        maxAttempts: 3,
+        attempts: 3,
         retryOn: ["network_error"],
       });
       const error = new Error("Invalid API key");
-      const decision = limitedManager.shouldRetry(error, "malformed");
+      const decision = limitedManager.shouldRetry(error, "unknown");
 
       expect(decision.shouldRetry).toBe(false);
     });
 
     it("should respect retryOn configuration", () => {
       const limitedRetry = new RetryManager({
-        maxAttempts: 3,
+        attempts: 3,
         retryOn: ["network_error"],
       });
 
@@ -281,8 +281,8 @@ describe("RetryManager", () => {
   });
 
   describe("Edge Cases", () => {
-    it("should handle zero maxAttempts", () => {
-      const noRetry = new RetryManager({ maxAttempts: 0 });
+    it("should handle zero attempts", () => {
+      const noRetry = new RetryManager({ attempts: 0 });
       const error = new Error("Test error");
       const decision = noRetry.shouldRetry(error, "network_error");
 
@@ -305,7 +305,7 @@ describe("RetryManager", () => {
 
     it("should handle empty retryOn array", () => {
       const noRetryManager = new RetryManager({
-        maxAttempts: 5,
+        attempts: 5,
         retryOn: [],
       });
 
@@ -378,7 +378,7 @@ describe("RetryManager", () => {
   describe("maxRetries Absolute Cap", () => {
     it("should enforce maxRetries as absolute cap across all error types", async () => {
       const manager = new RetryManager({
-        maxAttempts: 100, // High model retry limit
+        attempts: 100, // High model retry limit
         maxRetries: 3, // But absolute cap at 3
         baseDelay: 10,
       });
@@ -403,7 +403,7 @@ describe("RetryManager", () => {
 
     it("should allow unlimited retries when maxRetries is not set", () => {
       const manager = new RetryManager({
-        maxAttempts: 2,
+        attempts: 2,
         // maxRetries not set - unlimited
         baseDelay: 10,
       });
@@ -426,7 +426,7 @@ describe("RetryManager", () => {
 
     it("should block retries immediately when maxRetries is 0", () => {
       const manager = new RetryManager({
-        maxAttempts: 5,
+        attempts: 5,
         maxRetries: 0,
         baseDelay: 10,
       });
@@ -440,7 +440,7 @@ describe("RetryManager", () => {
 
     it("should count all error types toward maxRetries", async () => {
       const manager = new RetryManager({
-        maxAttempts: 100,
+        attempts: 100,
         maxRetries: 3,
         baseDelay: 10,
       });
@@ -480,7 +480,7 @@ describe("RetryManager", () => {
 
     it("should set limitReached when maxRetries is exceeded", async () => {
       const manager = new RetryManager({
-        maxAttempts: 100,
+        attempts: 100,
         maxRetries: 1,
         baseDelay: 10,
       });
@@ -513,7 +513,7 @@ describe("RetryManager", () => {
 
     it("should work with full configuration", () => {
       const full = new RetryManager({
-        maxAttempts: 5,
+        attempts: 5,
         baseDelay: 200,
         maxDelay: 5000,
         backoff: "linear",

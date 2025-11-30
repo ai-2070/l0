@@ -29,7 +29,7 @@ const result = await l0({
 
 **Recommendations:**
 
-- **Fast models (GPT-4o-mini, Claude Haiku):** 1500-2000ms
+- **Fast models (gpt-5-mini, Claude Haiku):** 1500-2000ms
 - **Standard models (GPT-4o, Claude Sonnet):** 2000-3000ms
 - **Large models (GPT-4, Claude Opus):** 3000-5000ms
 - **Edge/mobile networks:** Add 1000-2000ms buffer
@@ -102,26 +102,24 @@ retry: { attempts: 3, maxRetries: 10 }
 Only retry on specific error types:
 
 ```typescript
-// Minimal - only retry network issues
-retry: {
-  retryOn: ["network_error", "timeout"]
-}
-
-// Standard - add output quality issues
-retry: {
-  retryOn: ["network_error", "timeout", "zero_output", "guardrail_violation"]
-}
-
-// Comprehensive
+// Defaults to all recoverable errors
 retry: {
   retryOn: [
-    "network_error",
-    "timeout",
     "zero_output",
     "guardrail_violation",
     "drift",
     "malformed",
-  ]
+    "incomplete",
+    "network_error",
+    "timeout",
+    "rate_limit",
+    "server_error",
+  ],
+}
+
+// Minimal - only retry network issues
+retry: {
+  retryOn: ["network_error", "timeout"]
 }
 ```
 
@@ -156,13 +154,13 @@ Only include guardrails you need:
 
 ```typescript
 // Minimal overhead
-guardrails: [zeroOutputRule()]
+guardrails: [zeroOutputRule()];
 
 // Balanced
-guardrails: [jsonRule(), zeroOutputRule()]
+guardrails: [jsonRule(), zeroOutputRule()];
 
 // Full validation (higher overhead)
-guardrails: recommendedGuardrails
+guardrails: recommendedGuardrails;
 ```
 
 ### Pattern Matching
@@ -174,7 +172,7 @@ For custom patterns, pre-compile regexes:
 const FORBIDDEN_PATTERNS = [/sensitive_keyword/i, /another_pattern/];
 
 // Reuse in guardrails
-guardrails: [customPatternRule(FORBIDDEN_PATTERNS, "Forbidden content")]
+guardrails: [customPatternRule(FORBIDDEN_PATTERNS, "Forbidden content")];
 ```
 
 ---
