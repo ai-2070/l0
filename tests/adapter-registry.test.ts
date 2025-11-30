@@ -418,4 +418,147 @@ describe("Adapter Registry", () => {
       }
     });
   });
+
+  describe("edge cases", () => {
+    it("should handle detect() returning false for null input", () => {
+      registerAdapter(createAdapterA());
+
+      expect(hasMatchingAdapter(null)).toBe(false);
+      expect(() => detectAdapter(null)).toThrow(
+        "No registered adapter detected for stream",
+      );
+    });
+
+    it("should handle detect() returning false for undefined input", () => {
+      registerAdapter(createAdapterA());
+
+      expect(hasMatchingAdapter(undefined)).toBe(false);
+      expect(() => detectAdapter(undefined)).toThrow(
+        "No registered adapter detected for stream",
+      );
+    });
+
+    it("should handle detect() that throws an error gracefully", () => {
+      const throwingAdapter: L0Adapter<unknown> = {
+        name: "throwing-adapter",
+        detect(_input): _input is unknown {
+          throw new Error("Detection error");
+        },
+        async *wrap() {
+          yield { type: "done", timestamp: Date.now() };
+        },
+      };
+
+      registerAdapter(throwingAdapter);
+
+      // detect() throwing should propagate the error
+      expect(() => detectAdapter({ test: true })).toThrow("Detection error");
+    });
+
+    it("should use first matching adapter when registration order matters", () => {
+      // Create two adapters where both could match but have different detection logic
+      const broadAdapter: L0Adapter<{ data: string }> = {
+        name: "broad-adapter",
+        detect(input): input is { data: string } {
+          return (
+            !!input && typeof input === "object" && "data" in (input as object)
+          );
+        },
+        async *wrap() {
+          yield { type: "token", value: "broad", timestamp: Date.now() };
+          yield { type: "done", timestamp: Date.now() };
+        },
+      };
+
+      const specificAdapter: L0Adapter<{ data: string; specific: true }> = {
+        name: "specific-adapter",
+        detect(input): input is { data: string; specific: true } {
+          return (
+            !!input &&
+            typeof input === "object" &&
+            "data" in (input as object) &&
+            "specific" in (input as object)
+          );
+        },
+        async *wrap() {
+          yield { type: "token", value: "specific", timestamp: Date.now() };
+          yield { type: "done", timestamp: Date.now() };
+        },
+      };
+
+      // Register specific first, then broad
+      registerAdapter(specificAdapter);
+      registerAdapter(broadAdapter);
+
+      // Input that matches both - should match specific (registered first)
+      const inputBoth = { data: "test", specific: true as const };
+
+      // Both adapters match, so should throw ambiguity error
+      expect(() => detectAdapter(inputBoth)).toThrow(
+        "Multiple adapters detected for stream",
+      );
+
+      // Input that only matches broad
+      const inputBroad = { data: "test" };
+      const detected = detectAdapter(inputBroad);
+      expect(detected.name).toBe("broad-adapter");
+    });
+
+    it("should handle primitive inputs to detect functions", () => {
+      registerAdapter(createAdapterA());
+
+      expect(hasMatchingAdapter("string")).toBe(false);
+      expect(hasMatchingAdapter(123)).toBe(false);
+      expect(hasMatchingAdapter(true)).toBe(false);
+      expect(hasMatchingAdapter(Symbol("test"))).toBe(false);
+    });
+
+    it("should handle array inputs to detect functions", () => {
+      registerAdapter(createAdapterA());
+
+      expect(hasMatchingAdapter([])).toBe(false);
+      expect(hasMatchingAdapter([1, 2, 3])).toBe(false);
+    });
+
+    it("should list all matching adapter names in ambiguity error", () => {
+      const adapter1: L0Adapter<object> = {
+        name: "match-1",
+        detect: (input): input is object =>
+          typeof input === "object" && input !== null,
+        async *wrap() {
+          yield { type: "done", timestamp: Date.now() };
+        },
+      };
+      const adapter2: L0Adapter<object> = {
+        name: "match-2",
+        detect: (input): input is object =>
+          typeof input === "object" && input !== null,
+        async *wrap() {
+          yield { type: "done", timestamp: Date.now() };
+        },
+      };
+      const adapter3: L0Adapter<object> = {
+        name: "match-3",
+        detect: (input): input is object =>
+          typeof input === "object" && input !== null,
+        async *wrap() {
+          yield { type: "done", timestamp: Date.now() };
+        },
+      };
+
+      registerAdapter(adapter1);
+      registerAdapter(adapter2);
+      registerAdapter(adapter3);
+
+      try {
+        detectAdapter({ test: true });
+        expect.fail("Should have thrown");
+      } catch (error) {
+        const message = (error as Error).message;
+        expect(message).toContain("match-1");
+        expect(message).toContain("match-2");
+        expect(message).toContain("match-3");
+      }
+    });
+  });
 });

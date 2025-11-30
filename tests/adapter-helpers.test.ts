@@ -693,6 +693,84 @@ describe("createAdapterMessageEvent", () => {
   });
 });
 
+describe("edge cases", () => {
+  beforeEach(() => {
+    let mockTime = 1000;
+    vi.spyOn(Date, "now").mockImplementation(() => mockTime++);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should handle Unicode and emoji text correctly", async () => {
+    const chunks = [
+      { text: "Hello " },
+      { text: "World" },
+      { text: " " },
+      { text: "" },
+    ];
+    const stream = arrayToAsyncIterable(chunks);
+
+    const events = await collectEvents(
+      toL0Events(stream, (chunk) => chunk.text),
+    );
+
+    expect(events[0]).toMatchObject({ type: "token", value: "Hello " });
+    expect(events[1]).toMatchObject({ type: "token", value: "World" });
+    expect(events[2]).toMatchObject({ type: "token", value: " " });
+    expect(events[3]).toMatchObject({ type: "token", value: "" });
+  });
+
+  it("should handle very large strings", async () => {
+    const largeString = "x".repeat(100000);
+    const chunks = [{ text: largeString }];
+    const stream = arrayToAsyncIterable(chunks);
+
+    const events = await collectEvents(
+      toL0Events(stream, (chunk) => chunk.text),
+    );
+
+    expect(events[0]).toMatchObject({ type: "token", value: largeString });
+    expect((events[0] as any).value.length).toBe(100000);
+  });
+
+  it("should handle extractor function that throws", async () => {
+    const chunks = [{ text: "A" }, { text: "B" }, { text: "C" }];
+    const stream = arrayToAsyncIterable(chunks);
+    let callCount = 0;
+
+    const events = await collectEvents(
+      toL0Events(stream, (chunk) => {
+        callCount++;
+        if (callCount === 2) {
+          throw new Error("Extractor error");
+        }
+        return chunk.text;
+      }),
+    );
+
+    // First token succeeds, then error on second extractor call
+    expect(events[0]).toMatchObject({ type: "token", value: "A" });
+    expect(events[1]?.type).toBe("error");
+    expect((events[1] as any).error.message).toBe("Extractor error");
+  });
+
+  it("should handle rapid successive chunks", async () => {
+    const chunks = Array.from({ length: 100 }, (_, i) => ({ text: `${i}` }));
+    const stream = arrayToAsyncIterable(chunks);
+
+    const events = await collectEvents(
+      toL0Events(stream, (chunk) => chunk.text),
+    );
+
+    const tokens = events.filter((e) => e.type === "token");
+    expect(tokens).toHaveLength(100);
+    expect(tokens[0]).toMatchObject({ value: "0" });
+    expect(tokens[99]).toMatchObject({ value: "99" });
+  });
+});
+
 describe("adapter helper integration patterns", () => {
   beforeEach(() => {
     let mockTime = 1000;
