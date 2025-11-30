@@ -31,7 +31,7 @@ export class RetryManager {
   constructor(config: Partial<RetryConfig> = {}) {
     this.config = {
       attempts: config.attempts ?? RETRY_DEFAULTS.attempts,
-      maxRetries: config.maxRetries,
+      maxRetries: config.maxRetries ?? RETRY_DEFAULTS.maxRetries,
       baseDelay: config.baseDelay ?? RETRY_DEFAULTS.baseDelay,
       maxDelay: config.maxDelay ?? RETRY_DEFAULTS.maxDelay,
       backoff: config.backoff ?? RETRY_DEFAULTS.backoff,

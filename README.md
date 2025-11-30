@@ -25,7 +25,7 @@ npm install @ai2070/l0
 
 | Feature                                          | Description                                                                                                                                                                                           |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🔁 Smart Retries**                             | Model-aware retries with exponential backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.                                                       |
+| **🔁 Smart Retries**                             | Model-aware retries with fixed-jitter backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.                                                       |
 | **🌐 Network Protection**                        | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks.                                                                        |
 | **🔀 Model Fallbacks**                           | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic.                                                                                                |
 | **💥 Zero-Token/Stall Protection**               | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks.                                                                                             |
@@ -82,7 +82,7 @@ const result = await l0({
     attempts: 2,
     baseDelay: 1000,
     maxDelay: 10000,
-    backoff: "exponential",
+    backoff: "fixed-jitter",
   },
   // Or simply:
   // retry: recommendedRetry,
@@ -240,7 +240,7 @@ const result = await l0({
     maxRetries: 10, // Absolute cap across all error types
     baseDelay: 1000,
     maxDelay: 10000,
-    backoff: "exponential", // or "linear", "fixed", "full-jitter"
+    backoff: "fixed-jitter", // or "exponential", "linear", "fixed", "full-jitter"
 
     // Optional: specify which error types to retry on, defaults to all recoverable errors
     retryOn: [

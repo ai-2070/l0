@@ -60,6 +60,28 @@ export function fixedBackoff(
 }
 
 /**
+ * Fixed jitter backoff (fixed base delay + random jitter)
+ * AWS-style predictable retry timing with jitter to prevent thundering herd
+ * @param baseDelay - Base delay in milliseconds (default: 1000)
+ * @param maxDelay - Maximum delay cap in milliseconds (default: 10000)
+ */
+export function fixedJitterBackoff(
+  baseDelay: number = RETRY_DEFAULTS.baseDelay,
+  maxDelay: number = RETRY_DEFAULTS.maxDelay,
+): BackoffResult {
+  // Add up to 50% jitter to the base delay
+  const jitter = Math.random() * baseDelay * 0.5;
+  const rawDelay = baseDelay + jitter;
+  const delay = Math.min(Math.floor(rawDelay), maxDelay);
+
+  return {
+    delay,
+    cappedAtMax: rawDelay > maxDelay,
+    rawDelay,
+  };
+}
+
+/**
  * Full jitter backoff (random between 0 and exponential)
  * AWS recommended approach for distributed systems
  * @param attempt - Current attempt number (0-based)
@@ -117,7 +139,7 @@ export function decorrelatedJitterBackoff(
  * @param maxDelay - Maximum delay cap in milliseconds
  */
 export function calculateBackoff(
-  strategy: "exponential" | "linear" | "fixed" | "full-jitter",
+  strategy: "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter",
   attempt: number,
   baseDelay: number = RETRY_DEFAULTS.baseDelay,
   maxDelay: number = RETRY_DEFAULTS.maxDelay,
@@ -131,6 +153,8 @@ export function calculateBackoff(
       return fixedBackoff(baseDelay);
     case "full-jitter":
       return fullJitterBackoff(attempt, baseDelay, maxDelay);
+    case "fixed-jitter":
+      return fixedJitterBackoff(baseDelay, maxDelay);
     default:
       return exponentialBackoff(attempt, baseDelay, maxDelay);
   }

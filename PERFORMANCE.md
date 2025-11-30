@@ -62,12 +62,16 @@ Choose based on your use case:
 ```typescript
 import { RETRY_DEFAULTS } from "@ai2070/l0";
 
-// Exponential (default) - doubles delay each retry
-// Good for: Most production workloads
+// Fixed jitter (default) - AWS-style fixed base + random jitter
+// Good for: Most production workloads (prevents thundering herd)
+retry: { backoff: "fixed-jitter", baseDelay: 1000, maxDelay: 10000 }
+
+// Exponential - doubles delay each retry
+// Good for: Gradual backpressure on overloaded services
 retry: { backoff: "exponential", baseDelay: 1000, maxDelay: 10000 }
 
 // Full jitter - random delay up to exponential max
-// Good for: High-concurrency systems (prevents thundering herd)
+// Good for: High-concurrency systems
 retry: { backoff: "full-jitter", baseDelay: 1000, maxDelay: 10000 }
 
 // Linear - adds baseDelay each retry
@@ -87,13 +91,13 @@ Balance reliability vs. latency:
 // Conservative (fast failure)
 retry: { attempts: 1 }
 
-// Balanced (recommended)
+// Balanced
 retry: { attempts: 2 }
 
-// Aggressive (high reliability)
+// Default (recommended)
 retry: { attempts: 3 }
 
-// With absolute cap (prevents runaway retries)
+// With custom cap (default maxRetries is 6)
 retry: { attempts: 3, maxRetries: 10 }
 ```
 

@@ -92,7 +92,7 @@ export async function structured<T extends z.ZodTypeAny>(
     fallbackStreams,
     retry: {
       attempts: retry.attempts ?? 2,
-      backoff: retry.backoff ?? "exponential",
+      backoff: retry.backoff ?? "fixed-jitter",
       baseDelay: retry.baseDelay ?? 1000,
       maxDelay: retry.maxDelay ?? 5000,
       retryOn: [...(retry.retryOn || []), "guardrail_violation", "incomplete"],

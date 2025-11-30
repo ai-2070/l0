@@ -183,7 +183,7 @@ import {
 ```typescript
 import {
   minimalRetry, // 1 attempt
-  recommendedRetry, // 2 attempts, exponential backoff
+  recommendedRetry, // 3 attempts, fixed-jitter backoff
   strictRetry, // 3 attempts, full-jitter
 } from "@ai2070/l0";
 ```

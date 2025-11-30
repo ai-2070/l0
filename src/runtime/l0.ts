@@ -82,7 +82,7 @@ function validateCheckpointForContinuation(
  * const result = await l0({
  *   stream: () => streamText({ model, prompt }),
  *   guardrails: [jsonRule(), markdownRule()],
- *   retry: { attempts: 2, backoff: "exponential" }
+ *   retry: { attempts: 3, backoff: "fixed-jitter" }
  * });
  *
  * for await (const event of result.stream) {
@@ -90,16 +90,20 @@ function validateCheckpointForContinuation(
  * }
  * ```
  */
-export async function l0(options: L0Options): Promise<L0Result> {
+export async function l0<TOutput = unknown>(
+  options: L0Options<TOutput>,
+): Promise<L0Result<TOutput>> {
   const { signal: externalSignal, interceptors = [] } = options;
 
   // Initialize interceptor manager
   const interceptorManager = new InterceptorManager(interceptors);
 
   // Execute "before" interceptors
-  let processedOptions = options;
+  let processedOptions: L0Options<TOutput> = options;
   try {
-    processedOptions = await interceptorManager.executeBefore(options);
+    processedOptions = (await interceptorManager.executeBefore(
+      options,
+    )) as L0Options<TOutput>;
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     await interceptorManager.executeError(err, options);
@@ -168,7 +172,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
     maxRetries: processedRetry.maxRetries,
     baseDelay: processedRetry.baseDelay ?? 1000,
     maxDelay: processedRetry.maxDelay ?? 10000,
-    backoff: processedRetry.backoff ?? "exponential",
+    backoff: processedRetry.backoff ?? "fixed-jitter",
     retryOn: processedRetry.retryOn ?? [
       "zero_output",
       "guardrail_violation",
@@ -684,7 +688,42 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
           // Categorize error
           const categorized = retryManager.categorizeError(err);
-          const decision = retryManager.shouldRetry(err);
+          let decision = retryManager.shouldRetry(err);
+
+          // Check custom shouldRetry function if provided
+          if (processedRetry.shouldRetry) {
+            const customDecision = processedRetry.shouldRetry(err, {
+              attempt: retryAttempt,
+              totalAttempts: retryAttempt + state.networkRetries,
+              category: categorized.category,
+              reason: categorized.reason,
+              content: state.content,
+              tokenCount: state.tokenCount,
+            });
+            // If custom function returns boolean, override default decision
+            if (customDecision === true) {
+              decision = { ...decision, shouldRetry: true };
+            } else if (customDecision === false) {
+              decision = { ...decision, shouldRetry: false };
+            }
+            // If undefined, use default decision
+          }
+
+          // Check custom calculateDelay function if provided
+          if (processedRetry.calculateDelay && decision.shouldRetry) {
+            const customDelay = processedRetry.calculateDelay({
+              attempt: retryAttempt,
+              totalAttempts: retryAttempt + state.networkRetries,
+              category: categorized.category,
+              reason: categorized.reason,
+              error: err,
+              defaultDelay: decision.delay,
+            });
+            // If custom function returns a number, override default delay
+            if (typeof customDelay === "number") {
+              decision = { ...decision, delay: customDelay };
+            }
+          }
 
           // Record network error in monitoring
           const isNetError = isNetworkError(err);
@@ -861,7 +900,7 @@ export async function l0(options: L0Options): Promise<L0Result> {
   };
 
   // Create initial result
-  let result: L0Result = {
+  let result: L0Result<TOutput> = {
     stream: streamGenerator(),
     state,
     errors,
@@ -871,7 +910,9 @@ export async function l0(options: L0Options): Promise<L0Result> {
 
   // Execute "after" interceptors
   try {
-    result = await interceptorManager.executeAfter(result);
+    result = (await interceptorManager.executeAfter(
+      result,
+    )) as L0Result<TOutput>;
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     await interceptorManager.executeError(err, processedOptions);
