@@ -755,9 +755,9 @@ const result = await race([
 All L0 functions support generic type parameters to forward your output types:
 
 ```typescript
-import { l0, structured, parallel, race, consensus } from "@ai2070/l0";
+import { l0, parallel, race, consensus } from "@ai2070/l0";
 
-// Type-safe structured output
+// Typed output (compile-time type annotation)
 interface UserProfile {
   name: string;
   age: number;
@@ -767,7 +767,7 @@ interface UserProfile {
 const result = await l0<UserProfile>({
   stream: () => streamText({ model, prompt }),
 });
-// result.state.content is typed
+// result is L0Result<UserProfile> - generic enables type inference in callbacks
 
 // Works with all parallel operations
 const raceResult = await race<UserProfile>([

@@ -135,7 +135,7 @@ const result = await l0<UserProfile>({
 });
 
 // result is L0Result<UserProfile>
-// result.state includes the typed output
+// Generic enables type inference in structured output and callbacks
 ```
 
 ### parallel\<TOutput\>()
@@ -623,7 +623,7 @@ const result = await l0({
       if (context.category === "network") return 500;
       if (context.reason === "rate_limit") return 5000;
       
-      // Custom exponential backoff with decorrelated jitter
+      // Custom exponential backoff with full jitter
       const base = 1000;
       const cap = 30000;
       const temp = Math.min(cap, base * Math.pow(2, context.attempt));

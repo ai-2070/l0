@@ -1495,10 +1495,9 @@ describe("L0 Runtime", () => {
           // Expected to throw
         }
 
-        // calculateDelay should still be called before shouldRetry prevents retry
-        // Actually, calculateDelay is called when decision.shouldRetry is true
-        // Since shouldRetry returns false, calculateDelay may or may not be called
-        // depending on implementation order
+        // When shouldRetry returns false, we don't need to calculate delay
+        // since we're not retrying anyway
+        expect(calculateDelayCalled).toBe(false);
       });
     });
   });
