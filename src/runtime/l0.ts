@@ -269,12 +269,7 @@ export async function l0<TOutput = unknown>(
               if (validation.skipContinuation) {
                 // Fatal violation in checkpoint, start fresh
                 tokenBuffer = [];
-                state.content = "";
-                state.tokenCount = 0;
-                state.violations = [];
-                state.driftDetected = false;
-                state.dataOutputs = [];
-                state.lastProgress = undefined;
+                resetStateForRetry(state);
                 continue;
               }
 
@@ -300,22 +295,31 @@ export async function l0<TOutput = unknown>(
                 value: checkpointForContinuation,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(checkpointEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                checkpointEvent,
+                monitor,
+                "onEvent",
+              );
               yield checkpointEvent;
 
               // Initialize token buffer with checkpoint
               tokenBuffer = [checkpointForContinuation];
               state.content = checkpointForContinuation;
               state.tokenCount = 1; // Count checkpoint as one token
+              // Reset other state fields
+              resetStateForRetry(state, {
+                checkpoint: state.checkpoint,
+                continuedFromCheckpoint: true,
+                continuationCheckpoint: checkpointForContinuation,
+              });
+              // Restore values that resetStateForRetry cleared
+              state.content = checkpointForContinuation;
+              state.tokenCount = 1;
             } else {
               tokenBuffer = [];
-              state.content = "";
-              state.tokenCount = 0;
+              resetStateForRetry(state);
             }
-            state.violations = [];
-            state.driftDetected = false;
-            state.dataOutputs = [];
-            state.lastProgress = undefined;
           }
 
           // Get stream from factory
@@ -395,7 +399,10 @@ export async function l0<TOutput = unknown>(
           state.lastTokenAt = undefined;
 
           let firstTokenReceived = false;
-          let lastTokenTime = startTime;
+          // Track time of last token emission for inter-token timeout
+          // This is set BEFORE reading each chunk, so the timeout check
+          // measures time waiting for the next token, not time since processing
+          let lastTokenEmissionTime = startTime;
 
           const defaultInitialTokenTimeout = 5000;
 
@@ -427,6 +434,26 @@ export async function l0<TOutput = unknown>(
               });
             }
 
+            // Check inter-token timeout BEFORE processing this chunk
+            // This measures how long we waited for this token
+            if (firstTokenReceived) {
+              const interTimeout = processedTimeout.interToken ?? 10000;
+              const timeSinceLastToken = Date.now() - lastTokenEmissionTime;
+              if (timeSinceLastToken > interTimeout) {
+                throw new L0Error("Inter-token timeout reached", {
+                  code: "INTER_TOKEN_TIMEOUT",
+                  checkpoint: state.checkpoint,
+                  tokenCount: state.tokenCount,
+                  contentLength: state.content.length,
+                  retryAttempts: state.retryAttempts,
+                  networkRetries: state.networkRetries,
+                  fallbackIndex,
+                  recoverable: state.checkpoint.length > 0,
+                  metadata: { timeout: interTimeout, timeSinceLastToken },
+                });
+              }
+            }
+
             // Clear initial timeout on first chunk
             if (initialTimeoutId && !firstTokenReceived) {
               clearTimeout(initialTimeoutId);
@@ -452,8 +479,24 @@ export async function l0<TOutput = unknown>(
               });
             }
 
-            // Normalize event
-            const event = normalizeStreamEvent(chunk);
+            // Normalize event with safety wrapper
+            let event: L0Event;
+            try {
+              event = normalizeStreamEvent(chunk);
+            } catch (normalizeError) {
+              // Malformed input from stream - log and skip this chunk
+              const errMsg =
+                normalizeError instanceof Error
+                  ? normalizeError.message
+                  : String(normalizeError);
+              monitor.logEvent({
+                type: "warning",
+                message: `Failed to normalize stream chunk: ${errMsg}`,
+                chunk:
+                  typeof chunk === "object" ? JSON.stringify(chunk) : chunk,
+              });
+              continue;
+            }
 
             if (event.type === "token" && event.value) {
               let token = event.value;
@@ -527,7 +570,6 @@ export async function l0<TOutput = unknown>(
               tokenBuffer.push(token);
               state.tokenCount++;
               state.lastTokenAt = Date.now();
-              lastTokenTime = state.lastTokenAt;
 
               // Build content string only when needed (for guardrails/drift checks)
               // This is O(n) total instead of O(n²) from repeated concatenation
@@ -544,23 +586,6 @@ export async function l0<TOutput = unknown>(
 
               // Record token in monitoring
               monitor.recordToken(state.lastTokenAt);
-
-              // Check inter-token timeout
-              const interTimeout = processedTimeout.interToken ?? 10000;
-              const timeSinceLastToken = Date.now() - lastTokenTime;
-              if (timeSinceLastToken > interTimeout) {
-                throw new L0Error("Inter-token timeout reached", {
-                  code: "INTER_TOKEN_TIMEOUT",
-                  checkpoint: state.checkpoint,
-                  tokenCount: state.tokenCount,
-                  contentLength: state.content.length,
-                  retryAttempts: state.retryAttempts,
-                  networkRetries: state.networkRetries,
-                  fallbackIndex,
-                  recoverable: state.checkpoint.length > 0,
-                  metadata: { timeout: interTimeout, timeSinceLastToken },
-                });
-              }
 
               // Update checkpoint periodically
               if (state.tokenCount % checkpointInterval === 0) {
@@ -624,8 +649,11 @@ export async function l0<TOutput = unknown>(
                 timestamp: Date.now(),
               };
 
-              if (processedOnEvent) processedOnEvent(l0Event);
+              safeInvokeCallback(processedOnEvent, l0Event, monitor, "onEvent");
               yield l0Event;
+
+              // Update emission time AFTER yielding for accurate inter-token timeout measurement
+              lastTokenEmissionTime = Date.now();
             } else if (event.type === "message") {
               // Pass through message events (e.g., tool calls, function calls)
               // Preserve all original event properties including role
@@ -635,7 +663,12 @@ export async function l0<TOutput = unknown>(
                 role: event.role,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(messageEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                messageEvent,
+                monitor,
+                "onEvent",
+              );
               yield messageEvent;
             } else if (event.type === "data") {
               // Handle multimodal data events (images, audio, etc.)
@@ -647,7 +680,12 @@ export async function l0<TOutput = unknown>(
                 data: event.data,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(dataEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                dataEvent,
+                monitor,
+                "onEvent",
+              );
               yield dataEvent;
             } else if (event.type === "progress") {
               // Handle progress events for long-running operations
@@ -657,7 +695,12 @@ export async function l0<TOutput = unknown>(
                 progress: event.progress,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(progressEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                progressEvent,
+                monitor,
+                "onEvent",
+              );
               yield progressEvent;
             } else if (event.type === "error") {
               throw event.error || new Error("Stream error");
@@ -760,7 +803,12 @@ export async function l0<TOutput = unknown>(
                 value: flushedToken,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(flushedEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                flushedEvent,
+                monitor,
+                "onEvent",
+              );
               yield flushedEvent;
             }
 
@@ -862,7 +910,7 @@ export async function l0<TOutput = unknown>(
             type: "done",
             timestamp: Date.now(),
           };
-          if (processedOnEvent) processedOnEvent(doneEvent);
+          safeInvokeCallback(processedOnEvent, doneEvent, monitor, "onEvent");
           yield doneEvent;
 
           break; // Exit retry loop on success
@@ -1022,7 +1070,7 @@ export async function l0<TOutput = unknown>(
             error: err,
             timestamp: Date.now(),
           };
-          if (processedOnEvent) processedOnEvent(errorEvent);
+          safeInvokeCallback(processedOnEvent, errorEvent, monitor, "onEvent");
           yield errorEvent;
 
           // Execute error interceptors
@@ -1103,29 +1151,33 @@ export async function l0<TOutput = unknown>(
                 value: checkpointForContinuation,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(checkpointEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                checkpointEvent,
+                monitor,
+                "onEvent",
+              );
               yield checkpointEvent;
 
               // Initialize with checkpoint
               tokenBuffer = [checkpointForContinuation];
+              resetStateForRetry(state, {
+                checkpoint: state.checkpoint,
+                continuedFromCheckpoint: true,
+                continuationCheckpoint: checkpointForContinuation,
+                fallbackIndex,
+              });
               state.content = checkpointForContinuation;
               state.tokenCount = 1;
             } else {
               // Fatal violation in checkpoint, start fresh
               tokenBuffer = [];
-              state.content = "";
-              state.tokenCount = 0;
+              resetStateForRetry(state, { fallbackIndex });
             }
           } else {
             tokenBuffer = [];
-            state.content = "";
-            state.tokenCount = 0;
+            resetStateForRetry(state, { fallbackIndex });
           }
-          state.violations = [];
-          state.driftDetected = false;
-          state.dataOutputs = [];
-          state.lastProgress = undefined;
-          state.retryAttempts = 0;
 
           // Continue to next fallback
           continue;
@@ -1141,7 +1193,7 @@ export async function l0<TOutput = unknown>(
             error: exhaustedError,
             timestamp: Date.now(),
           };
-          if (processedOnEvent) processedOnEvent(errorEvent);
+          safeInvokeCallback(processedOnEvent, errorEvent, monitor, "onEvent");
           yield errorEvent;
 
           // Execute error interceptors
@@ -1184,6 +1236,27 @@ export async function l0<TOutput = unknown>(
 }
 
 /**
+ * Safely invoke a user callback, catching and logging any errors
+ * This prevents callback errors from crashing the stream
+ */
+function safeInvokeCallback<T>(
+  callback: ((arg: T) => void) | undefined,
+  arg: T,
+  monitor: L0Monitor,
+  callbackName: string = "callback",
+): void {
+  if (!callback) return;
+  try {
+    callback(arg);
+  } catch (error) {
+    monitor.logEvent({
+      type: "warning",
+      message: `${callbackName} threw: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+/**
  * Create initial L0 state
  */
 function createInitialState(): L0State {
@@ -1201,6 +1274,50 @@ function createInitialState(): L0State {
     continuedFromCheckpoint: false,
     dataOutputs: [],
   };
+}
+
+/**
+ * Reset L0 state for retry/fallback while preserving specific fields
+ * This centralizes state reset logic to prevent inconsistencies
+ */
+function resetStateForRetry(
+  state: L0State,
+  preserve: {
+    checkpoint?: string;
+    continuedFromCheckpoint?: boolean;
+    continuationCheckpoint?: string;
+    retryAttempts?: number;
+    networkRetries?: number;
+    fallbackIndex?: number;
+  } = {},
+): void {
+  state.content = "";
+  state.tokenCount = 0;
+  state.violations = [];
+  state.driftDetected = false;
+  state.dataOutputs = [];
+  state.lastProgress = undefined;
+  state.completed = false;
+
+  // Restore preserved fields
+  if (preserve.checkpoint !== undefined) {
+    state.checkpoint = preserve.checkpoint;
+  }
+  if (preserve.continuedFromCheckpoint !== undefined) {
+    state.continuedFromCheckpoint = preserve.continuedFromCheckpoint;
+  }
+  if (preserve.continuationCheckpoint !== undefined) {
+    state.continuationCheckpoint = preserve.continuationCheckpoint;
+  }
+  if (preserve.retryAttempts !== undefined) {
+    state.retryAttempts = preserve.retryAttempts;
+  }
+  if (preserve.networkRetries !== undefined) {
+    state.networkRetries = preserve.networkRetries;
+  }
+  if (preserve.fallbackIndex !== undefined) {
+    state.fallbackIndex = preserve.fallbackIndex;
+  }
 }
 
 /**

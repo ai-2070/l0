@@ -248,17 +248,36 @@ export interface L0Options<TOutput = unknown> {
 
   /**
    * Configure check intervals for streaming operations
+   *
+   * **Performance Note:** Both guardrails and drift detection scan the accumulated
+   * content at each check interval. For very long outputs (multi-MB), this becomes
+   * O(n) per check. Consider:
+   * - Increasing intervals for long-form content
+   * - Using streaming-optimized guardrail rules that only check the delta
+   * - Setting a maximum content length before disabling checks
    */
   checkIntervals?: {
     /**
      * Run guardrail checks every N tokens (default: 5)
-     * Lower values = more frequent checks, higher CPU usage
-     * Higher values = less frequent checks, potential for more content before violation detected
+     *
+     * **Performance Warning:** If guardrail rules include expensive operations
+     * (regex on full content, JSON parsing), lower values can cause significant
+     * CPU overhead. For rules that scan full content, each check is O(n) where
+     * n is content length.
+     *
+     * Recommendations:
+     * - For simple delta-only rules: 1-5 tokens
+     * - For rules scanning full content: 10-50 tokens
+     * - For very long outputs (>100KB): 50-100 tokens
      */
     guardrails?: number;
 
     /**
      * Run drift detection every N tokens (default: 10)
+     *
+     * **Performance Warning:** Drift detection scans the entire accumulated
+     * content at each interval, making it O(n) per check. For multi-MB outputs,
+     * consider increasing this interval or disabling drift detection.
      */
     drift?: number;
 
@@ -271,6 +290,15 @@ export interface L0Options<TOutput = unknown> {
 
   /**
    * Enable drift detection
+   *
+   * **Performance Warning:** Drift detection scans the entire accumulated content
+   * at regular intervals (configured via checkIntervals.drift). For very long
+   * streaming outputs, this can become expensive. The check is O(n) where n is
+   * the content length at each interval.
+   *
+   * For long-form content generation, consider:
+   * - Increasing checkIntervals.drift to reduce frequency
+   * - Disabling drift detection and validating at completion only
    */
   detectDrift?: boolean;
 
