@@ -2,15 +2,19 @@
 
 L0 supports custom adapters for integrating any LLM provider or streaming source. This guide covers everything you need to build production-ready adapters.
 
-> **Adapter Scope**
->
-> L0 provides official first-party adapters for:
-> - Vercel AI SDK
-> - OpenAI SDK
-> - Mastra AI
->
-> These are the only integrations maintained within the core project.
-> Support for additional providers is out of scope.
+## ⚠️ Adapter Scope
+
+L0 provides **official first-party adapters** for:
+
+*   Vercel AI SDK
+*   OpenAI SDK
+*   Mastra AI
+
+These are the only integrations maintained within the core project.
+
+Support for **additional providers** is **out of scope**.
+
+---
 
 ## Table of Contents
 
