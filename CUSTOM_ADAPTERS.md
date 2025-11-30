@@ -42,6 +42,7 @@ L0 ships with built-in adapters for:
 - **Vercel AI SDK** (native support, no adapter needed)
 - **OpenAI SDK** (`openaiAdapter`)
 - **Mastra AI** (`mastraAdapter`)
+- **Anthropic SDK** (`anthropicAdapter`) (as custom adapter example)
 
 For other providers, create a custom adapter.
 
