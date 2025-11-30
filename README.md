@@ -23,6 +23,8 @@ npm install @ai2070/l0
 
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
+L0 includes 1,800+ tests covering all major reliability features.
+
 **Upcoming versions:**
 
 - **0.9.0** - Website docs + Python version
