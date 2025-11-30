@@ -483,11 +483,13 @@ export {
 // SDK Adapters - OpenAI
 export {
   wrapOpenAIStream,
+  openaiAdapter,
   openaiStream,
   openaiText,
   openaiJSON,
   openaiWithTools,
   isOpenAIChunk,
+  isOpenAIStream,
   extractOpenAIText,
 } from "./adapters/openai";
 
@@ -519,6 +521,7 @@ export type {
 export {
   wrapMastraStream,
   wrapMastraFullStream,
+  mastraAdapter,
   mastraStream,
   mastraText,
   mastraStructured,

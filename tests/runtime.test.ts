@@ -1,5 +1,5 @@
 // Comprehensive runtime l0() tests
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { l0, getText } from "../src/runtime/l0";
 import type { L0Options, L0Event } from "../src/types/l0";
 import { jsonRule, zeroOutputRule } from "../src/guardrails";
