@@ -176,7 +176,7 @@ for await (const event of result.stream) {
 | [Parallel Operations](#parallel-operations)                           | Race, batch, pool patterns for concurrent LLM calls             |
 | [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
-| [Testing](#testing)                                                   | 1200+ tests covering all features and SDK adapters              |
+| [Testing](#testing)                                                   | 1300+ tests covering all features and SDK adapters              |
 
 ---
 
