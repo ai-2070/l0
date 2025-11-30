@@ -1080,7 +1080,7 @@ try {
     console.log(error.code); // "GUARDRAIL_VIOLATION", "ZERO_OUTPUT", etc.
     console.log(error.context.checkpoint); // Last good content
     console.log(error.context.tokenCount); // Tokens before failure
-    console.log(error.isRecoverable()); // Can retry?
+    console.log(error.isRecoverable); // Can retry?
   }
 }
 ```
@@ -1095,7 +1095,7 @@ Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `
 - **Streaming-first** - Built for real-time token delivery
 - **Signals, not rewrites** - Guardrails detect issues, don't modify output
 - **Model-agnostic** - Works with any model
-- **Zero dependencies** - Only peer dependency is the AI SDK, the OpenAI SDK, or Mastra AI
+- **Zero dependencies** - Only peer dependency is the Vercel AI SDK, the OpenAI SDK, or Mastra AI
 
 ---
 
@@ -1122,11 +1122,11 @@ OPENAI_API_KEY=sk-... ANTHROPIC_API_KEY=sk-... npm run test:integration
 
 L0 supports all major provider SDKs with full end-to-end testing:
 
-| Adapter           | Integration | Version Range                  |
-| ----------------- | ----------- | ------------------------------ |
-| **Vercel AI SDK** | ✓           | `^5.0.0`                       |
-| **OpenAI SDK**    | ✓           | `^4.0.0` · `^5.0.0` · `^6.0.0` |
-| **Mastra AI**     | ✓           | `>= 0.24.0`                    |
+| Adapter           | Integration | Version Range                           |
+| ----------------- | ----------- | --------------------------------------- |
+| **Vercel AI SDK** | ✓           | `^5.0.0` · (`^6.0.0` as soon as stable) |
+| **OpenAI SDK**    | ✓           | `^4.0.0` · `^5.0.0` · `^6.0.0`          |
+| **Mastra AI**     | ✓           | `>= 0.24.0`                             |
 
 ### Feature Test Matrix
 
