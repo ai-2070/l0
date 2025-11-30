@@ -83,11 +83,13 @@ console.log(result.data.age); // number
 const result = await l0({
   stream: () => streamText({ model, prompt }),
 
+  // Optional, default as follows
   timeout: {
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens
   },
 
+  // Optional, default: none
   guardrails: recommendedGuardrails,
 });
 ```

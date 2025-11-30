@@ -129,7 +129,7 @@ const result = await l0({
     },
   },
 
-  // Optional: Timeouts (ms)
+  // Optional: Timeouts (ms), default as follows
   timeout: {
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens
@@ -154,7 +154,7 @@ const result = await l0({
     },
   },
 
-  // Optional: Timeouts (ms)
+  // Optional: Timeouts (ms), default as follows
   timeout: {
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens
@@ -238,7 +238,7 @@ const result = await l0({
     },
   },
 
-  // Optional: Timeouts (ms)
+  // Optional: Timeouts (ms), default as follows
   timeout: {
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens

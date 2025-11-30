@@ -58,13 +58,13 @@ const result = await l0({
     ],
   },
 
-  // Optional: Timeouts (ms)
+  // Optional: Timeouts (ms), default as follows
   timeout: {
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens
   },
 
-  // Optional: Check intervals
+  // Optional: Check intervals, default as follows
   checkIntervals: {
     guardrails: 5, // Check every N tokens
     drift: 10,
@@ -1221,7 +1221,7 @@ interface L0Options {
   // Retry configuration
   retry?: RetryOptions;
 
-  // Timeout configuration (in milliseconds)
+  // Timeout configuration (in milliseconds), default as follows
   timeout?: {
     initialToken?: number; // Max wait for first token (default: 5000)
     interToken?: number; // Max wait between tokens (default: 10000)
