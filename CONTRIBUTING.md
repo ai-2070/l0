@@ -26,6 +26,7 @@ L0 does not accept integrations, drivers, storage adapters, or external service 
 All adapters must be maintained out-of-tree. The L0 core will remain small, dependency-free, and integration-agnostic.
 
 **What belongs in core:**
+
 - Runtime features (retry, fallback, continuation, drift detection)
 - Guardrail rules and engine
 - Format helpers
@@ -33,6 +34,7 @@ All adapters must be maintained out-of-tree. The L0 core will remain small, depe
 - Core utilities
 
 **What belongs in separate repos:**
+
 - Database adapters (Redis, PostgreSQL, MongoDB, etc.)
 - Cloud service integrations (AWS, GCP, Azure)
 - Monitoring backends (custom Prometheus exporters, Datadog, etc.)

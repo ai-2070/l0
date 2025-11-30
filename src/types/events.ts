@@ -268,7 +268,10 @@ export interface L0EventStore {
   /**
    * Get events after a sequence number (for resumption)
    */
-  getEventsAfter(streamId: string, afterSeq: number): Promise<L0EventEnvelope[]>;
+  getEventsAfter(
+    streamId: string,
+    afterSeq: number,
+  ): Promise<L0EventEnvelope[]>;
 
   /**
    * Delete all events for a stream

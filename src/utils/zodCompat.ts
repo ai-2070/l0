@@ -34,7 +34,8 @@ export type ZodObjectSchema<T extends z.ZodRawShape = z.ZodRawShape> =
  * Type alias for Zod array schema.
  * Works with both Zod v3 and v4.
  */
-export type ZodArraySchema<T extends z.ZodTypeAny = z.ZodTypeAny> = z.ZodArray<T>;
+export type ZodArraySchema<T extends z.ZodTypeAny = z.ZodTypeAny> =
+  z.ZodArray<T>;
 
 /**
  * Type alias for Zod error.

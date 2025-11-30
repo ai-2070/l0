@@ -7,6 +7,7 @@ L0 includes a built-in event sourcing system that makes every stream operation a
 **Replayability MUST ignore external sources of non-determinism.**
 
 In replay mode:
+
 - No network calls
 - No retries
 - No timeouts
@@ -23,16 +24,16 @@ Derived computations (guardrails, drift, retries) are stored **AS events**, not 
 ### Recording a Stream
 
 ```typescript
-import {
-  createInMemoryEventStore,
-  createEventRecorder,
-} from "l0";
+import { createInMemoryEventStore, createEventRecorder } from "l0";
 
 const store = createInMemoryEventStore();
 const recorder = createEventRecorder(store, "my-stream-id");
 
 // Record events as they happen
-await recorder.recordStart({ prompt: "Explain quantum computing", model: "gpt-4" });
+await recorder.recordStart({
+  prompt: "Explain quantum computing",
+  model: "gpt-4",
+});
 await recorder.recordToken("Quantum", 0);
 await recorder.recordToken(" ", 1);
 await recorder.recordToken("computing", 2);
@@ -50,8 +51,8 @@ import { replay } from "l0";
 const result = await replay({
   streamId: "my-stream-id",
   eventStore: store,
-  fireCallbacks: true,  // onToken, onViolation still fire!
-  speed: 0,             // 0 = instant, 1 = real-time
+  fireCallbacks: true, // onToken, onViolation still fire!
+  speed: 0, // 0 = instant, 1 = real-time
 });
 
 // Exact same events as original
@@ -62,9 +63,9 @@ for await (const event of result.stream) {
 }
 
 // State is reconstructed identically
-console.log(result.state.content);     // "Quantum computing is..."
-console.log(result.state.tokenCount);  // 5
-console.log(result.state.completed);   // true
+console.log(result.state.content); // "Quantum computing is..."
+console.log(result.state.tokenCount); // 5
+console.log(result.state.completed); // true
 ```
 
 ## Event Types
@@ -78,7 +79,13 @@ type L0RecordedEvent =
   | { type: "CHECKPOINT"; ts: number; at: number; content: string }
   | { type: "GUARDRAIL"; ts: number; at: number; result: GuardrailEventResult }
   | { type: "DRIFT"; ts: number; at: number; result: DriftEventResult }
-  | { type: "RETRY"; ts: number; reason: string; attempt: number; countsTowardLimit: boolean }
+  | {
+      type: "RETRY";
+      ts: number;
+      reason: string;
+      attempt: number;
+      countsTowardLimit: boolean;
+    }
   | { type: "FALLBACK"; ts: number; to: number }
   | { type: "CONTINUATION"; ts: number; checkpoint: string; at: number }
   | { type: "COMPLETE"; ts: number; content: string; tokenCount: number }
@@ -87,18 +94,18 @@ type L0RecordedEvent =
 
 ### Event Descriptions
 
-| Event | Description |
-|-------|-------------|
-| `START` | Stream execution started with serialized options |
-| `TOKEN` | Token received from LLM stream |
-| `CHECKPOINT` | Checkpoint saved for continuation support |
-| `GUARDRAIL` | Guardrail evaluation result (stored, not recomputed) |
-| `DRIFT` | Drift detection result (stored, not recomputed) |
-| `RETRY` | Retry triggered with reason and attempt count |
-| `FALLBACK` | Fallback to next stream in chain |
-| `CONTINUATION` | Resumed from checkpoint after failure |
-| `COMPLETE` | Stream completed successfully |
-| `ERROR` | Stream failed with error |
+| Event          | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `START`        | Stream execution started with serialized options     |
+| `TOKEN`        | Token received from LLM stream                       |
+| `CHECKPOINT`   | Checkpoint saved for continuation support            |
+| `GUARDRAIL`    | Guardrail evaluation result (stored, not recomputed) |
+| `DRIFT`        | Drift detection result (stored, not recomputed)      |
+| `RETRY`        | Retry triggered with reason and attempt count        |
+| `FALLBACK`     | Fallback to next stream in chain                     |
+| `CONTINUATION` | Resumed from checkpoint after failure                |
+| `COMPLETE`     | Stream completed successfully                        |
+| `ERROR`        | Stream failed with error                             |
 
 ## Event Store Interface
 
@@ -108,7 +115,10 @@ interface L0EventStore {
   getEvents(streamId: string): Promise<L0EventEnvelope[]>;
   exists(streamId: string): Promise<boolean>;
   getLastEvent(streamId: string): Promise<L0EventEnvelope | null>;
-  getEventsAfter(streamId: string, afterSeq: number): Promise<L0EventEnvelope[]>;
+  getEventsAfter(
+    streamId: string,
+    afterSeq: number,
+  ): Promise<L0EventEnvelope[]>;
   delete(streamId: string): Promise<void>;
   listStreams(): Promise<string[]>;
 }
@@ -124,11 +134,16 @@ import { createInMemoryEventStore } from "l0";
 const store = createInMemoryEventStore();
 
 // Use it
-await store.append("stream-1", { type: "TOKEN", ts: Date.now(), value: "hello", index: 0 });
+await store.append("stream-1", {
+  type: "TOKEN",
+  ts: Date.now(),
+  value: "hello",
+  index: 0,
+});
 
 // Check stats
-console.log(store.getStreamCount());      // 1
-console.log(store.getTotalEventCount());  // 1
+console.log(store.getStreamCount()); // 1
+console.log(store.getTotalEventCount()); // 1
 
 // Clear all data
 store.clear();
@@ -147,7 +162,7 @@ const store = createInMemoryEventStore();
 const recorder = createEventRecorder(store);
 
 // Auto-generates stream ID
-console.log(recorder.getStreamId());  // "l0_abc123..."
+console.log(recorder.getStreamId()); // "l0_abc123..."
 
 // Record events
 await recorder.recordStart({ prompt: "test", model: "gpt-4" });
@@ -191,7 +206,14 @@ await recorder.recordToken(" shows", 2);
 
 // Guardrail check (result is stored)
 await recorder.recordGuardrail(2, {
-  violations: [{ rule: "json", message: "Not valid JSON yet", severity: "warning", recoverable: true }],
+  violations: [
+    {
+      rule: "json",
+      message: "Not valid JSON yet",
+      severity: "warning",
+      recoverable: true,
+    },
+  ],
   shouldRetry: false,
   shouldHalt: false,
 });
@@ -263,7 +285,7 @@ Simulate original timing for debugging:
 const result = await replay({
   streamId: "my-stream",
   eventStore: store,
-  speed: 1,  // 1 = real-time
+  speed: 1, // 1 = real-time
 });
 
 // 10x speed replay
@@ -289,8 +311,8 @@ Replay a specific range of events:
 const result = await replay({
   streamId: "my-stream",
   eventStore: store,
-  fromSeq: 5,   // Start from event 5
-  toSeq: 15,    // Stop at event 15
+  fromSeq: 5, // Start from event 5
+  toSeq: 15, // Stop at event 15
 });
 ```
 
@@ -304,12 +326,12 @@ import { createEventReplayer } from "l0";
 const replayer = createEventReplayer(store);
 const state = await replayer.replayToState("my-stream");
 
-console.log(state.content);        // Final content
-console.log(state.tokenCount);     // Token count
-console.log(state.completed);      // true/false
-console.log(state.violations);     // Guardrail violations
-console.log(state.retryAttempts);  // Retry count
-console.log(state.fallbackIndex);  // Which fallback was used
+console.log(state.content); // Final content
+console.log(state.tokenCount); // Token count
+console.log(state.completed); // true/false
+console.log(state.violations); // Guardrail violations
+console.log(state.retryAttempts); // Retry count
+console.log(state.fallbackIndex); // Which fallback was used
 ```
 
 ### Replay Tokens Only
@@ -397,7 +419,7 @@ const streamId = "l0_abc123_xyz789";
 const result = await replay({
   streamId,
   eventStore: productionStore,
-  speed: 1,  // Watch it happen in real-time
+  speed: 1, // Watch it happen in real-time
 });
 
 result.setCallbacks({
@@ -415,7 +437,10 @@ for await (const event of result.stream) {
 
 ```typescript
 // Every LLM interaction is recorded
-const recorder = createEventRecorder(auditStore, `user_${userId}_${Date.now()}`);
+const recorder = createEventRecorder(
+  auditStore,
+  `user_${userId}_${Date.now()}`,
+);
 
 // ... record all events
 
@@ -423,7 +448,9 @@ const recorder = createEventRecorder(auditStore, `user_${userId}_${Date.now()}`)
 const streams = await auditStore.listStreams();
 for (const streamId of streams) {
   const metadata = await getStreamMetadata(auditStore, streamId);
-  console.log(`Stream ${streamId}: ${metadata.tokenCount} tokens, completed: ${metadata.completed}`);
+  console.log(
+    `Stream ${streamId}: ${metadata.tokenCount} tokens, completed: ${metadata.completed}`,
+  );
 }
 ```
 
@@ -434,7 +461,7 @@ for (const streamId of streams) {
 const result = await replay({
   streamId: "my-stream",
   eventStore: store,
-  toSeq: 50,  // Stop at event 50
+  toSeq: 50, // Stop at event 50
 });
 
 // Inspect state at that moment
@@ -446,14 +473,16 @@ console.log("State at event 50:", result.state);
 ```typescript
 async function getOrReplay(prompt: string): Promise<string> {
   const cacheKey = hash(prompt);
-  
+
   if (await store.exists(cacheKey)) {
     // Replay from cache
     const result = await replay({ streamId: cacheKey, eventStore: store });
-    for await (const _ of result.stream) { /* consume */ }
+    for await (const _ of result.stream) {
+      /* consume */
+    }
     return result.state.content;
   }
-  
+
   // Make real API call and record
   const recorder = createEventRecorder(store, cacheKey);
   // ... record events
@@ -468,7 +497,7 @@ For long streams, snapshots enable faster replay:
 ```typescript
 interface L0Snapshot {
   streamId: string;
-  seq: number;           // Event sequence at snapshot
+  seq: number; // Event sequence at snapshot
   ts: number;
   content: string;
   tokenCount: number;
@@ -507,11 +536,11 @@ L0 provides a pluggable storage adapter system. Register custom adapters or use 
 
 ### Built-in Adapters
 
-| Adapter | Type | Use Case |
-|---------|------|----------|
-| `memory` | InMemoryEventStore | Testing, short-lived sessions |
-| `file` | FileEventStore | Local persistence (Node.js) |
-| `localStorage` | LocalStorageEventStore | Browser persistence |
+| Adapter        | Type                   | Use Case                      |
+| -------------- | ---------------------- | ----------------------------- |
+| `memory`       | InMemoryEventStore     | Testing, short-lived sessions |
+| `file`         | FileEventStore         | Local persistence (Node.js)   |
+| `localStorage` | LocalStorageEventStore | Browser persistence           |
 
 ### Using Built-in Adapters
 
@@ -524,9 +553,9 @@ const memStore = await createEventStore({ type: "memory" });
 // File-based persistence
 const fileStore = await createEventStore({
   type: "file",
-  connection: "./my-events",  // Base path
+  connection: "./my-events", // Base path
   prefix: "l0",
-  ttl: 7 * 24 * 60 * 60 * 1000,  // 7 days
+  ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
 });
 
 // Browser localStorage
@@ -539,11 +568,7 @@ const browserStore = await createEventStore({
 ### Registering Custom Adapters
 
 ```typescript
-import {
-  registerStorageAdapter,
-  BaseEventStore,
-  createEventStore,
-} from "l0";
+import { registerStorageAdapter, BaseEventStore, createEventStore } from "l0";
 
 // Register a Redis adapter
 registerStorageAdapter("redis", async (config) => {
@@ -556,7 +581,7 @@ const store = await createEventStore({
   type: "redis",
   connection: "redis://localhost:6379",
   prefix: "l0_events",
-  ttl: 86400000,  // 24 hours
+  ttl: 86400000, // 24 hours
 });
 ```
 
@@ -566,7 +591,11 @@ Use `BaseEventStore` for easier implementation:
 
 ```typescript
 import { BaseEventStore } from "l0";
-import type { L0RecordedEvent, L0EventEnvelope, StorageAdapterConfig } from "l0";
+import type {
+  L0RecordedEvent,
+  L0EventEnvelope,
+  StorageAdapterConfig,
+} from "l0";
 
 class RedisEventStore extends BaseEventStore {
   private client: RedisClient;
@@ -577,11 +606,11 @@ class RedisEventStore extends BaseEventStore {
   }
 
   async append(streamId: string, event: L0RecordedEvent): Promise<void> {
-    const key = this.getStreamKey(streamId);  // Uses prefix automatically
+    const key = this.getStreamKey(streamId); // Uses prefix automatically
     const seq = await this.client.llen(key);
     const envelope = { streamId, seq, event };
     await this.client.rpush(key, JSON.stringify(envelope));
-    
+
     if (this.ttl > 0) {
       await this.client.expire(key, this.ttl / 1000);
     }
@@ -590,7 +619,7 @@ class RedisEventStore extends BaseEventStore {
   async getEvents(streamId: string): Promise<L0EventEnvelope[]> {
     const key = this.getStreamKey(streamId);
     const items = await this.client.lrange(key, 0, -1);
-    return items.map(item => JSON.parse(item));
+    return items.map((item) => JSON.parse(item));
   }
 
   async exists(streamId: string): Promise<boolean> {
@@ -605,7 +634,7 @@ class RedisEventStore extends BaseEventStore {
   async listStreams(): Promise<string[]> {
     const pattern = `${this.prefix}:stream:*`;
     const keys = await this.client.keys(pattern);
-    return keys.map(k => k.replace(`${this.prefix}:stream:`, ""));
+    return keys.map((k) => k.replace(`${this.prefix}:stream:`, ""));
   }
 }
 ```
@@ -615,11 +644,15 @@ class RedisEventStore extends BaseEventStore {
 Write to multiple backends simultaneously (write-through cache, redundancy):
 
 ```typescript
-import { createCompositeStore, createInMemoryEventStore, FileEventStore } from "l0";
+import {
+  createCompositeStore,
+  createInMemoryEventStore,
+  FileEventStore,
+} from "l0";
 
 // Write-through: memory cache + file persistence
 const store = createCompositeStore([
-  createInMemoryEventStore(),  // Primary (reads come from here)
+  createInMemoryEventStore(), // Primary (reads come from here)
   new FileEventStore({ type: "file", connection: "./events" }),
 ]);
 
@@ -641,14 +674,19 @@ import { withTTL, createInMemoryEventStore } from "l0";
 const store = withTTL(createInMemoryEventStore(), 24 * 60 * 60 * 1000);
 
 // Old events are filtered out on read
-const events = await store.getEvents("stream-1");  // Only non-expired events
+const events = await store.getEvents("stream-1"); // Only non-expired events
 ```
 
 ### Full PostgreSQL Example
 
 ```typescript
 import { BaseEventStoreWithSnapshots, registerStorageAdapter } from "l0";
-import type { L0RecordedEvent, L0EventEnvelope, L0Snapshot, StorageAdapterConfig } from "l0";
+import type {
+  L0RecordedEvent,
+  L0EventEnvelope,
+  L0Snapshot,
+  StorageAdapterConfig,
+} from "l0";
 
 class PostgresEventStore extends BaseEventStoreWithSnapshots {
   private pool: Pool;
@@ -663,7 +701,7 @@ class PostgresEventStore extends BaseEventStoreWithSnapshots {
     await this.pool.query(
       `INSERT INTO ${this.prefix}_events (stream_id, seq, event, created_at) 
        VALUES ($1, $2, $3, NOW())`,
-      [streamId, seq, JSON.stringify(event)]
+      [streamId, seq, JSON.stringify(event)],
     );
   }
 
@@ -671,11 +709,11 @@ class PostgresEventStore extends BaseEventStoreWithSnapshots {
     const result = await this.pool.query(
       `SELECT * FROM ${this.prefix}_events 
        WHERE stream_id = $1 
-       ${this.ttl > 0 ? `AND created_at > NOW() - INTERVAL '${this.ttl}ms'` : ''}
+       ${this.ttl > 0 ? `AND created_at > NOW() - INTERVAL '${this.ttl}ms'` : ""}
        ORDER BY seq`,
-      [streamId]
+      [streamId],
     );
-    return result.rows.map(r => ({
+    return result.rows.map((r) => ({
       streamId: r.stream_id,
       seq: r.seq,
       event: r.event,
@@ -685,7 +723,7 @@ class PostgresEventStore extends BaseEventStoreWithSnapshots {
   async exists(streamId: string): Promise<boolean> {
     const result = await this.pool.query(
       `SELECT 1 FROM ${this.prefix}_events WHERE stream_id = $1 LIMIT 1`,
-      [streamId]
+      [streamId],
     );
     return result.rows.length > 0;
   }
@@ -693,19 +731,19 @@ class PostgresEventStore extends BaseEventStoreWithSnapshots {
   async delete(streamId: string): Promise<void> {
     await this.pool.query(
       `DELETE FROM ${this.prefix}_events WHERE stream_id = $1`,
-      [streamId]
+      [streamId],
     );
     await this.pool.query(
       `DELETE FROM ${this.prefix}_snapshots WHERE stream_id = $1`,
-      [streamId]
+      [streamId],
     );
   }
 
   async listStreams(): Promise<string[]> {
     const result = await this.pool.query(
-      `SELECT DISTINCT stream_id FROM ${this.prefix}_events`
+      `SELECT DISTINCT stream_id FROM ${this.prefix}_events`,
     );
-    return result.rows.map(r => r.stream_id);
+    return result.rows.map((r) => r.stream_id);
   }
 
   async saveSnapshot(snapshot: L0Snapshot): Promise<void> {
@@ -713,14 +751,14 @@ class PostgresEventStore extends BaseEventStoreWithSnapshots {
       `INSERT INTO ${this.prefix}_snapshots (stream_id, seq, data) 
        VALUES ($1, $2, $3)
        ON CONFLICT (stream_id) DO UPDATE SET seq = $2, data = $3`,
-      [snapshot.streamId, snapshot.seq, JSON.stringify(snapshot)]
+      [snapshot.streamId, snapshot.seq, JSON.stringify(snapshot)],
     );
   }
 
   async getSnapshot(streamId: string): Promise<L0Snapshot | null> {
     const result = await this.pool.query(
       `SELECT data FROM ${this.prefix}_snapshots WHERE stream_id = $1`,
-      [streamId]
+      [streamId],
     );
     return result.rows[0]?.data ?? null;
   }
@@ -729,7 +767,7 @@ class PostgresEventStore extends BaseEventStoreWithSnapshots {
     const result = await this.pool.query(
       `SELECT COALESCE(MAX(seq), -1) + 1 as next_seq 
        FROM ${this.prefix}_events WHERE stream_id = $1`,
-      [streamId]
+      [streamId],
     );
     return result.rows[0].next_seq;
   }
@@ -743,22 +781,22 @@ const store = await createEventStore({
   type: "postgres",
   connection: "postgresql://user:pass@localhost/mydb",
   prefix: "l0",
-  ttl: 30 * 24 * 60 * 60 * 1000,  // 30 days
+  ttl: 30 * 24 * 60 * 60 * 1000, // 30 days
 });
 ```
 
 ### Store Comparison
 
-| Store | Use Case | Tradeoffs |
-|-------|----------|-----------|
-| `memory` | Testing, short-lived | Fast, no persistence |
-| `file` | Local apps, dev | Simple, single-node |
-| `localStorage` | Browser apps | Limited size (~5MB) |
-| Redis | Distributed cache | Fast, TTL, volatile |
-| PostgreSQL | Production | ACID, queryable, durable |
-| SQLite | Embedded apps | Simple, single-file |
-| Kafka | High-scale | Durable, partitioned |
-| S3/GCS | Archive | Cheap, slow reads |
+| Store          | Use Case             | Tradeoffs                |
+| -------------- | -------------------- | ------------------------ |
+| `memory`       | Testing, short-lived | Fast, no persistence     |
+| `file`         | Local apps, dev      | Simple, single-node      |
+| `localStorage` | Browser apps         | Limited size (~5MB)      |
+| Redis          | Distributed cache    | Fast, TTL, volatile      |
+| PostgreSQL     | Production           | ACID, queryable, durable |
+| SQLite         | Embedded apps        | Simple, single-file      |
+| Kafka          | High-scale           | Durable, partitioned     |
+| S3/GCS         | Archive              | Cheap, slow reads        |
 
 ## API Reference
 
@@ -816,7 +854,7 @@ compareReplays(a: L0State, b: L0State): ReplayComparison
 const streamId = `user_${userId}_chat_${sessionId}_${Date.now()}`;
 
 // Bad - opaque
-const streamId = generateStreamId();  // Only for anonymous streams
+const streamId = generateStreamId(); // Only for anonymous streams
 ```
 
 ### 2. Record All Derived Computations

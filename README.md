@@ -1,4 +1,5 @@
 # L0 - The Missing Reliability Substrate for AI
+
 ![L0: The Missing AI Reliability Substrate](img/l0-banner.png)
 
 **Tiny. Predictable. Replayable. Streaming-first.**
@@ -22,26 +23,26 @@ npm install @ai2070/l0
 
 ## Features
 
-| Feature                                   | Description                                                                                                                                         |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🔁 Smart Retries**                      | Model-aware retries with exponential backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.     |
-| **🌐 Network Protection**                 | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks.                      |
-| **🔀 Model Fallbacks**                    | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic.                                              |
-| **💥 Zero-Token/Stall Protection**        | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks.                                           |
-| 📍 **Last-Known-Good Token Resumption**   | When a stream interrupts, L0 resumes generation from the last structurally valid token (Opt-in).                                                    |
-| **🧠 Drift Detection**                    | Detects tone shifts, duplicated sentences, entropy spikes, markdown collapse, and meta-AI patterns before corruption.                               |
-| **🧱 Structured Output**                  | Guaranteed-valid JSON with Zod (v3/v4), Effect Schema, or JSON Schema. Auto-corrects missing braces, commas, and markdown fences.                   |
-| **🩹 JSON Auto-Healing + Markdown Fence Repair**            | Automatic correction of truncated or malformed JSON (missing braces, brackets, quotes), and repair of broken Markdown code fences. Ensures clean extraction of structured data from noisy LLM output.|
-| **🛡️ Guardrails**                         | JSON, Markdown, LaTeX, and tool-call validation. Catches malformed output, broken fences, drift, repetition, and hallucination patterns.            |
-| **⚡ Race: Fastest-Model Wins**           | Run multiple models or providers in parallel and return the fastest valid stream. Ideal for ultra-low-latency chat and high-availability systems.   |
-| **🌿 Parallel: Fan-Out / Fan-In**         | Start multiple streams simultaneously and collect structured or summarized results. Perfect for agent-style multi-model workflows.                  |
-| **🔗 Pipe: Streaming Pipelines**          | Compose multiple streaming steps (e.g., summarize → refine → translate) with safe state passing and guardrails between each stage.                  |
-| **🧩 Consensus: Agreement Across Models** | Combine multiple model outputs using unanimous, weighted, or best-match consensus. Guarantees high-confidence generation for safety-critical tasks. |
-| **📄 Document Windows**                   | Built-in chunking (token, paragraph, sentence, character). Ideal for long documents, transcripts, or multi-page processing.                         |
-| **📊 Monitoring Hooks**                   | `onToken`, `onViolation`, `onRetry`, `onFallback`, and more - integrates with Prometheus, OTel, Sentry.                                             |
-| **📡 Streaming-First Runtime**            | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `done`) for easy UIs.                                   |
-| **⛔ Safety-First Defaults**              | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                    |
-| **⚡ Tiny & Explicit**                    | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                        |
+| Feature                                          | Description                                                                                                                                                                                           |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **🔁 Smart Retries**                             | Model-aware retries with exponential backoff. Automatic retries for zero-token output, network stalls, SSE disconnects, and provider overloads.                                                       |
+| **🌐 Network Protection**                        | Automatic recovery from dropped streams, slow responses, backgrounding, 429/503 load shedding, DNS errors, and partial chunks.                                                                        |
+| **🔀 Model Fallbacks**                           | Automatically fallback to secondary models (e.g., 4o → 4o-mini → Claude/Gemini) with full retry logic.                                                                                                |
+| **💥 Zero-Token/Stall Protection**               | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks.                                                                                             |
+| 📍 **Last-Known-Good Token Resumption**          | When a stream interrupts, L0 resumes generation from the last structurally valid token (Opt-in).                                                                                                      |
+| **🧠 Drift Detection**                           | Detects tone shifts, duplicated sentences, entropy spikes, markdown collapse, and meta-AI patterns before corruption.                                                                                 |
+| **🧱 Structured Output**                         | Guaranteed-valid JSON with Zod (v3/v4), Effect Schema, or JSON Schema. Auto-corrects missing braces, commas, and markdown fences.                                                                     |
+| **🩹 JSON Auto-Healing + Markdown Fence Repair** | Automatic correction of truncated or malformed JSON (missing braces, brackets, quotes), and repair of broken Markdown code fences. Ensures clean extraction of structured data from noisy LLM output. |
+| **🛡️ Guardrails**                                | JSON, Markdown, LaTeX, and tool-call validation. Catches malformed output, broken fences, drift, repetition, and hallucination patterns.                                                              |
+| **⚡ Race: Fastest-Model Wins**                  | Run multiple models or providers in parallel and return the fastest valid stream. Ideal for ultra-low-latency chat and high-availability systems.                                                     |
+| **🌿 Parallel: Fan-Out / Fan-In**                | Start multiple streams simultaneously and collect structured or summarized results. Perfect for agent-style multi-model workflows.                                                                    |
+| **🔗 Pipe: Streaming Pipelines**                 | Compose multiple streaming steps (e.g., summarize → refine → translate) with safe state passing and guardrails between each stage.                                                                    |
+| **🧩 Consensus: Agreement Across Models**        | Combine multiple model outputs using unanimous, weighted, or best-match consensus. Guarantees high-confidence generation for safety-critical tasks.                                                   |
+| **📄 Document Windows**                          | Built-in chunking (token, paragraph, sentence, character). Ideal for long documents, transcripts, or multi-page processing.                                                                           |
+| **📊 Monitoring Hooks**                          | `onToken`, `onViolation`, `onRetry`, `onFallback`, and more - integrates with Prometheus, OTel, Sentry.                                                                                               |
+| **📡 Streaming-First Runtime**                   | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `done`) for easy UIs.                                                                                     |
+| **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
+| **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
 
 ## Quick Start
 
@@ -331,7 +332,11 @@ console.log(result.corrected); // true if auto-corrected
 ### With Effect Schema
 
 ```typescript
-import { structured, registerEffectSchemaAdapter, wrapEffectSchema } from "@ai2070/l0";
+import {
+  structured,
+  registerEffectSchemaAdapter,
+  wrapEffectSchema,
+} from "@ai2070/l0";
 import { Schema } from "effect";
 
 // Register the adapter once at app startup
@@ -341,7 +346,10 @@ registerEffectSchemaAdapter({
     try {
       return { _tag: "Right", right: Schema.decodeUnknownSync(schema)(data) };
     } catch (error) {
-      return { _tag: "Left", left: { _tag: "ParseError", issue: error, message: error.message } };
+      return {
+        _tag: "Left",
+        left: { _tag: "ParseError", issue: error, message: error.message },
+      };
     }
   },
   formatError: (error) => error.message,
@@ -367,7 +375,11 @@ console.log(result.data.name); // string - fully typed
 ### With JSON Schema
 
 ```typescript
-import { structured, registerJSONSchemaAdapter, wrapJSONSchema } from "@ai2070/l0";
+import {
+  structured,
+  registerJSONSchemaAdapter,
+  wrapJSONSchema,
+} from "@ai2070/l0";
 import Ajv from "ajv"; // Or any JSON Schema validator
 
 // Register adapter once at app startup (example with Ajv)
@@ -379,7 +391,7 @@ registerJSONSchemaAdapter({
     if (valid) return { valid: true, data };
     return {
       valid: false,
-      errors: (validate.errors || []).map(e => ({
+      errors: (validate.errors || []).map((e) => ({
         path: e.instancePath || "/",
         message: e.message || "Validation failed",
         keyword: e.keyword,
@@ -387,7 +399,8 @@ registerJSONSchemaAdapter({
       })),
     };
   },
-  formatErrors: (errors) => errors.map(e => `${e.path}: ${e.message}`).join(", "),
+  formatErrors: (errors) =>
+    errors.map((e) => `${e.path}: ${e.message}`).join(", "),
 });
 
 // Define schema with JSON Schema
@@ -865,6 +878,7 @@ for await (const event of result.stream) {
 **Key insight:** Replay is pure stream rehydration. No network, no retries, no guardrail evaluation - derived computations are stored as events.
 
 **Use cases:**
+
 - Deterministic testing - record once, replay in tests
 - Production failure reproduction
 - Time-travel debugging
@@ -916,7 +930,7 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 
 | Category          | Tests | Description                      |
 | ----------------- | ----- | -------------------------------- |
-| Unit Tests        | 1400+  | Fast, mocked, no API calls       |
+| Unit Tests        | 1400+ | Fast, mocked, no API calls       |
 | Integration Tests | 194   | Real API calls, all SDK adapters |
 
 ```bash
@@ -931,53 +945,53 @@ OPENAI_API_KEY=sk-... npm run test:integration
 
 L0 supports all major provider SDKs with full end-to-end testing:
 
-| Adapter | Integration | Version Range |
-| --- | --- | --- |
-| **Vercel AI SDK** | ✓ | `^5.0.0` |
-| **OpenAI SDK** | ✓ | `^4.0.0` · `^5.0.0` · `^6.0.0` |
-| **Mastra AI** | ✓ | `>= 0.24.0` |
+| Adapter           | Integration | Version Range                  |
+| ----------------- | ----------- | ------------------------------ |
+| **Vercel AI SDK** | ✓           | `^5.0.0`                       |
+| **OpenAI SDK**    | ✓           | `^4.0.0` · `^5.0.0` · `^6.0.0` |
+| **Mastra AI**     | ✓           | `>= 0.24.0`                    |
 
 ### Feature Test Matrix
 
 Every major reliability feature in L0 has dedicated test suites:
 
-| Feature | Unit | Integration | Notes |
-| --- | --- | --- | --- |
-| **Streaming** | ✓ | ✓ | Token events, completion |
-| **Guardrails** | ✓ | ✓ | JSON/Markdown/LaTeX, patterns, drift |
-| **Structured Output** | ✓ | ✓ | Zod schemas, auto-correction |
-| **Retry Logic** | ✓ | ✓ | Backoff, error classification |
-| **Network Errors** | ✓ | – | 12+ simulated error types |
-| **Fallback Models** | ✓ | ✓ | Sequential fallthrough |
-| **Parallel / Race** | ✓ | ✓ | Concurrency, cancellation |
-| **Pipeline** | ✓ | – | Multi-step streaming workflows |
-| **Consensus** | ✓ | ✓ | Unanimous, weighted, best-match |
-| **Document Windows** | ✓ | ✓ | Token, paragraph, sentence chunking |
-| **Continuation** | ✓ | ✓ | Last-known-good token resumption |
-| **Monitoring** | ✓ | ✓ | Prometheus, metrics, tokens, retries |
-| **Sentry** | ✓ | ✓ | Error tagging, breadcrumbs, performance |
-| **OpenTelemetry** | ✓ | ✓ | GenAI semantic conventions, spans, TTFT |
-| **Event Sourcing** | ✓ | – | Record/replay, deterministic testing |
-| **Interceptors** | ✓ | – | All built-in interceptors validated |
-| **Drift Detection** | ✓ | – | Pattern detection, entropy, format drift |
+| Feature               | Unit | Integration | Notes                                    |
+| --------------------- | ---- | ----------- | ---------------------------------------- |
+| **Streaming**         | ✓    | ✓           | Token events, completion                 |
+| **Guardrails**        | ✓    | ✓           | JSON/Markdown/LaTeX, patterns, drift     |
+| **Structured Output** | ✓    | ✓           | Zod schemas, auto-correction             |
+| **Retry Logic**       | ✓    | ✓           | Backoff, error classification            |
+| **Network Errors**    | ✓    | –           | 12+ simulated error types                |
+| **Fallback Models**   | ✓    | ✓           | Sequential fallthrough                   |
+| **Parallel / Race**   | ✓    | ✓           | Concurrency, cancellation                |
+| **Pipeline**          | ✓    | –           | Multi-step streaming workflows           |
+| **Consensus**         | ✓    | ✓           | Unanimous, weighted, best-match          |
+| **Document Windows**  | ✓    | ✓           | Token, paragraph, sentence chunking      |
+| **Continuation**      | ✓    | ✓           | Last-known-good token resumption         |
+| **Monitoring**        | ✓    | ✓           | Prometheus, metrics, tokens, retries     |
+| **Sentry**            | ✓    | ✓           | Error tagging, breadcrumbs, performance  |
+| **OpenTelemetry**     | ✓    | ✓           | GenAI semantic conventions, spans, TTFT  |
+| **Event Sourcing**    | ✓    | –           | Record/replay, deterministic testing     |
+| **Interceptors**      | ✓    | –           | All built-in interceptors validated      |
+| **Drift Detection**   | ✓    | –           | Pattern detection, entropy, format drift |
 
 ---
 
 ## Documentation
 
-| Guide                                                          | Description                |
-| -------------------------------------------------------------- | -------------------------- |
-| [QUICKSTART.md](./QUICKSTART.md)                               | 5-minute getting started   |
-| [API.md](./API.md)                                             | Complete API reference     |
-| [GUARDRAILS.md](./GUARDRAILS.md)                               | Guardrails and validation  |
-| [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md)                 | Structured output guide    |
-| [CONSENSUS.md](./CONSENSUS.md)                                 | Multi-generation consensus |
-| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md)                   | Document chunking guide    |
-| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)                       | Network error handling     |
-| [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Parallel operations        |
-| [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics      |
-| [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails|
-| [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers         |
+| Guide                                                          | Description                 |
+| -------------------------------------------------------------- | --------------------------- |
+| [QUICKSTART.md](./QUICKSTART.md)                               | 5-minute getting started    |
+| [API.md](./API.md)                                             | Complete API reference      |
+| [GUARDRAILS.md](./GUARDRAILS.md)                               | Guardrails and validation   |
+| [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md)                 | Structured output guide     |
+| [CONSENSUS.md](./CONSENSUS.md)                                 | Multi-generation consensus  |
+| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md)                   | Document chunking guide     |
+| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)                       | Network error handling      |
+| [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Parallel operations         |
+| [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics       |
+| [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails |
+| [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers          |
 
 ---
 

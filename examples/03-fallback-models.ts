@@ -1,5 +1,5 @@
 // Fallback Models Example
-// Run: OPENAI_API_KEY=sk-... ANTHROPIC_API_KEY=sk-... npx tsx examples/03-fallback-models.ts
+// Run: OPENAI_API_KEY=sk-... npx tsx examples/03-fallback-models.ts
 
 import { l0, recommendedGuardrails } from "../src/index";
 import { streamText } from "ai";
