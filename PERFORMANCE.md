@@ -189,7 +189,7 @@ Prevent memory leaks in long-running processes:
 
 ```typescript
 retry: {
-  attempts: 2,
+  attempts: 3,
   maxErrorHistory: 100  // Keep last 100 errors only
 }
 ```

@@ -79,7 +79,7 @@ const result = await l0({
 
   // Optional: Retry configuration
   retry: {
-    attempts: 2,
+    attempts: 3,
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "fixed-jitter",
@@ -237,8 +237,8 @@ Smart retry system that distinguishes network errors from model errors:
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
-    attempts: 2, // Model errors only
-    maxRetries: 10, // Absolute cap across all error types
+    attempts: 3, // Model errors only (default: 3)
+    maxRetries: 6, // Absolute cap across all error types (default: 6)
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "fixed-jitter", // or "exponential", "linear", "fixed", "full-jitter"
@@ -509,7 +509,7 @@ When a stream fails mid-generation, L0 can resume from the last known good check
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  retry: { attempts: 2 },
+  retry: { attempts: 3 },
 
   // Enable continuation from last checkpoint (opt-in)
   continueFromLastKnownGoodToken: true,
@@ -548,7 +548,7 @@ const result = await l0({
     continuationPrompt = `${originalPrompt}\n\nContinue from where you left off:\n${checkpoint}`;
     return continuationPrompt;
   },
-  retry: { attempts: 2 },
+  retry: { attempts: 3 },
 });
 ```
 
@@ -562,7 +562,7 @@ const result = await l0({
       prompt: "Write a detailed analysis of...",
     }),
   fallbackStreams: [() => streamText({ model: openai("gpt-5-nano"), prompt })],
-  retry: { attempts: 2 },
+  retry: { attempts: 3 },
   continueFromLastKnownGoodToken: true,
   checkIntervals: { checkpoint: 10 }, // Save checkpoint every 10 tokens
   monitoring: { enabled: true },

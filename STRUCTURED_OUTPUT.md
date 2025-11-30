@@ -55,7 +55,7 @@ const result = await structured({
   // Optional
   fallbackStreams: [...],      // Fallback model streams
   autoCorrect: true,           // Fix common JSON issues (default: true)
-  retry: { attempts: 2 },      // Retry on validation failure
+  retry: { attempts: 3 },      // Retry on validation failure
 
   // Callbacks
   onValidationError: (error, attempt) => {},
@@ -233,7 +233,7 @@ const result = await structured({
   schema,
   stream: () => streamText({ model, prompt }),
   autoCorrect: true,
-  retry: { attempts: 2 },
+  retry: { attempts: 3 },
   fallbackStreams: [() => streamText({ model: fallbackModel, prompt })],
   onValidationError: (error, attempt) => {
     logger.warn("Validation failed", { attempt, errors: error.errors });

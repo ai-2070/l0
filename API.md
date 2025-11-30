@@ -40,7 +40,7 @@ const result = await l0({
 
   // Optional: Retry configuration
   retry: {
-    attempts: 2,
+    attempts: 3,
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "fixed-jitter",
@@ -350,7 +350,7 @@ const result = await structured({
   autoCorrect: true,
 
   // Optional: Validation retries
-  retry: { attempts: 2 }
+  retry: { attempts: 3 }
 });
 
 // Type-safe access
@@ -536,9 +536,9 @@ const result = engine.check({
 
 ```typescript
 import {
-  minimalRetry, // { attempts: 2 }
+  minimalRetry, // { attempts: 1 }
   recommendedRetry, // { attempts: 3, backoff: "fixed-jitter" }
-  strictRetry, // { attempts: 3, backoff: "fixed-jitter" }
+  strictRetry, // { attempts: 3, backoff: "full-jitter" }
 } from "@ai2070/l0";
 ```
 
@@ -548,7 +548,7 @@ import {
 import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 
 // RETRY_DEFAULTS
-// { attempts: 2, baseDelay: 1000, maxDelay: 10000, ... }
+// { attempts: 3, maxRetries: 6, baseDelay: 1000, maxDelay: 10000, backoff: "fixed-jitter", ... }
 
 // ERROR_TYPE_DELAY_DEFAULTS
 // { connectionDropped: 1000, fetchError: 500, timeout: 1000, ... }
@@ -561,7 +561,7 @@ const result = await l0({
   stream,
   retry: {
     attempts: 3,
-    maxRetries: 10, // Absolute cap (all error types)
+    maxRetries: 6, // Absolute cap (all error types)
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "fixed-jitter", // "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter"

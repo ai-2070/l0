@@ -421,8 +421,8 @@ catch (error) {
 ```typescript
 // Production: balance reliability vs latency
 retry: {
-  attempts: 2,           // Model errors
-  maxRetries: 10,        // Absolute cap (all errors)
+  attempts: 3,           // Model errors (default: 3)
+  maxRetries: 6,         // Absolute cap (all errors, default: 6)
   maxErrorHistory: 50    // Prevent memory leaks
 }
 ```
