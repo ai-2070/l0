@@ -512,6 +512,73 @@ describe("continueFromLastKnownGoodToken", () => {
   });
 
   describe("Guardrails on Continuation", () => {
+    it("should run completion-only guardrails on checkpoint validation", async () => {
+      // This test verifies that guardrails marked with completed: true only
+      // are still triggered when validating checkpoint content before continuation.
+      // The checkpoint context should have completed: true so these rules run.
+      let attemptCount = 0;
+      const violations: any[] = [];
+
+      // Guardrail that ONLY runs on completion (checks ctx.completed)
+      const completionOnlyRule: GuardrailRule = {
+        name: "completion-only-check",
+        check: (ctx) => {
+          // Only check when completed is true
+          if (!ctx.completed) return [];
+          if (ctx.content.includes("bad-word")) {
+            return [
+              {
+                rule: "completion-only-check",
+                message: "Bad word found on completion",
+                severity: "error",
+                recoverable: true,
+              },
+            ];
+          }
+          return [];
+        },
+      };
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            // First attempt: emit content with "bad-word" then fail
+            return {
+              textStream: createMockStream(
+                ["hello", " ", "bad-word", " ", "content"],
+                { shouldError: true },
+              ),
+            };
+          }
+          // Second attempt: clean content
+          return {
+            textStream: createMockStream([" continued"]),
+          };
+        },
+        guardrails: [completionOnlyRule],
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 3,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error", "guardrail_violation"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+        onViolation: (v) => violations.push(v),
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      // The completion-only guardrail should have been triggered during checkpoint validation
+      // This proves that checkpoint validation sets completed: true in the context
+      expect(violations.some((v) => v.rule === "completion-only-check")).toBe(
+        true,
+      );
+    });
+
     it("should run guardrails on checkpoint content", async () => {
       let attemptCount = 0;
       const violations: any[] = [];
