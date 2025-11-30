@@ -4,7 +4,6 @@
 import { l0, recommendedGuardrails } from "../src/index";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { anthropic } from "@anthropic-ai/sdk";
 
 const prompt = "Explain quantum computing in one sentence";
 

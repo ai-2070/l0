@@ -136,8 +136,8 @@ describeIf(hasOpenAI)("Window/Document Chunking Integration", () => {
 
         // At least first chunk should succeed
         expect(results.length).toBeGreaterThan(0);
-        expect(results[0].status).toBe("success");
-        expectValidResponse(results[0].result?.state?.content || "");
+        expect(results[0]!.status).toBe("success");
+        expectValidResponse(results[0]!.result?.state?.content || "");
       },
       LLM_TIMEOUT * 3,
     );

@@ -82,8 +82,8 @@ describe("DocumentWindow", () => {
 
       // Check that chunks overlap
       if (chunks.length > 1) {
-        const firstEnd = chunks[0].content.slice(-50);
-        const secondStart = chunks[1].content.slice(0, 50);
+        const firstEnd = chunks[0]!.content.slice(-50);
+        const secondStart = chunks[1]!.content.slice(0, 50);
         // There should be some overlap
         expect(firstEnd).toBeTruthy();
         expect(secondStart).toBeTruthy();
@@ -229,7 +229,7 @@ describe("DocumentWindow", () => {
 
       expect(chunks).toBeInstanceOf(Array);
       expect(chunks.length).toBe(window.totalChunks);
-      expect(chunks[0].index).toBe(0);
+      expect(chunks[0]!.index).toBe(0);
     });
 
     it("should get range of chunks", () => {
@@ -237,8 +237,8 @@ describe("DocumentWindow", () => {
 
       expect(range).toBeInstanceOf(Array);
       expect(range.length).toBe(2);
-      expect(range[0].index).toBe(1);
-      expect(range[1].index).toBe(2);
+      expect(range[0]!.index).toBe(1);
+      expect(range[1]!.index).toBe(2);
     });
 
     it("should handle range out of bounds", () => {
@@ -339,7 +339,7 @@ describe("DocumentWindow", () => {
 
       expect(found).toBeInstanceOf(Array);
       expect(found.length).toBeGreaterThan(0);
-      expect(found[0].content).toContain("Paragraph 1");
+      expect(found[0]!.content).toContain("Paragraph 1");
     });
 
     it("should find chunks case insensitive by default", () => {
@@ -905,7 +905,7 @@ describe("Edge Cases", () => {
 
     // Chunks should not overlap
     if (chunks.length > 1) {
-      expect(chunks[0].endPos).toBeLessThanOrEqual(chunks[1].startPos);
+      expect(chunks[0]!.endPos).toBeLessThanOrEqual(chunks[1]!.startPos);
     }
   });
 });

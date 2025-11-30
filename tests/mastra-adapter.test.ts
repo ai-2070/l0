@@ -160,9 +160,9 @@ describe("Mastra Adapter", () => {
       const doneEvents = events.filter((e) => e.type === "done");
 
       expect(tokenEvents).toHaveLength(3);
-      expect(tokenEvents[0].value).toBe("Hello");
-      expect(tokenEvents[1].value).toBe(" ");
-      expect(tokenEvents[2].value).toBe("world");
+      expect(tokenEvents[0]!.value).toBe("Hello");
+      expect(tokenEvents[1]!.value).toBe(" ");
+      expect(tokenEvents[2]!.value).toBe("world");
       expect(doneEvents).toHaveLength(1);
     });
 

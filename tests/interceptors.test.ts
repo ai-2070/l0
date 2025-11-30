@@ -47,6 +47,7 @@ function createMockL0Result(overrides: Partial<L0Result> = {}): L0Result {
     driftDetected: false,
     completed: true,
     networkErrors: [],
+    continuedFromCheckpoint: false,
   };
 
   return {
@@ -201,10 +202,10 @@ describe("InterceptorManager", () => {
       const contexts = manager.getContexts();
 
       expect(contexts.length).toBe(1);
-      expect(contexts[0].name).toBe("tracked-hook");
-      expect(contexts[0].phase).toBe("before");
-      expect(contexts[0].timestamp).toBeGreaterThan(0);
-      expect(contexts[0].duration).toBeGreaterThanOrEqual(0);
+      expect(contexts[0]!.name).toBe("tracked-hook");
+      expect(contexts[0]!.phase).toBe("before");
+      expect(contexts[0]!.timestamp).toBeGreaterThan(0);
+      expect(contexts[0]!.duration).toBeGreaterThanOrEqual(0);
     });
 
     it("should throw error when before hook fails", async () => {
@@ -242,7 +243,7 @@ describe("InterceptorManager", () => {
 
       const contexts = manager.getContexts();
       expect(contexts.length).toBe(1);
-      expect(contexts[0].name).toBe("failing-hook");
+      expect(contexts[0]!.name).toBe("failing-hook");
     });
 
     it("should use 'anonymous' for unnamed interceptors", async () => {
@@ -255,7 +256,7 @@ describe("InterceptorManager", () => {
       await manager.executeBefore(createMockL0Options());
       const contexts = manager.getContexts();
 
-      expect(contexts[0].name).toBe("anonymous");
+      expect(contexts[0]!.name).toBe("anonymous");
     });
 
     it("should stop execution chain on first error", async () => {
@@ -400,9 +401,9 @@ describe("InterceptorManager", () => {
       const contexts = manager.getContexts();
 
       expect(contexts.length).toBe(1);
-      expect(contexts[0].name).toBe("tracked-hook");
-      expect(contexts[0].phase).toBe("after");
-      expect(contexts[0].timestamp).toBeGreaterThan(0);
+      expect(contexts[0]!.name).toBe("tracked-hook");
+      expect(contexts[0]!.phase).toBe("after");
+      expect(contexts[0]!.timestamp).toBeGreaterThan(0);
     });
 
     it("should throw error when after hook fails", async () => {
@@ -497,8 +498,8 @@ describe("InterceptorManager", () => {
       const contexts = manager.getContexts();
 
       expect(contexts.length).toBe(1);
-      expect(contexts[0].name).toBe("error-hook");
-      expect(contexts[0].phase).toBe("error");
+      expect(contexts[0]!.name).toBe("error-hook");
+      expect(contexts[0]!.phase).toBe("error");
     });
 
     it("should handle async error hooks", async () => {
@@ -734,6 +735,7 @@ describe("loggingInterceptor()", () => {
           driftDetected: false,
           completed: true,
           networkErrors: [],
+          continuedFromCheckpoint: false,
         },
       }),
     );
@@ -771,6 +773,7 @@ describe("loggingInterceptor()", () => {
           driftDetected: false,
           completed: true,
           networkErrors: [],
+          continuedFromCheckpoint: false,
         },
       }),
     );
@@ -1103,6 +1106,7 @@ describe("transformInterceptor()", () => {
         driftDetected: false,
         completed: true,
         networkErrors: [],
+        continuedFromCheckpoint: false,
       },
     });
 
@@ -1405,7 +1409,7 @@ describe("Edge Cases", () => {
       await promise;
 
       const contexts = manager.getContexts();
-      expect(contexts[0].duration).toBe(100);
+      expect(contexts[0]!.duration).toBe(100);
 
       vi.useRealTimers();
     });
