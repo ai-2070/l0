@@ -1153,7 +1153,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | **Interceptors**      | ✓    | –           | All built-in interceptors validated      |
 | **Drift Detection**   | ✓    | –           | Pattern detection, entropy, format drift |
 | **Custom Adapters**   | ✓    | ✓           | OpenAI, Anthropic, Mastra adapters       |
-| **Multimodal**        | ✓    | –           | Data/progress events, state tracking     |
+| **Multimodal**        | ✓    | ✓           | Data/progress events, state tracking     |
 
 ---
 
