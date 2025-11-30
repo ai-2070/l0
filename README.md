@@ -24,6 +24,7 @@ npm install @ai2070/l0
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
 **Upcoming versions:**
+
 - **0.9.0** - Website docs
 - **1.0.0** - API freeze
 
@@ -53,7 +54,7 @@ _Production-grade reliability. Just pass your stream. L0'll take it from here._
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
 | **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
-| **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                                       |
+| **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
 | **🧪 Battle-Tested**                             | 1,500+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
 ## Quick Start
