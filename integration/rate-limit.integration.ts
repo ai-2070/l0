@@ -190,16 +190,26 @@ describeIf(hasOpenAI)("Rate Limiting Integration", () => {
         // With concurrency of 2, we expect two batches
         // First two should start at nearly the same time
         // Last two should start after the first batch completes
-        // Sort times and check that there's a gap between batch 1 and batch 2
         const sortedTimes = [...startTimes].sort((a, b) => a - b);
-        const firstBatchEnd = Math.max(sortedTimes[0]!, sortedTimes[1]!);
-        const secondBatchStart = Math.min(sortedTimes[2]!, sortedTimes[3]!);
 
-        // The second batch should start after or around the same time as first batch
-        // (accounting for fast API responses where batches may overlap slightly)
-        // At minimum, verify the first two started close together
-        const firstTwoDiff = Math.abs(sortedTimes[1]! - sortedTimes[0]!);
-        expect(firstTwoDiff).toBeLessThan(1000); // First two should start within 1s of each other
+        // First batch: first two operations should start within 500ms of each other
+        const firstBatchSpread = sortedTimes[1]! - sortedTimes[0]!;
+        expect(firstBatchSpread).toBeLessThan(500);
+
+        // Second batch: last two operations should start within 500ms of each other
+        const secondBatchSpread = sortedTimes[3]! - sortedTimes[2]!;
+        expect(secondBatchSpread).toBeLessThan(500);
+
+        // Key assertion: second batch must start AFTER first batch started
+        // With concurrency=2, the 3rd operation can only start once one of the first two completes
+        // Even with fast API responses, there should be a measurable gap (>50ms)
+        const secondBatchStart = sortedTimes[2]!;
+        const firstBatchStart = sortedTimes[0]!;
+        const gapBetweenBatches = secondBatchStart - firstBatchStart;
+
+        // The gap should be at least 50ms (time for network round-trip + processing)
+        // If all 4 started together, this gap would be <50ms
+        expect(gapBetweenBatches).toBeGreaterThan(50);
       },
       LLM_TIMEOUT * 3,
     );
