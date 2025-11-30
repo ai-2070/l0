@@ -705,10 +705,11 @@ describe("edge cases", () => {
 
   it("should handle Unicode and emoji text correctly", async () => {
     const chunks = [
-      { text: "Hello " },
-      { text: "World" },
-      { text: " " },
-      { text: "" },
+      { text: "Hello 世界" },
+      { text: "🎉🚀✨" },
+      { text: "日本語テスト" },
+      { text: "مرحبا" },
+      { text: "🇺🇸🇯🇵🇩🇪" },
     ];
     const stream = arrayToAsyncIterable(chunks);
 
@@ -716,10 +717,11 @@ describe("edge cases", () => {
       toL0Events(stream, (chunk) => chunk.text),
     );
 
-    expect(events[0]).toMatchObject({ type: "token", value: "Hello " });
-    expect(events[1]).toMatchObject({ type: "token", value: "World" });
-    expect(events[2]).toMatchObject({ type: "token", value: " " });
-    expect(events[3]).toMatchObject({ type: "token", value: "" });
+    expect(events[0]).toMatchObject({ type: "token", value: "Hello 世界" });
+    expect(events[1]).toMatchObject({ type: "token", value: "🎉🚀✨" });
+    expect(events[2]).toMatchObject({ type: "token", value: "日本語テスト" });
+    expect(events[3]).toMatchObject({ type: "token", value: "مرحبا" });
+    expect(events[4]).toMatchObject({ type: "token", value: "🇺🇸🇯🇵🇩🇪" });
   });
 
   it("should handle very large strings", async () => {

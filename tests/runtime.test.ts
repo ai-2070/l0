@@ -1508,6 +1508,10 @@ describe("L0 Runtime", () => {
       clearAdapters();
     });
 
+    afterEach(() => {
+      clearAdapters();
+    });
+
     it("should auto-detect and use registered adapter for async iterable streams", async () => {
       // This test ensures adapters are checked BEFORE the generic Symbol.asyncIterator branch
       interface CustomChunk {
