@@ -23,5 +23,25 @@ export {
 } from "./helpers";
 
 // Built-in adapters
-export * from "./openai";
-export * from "./anthropic";
+// Note: Using explicit exports to avoid forcing SDK imports at runtime.
+// Users who don't use a specific adapter won't need that SDK installed.
+export {
+  wrapOpenAIStream,
+  openaiAdapter,
+  openaiStream,
+  openaiText,
+  openaiJSON,
+  openaiWithTools,
+  isOpenAIChunk,
+  isOpenAIStream,
+  extractOpenAIText,
+} from "./openai";
+
+export {
+  wrapAnthropicStream,
+  anthropicAdapter,
+  anthropicStream,
+  anthropicText,
+  isAnthropicStream,
+  isAnthropicStreamEvent,
+} from "./anthropic";
