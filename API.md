@@ -569,8 +569,8 @@ import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
 const result = await l0({
   stream,
   retry: {
-    attempts: 3,
-    maxRetries: 6, // Absolute cap (all error types)
+    attempts: 3, // LLM errors only
+    maxRetries: 6, // Absolute cap (LLM + network)
     baseDelay: 1000,
     maxDelay: 10000,
     backoff: "fixed-jitter", // "exponential" | "linear" | "fixed" | "full-jitter" | "fixed-jitter"
