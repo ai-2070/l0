@@ -581,6 +581,8 @@ const result = await l0({
 });
 ```
 
+When LLMs continue from a checkpoint, they often repeat words from the end. L0 automatically detects and removes this overlap (enabled by default). See [API Reference](./API.md#overlap-deduplication) for configuration options.
+
 ### Example: Resuming After Network Error
 
 ```typescript
@@ -611,8 +613,6 @@ if (result.telemetry?.continuation?.used) {
   );
 }
 ```
-
-When LLMs continue from a checkpoint, they often repeat words from the end. L0 automatically detects and removes this overlap (enabled by default). See [API Reference](./API.md#overlap-deduplication) for configuration options.
 
 ### Checkpoint Validation
 
