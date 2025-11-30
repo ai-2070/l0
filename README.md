@@ -1093,8 +1093,8 @@ Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `
 - **No magic** - Everything is explicit and predictable
 - **Streaming-first** - Built for real-time token delivery
 - **Signals, not rewrites** - Guardrails detect issues, don't modify output
-- **Model-agnostic** - Works with any Vercel AI SDK provider
-- **Zero dependencies** - Only peer dependency is the AI SDK
+- **Model-agnostic** - Works with any model
+- **Zero dependencies** - Only peer dependency is the AI SDK, the OpenAI SDK, or Mastra AI
 
 ---
 
@@ -1114,7 +1114,7 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 npm test
 
 # Run integration tests (requires API keys)
-OPENAI_API_KEY=sk-... npm run test:integration
+OPENAI_API_KEY=sk-... ANTHROPIC_API_KEY=sk-... npm run test:integration
 ```
 
 ### SDK Adapter Matrix
