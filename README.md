@@ -46,6 +46,7 @@ npm install @ai2070/l0
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
 | **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
 | **🧪 Battle-Tested**                             | 1,400+ unit tests and 230+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
+| **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                      |
 
 ## Quick Start
 
@@ -929,6 +930,66 @@ See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for complete guide.
 
 ---
 
+## Custom Adapters (BYOA)
+
+L0 supports custom adapters for integrating any LLM provider. Built-in adapters include OpenAI, Anthropic, and Mastra.
+
+### Explicit Adapter Usage
+
+```typescript
+import { l0, anthropicAdapter } from "@ai2070/l0";
+import Anthropic from "@anthropic-ai/sdk";
+
+const anthropic = new Anthropic();
+
+const result = await l0({
+  stream: () =>
+    anthropic.messages.stream({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: "Hello!" }],
+    }),
+  adapter: anthropicAdapter,
+});
+```
+
+### Building Custom Adapters
+
+```typescript
+import { toL0Events, type L0Adapter } from "@ai2070/l0";
+
+interface MyChunk {
+  text?: string;
+}
+
+const myAdapter: L0Adapter<AsyncIterable<MyChunk>> = {
+  name: "myai",
+
+  // Optional: Enable auto-detection
+  detect(input): input is AsyncIterable<MyChunk> {
+    return !!input && typeof input === "object" && "__myMarker" in input;
+  },
+
+  // Convert provider stream to L0 events
+  wrap(stream) {
+    return toL0Events(stream, (chunk) => chunk.text ?? null);
+  },
+};
+```
+
+### Adapter Invariants
+
+Adapters MUST:
+
+- Preserve text exactly (no trimming, no modification)
+- Include timestamps on every event
+- Convert errors to error events (never throw)
+- Emit done event exactly once at end
+
+See [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md) for complete guide including helper functions, registry API, and testing patterns.
+
+---
+
 ## Error Handling
 
 L0 provides detailed error context for debugging and recovery:
@@ -1032,6 +1093,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics       |
 | [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails |
 | [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers          |
+| [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md)                     | Build your own adapters     |
 
 ---
 

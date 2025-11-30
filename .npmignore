@@ -24,6 +24,7 @@ vitest.*.config.*
 !PERFORMANCE.md
 !QUICKSTART.md
 !STRUCTURED_OUTPUT.md
+!CUSTOM_ADAPTERS.md
 .env*
 
 # Build artifacts
