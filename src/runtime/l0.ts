@@ -14,8 +14,7 @@ import { RetryManager } from "./retry";
 import { DriftDetector } from "./drift";
 import { detectZeroToken } from "./zeroToken";
 import { normalizeStreamEvent } from "./events";
-// hasMeaningfulContent available for future use
-// import { hasMeaningfulContent } from "../utils/tokens";
+import { detectOverlap } from "../utils/tokens";
 import { L0Monitor } from "./monitoring";
 import { isNetworkError, L0Error } from "../utils/errors";
 import { InterceptorManager } from "./interceptors";
@@ -133,7 +132,13 @@ export async function l0<TOutput = unknown>(
     onRetry: processedOnRetry,
     continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
     buildContinuationPrompt: processedBuildContinuationPrompt,
+    deduplicateContinuation: processedDeduplicateContinuation,
+    deduplicationOptions: processedDeduplicationOptions = {},
   } = processedOptions;
+
+  // Deduplication is enabled by default when continuation is enabled
+  const shouldDeduplicateContinuation =
+    processedDeduplicateContinuation ?? processedContinueFromCheckpoint;
 
   // Configure check intervals with defaults
   const guardrailCheckInterval = processedCheckIntervals.guardrails ?? 5;
@@ -204,6 +209,11 @@ export async function l0<TOutput = unknown>(
     // Track checkpoint for continuation
     let checkpointForContinuation = "";
 
+    // Deduplication state for continuation
+    // LLMs often repeat content when continuing, so we buffer and deduplicate
+    let deduplicationBuffer = "";
+    let deduplicationComplete = false;
+
     // Try primary stream first, then fallbacks if exhausted
     while (fallbackIndex < allStreams.length) {
       const currentStreamFactory = allStreams[fallbackIndex]!;
@@ -270,6 +280,10 @@ export async function l0<TOutput = unknown>(
 
               state.continuedFromCheckpoint = true;
               state.continuationCheckpoint = checkpointForContinuation;
+
+              // Reset deduplication state for the new continuation
+              deduplicationBuffer = "";
+              deduplicationComplete = false;
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for retry)
               if (processedBuildContinuationPrompt) {
@@ -442,12 +456,71 @@ export async function l0<TOutput = unknown>(
             const event = normalizeStreamEvent(chunk);
 
             if (event.type === "token" && event.value) {
-              const token = event.value;
+              let token = event.value;
 
               // Track first token
               if (!firstTokenReceived) {
                 firstTokenReceived = true;
                 state.firstTokenAt = Date.now();
+              }
+
+              // Handle deduplication for continuation
+              // LLMs stream tokens one at a time, so we need to accumulate tokens
+              // until we can detect where the overlap ends
+              if (
+                state.continuedFromCheckpoint &&
+                shouldDeduplicateContinuation &&
+                checkpointForContinuation.length > 0 &&
+                !deduplicationComplete
+              ) {
+                // Accumulate tokens in the deduplication buffer
+                deduplicationBuffer += token;
+
+                // Check if we've accumulated enough to detect overlap
+                // We check after each token to find the overlap boundary
+                const overlapResult = detectOverlap(
+                  checkpointForContinuation,
+                  deduplicationBuffer,
+                  {
+                    minOverlap: processedDeduplicationOptions.minOverlap ?? 2,
+                    maxOverlap: processedDeduplicationOptions.maxOverlap ?? 500,
+                    caseSensitive:
+                      processedDeduplicationOptions.caseSensitive ?? true,
+                    normalizeWhitespace:
+                      processedDeduplicationOptions.normalizeWhitespace ??
+                      false,
+                  },
+                );
+
+                // Check if we should finalize deduplication:
+                // 1. We found overlap and have content beyond it
+                // 2. Buffer exceeds max possible overlap (no overlap found)
+                // 3. Buffer has grown large enough that we're confident there's no more overlap
+                const maxOverlapLen =
+                  processedDeduplicationOptions.maxOverlap ?? 500;
+                const shouldFinalize =
+                  (overlapResult.hasOverlap &&
+                    overlapResult.deduplicatedContinuation.length > 0) ||
+                  deduplicationBuffer.length > maxOverlapLen;
+
+                if (shouldFinalize) {
+                  deduplicationComplete = true;
+
+                  if (overlapResult.hasOverlap) {
+                    // Emit only the non-overlapping portion
+                    token = overlapResult.deduplicatedContinuation;
+                    if (token.length === 0) {
+                      // Entire buffer was overlap, wait for next token
+                      continue;
+                    }
+                  } else {
+                    // No overlap found, emit the entire buffer
+                    token = deduplicationBuffer;
+                  }
+                } else {
+                  // Still accumulating, don't emit yet
+                  continue;
+                }
               }
 
               // Update state - use buffer for O(n) accumulation
@@ -596,6 +669,102 @@ export async function l0<TOutput = unknown>(
           // Clear any remaining timeout
           if (initialTimeoutId) {
             clearTimeout(initialTimeoutId);
+          }
+
+          // Flush any remaining deduplication buffer content
+          // This handles the case where the stream ends before we could finalize deduplication
+          if (
+            state.continuedFromCheckpoint &&
+            shouldDeduplicateContinuation &&
+            !deduplicationComplete &&
+            deduplicationBuffer.length > 0
+          ) {
+            // Stream ended, finalize deduplication with whatever we have
+            const overlapResult = detectOverlap(
+              checkpointForContinuation,
+              deduplicationBuffer,
+              {
+                minOverlap: processedDeduplicationOptions.minOverlap ?? 2,
+                maxOverlap: processedDeduplicationOptions.maxOverlap ?? 500,
+                caseSensitive:
+                  processedDeduplicationOptions.caseSensitive ?? true,
+                normalizeWhitespace:
+                  processedDeduplicationOptions.normalizeWhitespace ?? false,
+              },
+            );
+
+            let flushedToken: string;
+            if (overlapResult.hasOverlap) {
+              // Add only the non-overlapping portion
+              flushedToken = overlapResult.deduplicatedContinuation;
+            } else {
+              // No overlap found, add the entire buffer
+              flushedToken = deduplicationBuffer;
+            }
+
+            // Only emit and add to buffer if there's content
+            if (flushedToken.length > 0) {
+              tokenBuffer.push(flushedToken);
+              state.tokenCount++;
+
+              // Update content for guardrail/drift checks
+              state.content = tokenBuffer.join("");
+
+              // Run guardrails on the flushed content
+              if (guardrailEngine) {
+                const context: GuardrailContext = {
+                  content: state.content,
+                  checkpoint: state.checkpoint,
+                  delta: flushedToken,
+                  tokenCount: state.tokenCount,
+                  completed: false,
+                };
+
+                const result = guardrailEngine.check(context);
+                if (result.violations.length > 0) {
+                  state.violations.push(...result.violations);
+                  monitor.recordGuardrailViolations(result.violations);
+                }
+
+                // Check for fatal violations
+                if (result.shouldHalt) {
+                  throw new L0Error(
+                    `Fatal guardrail violation: ${result.violations[0]?.message}`,
+                    {
+                      code: "FATAL_GUARDRAIL_VIOLATION",
+                      checkpoint: state.checkpoint,
+                      tokenCount: state.tokenCount,
+                      contentLength: state.content.length,
+                      retryAttempts: state.retryAttempts,
+                      networkRetries: state.networkRetries,
+                      fallbackIndex,
+                      recoverable: false,
+                      metadata: { violation: result.violations[0] },
+                    },
+                  );
+                }
+              }
+
+              // Run drift detection on flushed content
+              if (driftDetector) {
+                const drift = driftDetector.check(state.content, flushedToken);
+                if (drift.detected) {
+                  state.driftDetected = true;
+                  monitor.recordDrift(true, drift.types);
+                }
+              }
+
+              // Emit the flushed token to the stream
+              const flushedEvent: L0Event = {
+                type: "token",
+                value: flushedToken,
+                timestamp: Date.now(),
+              };
+              if (processedOnEvent) processedOnEvent(flushedEvent);
+              yield flushedEvent;
+            }
+
+            deduplicationComplete = true;
           }
 
           // Finalize content from buffer
@@ -915,6 +1084,10 @@ export async function l0<TOutput = unknown>(
             if (!validation.skipContinuation) {
               state.continuedFromCheckpoint = true;
               state.continuationCheckpoint = checkpointForContinuation;
+
+              // Reset deduplication state for the new continuation
+              deduplicationBuffer = "";
+              deduplicationComplete = false;
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for fallback)
               if (processedBuildContinuationPrompt) {

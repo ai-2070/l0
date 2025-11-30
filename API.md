@@ -11,6 +11,7 @@ Complete API reference for L0.
 - [Consensus](#consensus)
 - [Guardrails](#guardrails)
 - [Retry Configuration](#retry-configuration)
+- [Smart Continuation Deduplication](#smart-continuation-deduplication)
 - [Error Handling](#error-handling)
 - [Formatting Helpers](#formatting-helpers)
 - [Utility Functions](#utility-functions)
@@ -712,6 +713,116 @@ const result = await manager.execute(async () => {
 
 ---
 
+## Smart Continuation Deduplication
+
+When using `continueFromLastKnownGoodToken`, LLMs often repeat words from the end of the checkpoint at the beginning of their continuation. L0 automatically detects and removes this overlap.
+
+### How It Works
+
+```typescript
+// Checkpoint: "Hello world"
+// LLM continues with: "world is great"
+// Without deduplication: "Hello worldworld is great"
+// With deduplication: "Hello world is great" ✓
+```
+
+Deduplication is **enabled by default** when `continueFromLastKnownGoodToken: true`. The deduplication window is bounded (maxOverlap) to guarantee stable O(n) streaming performance. The algorithm:
+
+1. Buffers incoming continuation tokens until overlap can be detected
+2. Finds the longest suffix of the checkpoint that matches a prefix of the continuation
+3. Removes the overlapping portion from the continuation
+4. Emits only the non-overlapping content
+
+### Configuration
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  continueFromLastKnownGoodToken: true,
+
+  // Deduplication enabled by default, explicitly disable:
+  deduplicateContinuation: false,
+
+  // Or configure options:
+  deduplicationOptions: {
+    minOverlap: 2, // Minimum chars to consider overlap (default: 2)
+    maxOverlap: 500, // Maximum chars to check (default: 500)
+    caseSensitive: true, // Case-sensitive matching (default: true)
+    normalizeWhitespace: false, // Normalize whitespace for matching (default: false)
+  },
+});
+```
+
+### Options
+
+| Option                | Type    | Default | Description                                                                   |
+| --------------------- | ------- | ------- | ----------------------------------------------------------------------------- |
+| `minOverlap`          | number  | 2       | Minimum overlap length to detect (avoids false positives)                     |
+| `maxOverlap`          | number  | 500     | Maximum overlap length to check (performance limit)                           |
+| `caseSensitive`       | boolean | true    | Whether matching is case-sensitive                                            |
+| `normalizeWhitespace` | boolean | false   | Normalize whitespace when matching (`"hello  world"` matches `"hello world"`) |
+
+### Examples
+
+**Case-insensitive matching:**
+
+```typescript
+// Checkpoint: "Hello World"
+// Continuation: "world is great"
+// With caseSensitive: false → "Hello World is great"
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  continueFromLastKnownGoodToken: true,
+  deduplicationOptions: { caseSensitive: false },
+});
+```
+
+**Multi-word overlap:**
+
+```typescript
+// Checkpoint: "The quick brown fox"
+// Continuation: "brown fox jumps over"
+// Result: "The quick brown fox jumps over"
+```
+
+**Code continuation:**
+
+```typescript
+// Checkpoint: 'function hello() {\n  console.log("Hello'
+// Continuation: 'console.log("Hello, World!");\n}'
+// Result: 'function hello() {\n  console.log("Hello, World!");\n}'
+```
+
+### Utility Functions
+
+The overlap detection is also available as standalone utilities:
+
+```typescript
+import { detectOverlap, deduplicateContinuation } from "@ai2070/l0";
+
+// Full result with metadata
+const result = detectOverlap("Hello world", "world is great");
+// {
+//   hasOverlap: true,
+//   overlapLength: 5,
+//   overlapText: "world",
+//   deduplicatedContinuation: " is great"
+// }
+
+// Convenience wrapper - just the deduplicated string
+const text = deduplicateContinuation("Hello world", "world is great");
+// " is great"
+
+// With options
+const result2 = detectOverlap("Hello World", "world test", {
+  caseSensitive: false,
+  minOverlap: 3,
+});
+```
+
+---
+
 ## Error Handling
 
 ### L0Error
@@ -875,7 +986,19 @@ import {
   countMeaningfulTokens,
   estimateTokenCount,
   detectRepeatedTokens,
+  detectOverlap,
+  deduplicateContinuation,
 } from "@ai2070/l0";
+
+// Detect overlap between checkpoint suffix and continuation prefix
+const result = detectOverlap("Hello world", "world is great");
+// result.hasOverlap === true
+// result.overlapText === "world"
+// result.deduplicatedContinuation === " is great"
+
+// Convenience wrapper - returns just the deduplicated string
+const deduplicated = deduplicateContinuation("Hello world", "world is great");
+// deduplicated === " is great"
 ```
 
 ### Timer Utilities
@@ -1259,6 +1382,18 @@ interface L0Options {
 
   // Custom function to build continuation prompt (used with continueFromLastKnownGoodToken)
   buildContinuationPrompt?: (checkpoint: string) => string;
+
+  // Enable automatic overlap deduplication when continuing (default: true when continuation enabled)
+  // LLMs often repeat words from checkpoint end; this removes the overlap automatically
+  deduplicateContinuation?: boolean;
+
+  // Options for continuation deduplication
+  deduplicationOptions?: {
+    minOverlap?: number; // Minimum overlap chars to detect (default: 2)
+    maxOverlap?: number; // Maximum overlap chars to check (default: 500)
+    caseSensitive?: boolean; // Case-sensitive matching (default: true)
+    normalizeWhitespace?: boolean; // Normalize whitespace for matching (default: false)
+  };
 
   // Interceptors for preprocessing/postprocessing
   interceptors?: L0Interceptor[];
