@@ -5,6 +5,7 @@ Complete API reference for L0.
 ## Table of Contents
 
 - [Core Functions](#core-functions)
+- [Type-Safe Generics](#type-safe-generics)
 - [Structured Output](#structured-output)
 - [Document Windows](#document-windows)
 - [Consensus](#consensus)
@@ -109,6 +110,216 @@ console.log(result.state.tokenCount);
 | -------- | ------------------------ | ------------- |
 | `stream` | `AsyncIterable<L0Event>` | Event stream  |
 | `state`  | `L0State`                | Runtime state |
+
+---
+
+## Type-Safe Generics
+
+All L0 functions support generic type parameters to forward your output types through the entire call chain. This enables full type inference without manual casting.
+
+### l0\<TOutput\>()
+
+The core `l0()` function accepts a generic type parameter:
+
+```typescript
+import { l0 } from "@ai2070/l0";
+
+interface UserProfile {
+  name: string;
+  age: number;
+  email: string;
+}
+
+const result = await l0<UserProfile>({
+  stream: () => streamText({ model, prompt }),
+});
+
+// result is L0Result<UserProfile>
+// result.state includes the typed output
+```
+
+### parallel\<TOutput\>()
+
+Run multiple operations with typed results:
+
+```typescript
+import { parallel } from "@ai2070/l0";
+
+interface TaskResult {
+  summary: string;
+  score: number;
+}
+
+const results = await parallel<TaskResult>([
+  { stream: () => streamText({ model, prompt: "Task 1" }) },
+  { stream: () => streamText({ model, prompt: "Task 2" }) },
+  { stream: () => streamText({ model, prompt: "Task 3" }) },
+]);
+
+// results is ParallelResult<TaskResult>
+// results.results is Array<L0Result<TaskResult> | null>
+for (const result of results.results) {
+  if (result) {
+    console.log(result.state.content); // typed access
+  }
+}
+```
+
+### parallelAll\<TOutput\>()
+
+Unlimited concurrency variant:
+
+```typescript
+import { parallelAll } from "@ai2070/l0";
+
+const results = await parallelAll<TaskResult>(operations);
+// Same typing as parallel<TOutput>()
+```
+
+### sequential\<TOutput\>()
+
+Sequential execution with typed results:
+
+```typescript
+import { sequential } from "@ai2070/l0";
+
+const results = await sequential<TaskResult>(operations);
+// Executes one at a time, same result type
+```
+
+### batched\<TOutput\>()
+
+Batch processing with typed results:
+
+```typescript
+import { batched } from "@ai2070/l0";
+
+const results = await batched<TaskResult>(operations, 3);
+// Processes in batches of 3
+```
+
+### race\<TOutput\>()
+
+First successful result wins:
+
+```typescript
+import { race } from "@ai2070/l0";
+
+interface FastResponse {
+  answer: string;
+  confidence: number;
+}
+
+const result = await race<FastResponse>([
+  { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
+  { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
+  { stream: () => streamText({ model: google("gemini-pro"), prompt }) },
+]);
+
+// result is RaceResult<FastResponse>
+// result.winnerIndex tells you which model won
+console.log(`Model ${result.winnerIndex} won`);
+```
+
+### consensus\<TSchema\>()
+
+Multi-model agreement with schema inference:
+
+```typescript
+import { consensus } from "@ai2070/l0";
+import { z } from "zod";
+
+const schema = z.object({
+  answer: z.string(),
+  confidence: z.number(),
+});
+
+const result = await consensus<typeof schema>({
+  streams: [
+    () => streamText({ model: openai("gpt-4o"), prompt }),
+    () => streamText({ model: anthropic("claude-3-opus"), prompt }),
+    () => streamText({ model: google("gemini-pro"), prompt }),
+  ],
+  schema,
+  strategy: "majority",
+  threshold: 0.6,
+});
+
+// result.consensus is z.infer<typeof schema>
+console.log(result.consensus.answer);
+console.log(result.confidence);
+```
+
+### pipe\<TInput, TOutput\>()
+
+Pipelines with typed input and output:
+
+```typescript
+import { pipe } from "@ai2070/l0";
+
+interface DocumentInput {
+  text: string;
+  language: string;
+}
+
+interface AnalysisOutput {
+  sentiment: string;
+  keywords: string[];
+  summary: string;
+}
+
+const result = await pipe<DocumentInput, AnalysisOutput>({
+  input: { text: "Long document...", language: "en" },
+  stages: [
+    { name: "extract", stream: (input) => streamText({ model, prompt: `Extract from: ${input.text}` }) },
+    { name: "analyze", stream: (prev) => streamText({ model, prompt: `Analyze: ${prev}` }) },
+    { name: "summarize", stream: (prev) => streamText({ model, prompt: `Summarize: ${prev}` }) },
+  ],
+});
+```
+
+### Type Inference Table
+
+| Function | Generic | Result Type |
+| --- | --- | --- |
+| `l0<T>()` | `TOutput` | `L0Result<TOutput>` |
+| `parallel<T>()` | `TOutput` | `ParallelResult<TOutput>` |
+| `parallelAll<T>()` | `TOutput` | `ParallelResult<TOutput>` |
+| `sequential<T>()` | `TOutput` | `ParallelResult<TOutput>` |
+| `batched<T>()` | `TOutput` | `ParallelResult<TOutput>` |
+| `race<T>()` | `TOutput` | `RaceResult<TOutput>` |
+| `consensus<T>()` | `TSchema` | `ConsensusResult<T>` |
+| `pipe<I, O>()` | `TInput, TOutput` | `PipeResult<TOutput>` |
+
+### Best Practices
+
+1. **Define interfaces for your outputs** - Create explicit interfaces for structured data:
+
+```typescript
+interface ChatResponse {
+  message: string;
+  tokens: number;
+  model: string;
+}
+
+const result = await l0<ChatResponse>({ stream });
+```
+
+2. **Use Zod inference with structured()** - The `structured()` function already infers types from your schema:
+
+```typescript
+const schema = z.object({ name: z.string(), age: z.number() });
+const result = await structured({ schema, stream });
+// result.data is automatically typed as { name: string; age: number }
+```
+
+3. **Combine with const assertions** - For literal types:
+
+```typescript
+const result = await l0<{ status: "success" | "error"; code: number }>({
+  stream,
+});
+```
 
 ---
 

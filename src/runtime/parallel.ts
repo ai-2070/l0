@@ -46,7 +46,7 @@ export interface ParallelOptions {
 /**
  * Result from race operation - includes winner index
  */
-export interface RaceResult extends L0Result {
+export interface RaceResult<TOutput = unknown> extends L0Result<TOutput> {
   /**
    * Index of the winning operation (0-based)
    */
@@ -56,11 +56,11 @@ export interface RaceResult extends L0Result {
 /**
  * Result from parallel operations
  */
-export interface ParallelResult {
+export interface ParallelResult<TOutput = unknown> {
   /**
    * Results from all operations (null for failed operations if failFast: false)
    */
-  results: Array<L0Result | null>;
+  results: Array<L0Result<TOutput> | null>;
 
   /**
    * Errors encountered (null for successful operations)
@@ -128,10 +128,10 @@ export interface AggregatedTelemetry {
  * console.log(results.results[0].state.content); // "Hello response"
  * ```
  */
-export async function parallel(
-  operations: L0Options[],
+export async function parallel<TOutput = unknown>(
+  operations: L0Options<TOutput>[],
   options: ParallelOptions = {},
-): Promise<ParallelResult> {
+): Promise<ParallelResult<TOutput>> {
   const {
     concurrency = 5,
     failFast = false,
@@ -143,9 +143,9 @@ export async function parallel(
   } = options;
 
   const startTime = Date.now();
-  const results: Array<L0Result | null> = new Array(operations.length).fill(
-    null,
-  );
+  const results: Array<L0Result<TOutput> | null> = new Array(
+    operations.length,
+  ).fill(null);
   const errors: Array<Error | null> = new Array(operations.length).fill(null);
   let completed = 0;
   let successCount = 0;
@@ -164,7 +164,7 @@ export async function parallel(
 
   // Worker function to process operations
   const processOperation = async (item: {
-    op: L0Options;
+    op: L0Options<TOutput>;
     index: number;
   }): Promise<void> => {
     try {
@@ -255,10 +255,10 @@ export async function parallel(
  * @param operations - Array of L0 options
  * @returns Promise that resolves with all results
  */
-export async function parallelAll(
-  operations: L0Options[],
+export async function parallelAll<TOutput = unknown>(
+  operations: L0Options<TOutput>[],
   options: Omit<ParallelOptions, "concurrency"> = {},
-): Promise<ParallelResult> {
+): Promise<ParallelResult<TOutput>> {
   return parallel(operations, { ...options, concurrency: operations.length });
 }
 
@@ -269,10 +269,10 @@ export async function parallelAll(
  * @param operations - Array of L0 options
  * @returns Promise that resolves with all results
  */
-export async function sequential(
-  operations: L0Options[],
+export async function sequential<TOutput = unknown>(
+  operations: L0Options<TOutput>[],
   options: Omit<ParallelOptions, "concurrency"> = {},
-): Promise<ParallelResult> {
+): Promise<ParallelResult<TOutput>> {
   return parallel(operations, { ...options, concurrency: 1 });
 }
 
@@ -285,19 +285,19 @@ export async function sequential(
  * @param options - Parallel options
  * @returns Promise that resolves with all results
  */
-export async function batched(
-  operations: L0Options[],
+export async function batched<TOutput = unknown>(
+  operations: L0Options<TOutput>[],
   batchSize: number,
   options: Omit<ParallelOptions, "concurrency"> = {},
-): Promise<ParallelResult> {
-  const allResults: Array<L0Result | null> = [];
+): Promise<ParallelResult<TOutput>> {
+  const allResults: Array<L0Result<TOutput> | null> = [];
   const allErrors: Array<Error | null> = [];
   let totalSuccess = 0;
   let totalFailure = 0;
   let totalDuration = 0;
 
   // Split operations into batches
-  const batches: L0Options[][] = [];
+  const batches: L0Options<TOutput>[][] = [];
   for (let i = 0; i < operations.length; i += batchSize) {
     batches.push(operations.slice(i, i + batchSize));
   }
@@ -306,7 +306,7 @@ export async function batched(
   for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
     const batch = batches[batchIndex]!;
 
-    const result = await parallel(batch, {
+    const result = await parallel<TOutput>(batch, {
       ...options,
       concurrency: batchSize,
       onProgress: options.onProgress
@@ -350,10 +350,10 @@ export async function batched(
  * @param operations - Array of L0 options
  * @returns Promise that resolves with first successful result including winnerIndex
  */
-export async function race(
-  operations: L0Options[],
+export async function race<TOutput = unknown>(
+  operations: L0Options<TOutput>[],
   options: Pick<ParallelOptions, "sharedRetry" | "sharedMonitoring"> = {},
-): Promise<RaceResult> {
+): Promise<RaceResult<TOutput>> {
   const { sharedRetry, sharedMonitoring } = options;
 
   // Add abort controllers to each operation

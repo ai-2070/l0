@@ -180,6 +180,7 @@ for await (const event of result.stream) {
 | [Guardrails](#guardrails)                                             | JSON, Markdown, LaTeX validation, pattern detection             |
 | [Consensus](#consensus)                                               | Multi-model agreement with voting strategies                    |
 | [Parallel Operations](#parallel-operations)                           | Race, batch, pool patterns for concurrent LLM calls             |
+| [Type-Safe Generics](#type-safe-generics)                             | Forward output types through all L0 functions                   |
 | [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
 | [Testing](#testing)                                                   | 1300+ tests covering all features and SDK adapters              |
@@ -745,6 +746,43 @@ const result = await race([
   { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
   { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
 ]);
+```
+
+---
+
+## Type-Safe Generics
+
+All L0 functions support generic type parameters to forward your output types:
+
+```typescript
+import { l0, structured, parallel, race, consensus } from "@ai2070/l0";
+
+// Type-safe structured output
+interface UserProfile {
+  name: string;
+  age: number;
+  email: string;
+}
+
+const result = await l0<UserProfile>({
+  stream: () => streamText({ model, prompt }),
+});
+// result.state.content is typed
+
+// Works with all parallel operations
+const raceResult = await race<UserProfile>([
+  { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
+  { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
+]);
+
+const parallelResults = await parallel<UserProfile>(operations);
+// parallelResults.results[0]?.state is typed
+
+// Consensus with type inference
+const consensusResult = await consensus<typeof schema>({
+  streams: [stream1, stream2, stream3],
+  schema,
+});
 ```
 
 ---
