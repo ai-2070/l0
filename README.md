@@ -21,6 +21,8 @@ L0 adds guardrails, retry logic, and network protection to LLM streams, turning 
 npm install @ai2070/l0
 ```
 
+_Production-grade reliability. Just pass your stream. L0'll take it from here._
+
 **Upcoming versions:**
 - **0.9.0** - Website docs
 - **1.0.0** - API freeze
@@ -56,7 +58,7 @@ npm install @ai2070/l0
 
 ## Quick Start
 
-### With Vercel AI SDK
+### With Vercel AI SDK: Minimal Usage
 
 ```typescript
 import { l0, recommendedGuardrails, recommendedRetry } from "@ai2070/l0";
@@ -68,13 +70,33 @@ const result = await l0({
   stream: () =>
     streamText({
       model: openai("gpt-5-mini"),
-      prompt: "Generate a haiku about coding",
+      prompt,
+    }),
+});
+
+// Read the stream
+for await (const event of result.stream) {
+```
+
+### With Vercel AI SDK: Expanded
+
+```typescript
+import { l0, recommendedGuardrails, recommendedRetry } from "@ai2070/l0";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const result = await l0({
+  // Primary model stream
+  stream: () =>
+    streamText({
+      model: openai("gpt-5-mini"),
+      prompt,
     }),
 
   // Optional: Fallback models
   fallbackStreams: [() => streamText({ model: openai("gpt-5-mini"), prompt })],
 
-  // Optional: Guardrails
+  // Optional: Guardrails, default: none
   guardrails: recommendedGuardrails,
   // Other presets:
   // minimalGuardrails       // JSON + zero output
@@ -84,7 +106,7 @@ const result = await l0({
   // markdownOnlyGuardrails  // Markdown only
   // latexOnlyGuardrails     // LaTeX only
 
-  // Optional: Retry configuration
+  // Optional: Retry configuration, default as follows
   retry: {
     attempts: 3,
     baseDelay: 1000,
@@ -94,7 +116,7 @@ const result = await l0({
   // Or simply:
   // retry: recommendedRetry,
 
-  // Optional: Timeout configuration
+  // Optional: Timeout configuration, , default as follows
   timeout: {
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens
