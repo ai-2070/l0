@@ -152,7 +152,7 @@ describe("OpenTelemetry Integration", () => {
       const span = otelWithTokens.createSpan("stream");
       otelWithTokens.recordToken(span, "Hello");
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       expect(createdSpan._events.some((e) => e.name === "token")).toBe(true);
     });
 
@@ -160,7 +160,7 @@ describe("OpenTelemetry Integration", () => {
       const span = otel.createSpan("stream");
       otel.recordToken(span, "Hello");
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       // Default traceTokens is false, so no token events
       expect(createdSpan._events.some((e) => e.name === "token")).toBe(false);
     });
@@ -170,7 +170,7 @@ describe("OpenTelemetry Integration", () => {
       const error = new Error("Connection timeout");
       otel.recordNetworkError(error, "timeout", span);
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       expect(createdSpan._events.some((e) => e.name === "network_error")).toBe(
         true,
       );
@@ -180,7 +180,7 @@ describe("OpenTelemetry Integration", () => {
       const span = otel.createSpan("stream");
       otel.recordRetry("rate_limit", 1, span);
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       expect(createdSpan._events.some((e) => e.name === "retry")).toBe(true);
     });
 
@@ -196,7 +196,7 @@ describe("OpenTelemetry Integration", () => {
         span,
       );
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       expect(
         createdSpan._events.some((e) => e.name === "guardrail_violation"),
       ).toBe(true);
@@ -232,7 +232,7 @@ describe("OpenTelemetry Integration", () => {
         span,
       );
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       expect(createdSpan._attributes[SemanticAttributes.L0_SESSION_ID]).toBe(
         "test-session",
       );
@@ -242,7 +242,7 @@ describe("OpenTelemetry Integration", () => {
       const span = otel.createSpan("stream");
       otel.recordDrift("topic", 0.85, span);
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       expect(createdSpan._events.some((e) => e.name === "drift_detected")).toBe(
         true,
       );
@@ -318,7 +318,7 @@ describe("OpenTelemetry Integration", () => {
       const span = otel.createSpan("stream");
       otel.recordToken(span, "Hello");
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       expect(createdSpan._events.some((e) => e.name === "token")).toBe(true);
     });
 
@@ -333,7 +333,7 @@ describe("OpenTelemetry Integration", () => {
       const span = otel.createSpan("stream");
       otel.recordToken(span, "HelloWorld");
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       const tokenEvent = createdSpan._events.find((e) => e.name === "token");
       expect(tokenEvent?.attributes?.["token.content"]).toBe("HelloWorld");
     });
@@ -356,7 +356,7 @@ describe("OpenTelemetry Integration", () => {
         span,
       );
 
-      const createdSpan = mockTracer._spans[0];
+      const createdSpan = mockTracer._spans[0]!;
       expect(
         createdSpan._events.some((e) => e.name === "guardrail_violation"),
       ).toBe(false);
@@ -435,7 +435,7 @@ describe("OpenTelemetry Integration", () => {
         expect(mockTracer._spans.length).toBeGreaterThan(0);
 
         // Verify telemetry was recorded
-        const span = mockTracer._spans[0];
+        const span = mockTracer._spans[0]!;
         expect(span._attributes[SemanticAttributes.LLM_REQUEST_MODEL]).toBe(
           "gpt-5-nano",
         );

@@ -46,7 +46,8 @@ async function processChunks() {
   const summaries: string[] = [];
 
   for (let i = 0; i < window.totalChunks; i++) {
-    const chunk = window.getChunk(i);
+    const chunk = window.get(i);
+    if (!chunk) continue;
     console.log(`Processing chunk ${i + 1}/${window.totalChunks}...`);
 
     const result = await streamText({
@@ -76,7 +77,10 @@ async function navigateChunks() {
   });
 
   console.log("First chunk:");
-  console.log(window.current().content.slice(0, 100) + "...\n");
+  const current = window.current();
+  if (current) {
+    console.log(current.content.slice(0, 100) + "...\n");
+  }
 
   console.log("Moving to next...");
   const next = window.next();
@@ -85,8 +89,10 @@ async function navigateChunks() {
   }
 
   console.log("Jumping to last chunk...");
-  const last = window.getChunk(window.totalChunks - 1);
-  console.log(last.content.slice(0, 100) + "...\n");
+  const last = window.get(window.totalChunks - 1);
+  if (last) {
+    console.log(last.content.slice(0, 100) + "...\n");
+  }
 }
 
 // Example 3: Process all with L0
@@ -109,7 +115,9 @@ async function processAllWithL0() {
 
   console.log("Key terms from each chunk:");
   results.forEach((r, i) => {
-    console.log(`  Chunk ${i + 1}: ${r.state.content.trim()}`);
+    if (r.result) {
+      console.log(`  Chunk ${i + 1}: ${r.result.state.content.trim()}`);
+    }
   });
 }
 

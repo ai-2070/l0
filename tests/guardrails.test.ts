@@ -436,7 +436,7 @@ describe("JSON Guardrails", () => {
 
       const violations = rule.check(context);
       expect(violations.length).toBeGreaterThan(0);
-      expect(violations[0].rule).toBe("json-structure");
+      expect(violations[0]!.rule).toBe("json-structure");
     });
 
     it("should detect unbalanced brackets", () => {
@@ -576,7 +576,7 @@ describe("JSON Guardrails", () => {
 
       const violations = rule.check(context);
       expect(violations.length).toBeGreaterThan(0);
-      expect(violations[0].rule).toBe("json-strict");
+      expect(violations[0]!.rule).toBe("json-strict");
     });
 
     it("should reject primitive JSON values", () => {
@@ -679,7 +679,7 @@ describe("Pattern Guardrails", () => {
       };
 
       const violations = rule.check(context);
-      expect(violations[0].severity).toBe("fatal");
+      expect(violations[0]!.severity).toBe("fatal");
     });
   });
 });
@@ -696,7 +696,7 @@ describe("Zero Output Guardrail", () => {
 
       const violations = rule.check(context);
       expect(violations.length).toBeGreaterThan(0);
-      expect(violations[0].rule).toBe("zero-output");
+      expect(violations[0]!.rule).toBe("zero-output");
     });
 
     it("should detect whitespace-only output", () => {

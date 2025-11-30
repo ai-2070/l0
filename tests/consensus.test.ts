@@ -59,11 +59,11 @@ describe("Consensus Utilities", () => {
       const matrix = calculateSimilarityMatrix(outputs);
 
       expect(matrix.length).toBe(3);
-      expect(matrix[0].length).toBe(3);
+      expect(matrix[0]!.length).toBe(3);
       // Check symmetry
-      expect(matrix[0][1]).toBe(matrix[1][0]);
-      expect(matrix[0][2]).toBe(matrix[2][0]);
-      expect(matrix[1][2]).toBe(matrix[2][1]);
+      expect(matrix[0]![1]).toBe(matrix[1]![0]);
+      expect(matrix[0]![2]).toBe(matrix[2]![0]);
+      expect(matrix[1]![2]).toBe(matrix[2]![1]);
     });
 
     it("should have 1.0 on diagonal", () => {
@@ -74,8 +74,8 @@ describe("Consensus Utilities", () => {
 
       const matrix = calculateSimilarityMatrix(outputs);
 
-      expect(matrix[0][0]).toBe(1.0);
-      expect(matrix[1][1]).toBe(1.0);
+      expect(matrix[0]![0]).toBe(1.0);
+      expect(matrix[1]![1]).toBe(1.0);
     });
 
     it("should identify identical outputs", () => {
@@ -86,7 +86,7 @@ describe("Consensus Utilities", () => {
 
       const matrix = calculateSimilarityMatrix(outputs);
 
-      expect(matrix[0][1]).toBe(1.0);
+      expect(matrix[0]![1]).toBe(1.0);
     });
 
     it("should identify different outputs", () => {
@@ -97,7 +97,7 @@ describe("Consensus Utilities", () => {
 
       const matrix = calculateSimilarityMatrix(outputs);
 
-      expect(matrix[0][1]).toBeLessThan(0.5);
+      expect(matrix[0]![1]).toBeLessThan(0.5);
     });
 
     it("should handle single output", () => {
@@ -105,7 +105,7 @@ describe("Consensus Utilities", () => {
       const matrix = calculateSimilarityMatrix(outputs);
 
       expect(matrix.length).toBe(1);
-      expect(matrix[0][0]).toBe(1.0);
+      expect(matrix[0]![0]).toBe(1.0);
     });
 
     it("should handle empty outputs array", () => {
@@ -289,8 +289,8 @@ describe("Consensus Utilities", () => {
       const agreements = findAgreements(outputs, 0.8);
 
       expect(agreements.length).toBe(1);
-      expect(agreements[0].type).toBe("exact");
-      expect(agreements[0].ratio).toBe(1.0);
+      expect(agreements[0]!.type).toBe("exact");
+      expect(agreements[0]!.ratio).toBe(1.0);
     });
 
     it("should respect threshold", () => {
@@ -328,7 +328,7 @@ describe("Consensus Utilities", () => {
       const disagreements = findDisagreements(outputs, 0.99);
 
       expect(disagreements.length).toBeGreaterThan(0);
-      expect(disagreements[0].values.length).toBe(3);
+      expect(disagreements[0]!.values.length).toBe(3);
     });
 
     it("should find structured disagreements", () => {
@@ -341,7 +341,7 @@ describe("Consensus Utilities", () => {
       const disagreements = findDisagreements(outputs, 0.8);
 
       expect(disagreements.length).toBeGreaterThan(0);
-      expect(disagreements[0].path).toBe("answer");
+      expect(disagreements[0]!.path).toBe("answer");
     });
 
     it("should return empty for complete agreement", () => {
@@ -366,7 +366,7 @@ describe("Consensus Utilities", () => {
       ];
       const minorDisagreements = findDisagreements(minorOutputs, 0.99);
       if (minorDisagreements.length > 0) {
-        expect(minorDisagreements[0].severity).toBe("minor");
+        expect(minorDisagreements[0]!.severity).toBe("minor");
       }
     });
 
@@ -380,7 +380,7 @@ describe("Consensus Utilities", () => {
         createMockOutput(4, "E"),
       ];
       const criticalDisagreements = findDisagreements(criticalOutputs, 0.99);
-      expect(criticalDisagreements[0].severity).toBe("critical");
+      expect(criticalDisagreements[0]!.severity).toBe("critical");
     });
 
     it("should calculate severity correctly - moderate", () => {
@@ -394,7 +394,7 @@ describe("Consensus Utilities", () => {
       ];
       const moderateDisagreements = findDisagreements(moderateOutputs, 0.99);
       if (moderateDisagreements.length > 0) {
-        expect(moderateDisagreements[0].severity).toBe("moderate");
+        expect(moderateDisagreements[0]!.severity).toBe("moderate");
       }
     });
 
@@ -448,8 +448,8 @@ describe("Consensus Utilities", () => {
 
       expect(fieldConsensus.fields.name).toBeDefined();
       expect(fieldConsensus.fields.age).toBeDefined();
-      expect(fieldConsensus.fields.name.unanimous).toBe(true);
-      expect(fieldConsensus.fields.age.unanimous).toBe(false);
+      expect(fieldConsensus.fields.name!.unanimous).toBe(true);
+      expect(fieldConsensus.fields.age!.unanimous).toBe(false);
     });
 
     it("should identify agreed and disagreed fields", () => {
@@ -485,7 +485,7 @@ describe("Consensus Utilities", () => {
       const fieldConsensus = calculateFieldConsensus(outputs);
 
       expect(fieldConsensus.fields["outer.inner"]).toBeDefined();
-      expect(fieldConsensus.fields["outer.inner"].unanimous).toBe(true);
+      expect(fieldConsensus.fields["outer.inner"]!.unanimous).toBe(true);
     });
 
     it("should track votes correctly", () => {
@@ -496,7 +496,7 @@ describe("Consensus Utilities", () => {
       ];
 
       const fieldConsensus = calculateFieldConsensus(outputs);
-      const choiceField = fieldConsensus.fields.choice;
+      const choiceField = fieldConsensus.fields.choice!;
 
       expect(choiceField.value).toBe("A");
       expect(choiceField.agreement).toBeCloseTo(2 / 3, 5);
@@ -1033,13 +1033,13 @@ describe("Edge Cases", () => {
       const outputs = [createMockOutput(0, ""), createMockOutput(1, "")];
 
       const matrix = calculateSimilarityMatrix(outputs);
-      expect(matrix[0][1]).toBe(1.0); // Empty strings are identical
+      expect(matrix[0]![1]).toBe(1.0); // Empty strings are identical
     });
 
     it("should handle outputs with whitespace only", () => {
       const outputs = [createMockOutput(0, "   "), createMockOutput(1, "\t\n")];
 
-      const similarity = calculateOutputSimilarity(outputs[0], outputs[1]);
+      const similarity = calculateOutputSimilarity(outputs[0]!, outputs[1]!);
       expect(similarity).toBeGreaterThan(0.5);
     });
   });
@@ -1051,7 +1051,7 @@ describe("Edge Cases", () => {
         createMockOutput(1, "日本語テスト"),
       ];
 
-      const similarity = calculateOutputSimilarity(outputs[0], outputs[1]);
+      const similarity = calculateOutputSimilarity(outputs[0]!, outputs[1]!);
       expect(similarity).toBe(1.0);
     });
 
@@ -1061,7 +1061,7 @@ describe("Edge Cases", () => {
         createMockOutput(1, "🎉 test 🎊"),
       ];
 
-      const similarity = calculateOutputSimilarity(outputs[0], outputs[1]);
+      const similarity = calculateOutputSimilarity(outputs[0]!, outputs[1]!);
       expect(similarity).toBe(1.0);
     });
 
@@ -1071,7 +1071,7 @@ describe("Edge Cases", () => {
         createMockOutput(1, "<>&\"'"),
       ];
 
-      const similarity = calculateOutputSimilarity(outputs[0], outputs[1]);
+      const similarity = calculateOutputSimilarity(outputs[0]!, outputs[1]!);
       expect(similarity).toBe(1.0);
     });
   });
@@ -1084,7 +1084,7 @@ describe("Edge Cases", () => {
 
       const matrix = calculateSimilarityMatrix(outputs);
       expect(matrix.length).toBe(20);
-      expect(matrix[0][19]).toBe(1.0);
+      expect(matrix[0]![19]).toBe(1.0);
     });
 
     it("should handle long text", () => {
@@ -1094,7 +1094,7 @@ describe("Edge Cases", () => {
         createMockOutput(1, longText),
       ];
 
-      const similarity = calculateOutputSimilarity(outputs[0], outputs[1]);
+      const similarity = calculateOutputSimilarity(outputs[0]!, outputs[1]!);
       expect(similarity).toBe(1.0);
     });
 
@@ -1107,7 +1107,7 @@ describe("Edge Cases", () => {
         createMockOutput(1, "", nested),
       ];
 
-      const similarity = calculateOutputSimilarity(outputs[0], outputs[1]);
+      const similarity = calculateOutputSimilarity(outputs[0]!, outputs[1]!);
       expect(similarity).toBe(1.0);
     });
   });
@@ -1147,7 +1147,7 @@ describe("Integration Scenarios", () => {
     const disagreements = findDisagreements(outputs, 0.99);
     const resolved = resolveMajority(outputs);
 
-    expect(fieldConsensus.fields.result.value).toBe("yes");
+    expect(fieldConsensus.fields.result!.value).toBe("yes");
     expect(agreements.length).toBeGreaterThan(0);
     expect(resolved.data.result).toBe("yes");
   });

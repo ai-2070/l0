@@ -88,8 +88,14 @@ describe("Event Sourcing", () => {
 
       expect(stream1).toHaveLength(1);
       expect(stream2).toHaveLength(1);
-      expect((stream1[0]!.event as L0TokenEvent).value).toBe("A");
-      expect((stream2[0]!.event as L0TokenEvent).value).toBe("B");
+      const event1 = stream1[0]!.event;
+      const event2 = stream2[0]!.event;
+      expect(event1.type).toBe("TOKEN");
+      expect(event2.type).toBe("TOKEN");
+      if (event1.type === "TOKEN" && event2.type === "TOKEN") {
+        expect(event1.value).toBe("A");
+        expect(event2.value).toBe("B");
+      }
     });
 
     it("should check if stream exists", async () => {
@@ -311,7 +317,10 @@ describe("Event Sourcing", () => {
     });
 
     it("should record START event", async () => {
-      await recorder.recordStart({ prompt: "test", model: "gpt-4" });
+      await recorder.recordStart({
+        prompt: "test",
+        model: "gpt-4",
+      });
 
       const events = await store.getEvents(recorder.getStreamId());
       expect(events).toHaveLength(1);
@@ -325,11 +334,11 @@ describe("Event Sourcing", () => {
 
       const events = await store.getEvents(recorder.getStreamId());
       expect(events).toHaveLength(3);
-      expect(events.map((e) => (e.event as L0TokenEvent).value)).toEqual([
-        "Hello",
-        " ",
-        "World",
-      ]);
+      const values = events
+        .map((e) => e.event)
+        .filter((e): e is L0TokenEvent => e.type === "TOKEN")
+        .map((e) => e.value);
+      expect(values).toEqual(["Hello", " ", "World"]);
     });
 
     it("should record CHECKPOINT events", async () => {
@@ -645,8 +654,7 @@ describe("Event Sourcing", () => {
       });
 
       it("should serialize error with code", () => {
-        const error = new Error("Test") as Error & { code: string };
-        error.code = "ECONNRESET";
+        const error = Object.assign(new Error("Test"), { code: "ECONNRESET" });
 
         const serialized = serializeError(error);
 
@@ -722,7 +730,10 @@ describe("Event Sourcing", () => {
       const recorder = createEventRecorder(store, "workflow-test");
 
       // Record a stream
-      await recorder.recordStart({ prompt: "test", model: "gpt-4" });
+      await recorder.recordStart({
+        prompt: "test",
+        model: "gpt-4",
+      });
       await recorder.recordToken("The", 0);
       await recorder.recordToken(" ", 1);
       await recorder.recordToken("answer", 2);

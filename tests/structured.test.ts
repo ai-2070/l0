@@ -487,8 +487,8 @@ describe("Structured Output", () => {
       });
 
       expect(result.data).toHaveLength(3);
-      expect(result.data[0].id).toBe(1);
-      expect(result.data[2].id).toBe(3);
+      expect(result.data[0]!.id).toBe(1);
+      expect(result.data[2]!.id).toBe(3);
     });
 
     it("should handle nested objects", async () => {
@@ -962,8 +962,8 @@ describe("Structured Output Helpers", () => {
       });
 
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].id).toBe(1);
-      expect(result.data[1].id).toBe(2);
+      expect(result.data[0]!.id).toBe(1);
+      expect(result.data[1]!.id).toBe(2);
     });
 
     it("should validate array items", async () => {
@@ -1445,8 +1445,8 @@ describe("Structured Output Real-World Scenarios", () => {
     });
 
     expect(result.data.entities).toHaveLength(3);
-    expect(result.data.entities[0].type).toBe("person");
-    expect(result.data.entities[0].confidence).toBeGreaterThanOrEqual(0);
+    expect(result.data.entities[0]!.type).toBe("person");
+    expect(result.data.entities[0]!.confidence).toBeGreaterThanOrEqual(0);
   });
 
   it("should handle sentiment analysis output", async () => {
@@ -1506,6 +1506,6 @@ describe("Structured Output Real-World Scenarios", () => {
     });
 
     expect(result.data.topPrediction).toBe("cat");
-    expect(result.data.predictions[0].probability).toBe(0.85);
+    expect(result.data.predictions[0]!.probability).toBe(0.85);
   });
 });

@@ -367,16 +367,16 @@ describe("Memory Formatting", () => {
       const memory2 = [{ role: "user" as const, content: "B", timestamp: 200 }];
       const merged = mergeMemory(memory1, memory2);
       expect(merged).toHaveLength(2);
-      expect(merged[0].content).toBe("A");
-      expect(merged[1].content).toBe("B");
+      expect(merged[0]!.content).toBe("A");
+      expect(merged[1]!.content).toBe("B");
     });
 
     it("should sort by timestamp", () => {
       const memory1 = [{ role: "user" as const, content: "B", timestamp: 200 }];
       const memory2 = [{ role: "user" as const, content: "A", timestamp: 100 }];
       const merged = mergeMemory(memory1, memory2);
-      expect(merged[0].content).toBe("A");
-      expect(merged[1].content).toBe("B");
+      expect(merged[0]!.content).toBe("A");
+      expect(merged[1]!.content).toBe("B");
     });
 
     it("should handle entries without timestamps", () => {
@@ -395,7 +395,7 @@ describe("Memory Formatting", () => {
       ];
       const filtered = filterMemoryByRole(memory, "user");
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].role).toBe("user");
+      expect(filtered[0]!.role).toBe("user");
     });
 
     it("should filter by assistant role", () => {
@@ -405,7 +405,7 @@ describe("Memory Formatting", () => {
       ];
       const filtered = filterMemoryByRole(memory, "assistant");
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].role).toBe("assistant");
+      expect(filtered[0]!.role).toBe("assistant");
     });
   });
 
@@ -419,8 +419,8 @@ describe("Memory Formatting", () => {
       ];
       const last2 = getLastNEntries(memory, 2);
       expect(last2).toHaveLength(2);
-      expect(last2[0].content).toBe("3");
-      expect(last2[1].content).toBe("4");
+      expect(last2[0]!.content).toBe("3");
+      expect(last2[1]!.content).toBe("4");
     });
 
     it("should return all entries if N is larger", () => {
@@ -467,7 +467,7 @@ describe("Memory Formatting", () => {
       ];
       const truncated = truncateMemory(memory, 8);
       expect(truncated).toHaveLength(1);
-      expect(truncated[0].content).toBe("Recent");
+      expect(truncated[0]!.content).toBe("Recent");
     });
 
     it("should return empty array if size is too small", () => {

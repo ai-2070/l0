@@ -33,7 +33,6 @@ async function basicRetry() {
         "zero_output",
         "guardrail_violation",
         "drift",
-        "malformed",
         "incomplete",
         "network_error",
         "timeout",
@@ -104,10 +103,10 @@ async function errorHandling() {
       console.log("L0 Error:");
       console.log("  Code:", error.code);
       console.log("  Message:", error.message);
-      console.log("  Recoverable:", error.isRecoverable?.());
+      console.log("  Recoverable:", error.isRecoverable);
       console.log("  Checkpoint:", error.context?.checkpoint);
-    } else if (isNetworkError(error)) {
-      const analysis = analyzeNetworkError(error as Error);
+    } else if (error instanceof Error && isNetworkError(error)) {
+      const analysis = analyzeNetworkError(error);
       console.log("Network Error:");
       console.log("  Type:", analysis.type);
       console.log("  Retryable:", analysis.retryable);

@@ -114,8 +114,8 @@ async function customGuardrail() {
   const minLengthRule = {
     name: "min-length",
     description: "Ensure minimum response length",
-    check: (context: { content: string; isComplete: boolean }) => {
-      if (context.isComplete && context.content.length < 20) {
+    check: (context: { content: string; completed: boolean }) => {
+      if (context.completed && context.content.length < 20) {
         return [
           {
             rule: "min-length",

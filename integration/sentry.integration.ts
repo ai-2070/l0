@@ -15,12 +15,7 @@ import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 // Mock Sentry client
-function createMockSentry(): SentryClient & {
-  _captured: { exceptions: any[]; messages: any[]; breadcrumbs: any[] };
-  _tags: Record<string, string>;
-  _extras: Record<string, any>;
-  _contexts: Record<string, any>;
-} {
+function createMockSentry() {
   const captured = {
     exceptions: [] as any[],
     messages: [] as any[],
@@ -35,33 +30,33 @@ function createMockSentry(): SentryClient & {
     _tags: tags,
     _extras: extras,
     _contexts: contexts,
-    captureException: vi.fn((error, options) => {
+    captureException: vi.fn((error: any, options?: any) => {
       captured.exceptions.push({ error, options });
       return "mock-event-id";
-    }),
-    captureMessage: vi.fn((message, level) => {
+    }) as any,
+    captureMessage: vi.fn((message: any, level?: any) => {
       captured.messages.push({ message, level });
       return "mock-event-id";
-    }),
-    addBreadcrumb: vi.fn((breadcrumb) => {
+    }) as any,
+    addBreadcrumb: vi.fn((breadcrumb: any) => {
       captured.breadcrumbs.push(breadcrumb);
-    }),
-    setTag: vi.fn((key, value) => {
+    }) as any,
+    setTag: vi.fn((key: string, value: string) => {
       tags[key] = value;
-    }),
-    setExtra: vi.fn((key, value) => {
+    }) as any,
+    setExtra: vi.fn((key: string, value: any) => {
       extras[key] = value;
-    }),
-    setContext: vi.fn((name, context) => {
+    }) as any,
+    setContext: vi.fn((name: string, context: any) => {
       contexts[name] = context;
-    }),
-    startSpan: vi.fn((options, callback) => {
+    }) as any,
+    startSpan: vi.fn((options: any, callback: any) => {
       const mockSpan = { end: vi.fn() };
-      callback(mockSpan);
-    }),
-    withScope: vi.fn((callback) => {
-      callback({ setTag: vi.fn(), setExtra: vi.fn() });
-    }),
+      return callback(mockSpan);
+    }) as any,
+    withScope: vi.fn((callback: any) => {
+      return callback({ setTag: vi.fn(), setExtra: vi.fn() });
+    }) as any,
   };
 }
 
@@ -184,43 +179,50 @@ describe("Sentry Integration", () => {
           rule: "json",
           severity: "error",
           message: "Invalid JSON",
-          content: '{"broken',
+          recoverable: false,
         },
       ]);
 
       expect(mockSentry._captured.breadcrumbs.length).toBeGreaterThan(0);
       const breadcrumb = mockSentry._captured.breadcrumbs[0];
-      expect(breadcrumb.category).toBe("l0.guardrail");
+      expect(breadcrumb?.category).toBe("l0.guardrail");
     });
 
-    it("should record telemetry", () => {
-      l0Sentry.recordTelemetry({
+    it("should complete execution with telemetry", () => {
+      l0Sentry.completeExecution({
+        sessionId: "test-session",
         startTime: Date.now() - 1000,
-        firstTokenTime: Date.now() - 800,
         endTime: Date.now(),
-        tokenCount: 50,
-        retryCount: 0,
         duration: 1000,
-        ttft: 200,
+        metrics: {
+          totalTokens: 50,
+          tokensPerSecond: 50,
+          timeToFirstToken: 200,
+          totalRetries: 0,
+          networkRetries: 0,
+          modelRetries: 0,
+        },
+        network: {
+          errorCount: 0,
+          errorsByType: {},
+        },
+        guardrails: {
+          violationCount: 0,
+          violationsByRule: {},
+          violationsByRuleAndSeverity: {},
+          violationsBySeverity: { warning: 0, error: 0, fatal: 0 },
+        },
       });
 
       expect(mockSentry._captured.breadcrumbs.length).toBeGreaterThan(0);
       const breadcrumb = mockSentry._captured.breadcrumbs[0];
-      expect(breadcrumb.data?.token_count).toBe(50);
-      expect(breadcrumb.data?.duration_ms).toBe(1000);
+      expect(breadcrumb?.data?.tokens).toBe(50);
+      expect(breadcrumb?.data?.duration_ms).toBe(1000);
     });
 
-    it("should record completion status", () => {
-      l0Sentry.recordCompletion("success", "Operation completed");
-
-      expect(mockSentry._captured.breadcrumbs.length).toBeGreaterThan(0);
-      const breadcrumb = mockSentry._captured.breadcrumbs[0];
-      expect(breadcrumb.message).toContain("success");
-    });
-
-    it("should capture error completion", () => {
+    it("should record failure with error", () => {
       const error = new Error("Fatal error");
-      l0Sentry.recordCompletion("error", "Operation failed", error);
+      l0Sentry.recordFailure(error);
 
       expect(mockSentry._captured.exceptions.length).toBe(1);
     });
@@ -236,22 +238,21 @@ describe("Sentry Integration", () => {
   });
 
   describe("sentryInterceptor", () => {
-    it("should create an interceptor function", () => {
+    it("should create an interceptor object", () => {
       const mockSentry = createMockSentry();
       const interceptor = sentryInterceptor({ sentry: mockSentry });
 
-      expect(typeof interceptor).toBe("function");
+      expect(typeof interceptor).toBe("object");
     });
 
     it("should return an interceptor with expected methods", () => {
       const mockSentry = createMockSentry();
       const interceptor = sentryInterceptor({ sentry: mockSentry });
-      const result = interceptor();
 
-      expect(result).toHaveProperty("onStart");
-      expect(result).toHaveProperty("onToken");
-      expect(result).toHaveProperty("onComplete");
-      expect(result).toHaveProperty("onError");
+      expect(interceptor).toHaveProperty("name");
+      expect(interceptor).toHaveProperty("before");
+      expect(interceptor).toHaveProperty("after");
+      expect(interceptor).toHaveProperty("onError");
     });
   });
 
@@ -285,7 +286,7 @@ describe("Sentry Integration", () => {
         }
 
         // Record completion
-        l0Sentry.recordCompletion("success", "Completed");
+        l0Sentry.completeStream(tokenCount);
         finishSpan?.();
 
         // Verify breadcrumbs were added
@@ -384,7 +385,7 @@ describe("Sentry Integration", () => {
           rule: "json",
           severity: "error",
           message: "Invalid JSON",
-          content: "bad",
+          recoverable: false,
         },
       ]);
 
@@ -406,7 +407,7 @@ describe("Sentry Integration", () => {
           rule: "json",
           severity: "error",
           message: "Invalid JSON",
-          content: "bad",
+          recoverable: false,
         },
       ]);
 

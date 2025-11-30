@@ -245,6 +245,7 @@ export {
 export type {
   ParallelOptions,
   ParallelResult,
+  RaceResult,
   AggregatedTelemetry,
 } from "./runtime/parallel";
 
@@ -557,3 +558,99 @@ export type {
   StorageAdapterConfig,
   StorageAdapterFactory,
 } from "./runtime/storageAdapters";
+
+// Schema Compatibility - Zod v3/v4
+export {
+  isZodSchema,
+  isZodError,
+  safeParse,
+  getZodErrorMessages,
+  flattenZodError,
+} from "./utils/zodCompat";
+
+export type {
+  AnyZodSchema,
+  ZodObjectSchema,
+  ZodArraySchema,
+  ZodValidationError,
+  InferSchema,
+} from "./utils/zodCompat";
+
+// Schema Compatibility - Effect Schema
+export {
+  isEffectSchema,
+  isEffectParseError,
+  isEffectRight,
+  isEffectLeft,
+  registerEffectSchemaAdapter,
+  unregisterEffectSchemaAdapter,
+  hasEffectSchemaAdapter,
+  getEffectSchemaAdapter,
+  safeDecodeEffectSchema,
+  getEffectErrorMessage,
+  wrapEffectSchema,
+} from "./utils/effectSchemaCompat";
+
+export type {
+  EffectSchema,
+  EffectParseError,
+  EffectParseResult,
+  EffectSchemaAdapter,
+  EffectDecodeOptions,
+  InferEffectSchema,
+  InferEffectSchemaEncoded,
+  UnifiedSchema,
+} from "./utils/effectSchemaCompat";
+
+// Schema Compatibility - JSON Schema
+export {
+  isJSONSchema,
+  registerJSONSchemaAdapter,
+  unregisterJSONSchemaAdapter,
+  hasJSONSchemaAdapter,
+  getJSONSchemaAdapter,
+  validateJSONSchema,
+  wrapJSONSchema,
+  createSimpleJSONSchemaAdapter,
+} from "./utils/jsonSchemaCompat";
+
+export type {
+  JSONSchemaDefinition,
+  JSONSchemaValidationError,
+  JSONSchemaValidationResult,
+  JSONSchemaAdapter,
+} from "./utils/jsonSchemaCompat";
+
+// String Comparison Utilities
+export {
+  compareStrings,
+  levenshteinSimilarity,
+  levenshteinDistance,
+  jaroWinklerSimilarity,
+  cosineSimilarity,
+  compareNumbers,
+  compareArrays,
+  compareObjects,
+  compareValues,
+  getType,
+  deepEqual,
+  calculateSimilarityScore,
+  countFields,
+} from "./utils/comparison";
+
+// Consensus Utilities
+export {
+  calculateSimilarityMatrix,
+  calculateOutputSimilarity,
+  calculateStructuralSimilarity,
+  findAgreements,
+  findDisagreements,
+  calculateFieldConsensus,
+  resolveMajority,
+  resolveBest,
+  resolveMerge,
+  meetsMinimumAgreement,
+} from "./utils/consensusUtils";
+
+// Shallow Copy Utilities
+export { shallowClone, shallowCopy } from "./utils/shallow";

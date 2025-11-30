@@ -295,8 +295,8 @@ describe("parallel()", () => {
       });
 
       expect(errorCalls.length).toBe(1);
-      expect(errorCalls[0].index).toBe(1);
-      expect(errorCalls[0].message).toContain("Operation 2 failed");
+      expect(errorCalls[0]!.index).toBe(1);
+      expect(errorCalls[0]!.message).toContain("Operation 2 failed");
     });
 
     it("should not call callbacks when not provided", async () => {
