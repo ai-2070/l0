@@ -116,7 +116,7 @@ const result = await l0({
     backoff: "fixed-jitter", // "exponential" | "linear" | "fixed" | "full-jitter"
   },
   // Or simply:
-  // retry: recommendedRetry (3/6/fixed-jitter), // minimalRetry (2/4/linear) | strictRetry (3/6/full-jitter) | exponentialRetry (4/8/exponential)
+  // retry: recommendedRetry (3/6/fixed-jitter) | minimalRetry (2/4/linear) | strictRetry (3/6/full-jitter) | exponentialRetry (4/8/exponential)
 
   // Optional: Timeout configuration, default as follows
   timeout: {
