@@ -971,7 +971,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | **Monitoring**        | ✓    | ✓           | Prometheus, metrics, tokens, retries     |
 | **Sentry**            | ✓    | ✓           | Error tagging, breadcrumbs, performance  |
 | **OpenTelemetry**     | ✓    | ✓           | GenAI semantic conventions, spans, TTFT  |
-| **Event Sourcing**    | ✓    | –           | Record/replay, deterministic testing     |
+| **Event Sourcing**    | ✓    | ✓           | Record/replay, deterministic testing     |
 | **Interceptors**      | ✓    | –           | All built-in interceptors validated      |
 | **Drift Detection**   | ✓    | –           | Pattern detection, entropy, format drift |
 
