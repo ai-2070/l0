@@ -1023,6 +1023,11 @@ export const strictGuardrails: GuardrailRule[] = [];
  */
 export const minimalRetry: RetryOptions = {
   attempts: 2,
+  maxRetries: 4,
+  backoff: RETRY_DEFAULTS.backoff,
+  baseDelay: RETRY_DEFAULTS.baseDelay,
+  maxDelay: RETRY_DEFAULTS.maxDelay,
+  retryOn: [...RETRY_DEFAULTS.retryOn],
 };
 
 export const recommendedRetry: RetryOptions = {
