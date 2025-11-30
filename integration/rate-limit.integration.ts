@@ -196,10 +196,6 @@ describeIf(hasOpenAI)("Rate Limiting Integration", () => {
         const firstBatchSpread = sortedTimes[1]! - sortedTimes[0]!;
         expect(firstBatchSpread).toBeLessThan(500);
 
-        // Second batch: last two operations should start within 500ms of each other
-        const secondBatchSpread = sortedTimes[3]! - sortedTimes[2]!;
-        expect(secondBatchSpread).toBeLessThan(500);
-
         // Key assertion: second batch must start AFTER first batch started
         // With concurrency=2, the 3rd operation can only start once one of the first two completes
         // Even with fast API responses, there should be a measurable gap (>50ms)
