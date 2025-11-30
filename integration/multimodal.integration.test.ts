@@ -36,35 +36,39 @@ const MULTIMODAL_TIMEOUT = 60000;
 
 describeIf(hasOpenAI)("Multimodal Integration", () => {
   describe("Image Generation (DALL-E)", () => {
+    // Input type for DALL-E adapter that includes model info
+    interface DalleInput {
+      response: Promise<OpenAI.Images.ImagesResponse>;
+      model: string;
+    }
+
     // Adapter for DALL-E image generation
-    const dalleAdapter: L0Adapter = {
+    const dalleAdapter: L0Adapter<DalleInput> = {
       name: "dalle",
 
-      detect(input): input is any {
+      detect(input): input is DalleInput {
         return false; // Always use explicitly
       },
 
-      async *wrap(
-        responsePromise: Promise<OpenAI.Images.ImagesResponse>,
-      ): AsyncGenerator<L0Event> {
+      async *wrap(input: DalleInput): AsyncGenerator<L0Event> {
         yield createAdapterProgressEvent({
           percent: 0,
           message: "Generating image...",
         });
 
-        const response = await responsePromise;
+        const response = await input.response;
 
         for (const image of response.data!) {
           if (image.url) {
             yield createImageEvent({
               url: image.url,
-              model: "dall-e-3",
+              model: input.model,
             });
           } else if (image.b64_json) {
             yield createImageEvent({
               base64: image.b64_json,
               mimeType: "image/png",
-              model: "dall-e-3",
+              model: input.model,
             });
           }
         }
@@ -77,14 +81,17 @@ describeIf(hasOpenAI)("Multimodal Integration", () => {
     it(
       "should generate image with DALL-E adapter",
       async () => {
+        const model = "dall-e-2"; // Use DALL-E 2 for faster/cheaper tests
         const result = await l0({
-          stream: () =>
-            client!.images.generate({
-              model: "dall-e-2", // Use DALL-E 2 for faster/cheaper tests
+          stream: () => ({
+            response: client!.images.generate({
+              model,
               prompt: "A simple red circle on white background",
               n: 1,
               size: "256x256",
             }),
+            model,
+          }),
           adapter: dalleAdapter,
           detectZeroTokens: false, // Image generation has no text tokens
         });
