@@ -612,6 +612,8 @@ if (result.telemetry?.continuation?.used) {
 }
 ```
 
+When LLMs continue from a checkpoint, they often repeat words from the end. L0 automatically detects and removes this overlap (enabled by default). See [API Reference](./API.md#overlap-deduplication) for configuration options.
+
 ### Checkpoint Validation
 
 Before using a checkpoint for continuation, L0 validates it:
