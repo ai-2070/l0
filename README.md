@@ -30,7 +30,7 @@ npm install @ai2070/l0
 | **💥 Zero-Token/Stall Protection**        | Detects when model produces nothing or stalls mid-stream. Automatically retries or switches to fallbacks.                                           |
 | 📍 **Last-Known-Good Token Resumption**   | When a stream interrupts, L0 resumes generation from the last structurally valid token (Opt-in).                                                    |
 | **🧠 Drift Detection**                    | Detects tone shifts, duplicated sentences, entropy spikes, markdown collapse, and meta-AI patterns before corruption.                               |
-| **🧱 Structured Output**                  | Guaranteed-valid JSON with optional Zod/JSON-schema validation. Auto-corrects missing braces, commas, and markdown fences.                          |
+| **🧱 Structured Output**                  | Guaranteed-valid JSON with Zod (v3/v4) or Effect Schema validation. Auto-corrects missing braces, commas, and markdown fences.                      |
 | **🛡️ Guardrails**                         | JSON, Markdown, LaTeX, and tool-call validation. Catches malformed output, broken fences, drift, repetition, and hallucination patterns.            |
 | **⚡ Race: Fastest-Model Wins**           | Run multiple models or providers in parallel and return the fastest valid stream. Ideal for ultra-low-latency chat and high-availability systems.   |
 | **🌿 Parallel: Fan-Out / Fan-In**         | Start multiple streams simultaneously and collect structured or summarized results. Perfect for agent-style multi-model workflows.                  |
@@ -301,7 +301,9 @@ Detected error types: connection dropped, fetch errors, ECONNRESET, ECONNREFUSED
 
 ## Structured Output
 
-Guaranteed valid JSON matching your Zod schema:
+Guaranteed valid JSON matching your schema. Supports both **Zod** (v3/v4) and **Effect Schema**:
+
+### With Zod
 
 ```typescript
 import { structured } from "@ai2070/l0";
@@ -323,6 +325,42 @@ const result = await structured({
 console.log(result.data.name); // string
 console.log(result.data.age); // number
 console.log(result.corrected); // true if auto-corrected
+```
+
+### With Effect Schema
+
+```typescript
+import { structured, registerEffectSchemaAdapter, wrapEffectSchema } from "@ai2070/l0";
+import { Schema } from "effect";
+
+// Register the adapter once at app startup
+registerEffectSchemaAdapter({
+  decodeUnknownSync: (schema, data) => Schema.decodeUnknownSync(schema)(data),
+  decodeUnknownEither: (schema, data) => {
+    try {
+      return { _tag: "Right", right: Schema.decodeUnknownSync(schema)(data) };
+    } catch (error) {
+      return { _tag: "Left", left: { _tag: "ParseError", issue: error, message: error.message } };
+    }
+  },
+  formatError: (error) => error.message,
+});
+
+// Define schema with Effect
+const schema = Schema.Struct({
+  name: Schema.String,
+  age: Schema.Number,
+  email: Schema.String,
+});
+
+// Use with structured()
+const result = await structured({
+  schema: wrapEffectSchema(schema),
+  stream: () => streamText({ model, prompt: "Generate user data as JSON" }),
+  autoCorrect: true,
+});
+
+console.log(result.data.name); // string - fully typed
 ```
 
 ---
@@ -828,7 +866,7 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 
 | Category          | Tests | Description                      |
 | ----------------- | ----- | -------------------------------- |
-| Unit Tests        | 1300+  | Fast, mocked, no API calls       |
+| Unit Tests        | 1370+  | Fast, mocked, no API calls       |
 | Integration Tests | 194   | Real API calls, all SDK adapters |
 
 ```bash
