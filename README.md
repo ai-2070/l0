@@ -298,17 +298,16 @@ const result = await l0({
 
 ### Retry Behavior
 
-| Error Type           | Retries | Counts Toward `attempts` |
-| -------------------- | ------- | ------------------- |
-| Network disconnect   | Yes     | No                  |
-| Zero output          | Yes     | No                  |
-| Timeout              | Yes     | No                  |
-| 429 rate limit       | Yes     | No                  |
-| 503 server error     | Yes     | No                  |
-| Guardrail violation  | Yes     | **Yes**             |
-| Malformed output     | Yes     | **Yes**             |
-| Drift detected       | Yes     | **Yes**             |
-| Auth error (401/403) | No      | -                   |
+| Error Type           | Retries | Counts Toward `attempts` | Counts Toward `maxRetries` |
+| -------------------- | ------- | ------------------------ | -------------------------- |
+| Network disconnect   | Yes     | No                       | Yes                        |
+| Zero output          | Yes     | No                       | Yes                        |
+| Timeout              | Yes     | No                       | Yes                        |
+| 429 rate limit       | Yes     | No                       | Yes                        |
+| 503 server error     | Yes     | No                       | Yes                        |
+| Guardrail violation  | Yes     | **Yes**                  | Yes                        |
+| Drift detected       | Yes     | **Yes**                  | Yes                        |
+| Auth error (401/403) | No      | -                        | -                          |
 
 ---
 
