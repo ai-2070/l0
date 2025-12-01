@@ -14,7 +14,7 @@
   </a>
   <img src="https://img.shields.io/badge/types-included-blue?logo=typescript&logoColor=white" alt="Types Included">
   <a href="https://github.com/ai-2070/l0/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/ai-2070/l0/test.yml?label=tests" alt="CI status">
+    <img src="https://img.shields.io/github/actions/workflow/status/ai-2070/l0/ci.yml?label=tests" alt="CI status">
   </a>
   <a href="https://codecov.io/gh/ai-2070/l0">
     <img src="https://img.shields.io/codecov/c/github/ai-2070/l0?color=yellow" alt="coverage">
