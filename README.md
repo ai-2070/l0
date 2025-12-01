@@ -2,6 +2,27 @@
 
 ![L0: The Missing AI Reliability Substrate](img/l0-banner.png)
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/@ai2070/l0">
+    <img src="https://img.shields.io/npm/v/@ai2070/l0?color=brightgreen&label=npm" alt="npm version">
+  </a>
+  <a href="https://bundlephobia.com/package/@ai2070/l0">
+    <img src="https://img.shields.io/bundlephobia/minzip/@ai2070/l0?label=minzipped" alt="minzipped size">
+  </a>
+  <a href="https://packagephobia.com/result?p=@ai2070/l0">
+    <img src="https://packagephobia.com/badge?p=@ai2070/l0" alt="install size">
+  </a>
+  <img src="https://img.shields.io/badge/types-included-blue?logo=typescript&logoColor=white" alt="Types Included">
+  <a href="https://github.com/ai-2070/l0/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/ai-2070/l0/test.yml?label=tests" alt="CI status">
+  </a>
+  <a href="https://codecov.io/gh/ai-2070/l0">
+    <img src="https://img.shields.io/codecov/c/github/ai-2070/l0?color=yellow" alt="coverage">
+  </a>
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
+</p>
+
+
 **Tiny. Predictable. Replayable. Streaming-first.**
 
 > _LLMs are extraordinary minds wrapped in fragile interfaces._
