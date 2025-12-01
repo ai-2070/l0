@@ -21,7 +21,7 @@ import type {
   L0ReplayOptions,
   SerializedOptions,
 } from "../types/events";
-import { deserializeError } from "../types/events";
+import { deserializeError, L0RecordedEventTypes } from "../types/events";
 import { L0Monitor } from "./monitoring";
 
 /**
@@ -76,7 +76,9 @@ export async function replay(
   }
 
   // Extract original options from START event
-  const startEvent = envelopes.find((e) => e.event.type === "START");
+  const startEvent = envelopes.find(
+    (e) => e.event.type === L0RecordedEventTypes.START,
+  );
   const originalOptions: SerializedOptions = startEvent
     ? (startEvent.event as { type: "START"; options: SerializedOptions })
         .options
@@ -379,10 +381,18 @@ export async function getStreamMetadata(
   const events = await eventStore.getEvents(streamId);
   if (events.length === 0) return null;
 
-  const startEvent = events.find((e) => e.event.type === "START");
-  const completeEvent = events.find((e) => e.event.type === "COMPLETE");
-  const errorEvent = events.find((e) => e.event.type === "ERROR");
-  const tokenEvents = events.filter((e) => e.event.type === "TOKEN");
+  const startEvent = events.find(
+    (e) => e.event.type === L0RecordedEventTypes.START,
+  );
+  const completeEvent = events.find(
+    (e) => e.event.type === L0RecordedEventTypes.COMPLETE,
+  );
+  const errorEvent = events.find(
+    (e) => e.event.type === L0RecordedEventTypes.ERROR,
+  );
+  const tokenEvents = events.filter(
+    (e) => e.event.type === L0RecordedEventTypes.TOKEN,
+  );
 
   return {
     streamId,
