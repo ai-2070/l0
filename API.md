@@ -2,25 +2,9 @@
 
 Complete API reference for L0.
 
-## Subpath Imports (Bundle Optimization)
-
-For reduced bundle sizes, use subpath imports:
-
-```typescript
-// Full bundle (~177 KB minified)
-import { l0, recommendedGuardrails } from "@ai2070/l0";
-
-// Core only (~51 KB minified)
-import { l0 } from "@ai2070/l0/core";
-import { recommendedGuardrails } from "@ai2070/l0/guardrails";
-import { DriftDetector } from "@ai2070/l0/drift";
-import { createPrometheusCollector } from "@ai2070/l0/monitoring";
-import { openaiAdapter } from "@ai2070/l0/openai";
-import { anthropicAdapter } from "@ai2070/l0/anthropic";
-import { mastraAdapter } from "@ai2070/l0/mastra";
-```
-
-All examples below use `@ai2070/l0` for simplicity, but subpath imports work identically.
+> Most applications should simply use `import { l0 } from "@ai2070/l0"`.
+> Only optimize imports if you're targeting edge runtimes or strict bundle constraints.
+> See [Subpath Imports](#subpath-imports-bundle-optimization) for details.
 
 ## Table of Contents
 
@@ -41,7 +25,9 @@ All examples below use `@ai2070/l0` for simplicity, but subpath imports work ide
 - [Formatting Helpers](#formatting-helpers)
 - [Utility Functions](#utility-functions)
 - [OpenAI SDK Adapter](#openai-sdk-adapter)
+- [Mastra Adapter](#mastra-adapter)
 - [Types](#types)
+- [Subpath Imports (Bundle Optimization)](#subpath-imports-bundle-optimization)
 
 ---
 
@@ -2362,6 +2348,57 @@ const RETRY_DEFAULTS = {
   ],
 };
 ```
+
+---
+
+## Subpath Imports (Bundle Optimization)
+
+L0 provides subpath exports for reduced bundle sizes. Most applications should use the main import, but edge runtimes or strict bundle constraints may benefit from subpath imports.
+
+### Bundle Sizes (minified)
+
+| Import                  | Size  | Gzipped | Description              |
+| ----------------------- | ----- | ------- | ------------------------ |
+| `@ai2070/l0` (full)     | 181KB | 52KB    | Everything               |
+| `@ai2070/l0/core`       | 52KB  | 15KB    | Runtime + retry + errors |
+| `@ai2070/l0/structured` | 43KB  | 12KB    | Structured output        |
+| `@ai2070/l0/consensus`  | 54KB  | 16KB    | Multi-model consensus    |
+| `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations |
+| `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking        |
+| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
+| `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
+| `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
+| `@ai2070/l0/openai`     | —     | —       | OpenAI SDK adapter       |
+| `@ai2070/l0/anthropic`  | —     | —       | Anthropic SDK adapter    |
+| `@ai2070/l0/mastra`     | —     | —       | Mastra adapter           |
+
+### Usage
+
+```typescript
+// Main import (recommended for most apps)
+import { l0, structured, consensus } from "@ai2070/l0";
+
+// Subpath imports (for edge runtimes / strict bundle constraints)
+import { l0 } from "@ai2070/l0/core";
+import { structured } from "@ai2070/l0/structured";
+import { consensus } from "@ai2070/l0/consensus";
+import { parallel, race } from "@ai2070/l0/parallel";
+import { createWindow } from "@ai2070/l0/window";
+import { recommendedGuardrails } from "@ai2070/l0/guardrails";
+import { createPrometheusCollector } from "@ai2070/l0/monitoring";
+import { DriftDetector } from "@ai2070/l0/drift";
+import { openaiAdapter } from "@ai2070/l0/openai";
+import { anthropicAdapter } from "@ai2070/l0/anthropic";
+import { mastraAdapter } from "@ai2070/l0/mastra";
+```
+
+### When to Use Subpath Imports
+
+- **Edge runtimes** (Cloudflare Workers, Vercel Edge) with strict size limits
+- **Browser bundles** where every KB matters
+- **Lambda/serverless** with cold start concerns
+
+For Node.js servers and most applications, the full import is fine.
 
 ---
 
