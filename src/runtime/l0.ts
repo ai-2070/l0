@@ -299,11 +299,18 @@ export async function l0<TOutput = unknown>(
         // Transition to init state at start of each attempt
         stateMachine.transition(RuntimeStates.INIT);
 
-        // Call onStart callback
+        // Call onStart callback (wrapped to prevent user errors from crashing runtime)
         if (processedOnStart) {
           const isRetry = retryAttempt > 0 || isRetryAttempt;
           const isFallback = fallbackIndex > 0;
-          processedOnStart(retryAttempt + 1, isRetry, isFallback);
+          try {
+            processedOnStart(retryAttempt + 1, isRetry, isFallback);
+          } catch (error) {
+            monitor?.logEvent({
+              type: "warning",
+              message: `onStart callback threw: ${error instanceof Error ? error.message : String(error)}`,
+            });
+          }
         }
 
         try {
