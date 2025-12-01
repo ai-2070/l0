@@ -34,3 +34,21 @@ Set your API key:
 ```bash
 export OPENAI_API_KEY=sk-...
 ```
+
+## Bundle Size Optimization
+
+For production apps, use subpath imports to reduce bundle size:
+
+```typescript
+// Instead of importing everything:
+import { l0, structured, consensus } from "@ai2070/l0";
+
+// Import only what you need:
+import { l0 } from "@ai2070/l0/core";           // ~15KB minimal runtime
+import { structured } from "@ai2070/l0/structured";
+import { consensus } from "@ai2070/l0/consensus";
+import { parallel, race } from "@ai2070/l0/parallel";
+import { createWindow } from "@ai2070/l0/window";
+import { openaiAdapter } from "@ai2070/l0/openai";
+import { anthropicAdapter } from "@ai2070/l0/anthropic";
+```

@@ -21,16 +21,6 @@ L0 adds guardrails, retry logic, and network protection to LLM streams, turning 
 npm install @ai2070/l0
 ```
 
-**Bundle sizes (minified, gzipped):**
-
-| Import                     | Size    | Gzipped |
-| -------------------------- | ------- | ------- |
-| `@ai2070/l0` (full)        | 177 KB  | 51 KB   |
-| `@ai2070/l0/core`          | 51 KB   | 15 KB   |
-| `@ai2070/l0/guardrails`    | 18 KB   | 6 KB    |
-| `@ai2070/l0/drift`         | 4 KB    | 2 KB    |
-| `@ai2070/l0/monitoring`    | 32 KB   | 8 KB    |
-
 Tree-shakeable subpath exports for minimal bundles.
 
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
@@ -40,6 +30,20 @@ L0 includes 1,800+ tests covering all major reliability features.
 **Upcoming versions:**
 
 - **1.0.0** - API freeze + Website docs + Python version
+
+**Bundle sizes (minified):**
+
+| Import                  | Size  | Gzipped | Description              |
+| ----------------------- | ----- | ------- | ------------------------ |
+| `@ai2070/l0` (full)     | 181KB | 52KB    | Everything               |
+| `@ai2070/l0/core`       | 52KB  | 15KB    | Runtime + retry + errors |
+| `@ai2070/l0/structured` | 43KB  | 12KB    | Structured output        |
+| `@ai2070/l0/consensus`  | 54KB  | 16KB    | Multi-model consensus    |
+| `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations |
+| `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking        |
+| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
+| `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
+| `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
 
 ## Features
 
@@ -65,7 +69,7 @@ L0 includes 1,800+ tests covering all major reliability features.
 | **📼 Atomic Event Logs**                         | Record every token, retry, fallback, and guardrail check as immutable events. Full audit trail for debugging and compliance.                                                                          |
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
-| **⚡ Tiny & Explicit**                           | 51 KB minified core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`). No frameworks, no heavy abstractions.                                                   |
+| **⚡ Tiny & Explicit**                           | 15KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                                   |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
 | **🧪 Battle-Tested**                             | 1,600+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |

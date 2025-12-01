@@ -2,6 +2,14 @@
 
 This guide covers performance optimization for L0 in production environments.
 
+> **Bundle size tip:** For smaller bundles, use subpath imports:
+>
+> ```typescript
+> import { l0 } from "@ai2070/l0/core"; // ~15KB minimal runtime
+> import { createWindow } from "@ai2070/l0/window";
+> import { consensus } from "@ai2070/l0/consensus";
+> ```
+
 ## Table of Contents
 
 - [Timeout Configuration](#timeout-configuration)

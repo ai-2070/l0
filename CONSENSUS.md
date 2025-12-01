@@ -2,6 +2,12 @@
 
 Multi-generation consensus for high-confidence results. Run multiple generations, compare outputs, and resolve disagreements.
 
+> **Bundle size tip:** For smaller bundles, use subpath imports:
+>
+> ```typescript
+> import { consensus } from "@ai2070/l0/consensus";
+> ```
+
 ## Quick Start
 
 ```typescript
