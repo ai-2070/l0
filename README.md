@@ -1,6 +1,6 @@
 # L0 - The Missing Reliability Substrate for AI
 
-![L0: The Missing AI Reliability Substrate](img/l0-banner.png)
+![L0: The Missing AI Reliability Substrate](img/l0-banner.jpg)
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@ai2070/l0">
