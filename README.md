@@ -19,7 +19,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
 </p>
 
-**Tiny. Predictable. Replayable. Streaming-first.**
+**L0 is a tiny reliability, streaming-first substrate that wraps any LLM stream with retries, guardrails, fallbacks, drift detection, and deterministic playback.**
 
 > _LLMs are extraordinary minds wrapped in fragile interfaces._
 > _The reasoning is brilliant._
@@ -45,6 +45,15 @@ L0 includes 2,000+ tests covering all major reliability features.
 **Upcoming versions:**
 
 - **1.0.0** - API freeze + Website docs + Python version
+
+```
+  SDK Stream                     L0 Layer                          Your App
+ ─────────────       ┌────────────────────────────────────────┐     ─────────
+   Vercel AI/        │ Timeouts ──▶ Guardrails ──▶ Checkpoints│
+    OpenAI/  ──────▶ │     │            │              │      │ ──────▶ Output
+    Mastra           │     └─────▶ Retry ◀──▶ Fallbacks ◀─────│
+ ─────────────       └────────────────────────────────────────┘
+```
 
 **Bundle sizes (minified):**
 
