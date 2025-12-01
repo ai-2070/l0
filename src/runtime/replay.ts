@@ -131,11 +131,11 @@ export async function replay(
 
       // Process each event type
       switch (event.type) {
-        case "START":
+        case L0RecordedEventTypes.START:
           // Nothing to emit, just metadata
           break;
 
-        case "TOKEN": {
+        case L0RecordedEventTypes.TOKEN: {
           // Update state
           state.content += event.value;
           state.tokenCount = event.index + 1;
@@ -160,11 +160,11 @@ export async function replay(
           break;
         }
 
-        case "CHECKPOINT":
+        case L0RecordedEventTypes.CHECKPOINT:
           state.checkpoint = event.content;
           break;
 
-        case "GUARDRAIL": {
+        case L0RecordedEventTypes.GUARDRAIL: {
           // Add violations to state
           state.violations.push(...event.result.violations);
           monitor.recordGuardrailViolations(event.result.violations);
@@ -178,14 +178,14 @@ export async function replay(
           break;
         }
 
-        case "DRIFT":
+        case L0RecordedEventTypes.DRIFT:
           if (event.result.detected) {
             state.driftDetected = true;
             monitor.recordDrift(true, event.result.types);
           }
           break;
 
-        case "RETRY": {
+        case L0RecordedEventTypes.RETRY: {
           if (event.countsTowardLimit) {
             state.modelRetryCount++;
           } else {
@@ -200,17 +200,17 @@ export async function replay(
           break;
         }
 
-        case "FALLBACK":
+        case L0RecordedEventTypes.FALLBACK:
           state.fallbackIndex = event.to;
           break;
 
-        case "CONTINUATION":
+        case L0RecordedEventTypes.CONTINUATION:
           state.resumed = true;
           state.resumePoint = event.checkpoint;
           monitor.recordContinuation(true, true, event.checkpoint);
           break;
 
-        case "COMPLETE": {
+        case L0RecordedEventTypes.COMPLETE: {
           state.completed = true;
           state.content = event.content;
           state.tokenCount = event.tokenCount;
@@ -230,7 +230,7 @@ export async function replay(
           break;
         }
 
-        case "ERROR": {
+        case L0RecordedEventTypes.ERROR: {
           const error = deserializeError(event.error);
           errors.push(error);
 

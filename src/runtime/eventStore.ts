@@ -344,30 +344,30 @@ export class L0EventReplayer {
       const event = envelope.event;
 
       switch (event.type) {
-        case "START":
+        case L0RecordedEventTypes.START:
           state.startTs = event.ts;
           break;
 
-        case "TOKEN":
+        case L0RecordedEventTypes.TOKEN:
           state.content += event.value;
           state.tokenCount = event.index + 1;
           break;
 
-        case "CHECKPOINT":
+        case L0RecordedEventTypes.CHECKPOINT:
           state.checkpoint = event.content;
           break;
 
-        case "GUARDRAIL":
+        case L0RecordedEventTypes.GUARDRAIL:
           state.violations.push(...event.result.violations);
           break;
 
-        case "DRIFT":
+        case L0RecordedEventTypes.DRIFT:
           if (event.result.detected) {
             state.driftDetected = true;
           }
           break;
 
-        case "RETRY":
+        case L0RecordedEventTypes.RETRY:
           if (event.countsTowardLimit) {
             state.retryAttempts++;
           } else {
@@ -375,22 +375,22 @@ export class L0EventReplayer {
           }
           break;
 
-        case "FALLBACK":
+        case L0RecordedEventTypes.FALLBACK:
           state.fallbackIndex = event.to;
           break;
 
-        case "CONTINUATION":
+        case L0RecordedEventTypes.CONTINUATION:
           state.content = event.checkpoint;
           break;
 
-        case "COMPLETE":
+        case L0RecordedEventTypes.COMPLETE:
           state.completed = true;
           state.content = event.content;
           state.tokenCount = event.tokenCount;
           state.endTs = event.ts;
           break;
 
-        case "ERROR":
+        case L0RecordedEventTypes.ERROR:
           state.error = event.error;
           state.endTs = event.ts;
           break;
@@ -408,7 +408,7 @@ export class L0EventReplayer {
     options: { speed?: number } = {},
   ): AsyncGenerator<string> {
     for await (const envelope of this.replay(streamId, options)) {
-      if (envelope.event.type === "TOKEN") {
+      if (envelope.event.type === L0RecordedEventTypes.TOKEN) {
         yield envelope.event.value;
       }
     }
