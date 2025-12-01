@@ -91,9 +91,14 @@ export async function l0<TOutput = unknown>(
     detectDrift: processedDetectDrift = false,
     detectZeroTokens: processedDetectZeroTokens = true,
     checkIntervals: processedCheckIntervals = {},
+    onStart: processedOnStart,
+    onComplete: processedOnComplete,
+    onError: processedOnError,
     onEvent: processedOnEvent,
     onViolation: processedOnViolation,
     onRetry: processedOnRetry,
+    onFallback: processedOnFallback,
+    onResume: processedOnResume,
     continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
     buildContinuationPrompt: processedBuildContinuationPrompt,
     deduplicateContinuation: processedDeduplicateContinuation,
@@ -199,6 +204,20 @@ export async function l0<TOutput = unknown>(
         // Transition to init state at start of each attempt
         stateMachine.transition(RuntimeStates.INIT);
 
+        // Call onStart callback (wrapped to prevent user errors from crashing runtime)
+        if (processedOnStart) {
+          const isRetry = retryAttempt > 0 || isRetryAttempt;
+          const isFallback = fallbackIndex > 0;
+          try {
+            processedOnStart(retryAttempt + 1, isRetry, isFallback);
+          } catch (error) {
+            monitor?.logEvent({
+              type: "warning",
+              message: `onStart callback threw: ${error instanceof Error ? error.message : String(error)}`,
+            });
+          }
+        }
+
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
           // retryAttempt > 0: guardrail/drift retries increment this directly
@@ -253,6 +272,11 @@ export async function l0<TOutput = unknown>(
               // Reset overlap matching state for the new continuation
               overlapBuffer = "";
               overlapResolved = false;
+
+              // Call onResume callback
+              if (processedOnResume) {
+                processedOnResume(checkpointForContinuation, state.tokenCount);
+              }
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for retry)
               if (processedBuildContinuationPrompt) {
@@ -910,6 +934,11 @@ export async function l0<TOutput = unknown>(
 
           stateMachine.transition(RuntimeStates.COMPLETE);
 
+          // Call onComplete callback
+          if (processedOnComplete) {
+            processedOnComplete(state);
+          }
+
           break; // Exit retry loop on success
         } catch (error) {
           const err = error instanceof Error ? error : new Error(String(error));
@@ -1032,6 +1061,14 @@ export async function l0<TOutput = unknown>(
             );
           }
 
+          // Call onError callback before retry/fallback decision is acted upon
+          if (processedOnError) {
+            const willRetry = decision.shouldRetry;
+            const willFallback =
+              !decision.shouldRetry && fallbackIndex < allStreams.length - 1;
+            processedOnError(err, willRetry, willFallback);
+          }
+
           // Check if should retry
           if (decision.shouldRetry) {
             if (decision.countsTowardLimit) {
@@ -1103,8 +1140,9 @@ export async function l0<TOutput = unknown>(
             toIndex: fallbackIndex,
           });
 
-          if (processedOnRetry) {
-            processedOnRetry(0, fallbackMessage);
+          // Call onFallback callback
+          if (processedOnFallback) {
+            processedOnFallback(fallbackIndex - 1, fallbackMessage);
           }
 
           // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
@@ -1147,6 +1185,11 @@ export async function l0<TOutput = unknown>(
               // Reset overlap matching state for the new continuation
               overlapBuffer = "";
               overlapResolved = false;
+
+              // Call onResume callback
+              if (processedOnResume) {
+                processedOnResume(checkpointForContinuation, state.tokenCount);
+              }
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for fallback)
               if (processedBuildContinuationPrompt) {

@@ -5,6 +5,7 @@ Complete API reference for L0.
 ## Table of Contents
 
 - [Core Functions](#core-functions)
+- [Lifecycle Callbacks](#lifecycle-callbacks)
 - [Type-Safe Generics](#type-safe-generics)
 - [Structured Output](#structured-output)
 - [Document Windows](#document-windows)
@@ -79,13 +80,15 @@ const result = await l0({
   // Optional: Abort signal
   signal: abortController.signal,
 
-  // Optional: Monitoring callbacks
-  monitoring: {
-    onToken: (token) => {},
-    onViolation: (violation) => {},
-    onRetry: (attempt, error) => {},
-    onFallback: (index) => {},
-  },
+  // Optional: Lifecycle callbacks
+  onStart: (attempt, isRetry, isFallback) => {},
+  onComplete: (state) => {},
+  onError: (error, willRetry, willFallback) => {},
+  onEvent: (event) => {},
+  onViolation: (violation) => {},
+  onRetry: (attempt, reason) => {},
+  onFallback: (index, reason) => {},
+  onResume: (checkpoint, tokenCount) => {},
 });
 
 // Consume stream
@@ -114,6 +117,240 @@ console.log(result.state.tokenCount);
 | -------- | ------------------------ | ------------- |
 | `stream` | `AsyncIterable<L0Event>` | Event stream  |
 | `state`  | `L0State`                | Runtime state |
+
+---
+
+## Lifecycle Callbacks
+
+L0 provides a complete set of lifecycle callbacks for monitoring and responding to runtime events. All callbacks are optional and are pure side-effect handlers (they don't affect execution flow).
+
+### Callback Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          L0 LIFECYCLE FLOW                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                              ┌──────────┐
+                              │  START   │
+                              └────┬─────┘
+                                   │
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │  onStart(attempt, false, false)  │
+                    └──────────────┬───────────────┘
+                                   │
+                                   ▼
+                         ┌─────────────────┐
+                         │   STREAMING     │◄─────────────────────────┐
+                         │   onEvent()     │                          │
+                         └────────┬────────┘                          │
+                                  │                                   │
+                    ┌─────────────┼─────────────┐                     │
+                    │             │             │                     │
+                    ▼             ▼             ▼                     │
+              ┌─────────┐  ┌───────────┐  ┌──────────┐               │
+              │ SUCCESS │  │   ERROR   │  │VIOLATION │               │
+              └────┬────┘  └─────┬─────┘  └────┬─────┘               │
+                   │             │             │                      │
+                   │             │             ▼                      │
+                   │             │      ┌─────────────┐               │
+                   │             │      │ onViolation │               │
+                   │             │      └──────┬──────┘               │
+                   │             │             │                      │
+                   │             ▼             ▼                      │
+                   │      ┌────────────────────────────────┐          │
+                   │      │ onError(error, willRetry,       │          │
+                   │      │         willFallback)           │          │
+                   │      └──────────────┬─────────────────┘          │
+                   │                     │                            │
+                   │         ┌───────────┼───────────┐                │
+                   │         │           │           │                │
+                   │         ▼           ▼           ▼                │
+                   │   ┌──────────┐ ┌──────────┐ ┌──────────┐         │
+                   │   │  RETRY   │ │ FALLBACK │ │  FATAL   │         │
+                   │   └────┬─────┘ └────┬─────┘ └────┬─────┘         │
+                   │        │            │            │               │
+                   │        ▼            ▼            │               │
+                   │  ┌───────────┐ ┌───────────┐     │               │
+                   │  │ onRetry() │ │onFallback │     │               │
+                   │  └─────┬─────┘ └─────┬─────┘     │               │
+                   │        │             │           │               │
+                   │        │    ┌────────┘           │               │
+                   │        │    │                    │               │
+                   │        ▼    ▼                    │               │
+                   │  ┌─────────────────────┐         │               │
+                   │  │ Has checkpoint?     │         │               │
+                   │  └──────────┬──────────┘         │               │
+                   │        YES  │  NO                │               │
+                   │        ┌────┴────┐               │               │
+                   │        ▼         ▼               │               │
+                   │  ┌──────────┐    │               │               │
+                   │  │ onResume │    │               │               │
+                   │  └────┬─────┘    │               │               │
+                   │       │          │               │               │
+                   │       ▼          ▼               │               │
+                   │  ┌─────────────────────────┐     │               │
+                   │  │onStart(attempt, isRetry,│     │               │
+                   │  │        isFallback)      │─────┼───────────────┘
+                   │  └─────────────────────────┘     │
+                   │                                  │
+                   ▼                                  ▼
+            ┌─────────────┐                    ┌──────────┐
+            │ onComplete  │                    │  THROW   │
+            │   (state)   │                    │  ERROR   │
+            └─────────────┘                    └──────────┘
+```
+
+### Callback Reference
+
+| Callback      | Signature                                                | When Called                              |
+| ------------- | -------------------------------------------------------- | ---------------------------------------- |
+| `onStart`     | `(attempt: number, isRetry: boolean, isFallback: boolean) => void` | New execution attempt begins             |
+| `onComplete`  | `(state: L0State) => void`                               | Stream finished successfully             |
+| `onError`     | `(error: Error, willRetry: boolean, willFallback: boolean) => void` | Error occurred (before retry decision)   |
+| `onEvent`     | `(event: L0Event) => void`                               | Any streaming event emitted              |
+| `onViolation` | `(violation: GuardrailViolation) => void`                | Guardrail violation detected             |
+| `onRetry`     | `(attempt: number, reason: string) => void`              | Retry triggered (same model)             |
+| `onFallback`  | `(index: number, reason: string) => void`                | Switching to fallback model              |
+| `onResume`    | `(checkpoint: string, tokenCount: number) => void`       | Continuing from checkpoint               |
+
+### Usage Example
+
+```typescript
+import { l0 } from "@ai2070/l0";
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  fallbackStreams: [() => streamText({ model: fallbackModel, prompt })],
+
+  // Lifecycle callbacks
+  onStart: (attempt, isRetry, isFallback) => {
+    console.log(`Starting attempt ${attempt}`);
+    if (isRetry) console.log("  (retry)");
+    if (isFallback) console.log("  (fallback model)");
+  },
+
+  onComplete: (state) => {
+    console.log(`Completed with ${state.tokenCount} tokens`);
+    console.log(`Duration: ${state.duration}ms`);
+  },
+
+  onError: (error, willRetry, willFallback) => {
+    console.error(`Error: ${error.message}`);
+    if (willRetry) console.log("  Will retry...");
+    if (willFallback) console.log("  Will try fallback...");
+  },
+
+  onEvent: (event) => {
+    if (event.type === "token") {
+      process.stdout.write(event.value);
+    }
+  },
+
+  onViolation: (violation) => {
+    console.warn(`Guardrail violation: ${violation.rule}`);
+    console.warn(`  ${violation.message}`);
+  },
+
+  onRetry: (attempt, reason) => {
+    console.log(`Retrying (attempt ${attempt}): ${reason}`);
+  },
+
+  onFallback: (index, reason) => {
+    console.log(`Switching to fallback ${index}: ${reason}`);
+  },
+
+  onResume: (checkpoint, tokenCount) => {
+    console.log(`Resuming from checkpoint (${tokenCount} tokens)`);
+  },
+});
+```
+
+### Callback Details
+
+#### onStart
+
+Called at the beginning of each execution attempt.
+
+```typescript
+onStart: (attempt: number, isRetry: boolean, isFallback: boolean) => void
+```
+
+- `attempt`: 0-based attempt number
+- `isRetry`: true if this is a retry of the same stream
+- `isFallback`: true if using a fallback stream
+
+#### onComplete
+
+Called when the stream finishes successfully.
+
+```typescript
+onComplete: (state: L0State) => void
+```
+
+- `state`: Final runtime state with content, tokenCount, duration, etc.
+
+#### onError
+
+Called when an error occurs, before the retry/fallback decision is made.
+
+```typescript
+onError: (error: Error, willRetry: boolean, willFallback: boolean) => void
+```
+
+- `error`: The error that occurred
+- `willRetry`: true if L0 will retry with the same stream
+- `willFallback`: true if L0 will try a fallback stream
+
+#### onEvent
+
+Called for every streaming event. Use for logging, progress tracking, or custom processing.
+
+```typescript
+onEvent: (event: L0Event) => void
+```
+
+#### onViolation
+
+Called when a guardrail violation is detected.
+
+```typescript
+onViolation: (violation: GuardrailViolation) => void
+```
+
+#### onRetry
+
+Called when a retry is triggered (same model, not fallback).
+
+```typescript
+onRetry: (attempt: number, reason: string) => void
+```
+
+- `attempt`: The retry attempt number
+- `reason`: Why the retry was triggered (e.g., "guardrail_violation", "timeout")
+
+#### onFallback
+
+Called when switching to a fallback stream.
+
+```typescript
+onFallback: (index: number, reason: string) => void
+```
+
+- `index`: 1-based index of the fallback stream being used
+- `reason`: Why the fallback was triggered
+
+#### onResume
+
+Called when resuming from a checkpoint (when `continueFromLastKnownGoodToken` is enabled).
+
+```typescript
+onResume: (checkpoint: string, tokenCount: number) => void
+```
+
+- `checkpoint`: The checkpoint content being resumed from
+- `tokenCount`: Number of tokens in the checkpoint
 
 ---
 

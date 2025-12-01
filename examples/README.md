@@ -20,6 +20,8 @@ OPENAI_API_KEY=sk-... npx tsx examples/<filename>.ts
 | [08-monitoring.ts](./08-monitoring.ts)               | Prometheus and Sentry integration |
 | [09-document-windows.ts](./09-document-windows.ts)   | Chunking long documents           |
 | [10-retry-and-errors.ts](./10-retry-and-errors.ts)   | Retry logic and error handling    |
+| [11-continuation-resumption.ts](./11-continuation-resumption.ts) | Checkpoint resumption and deduplication |
+| [12-lifecycle-callbacks.ts](./12-lifecycle-callbacks.ts) | Lifecycle callbacks for monitoring |
 
 ## Requirements
 
