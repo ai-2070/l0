@@ -1050,6 +1050,12 @@ const result = await l0({
       // context includes: previousModel, checkpoint
     },
 
+    // Called when resuming from checkpoint
+    onResume: (checkpoint, tokenCount) => {
+      console.log(`Resuming from ${tokenCount} tokens`);
+      // checkpoint contains the content to resume from
+    },
+
     // Called when stream completes successfully
     onComplete: (content, context) => {
       console.log("Completed:", content.length, "chars");
