@@ -10,7 +10,7 @@ For reduced bundle sizes, use subpath imports:
 // Full bundle (~177 KB minified)
 import { l0, recommendedGuardrails } from "@ai2070/l0";
 
-// Core only (~51 KB minified) 
+// Core only (~51 KB minified)
 import { l0 } from "@ai2070/l0/core";
 import { recommendedGuardrails } from "@ai2070/l0/guardrails";
 import { DriftDetector } from "@ai2070/l0/drift";
@@ -224,16 +224,16 @@ L0 provides a complete set of lifecycle callbacks for monitoring and responding 
 
 ### Callback Reference
 
-| Callback      | Signature                                                | When Called                              |
-| ------------- | -------------------------------------------------------- | ---------------------------------------- |
-| `onStart`     | `(attempt: number, isRetry: boolean, isFallback: boolean) => void` | New execution attempt begins             |
-| `onComplete`  | `(state: L0State) => void`                               | Stream finished successfully             |
-| `onError`     | `(error: Error, willRetry: boolean, willFallback: boolean) => void` | Error occurred (before retry decision)   |
-| `onEvent`     | `(event: L0Event) => void`                               | Any streaming event emitted              |
-| `onViolation` | `(violation: GuardrailViolation) => void`                | Guardrail violation detected             |
-| `onRetry`     | `(attempt: number, reason: string) => void`              | Retry triggered (same model)             |
-| `onFallback`  | `(index: number, reason: string) => void`                | Switching to fallback model              |
-| `onResume`    | `(checkpoint: string, tokenCount: number) => void`       | Continuing from checkpoint               |
+| Callback      | Signature                                                           | When Called                            |
+| ------------- | ------------------------------------------------------------------- | -------------------------------------- |
+| `onStart`     | `(attempt: number, isRetry: boolean, isFallback: boolean) => void`  | New execution attempt begins           |
+| `onComplete`  | `(state: L0State) => void`                                          | Stream finished successfully           |
+| `onError`     | `(error: Error, willRetry: boolean, willFallback: boolean) => void` | Error occurred (before retry decision) |
+| `onEvent`     | `(event: L0Event) => void`                                          | Any streaming event emitted            |
+| `onViolation` | `(violation: GuardrailViolation) => void`                           | Guardrail violation detected           |
+| `onRetry`     | `(attempt: number, reason: string) => void`                         | Retry triggered (same model)           |
+| `onFallback`  | `(index: number, reason: string) => void`                           | Switching to fallback model            |
+| `onResume`    | `(checkpoint: string, tokenCount: number) => void`                  | Continuing from checkpoint             |
 
 ### Usage Example
 

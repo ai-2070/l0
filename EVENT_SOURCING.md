@@ -568,7 +568,11 @@ const browserStore = await createEventStore({
 ### Registering Custom Adapters
 
 ```typescript
-import { registerStorageAdapter, BaseEventStore, createEventStore } from "@ai2070/l0";
+import {
+  registerStorageAdapter,
+  BaseEventStore,
+  createEventStore,
+} from "@ai2070/l0";
 
 // Register a Redis adapter
 registerStorageAdapter("redis", async (config) => {
@@ -680,7 +684,10 @@ const events = await store.getEvents("stream-1"); // Only non-expired events
 ### Full PostgreSQL Example
 
 ```typescript
-import { BaseEventStoreWithSnapshots, registerStorageAdapter } from "@ai2070/l0";
+import {
+  BaseEventStoreWithSnapshots,
+  registerStorageAdapter,
+} from "@ai2070/l0";
 import type {
   L0RecordedEvent,
   L0EventEnvelope,

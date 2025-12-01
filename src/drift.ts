@@ -17,11 +17,7 @@ export {
   checkDrift,
 } from "./runtime/drift.js";
 
-export type {
-  DriftResult,
-  DriftType,
-  DriftConfig,
-} from "./runtime/drift.js";
+export type { DriftResult, DriftType, DriftConfig } from "./runtime/drift.js";
 
 // Async drift checks
 export {

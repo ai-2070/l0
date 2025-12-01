@@ -90,7 +90,9 @@ async function errorAndRetryCallbacks() {
     },
 
     onComplete: (state) => {
-      console.log(`[onComplete] Success after ${state.modelRetryCount} retries`);
+      console.log(
+        `[onComplete] Success after ${state.modelRetryCount} retries`,
+      );
     },
   });
 
@@ -176,7 +178,9 @@ async function violationCallbacks() {
     },
 
     onComplete: (state) => {
-      console.log(`[onComplete] Violations encountered: ${state.violations.length}`);
+      console.log(
+        `[onComplete] Violations encountered: ${state.violations.length}`,
+      );
     },
   });
 

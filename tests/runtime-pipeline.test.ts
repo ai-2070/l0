@@ -348,7 +348,9 @@ describe("Stage patterns", () => {
       return event;
     };
 
-    expect(runStages([filterEmptyTokens], createTokenEvent(""), ctx)).toBeNull();
+    expect(
+      runStages([filterEmptyTokens], createTokenEvent(""), ctx),
+    ).toBeNull();
     expect(
       runStages([filterEmptyTokens], createTokenEvent("  "), ctx),
     ).toBeNull();

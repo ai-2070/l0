@@ -460,7 +460,10 @@ L0 includes a native Prometheus exporter:
 
 ```typescript
 import { l0 } from "@ai2070/l0/core";
-import { createPrometheusCollector, prometheusMiddleware } from "@ai2070/l0/monitoring";
+import {
+  createPrometheusCollector,
+  prometheusMiddleware,
+} from "@ai2070/l0/monitoring";
 import express from "express";
 
 // Create collector
@@ -846,7 +849,10 @@ L0 includes native Prometheus support with automatic metric generation.
 
 ```typescript
 import { l0 } from "@ai2070/l0/core";
-import { createPrometheusCollector, prometheusMiddleware } from "@ai2070/l0/monitoring";
+import {
+  createPrometheusCollector,
+  prometheusMiddleware,
+} from "@ai2070/l0/monitoring";
 import express from "express";
 
 const collector = createPrometheusCollector();

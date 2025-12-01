@@ -22,7 +22,6 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
 </p>
 
-
 **Tiny. Predictable. Replayable. Streaming-first.**
 
 > _LLMs are extraordinary minds wrapped in fragile interfaces._
@@ -93,7 +92,7 @@ L0 includes 1,800+ tests covering all major reliability features.
 | **📼 Atomic Event Logs**                         | Record every token, retry, fallback, and guardrail check as immutable events. Full audit trail for debugging and compliance.                                                                          |
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
-| **⚡ Tiny & Explicit**                           | 15KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                                   |
+| **⚡ Tiny & Explicit**                           | 15KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
 | **🧪 Battle-Tested**                             | 1,600+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
