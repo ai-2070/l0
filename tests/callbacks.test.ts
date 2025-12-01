@@ -463,6 +463,28 @@ describe("onStart callback", () => {
     expect(onStart.mock.calls[0]).toEqual([1, false, false]); // Primary
     expect(onStart.mock.calls[1]![2]).toBe(true); // Fallback flag is true
   });
+
+  it("should not crash runtime when onStart throws", async () => {
+    const onStart = vi.fn().mockImplementation(() => {
+      throw new Error("User callback error");
+    });
+
+    const result = await l0({
+      stream: createTokenStream(["hello", "world"]),
+      onStart,
+    });
+
+    const tokens: string[] = [];
+    for await (const event of result.stream) {
+      if (event.type === "token" && event.value) {
+        tokens.push(event.value);
+      }
+    }
+
+    // Stream should still complete successfully despite onStart throwing
+    expect(tokens.join("")).toBe("helloworld");
+    expect(onStart).toHaveBeenCalled();
+  });
 });
 
 describe("onComplete callback", () => {
