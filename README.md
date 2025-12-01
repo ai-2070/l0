@@ -48,7 +48,7 @@ npm install @ai2070/l0
  (text/image/
   video/audio)
  ─────────────
-                            L0 = token-level reliability
+                          L0 = token-level reliability
 ```
 
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
