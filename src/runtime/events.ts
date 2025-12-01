@@ -37,6 +37,8 @@ export function normalizeStreamEvent(chunk: any): L0Event {
 
       case "finish":
       case "complete":
+      case "message_stop":
+      case "content_block_stop":
         return {
           type: "complete",
           timestamp: Date.now(),
