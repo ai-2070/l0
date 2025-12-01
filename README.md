@@ -977,6 +977,113 @@ See [MONITORING.md](./MONITORING.md) for complete integration guides.
 
 ---
 
+## Lifecycle Callbacks
+
+L0 provides callbacks for every phase of stream execution, giving you full observability into the streaming lifecycle:
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+
+  monitoring: {
+    // Called when streaming begins
+    onStart: (context) => {
+      console.log("Stream started:", context.streamId);
+      console.log("Attempt:", context.attempt);
+    },
+
+    // Called for every token received
+    onToken: (token, context) => {
+      process.stdout.write(token);
+      // context includes: tokenIndex, timestamp, checkpoint
+    },
+
+    // Called for every L0 event (token, error, complete, etc.)
+    onEvent: (event) => {
+      if (event.type === "progress") {
+        console.log("Progress:", event.progress?.percent);
+      }
+    },
+
+    // Called when a guardrail violation is detected
+    onViolation: (violation) => {
+      console.warn("Violation:", violation.rule, violation.message);
+      // violation.fatal indicates if stream will be aborted
+    },
+
+    // Called before each retry attempt
+    onRetry: (attempt, error, context) => {
+      console.log(`Retry ${attempt}/${context.maxRetries}:`, error.code);
+      // context includes: delay, errorType, checkpoint
+    },
+
+    // Called when switching to a fallback model
+    onFallback: (index, error, context) => {
+      console.log(`Fallback to model ${index}:`, error.message);
+      // context includes: previousModel, checkpoint
+    },
+
+    // Called when stream completes successfully
+    onComplete: (content, context) => {
+      console.log("Completed:", content.length, "chars");
+      console.log("Tokens:", context.tokenCount);
+      console.log("Duration:", context.duration, "ms");
+    },
+
+    // Called when stream fails after all retries
+    onError: (error, context) => {
+      console.error("Failed:", error.code);
+      console.log("Checkpoint:", context.checkpoint);
+      // context includes: attempts, lastError, partial content
+    },
+  },
+});
+```
+
+### Callback Reference
+
+| Callback      | When Called                              | Parameters                                      |
+| ------------- | ---------------------------------------- | ----------------------------------------------- |
+| `onStart`     | Stream begins (including retries)        | `(context: StartContext)`                       |
+| `onToken`     | Each token received                      | `(token: string, context: TokenContext)`        |
+| `onEvent`     | Every L0 event (token, progress, data)   | `(event: L0Event)`                              |
+| `onViolation` | Guardrail violation detected             | `(violation: Violation)`                        |
+| `onRetry`     | Before retry attempt                     | `(attempt: number, error: L0Error, context)`    |
+| `onFallback`  | Switching to fallback model              | `(index: number, error: L0Error, context)`      |
+| `onComplete`  | Stream finished successfully             | `(content: string, context: CompleteContext)`   |
+| `onError`     | Stream failed after all retries/fallback | `(error: L0Error, context: ErrorContext)`       |
+
+### Use Cases
+
+```typescript
+// Logging and debugging
+monitoring: {
+  onStart: (ctx) => logger.info("stream.start", { id: ctx.streamId }),
+  onComplete: (_, ctx) => logger.info("stream.complete", { tokens: ctx.tokenCount }),
+  onError: (err, ctx) => logger.error("stream.failed", { error: err.code }),
+}
+
+// Real-time UI updates
+monitoring: {
+  onToken: (token) => appendToChat(token),
+  onRetry: () => showRetryingIndicator(),
+  onFallback: () => showFallbackNotice(),
+}
+
+// Custom metrics collection
+monitoring: {
+  onComplete: (_, ctx) => {
+    metrics.recordHistogram("ttft", ctx.timeToFirstToken);
+    metrics.incrementCounter("tokens", ctx.tokenCount);
+  },
+  onViolation: (v) => metrics.incrementCounter("violations", { rule: v.rule }),
+}
+```
+
+See [API.md#lifecycle-callbacks](./API.md#lifecycle-callbacks) for complete callback type definitions.
+
+---
+
 ## Event Sourcing
 
 Every L0 stream operation can be recorded and replayed deterministically. This enables testing, debugging, and audit trails.
