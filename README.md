@@ -60,7 +60,7 @@ L0 includes 2,000+ tests covering all major reliability features.
 | `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
 | `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
 
-Tree-shakeable subpath exports for minimal bundles.
+Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 
 > Most applications should simply use `import { l0 } from "@ai2070/l0"`.
 > Only optimize imports if you're targeting edge runtimes or strict bundle constraints.
