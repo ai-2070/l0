@@ -1317,6 +1317,16 @@ Every major reliability feature in L0 has dedicated test suites:
 
 ---
 
+## Philosophy
+
+- **No magic** - Everything is explicit and predictable
+- **Streaming-first** - Built for real-time token delivery
+- **Signals, not rewrites** - Guardrails detect issues, don't modify output
+- **Model-agnostic** - Works with any model
+- **Zero dependencies** - Only peer dependency is the Vercel AI SDK, the OpenAI SDK, or Mastra AI
+
+---
+
 ## Documentation
 
 | Guide                                                          | Description                 |
@@ -1334,16 +1344,6 @@ Every major reliability feature in L0 has dedicated test suites:
 | [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers          |
 | [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md)                     | Build your own adapters     |
 | [MULTIMODAL.md](./MULTIMODAL.md)                               | Image/audio/video support   |
-
----
-
-## Philosophy
-
-- **No magic** - Everything is explicit and predictable
-- **Streaming-first** - Built for real-time token delivery
-- **Signals, not rewrites** - Guardrails detect issues, don't modify output
-- **Model-agnostic** - Works with any model
-- **Zero dependencies** - Only peer dependency is the Vercel AI SDK, the OpenAI SDK, or Mastra AI
 
 ---
 
