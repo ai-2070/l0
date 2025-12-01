@@ -28,6 +28,10 @@ export default defineConfig({
         "**/types/**",
         "vitest.config.ts",
         "src/**/index.ts",
+        "src/adapters/**",
+        "src/runtime/opentelemetry.ts",
+        "src/runtime/prometheus.ts",
+        "src/runtime/sentry.ts",
       ],
       include: ["src/**/*.ts"],
       thresholds: {
