@@ -195,17 +195,14 @@ describe("validateMarkdownFences", () => {
     expect(violations).toHaveLength(0);
   });
 
-  it("should warn on excessive unclosed fences during streaming", () => {
-    // Create content with 6+ unclosed fences (each ``` opens a fence, needs 6+ open)
-    // The logic alternates open/close, so we need 11+ fences to have 6 open
-    const content = "```\n".repeat(12);
+  it("should not warn during streaming even with unclosed fence", () => {
+    // During streaming, being inside a fence is expected and normal
+    const content = "```js\nconst x = 1;\n";
     const context = createContext(content, false);
     const violations = validateMarkdownFences(context);
 
-    // Note: The implementation checks if openFences > 5 while inFence
-    // With 12 fence markers, we'd have 6 open (every other opens)
-    // But the structure tracking may work differently - let's just check it handles many fences
-    expect(violations.length).toBeGreaterThanOrEqual(0);
+    // No violations during streaming - fence will be closed later
+    expect(violations).toHaveLength(0);
   });
 
   it("should handle multiple balanced fences", () => {

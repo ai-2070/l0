@@ -121,18 +121,9 @@ export function validateMarkdownFences(
 
   const structure = analyzeMarkdownStructure(content);
 
-  // If streaming and not complete, only warn about imbalance
-  if (!completed && structure.inFence) {
-    // This is expected during streaming, only warn if excessive
-    if (structure.openFences > 5) {
-      violations.push({
-        rule: "markdown-fences",
-        message: `Excessive unclosed code fences: ${structure.openFences}`,
-        severity: "warning",
-        recoverable: true,
-      });
-    }
-  } else if (completed && structure.openFences !== 0) {
+  // Only check fence balance when stream is complete
+  // During streaming, being inside a fence is expected and normal
+  if (completed && (structure.inFence || structure.openFences !== 0)) {
     // Stream is complete but fences aren't balanced
     violations.push({
       rule: "markdown-fences",
