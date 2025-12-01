@@ -5,9 +5,7 @@
   "license": "MIT",
   "author": "LZL0",
   "type": "module",
-  "sideEffects": [
-    "./dist/index.js"
-  ],
+  "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -62,6 +60,21 @@
       "types": "./dist/adapters/mastra.d.ts",
       "import": "./dist/adapters/mastra.js",
       "default": "./dist/adapters/mastra.js"
+    },
+    "./adapters/helpers": {
+      "types": "./dist/adapters/helpers.d.ts",
+      "import": "./dist/adapters/helpers.js",
+      "default": "./dist/adapters/helpers.js"
+    },
+    "./guardrails": {
+      "types": "./dist/guardrails.d.ts",
+      "import": "./dist/guardrails.js",
+      "default": "./dist/guardrails.js"
+    },
+    "./drift": {
+      "types": "./dist/drift.d.ts",
+      "import": "./dist/drift.js",
+      "default": "./dist/drift.js"
     }
   },
   "files": [
@@ -177,6 +190,7 @@
     "@vitest/ui": "^4.0.0",
     "ai": "^5.0.0",
     "effect": "^3.16.0",
+    "esbuild": "^0.27.0",
     "openai": "^6.9.1",
     "prettier": "^3.3.0",
     "prom-client": "^15.1.3",
