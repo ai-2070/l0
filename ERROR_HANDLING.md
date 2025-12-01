@@ -23,7 +23,7 @@ L0 distinguishes between different error types for appropriate handling:
 Errors thrown by L0 itself, with rich context for debugging and recovery:
 
 ```typescript
-import { isL0Error, L0Error } from "@ai2070/l0";
+import { isL0Error, L0Error, L0ErrorCodes } from "@ai2070/l0";
 
 try {
   await l0({ stream, guardrails });
