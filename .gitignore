@@ -9,6 +9,7 @@ pnpm-debug.log*
 dist/
 build/
 dist-esm/
+dist-test/
 *.tsbuildinfo
 
 # IDE
