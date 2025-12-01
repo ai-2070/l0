@@ -903,100 +903,110 @@ Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `
 
 ---
 
-## Monitoring
+## Custom Adapters (BYOA)
 
-Built-in telemetry with Prometheus, OTel and Sentry integrations.
+L0 supports custom adapters for integrating any LLM provider. Built-in adapters include `openaiAdapter`, `mastraAdapter`, and `anthropicAdapter` (reference implementation).
 
-### Prometheus
-
-```typescript
-import {
-  l0,
-  createPrometheusCollector,
-  prometheusMiddleware,
-} from "@ai2070/l0";
-import express from "express";
-
-const collector = createPrometheusCollector();
-const app = express();
-
-app.get("/metrics", prometheusMiddleware(collector));
-
-app.post("/chat", async (req, res) => {
-  const result = await l0({
-    stream: () => streamText({ model, prompt: req.body.prompt }),
-    monitoring: { enabled: true },
-  });
-
-  for await (const event of result.stream) {
-    /* ... */
-  }
-
-  collector.record(result.telemetry, { model: "gpt-4" });
-  res.json({ response: result.state.content });
-});
-```
-
-**Exported metrics:** `l0_requests_total`, `l0_request_duration_seconds`, `l0_tokens_total`, `l0_time_to_first_token_seconds`, `l0_network_errors_total`, `l0_guardrail_violations_total`
-
-### Sentry
+### Explicit Adapter Usage
 
 ```typescript
-import * as Sentry from "@sentry/node";
-import { l0, sentryInterceptor } from "@ai2070/l0";
+import { l0, openaiAdapter } from "@ai2070/l0";
+import OpenAI from "openai";
+
+const openai = new OpenAI();
 
 const result = await l0({
-  stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true },
-  interceptors: [sentryInterceptor({ hub: Sentry })],
-});
-```
-
-**Tracks:** Breadcrumbs for all events, network errors, guardrail violations, performance transactions with TTFT and token count.
-
-### OpenTelemetry
-
-```typescript
-import { trace, metrics } from "@opentelemetry/api";
-import { l0, L0OpenTelemetry, openTelemetryInterceptor } from "@ai2070/l0";
-
-const otel = new L0OpenTelemetry({
-  tracer: trace.getTracer("my-app"),
-  meter: metrics.getMeter("my-app"),
-});
-
-// Trace a stream operation
-const result = await otel.traceStream("chat-completion", async (span) => {
-  const res = await l0({
-    stream: () => streamText({ model, prompt }),
-    monitoring: { enabled: true },
-  });
-
-  for await (const event of res.stream) {
-    otel.recordToken(span);
-  }
-
-  otel.recordTelemetry(res.telemetry, span);
-  return res;
-});
-
-// Or use the interceptor for automatic tracing
-const result = await l0({
-  stream: () => streamText({ model, prompt }),
-  interceptors: [
-    openTelemetryInterceptor({
-      tracer: trace.getTracer("my-app"),
-      meter: metrics.getMeter("my-app"),
+  stream: () =>
+    openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [{ role: "user", content: "Hello!" }],
+      stream: true,
     }),
-  ],
+  adapter: openaiAdapter,
 });
 ```
 
-**Metrics:** `l0.requests`, `l0.tokens`, `l0.retries`, `l0.errors`, `l0.duration`, `l0.time_to_first_token`, `l0.active_streams`
+### Building Custom Adapters
 
-**Span attributes:** Follows [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) with `gen_ai.*` and `l0.*` attributes.
+```typescript
+import { toL0Events, type L0Adapter } from "@ai2070/l0";
 
-See [MONITORING.md](./MONITORING.md) for complete integration guides.
+interface MyChunk {
+  text?: string;
+}
+
+const myAdapter: L0Adapter<AsyncIterable<MyChunk>> = {
+  name: "myai",
+
+  // Optional: Enable auto-detection
+  detect(input): input is AsyncIterable<MyChunk> {
+    return !!input && typeof input === "object" && "__myMarker" in input;
+  },
+
+  // Convert provider stream to L0 events
+  wrap(stream) {
+    return toL0Events(stream, (chunk) => chunk.text ?? null);
+  },
+};
+```
+
+### Adapter Invariants
+
+Adapters MUST:
+
+- Preserve text exactly (no trimming, no modification)
+- Include timestamps on every event
+- Convert errors to error events (never throw)
+- Emit complete event exactly once at end
+
+See [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md) for complete guide including helper functions, registry API, and testing patterns.
+
+---
+
+## Multimodal Support
+
+L0 supports image, audio, and video generation with progress tracking and data events:
+
+```typescript
+import { l0, toMultimodalL0Events, type L0Adapter } from "@ai2070/l0";
+
+const fluxAdapter: L0Adapter<FluxStream> = {
+  name: "flux",
+  wrap: (stream) =>
+    toMultimodalL0Events(stream, {
+      extractProgress: (chunk) =>
+        chunk.type === "progress" ? { percent: chunk.percent } : null,
+      extractData: (chunk) =>
+        chunk.type === "image"
+          ? {
+              contentType: "image",
+              mimeType: "image/png",
+              base64: chunk.image,
+              metadata: {
+                width: chunk.width,
+                height: chunk.height,
+                seed: chunk.seed,
+              },
+            }
+          : null,
+    }),
+};
+
+const result = await l0({
+  stream: () => fluxGenerate({ prompt: "A cat in space" }),
+  adapter: fluxAdapter,
+});
+
+for await (const event of result.stream) {
+  if (event.type === "progress") console.log(`${event.progress?.percent}%`);
+  if (event.type === "data") saveImage(event.data?.base64);
+}
+
+// All generated images available in state
+console.log(result.state.dataOutputs);
+```
+
+See [MULTIMODAL.md](./MULTIMODAL.md) for complete guide.
 
 ---
 
@@ -1153,110 +1163,100 @@ See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for complete guide.
 
 ---
 
-## Custom Adapters (BYOA)
+## Monitoring
 
-L0 supports custom adapters for integrating any LLM provider. Built-in adapters include `openaiAdapter`, `mastraAdapter`, and `anthropicAdapter` (reference implementation).
+Built-in telemetry with Prometheus, OTel and Sentry integrations.
 
-### Explicit Adapter Usage
+### Prometheus
 
 ```typescript
-import { l0, openaiAdapter } from "@ai2070/l0";
-import OpenAI from "openai";
+import {
+  l0,
+  createPrometheusCollector,
+  prometheusMiddleware,
+} from "@ai2070/l0";
+import express from "express";
 
-const openai = new OpenAI();
+const collector = createPrometheusCollector();
+const app = express();
 
-const result = await l0({
-  stream: () =>
-    openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [{ role: "user", content: "Hello!" }],
-      stream: true,
-    }),
-  adapter: openaiAdapter,
+app.get("/metrics", prometheusMiddleware(collector));
+
+app.post("/chat", async (req, res) => {
+  const result = await l0({
+    stream: () => streamText({ model, prompt: req.body.prompt }),
+    monitoring: { enabled: true },
+  });
+
+  for await (const event of result.stream) {
+    /* ... */
+  }
+
+  collector.record(result.telemetry, { model: "gpt-4" });
+  res.json({ response: result.state.content });
 });
 ```
 
-### Building Custom Adapters
+**Exported metrics:** `l0_requests_total`, `l0_request_duration_seconds`, `l0_tokens_total`, `l0_time_to_first_token_seconds`, `l0_network_errors_total`, `l0_guardrail_violations_total`
+
+### Sentry
 
 ```typescript
-import { toL0Events, type L0Adapter } from "@ai2070/l0";
-
-interface MyChunk {
-  text?: string;
-}
-
-const myAdapter: L0Adapter<AsyncIterable<MyChunk>> = {
-  name: "myai",
-
-  // Optional: Enable auto-detection
-  detect(input): input is AsyncIterable<MyChunk> {
-    return !!input && typeof input === "object" && "__myMarker" in input;
-  },
-
-  // Convert provider stream to L0 events
-  wrap(stream) {
-    return toL0Events(stream, (chunk) => chunk.text ?? null);
-  },
-};
-```
-
-### Adapter Invariants
-
-Adapters MUST:
-
-- Preserve text exactly (no trimming, no modification)
-- Include timestamps on every event
-- Convert errors to error events (never throw)
-- Emit complete event exactly once at end
-
-See [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md) for complete guide including helper functions, registry API, and testing patterns.
-
----
-
-## Multimodal Support
-
-L0 supports image, audio, and video generation with progress tracking and data events:
-
-```typescript
-import { l0, toMultimodalL0Events, type L0Adapter } from "@ai2070/l0";
-
-const fluxAdapter: L0Adapter<FluxStream> = {
-  name: "flux",
-  wrap: (stream) =>
-    toMultimodalL0Events(stream, {
-      extractProgress: (chunk) =>
-        chunk.type === "progress" ? { percent: chunk.percent } : null,
-      extractData: (chunk) =>
-        chunk.type === "image"
-          ? {
-              contentType: "image",
-              mimeType: "image/png",
-              base64: chunk.image,
-              metadata: {
-                width: chunk.width,
-                height: chunk.height,
-                seed: chunk.seed,
-              },
-            }
-          : null,
-    }),
-};
+import * as Sentry from "@sentry/node";
+import { l0, sentryInterceptor } from "@ai2070/l0";
 
 const result = await l0({
-  stream: () => fluxGenerate({ prompt: "A cat in space" }),
-  adapter: fluxAdapter,
+  stream: () => streamText({ model, prompt }),
+  monitoring: { enabled: true },
+  interceptors: [sentryInterceptor({ hub: Sentry })],
 });
-
-for await (const event of result.stream) {
-  if (event.type === "progress") console.log(`${event.progress?.percent}%`);
-  if (event.type === "data") saveImage(event.data?.base64);
-}
-
-// All generated images available in state
-console.log(result.state.dataOutputs);
 ```
 
-See [MULTIMODAL.md](./MULTIMODAL.md) for complete guide.
+**Tracks:** Breadcrumbs for all events, network errors, guardrail violations, performance transactions with TTFT and token count.
+
+### OpenTelemetry
+
+```typescript
+import { trace, metrics } from "@opentelemetry/api";
+import { l0, L0OpenTelemetry, openTelemetryInterceptor } from "@ai2070/l0";
+
+const otel = new L0OpenTelemetry({
+  tracer: trace.getTracer("my-app"),
+  meter: metrics.getMeter("my-app"),
+});
+
+// Trace a stream operation
+const result = await otel.traceStream("chat-completion", async (span) => {
+  const res = await l0({
+    stream: () => streamText({ model, prompt }),
+    monitoring: { enabled: true },
+  });
+
+  for await (const event of res.stream) {
+    otel.recordToken(span);
+  }
+
+  otel.recordTelemetry(res.telemetry, span);
+  return res;
+});
+
+// Or use the interceptor for automatic tracing
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  interceptors: [
+    openTelemetryInterceptor({
+      tracer: trace.getTracer("my-app"),
+      meter: metrics.getMeter("my-app"),
+    }),
+  ],
+});
+```
+
+**Metrics:** `l0.requests`, `l0.tokens`, `l0.retries`, `l0.errors`, `l0.duration`, `l0.time_to_first_token`, `l0.active_streams`
+
+**Span attributes:** Follows [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) with `gen_ai.*` and `l0.*` attributes.
+
+See [MONITORING.md](./MONITORING.md) for complete integration guides.
 
 ---
 
