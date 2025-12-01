@@ -506,6 +506,7 @@ export {
   suggestRetryDelay,
   L0Error,
   isL0Error,
+  L0ErrorCodes,
 } from "./utils/errors";
 
 export type {
@@ -643,12 +644,14 @@ export type {
   SerializedError,
   GuardrailEventResult,
   DriftEventResult,
+  L0RecordedEventType,
 } from "./types/events";
 
 export {
   serializeError,
   deserializeError,
   generateStreamId,
+  L0RecordedEventTypes,
 } from "./types/events";
 
 // Storage Adapters

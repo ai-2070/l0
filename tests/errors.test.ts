@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   L0Error,
+  L0ErrorCodes,
   isL0Error,
   getErrorCategory,
   NetworkErrorType,
@@ -29,44 +30,46 @@ describe("Error Utilities", () => {
   describe("L0Error", () => {
     it("should create error with context", () => {
       const error = new L0Error("Test error", {
-        code: "NETWORK_ERROR",
+        code: L0ErrorCodes.NETWORK_ERROR,
         checkpoint: "some content",
         tokenCount: 10,
       });
 
       expect(error.message).toBe("Test error");
-      expect(error.code).toBe("NETWORK_ERROR");
+      expect(error.code).toBe(L0ErrorCodes.NETWORK_ERROR);
       expect(error.context.checkpoint).toBe("some content");
       expect(error.context.tokenCount).toBe(10);
       expect(error.timestamp).toBeDefined();
     });
 
     it("should get correct category", () => {
-      const networkError = new L0Error("Network", { code: "NETWORK_ERROR" });
+      const networkError = new L0Error("Network", {
+        code: L0ErrorCodes.NETWORK_ERROR,
+      });
       expect(networkError.category).toBe(ErrorCategory.NETWORK);
 
       const contentError = new L0Error("Content", {
-        code: "GUARDRAIL_VIOLATION",
+        code: L0ErrorCodes.GUARDRAIL_VIOLATION,
       });
       expect(contentError.category).toBe(ErrorCategory.CONTENT);
     });
 
     it("should check if recoverable", () => {
       const recoverable = new L0Error("Error", {
-        code: "NETWORK_ERROR",
+        code: L0ErrorCodes.NETWORK_ERROR,
         recoverable: true,
         checkpoint: "content",
       });
       expect(recoverable.isRecoverable).toBe(true);
 
       const notRecoverable = new L0Error("Error", {
-        code: "NETWORK_ERROR",
+        code: L0ErrorCodes.NETWORK_ERROR,
         recoverable: false,
       });
       expect(notRecoverable.isRecoverable).toBe(false);
 
       const noCheckpoint = new L0Error("Error", {
-        code: "NETWORK_ERROR",
+        code: L0ErrorCodes.NETWORK_ERROR,
         recoverable: true,
         checkpoint: "",
       });
@@ -75,7 +78,7 @@ describe("Error Utilities", () => {
 
     it("should get checkpoint", () => {
       const error = new L0Error("Error", {
-        code: "NETWORK_ERROR",
+        code: L0ErrorCodes.NETWORK_ERROR,
         checkpoint: "saved content",
       });
       expect(error.getCheckpoint()).toBe("saved content");
@@ -83,7 +86,7 @@ describe("Error Utilities", () => {
 
     it("should create detailed string", () => {
       const error = new L0Error("Test error", {
-        code: "NETWORK_ERROR",
+        code: L0ErrorCodes.NETWORK_ERROR,
         tokenCount: 10,
         modelRetryCount: 2,
         fallbackIndex: 1,
@@ -100,14 +103,14 @@ describe("Error Utilities", () => {
 
     it("should serialize to JSON", () => {
       const error = new L0Error("Test", {
-        code: "NETWORK_ERROR",
+        code: L0ErrorCodes.NETWORK_ERROR,
         tokenCount: 5,
         checkpoint: "test content",
       });
 
       const json = error.toJSON();
       expect(json.name).toBe("L0Error");
-      expect(json.code).toBe("NETWORK_ERROR");
+      expect(json.code).toBe(L0ErrorCodes.NETWORK_ERROR);
       expect(json.message).toBe("Test");
       expect(json.tokenCount).toBe(5);
       expect(json.checkpoint).toBe(12); // length of "test content"
@@ -116,7 +119,7 @@ describe("Error Utilities", () => {
 
   describe("isL0Error", () => {
     it("should return true for L0Error", () => {
-      const error = new L0Error("Test", { code: "NETWORK_ERROR" });
+      const error = new L0Error("Test", { code: L0ErrorCodes.NETWORK_ERROR });
       expect(isL0Error(error)).toBe(true);
     });
 
@@ -134,42 +137,52 @@ describe("Error Utilities", () => {
 
   describe("getErrorCategory", () => {
     it("should categorize network errors", () => {
-      expect(getErrorCategory("NETWORK_ERROR")).toBe(ErrorCategory.NETWORK);
+      expect(getErrorCategory(L0ErrorCodes.NETWORK_ERROR)).toBe(
+        ErrorCategory.NETWORK,
+      );
     });
 
     it("should categorize transient errors", () => {
-      expect(getErrorCategory("INITIAL_TOKEN_TIMEOUT")).toBe(
+      expect(getErrorCategory(L0ErrorCodes.INITIAL_TOKEN_TIMEOUT)).toBe(
         ErrorCategory.TRANSIENT,
       );
-      expect(getErrorCategory("INTER_TOKEN_TIMEOUT")).toBe(
+      expect(getErrorCategory(L0ErrorCodes.INTER_TOKEN_TIMEOUT)).toBe(
         ErrorCategory.TRANSIENT,
       );
     });
 
     it("should categorize content errors", () => {
-      expect(getErrorCategory("GUARDRAIL_VIOLATION")).toBe(
+      expect(getErrorCategory(L0ErrorCodes.GUARDRAIL_VIOLATION)).toBe(
         ErrorCategory.CONTENT,
       );
-      expect(getErrorCategory("FATAL_GUARDRAIL_VIOLATION")).toBe(
+      expect(getErrorCategory(L0ErrorCodes.FATAL_GUARDRAIL_VIOLATION)).toBe(
         ErrorCategory.CONTENT,
       );
-      expect(getErrorCategory("DRIFT_DETECTED")).toBe(ErrorCategory.CONTENT);
-      expect(getErrorCategory("ZERO_OUTPUT")).toBe(ErrorCategory.CONTENT);
+      expect(getErrorCategory(L0ErrorCodes.DRIFT_DETECTED)).toBe(
+        ErrorCategory.CONTENT,
+      );
+      expect(getErrorCategory(L0ErrorCodes.ZERO_OUTPUT)).toBe(
+        ErrorCategory.CONTENT,
+      );
     });
 
     it("should categorize internal errors", () => {
-      expect(getErrorCategory("INVALID_STREAM")).toBe(ErrorCategory.INTERNAL);
-      expect(getErrorCategory("ADAPTER_NOT_FOUND")).toBe(
+      expect(getErrorCategory(L0ErrorCodes.INVALID_STREAM)).toBe(
         ErrorCategory.INTERNAL,
       );
-      expect(getErrorCategory("FEATURE_NOT_ENABLED")).toBe(
+      expect(getErrorCategory(L0ErrorCodes.ADAPTER_NOT_FOUND)).toBe(
+        ErrorCategory.INTERNAL,
+      );
+      expect(getErrorCategory(L0ErrorCodes.FEATURE_NOT_ENABLED)).toBe(
         ErrorCategory.INTERNAL,
       );
     });
 
     it("should categorize provider errors", () => {
-      expect(getErrorCategory("STREAM_ABORTED")).toBe(ErrorCategory.PROVIDER);
-      expect(getErrorCategory("ALL_STREAMS_EXHAUSTED")).toBe(
+      expect(getErrorCategory(L0ErrorCodes.STREAM_ABORTED)).toBe(
+        ErrorCategory.PROVIDER,
+      );
+      expect(getErrorCategory(L0ErrorCodes.ALL_STREAMS_EXHAUSTED)).toBe(
         ErrorCategory.PROVIDER,
       );
     });

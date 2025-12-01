@@ -10,47 +10,50 @@ import {
 export { ErrorCategory };
 
 /**
+ * Error codes for L0 errors
+ */
+export const L0ErrorCodes = {
+  STREAM_ABORTED: "STREAM_ABORTED",
+  INITIAL_TOKEN_TIMEOUT: "INITIAL_TOKEN_TIMEOUT",
+  INTER_TOKEN_TIMEOUT: "INTER_TOKEN_TIMEOUT",
+  ZERO_OUTPUT: "ZERO_OUTPUT",
+  GUARDRAIL_VIOLATION: "GUARDRAIL_VIOLATION",
+  FATAL_GUARDRAIL_VIOLATION: "FATAL_GUARDRAIL_VIOLATION",
+  INVALID_STREAM: "INVALID_STREAM",
+  ALL_STREAMS_EXHAUSTED: "ALL_STREAMS_EXHAUSTED",
+  NETWORK_ERROR: "NETWORK_ERROR",
+  DRIFT_DETECTED: "DRIFT_DETECTED",
+  ADAPTER_NOT_FOUND: "ADAPTER_NOT_FOUND",
+  FEATURE_NOT_ENABLED: "FEATURE_NOT_ENABLED",
+} as const;
+
+export type L0ErrorCode = (typeof L0ErrorCodes)[keyof typeof L0ErrorCodes];
+
+/**
  * Map error codes to categories
  */
 export function getErrorCategory(code: L0ErrorCode): ErrorCategory {
   switch (code) {
-    case "NETWORK_ERROR":
+    case L0ErrorCodes.NETWORK_ERROR:
       return ErrorCategory.NETWORK;
-    case "INITIAL_TOKEN_TIMEOUT":
-    case "INTER_TOKEN_TIMEOUT":
+    case L0ErrorCodes.INITIAL_TOKEN_TIMEOUT:
+    case L0ErrorCodes.INTER_TOKEN_TIMEOUT:
       return ErrorCategory.TRANSIENT;
-    case "GUARDRAIL_VIOLATION":
-    case "FATAL_GUARDRAIL_VIOLATION":
-    case "DRIFT_DETECTED":
-    case "ZERO_OUTPUT":
+    case L0ErrorCodes.GUARDRAIL_VIOLATION:
+    case L0ErrorCodes.FATAL_GUARDRAIL_VIOLATION:
+    case L0ErrorCodes.DRIFT_DETECTED:
+    case L0ErrorCodes.ZERO_OUTPUT:
       return ErrorCategory.CONTENT;
-    case "INVALID_STREAM":
-    case "ADAPTER_NOT_FOUND":
-    case "FEATURE_NOT_ENABLED":
+    case L0ErrorCodes.INVALID_STREAM:
+    case L0ErrorCodes.ADAPTER_NOT_FOUND:
+    case L0ErrorCodes.FEATURE_NOT_ENABLED:
       return ErrorCategory.INTERNAL;
-    case "STREAM_ABORTED":
-    case "ALL_STREAMS_EXHAUSTED":
+    case L0ErrorCodes.STREAM_ABORTED:
+    case L0ErrorCodes.ALL_STREAMS_EXHAUSTED:
     default:
       return ErrorCategory.PROVIDER;
   }
 }
-
-/**
- * Error codes for L0 errors
- */
-export type L0ErrorCode =
-  | "STREAM_ABORTED"
-  | "INITIAL_TOKEN_TIMEOUT"
-  | "INTER_TOKEN_TIMEOUT"
-  | "ZERO_OUTPUT"
-  | "GUARDRAIL_VIOLATION"
-  | "FATAL_GUARDRAIL_VIOLATION"
-  | "INVALID_STREAM"
-  | "ALL_STREAMS_EXHAUSTED"
-  | "NETWORK_ERROR"
-  | "DRIFT_DETECTED"
-  | "ADAPTER_NOT_FOUND"
-  | "FEATURE_NOT_ENABLED";
 
 /**
  * Context information for L0 errors

@@ -11,6 +11,25 @@ import type { GuardrailViolation } from "./guardrails";
 import type { BackoffStrategy } from "./retry";
 
 /**
+ * Recorded event types for L0 event sourcing
+ */
+export const L0RecordedEventTypes = {
+  START: "START",
+  TOKEN: "TOKEN",
+  CHECKPOINT: "CHECKPOINT",
+  GUARDRAIL: "GUARDRAIL",
+  DRIFT: "DRIFT",
+  RETRY: "RETRY",
+  FALLBACK: "FALLBACK",
+  CONTINUATION: "CONTINUATION",
+  COMPLETE: "COMPLETE",
+  ERROR: "ERROR",
+} as const;
+
+export type L0RecordedEventType =
+  (typeof L0RecordedEventTypes)[keyof typeof L0RecordedEventTypes];
+
+/**
  * Serialized L0 options for event storage
  * Strips functions and non-serializable fields
  */

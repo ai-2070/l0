@@ -9,7 +9,7 @@ import type {
   L0RecordedEvent,
   L0Snapshot,
 } from "../types/events";
-import { generateStreamId } from "../types/events";
+import { generateStreamId, L0RecordedEventTypes } from "../types/events";
 
 /**
  * In-memory event store for testing and short-lived sessions
@@ -171,7 +171,7 @@ export class L0EventRecorder {
     options: Extract<L0RecordedEvent, { type: "START" }>["options"],
   ): Promise<void> {
     await this.record({
-      type: "START",
+      type: L0RecordedEventTypes.START,
       ts: Date.now(),
       options,
     });
@@ -179,7 +179,7 @@ export class L0EventRecorder {
 
   async recordToken(value: string, index: number): Promise<void> {
     await this.record({
-      type: "TOKEN",
+      type: L0RecordedEventTypes.TOKEN,
       ts: Date.now(),
       value,
       index,
@@ -188,7 +188,7 @@ export class L0EventRecorder {
 
   async recordCheckpoint(at: number, content: string): Promise<void> {
     await this.record({
-      type: "CHECKPOINT",
+      type: L0RecordedEventTypes.CHECKPOINT,
       ts: Date.now(),
       at,
       content,
@@ -200,7 +200,7 @@ export class L0EventRecorder {
     result: Extract<L0RecordedEvent, { type: "GUARDRAIL" }>["result"],
   ): Promise<void> {
     await this.record({
-      type: "GUARDRAIL",
+      type: L0RecordedEventTypes.GUARDRAIL,
       ts: Date.now(),
       at,
       result,
@@ -212,7 +212,7 @@ export class L0EventRecorder {
     result: Extract<L0RecordedEvent, { type: "DRIFT" }>["result"],
   ): Promise<void> {
     await this.record({
-      type: "DRIFT",
+      type: L0RecordedEventTypes.DRIFT,
       ts: Date.now(),
       at,
       result,
@@ -225,7 +225,7 @@ export class L0EventRecorder {
     countsTowardLimit: boolean,
   ): Promise<void> {
     await this.record({
-      type: "RETRY",
+      type: L0RecordedEventTypes.RETRY,
       ts: Date.now(),
       reason,
       attempt,
@@ -235,7 +235,7 @@ export class L0EventRecorder {
 
   async recordFallback(to: number): Promise<void> {
     await this.record({
-      type: "FALLBACK",
+      type: L0RecordedEventTypes.FALLBACK,
       ts: Date.now(),
       to,
     });
@@ -243,7 +243,7 @@ export class L0EventRecorder {
 
   async recordContinuation(checkpoint: string, at: number): Promise<void> {
     await this.record({
-      type: "CONTINUATION",
+      type: L0RecordedEventTypes.CONTINUATION,
       ts: Date.now(),
       checkpoint,
       at,
@@ -252,7 +252,7 @@ export class L0EventRecorder {
 
   async recordComplete(content: string, tokenCount: number): Promise<void> {
     await this.record({
-      type: "COMPLETE",
+      type: L0RecordedEventTypes.COMPLETE,
       ts: Date.now(),
       content,
       tokenCount,
@@ -264,7 +264,7 @@ export class L0EventRecorder {
     recoverable: boolean,
   ): Promise<void> {
     await this.record({
-      type: "ERROR",
+      type: L0RecordedEventTypes.ERROR,
       ts: Date.now(),
       error,
       recoverable,
@@ -344,30 +344,30 @@ export class L0EventReplayer {
       const event = envelope.event;
 
       switch (event.type) {
-        case "START":
+        case L0RecordedEventTypes.START:
           state.startTs = event.ts;
           break;
 
-        case "TOKEN":
+        case L0RecordedEventTypes.TOKEN:
           state.content += event.value;
           state.tokenCount = event.index + 1;
           break;
 
-        case "CHECKPOINT":
+        case L0RecordedEventTypes.CHECKPOINT:
           state.checkpoint = event.content;
           break;
 
-        case "GUARDRAIL":
+        case L0RecordedEventTypes.GUARDRAIL:
           state.violations.push(...event.result.violations);
           break;
 
-        case "DRIFT":
+        case L0RecordedEventTypes.DRIFT:
           if (event.result.detected) {
             state.driftDetected = true;
           }
           break;
 
-        case "RETRY":
+        case L0RecordedEventTypes.RETRY:
           if (event.countsTowardLimit) {
             state.retryAttempts++;
           } else {
@@ -375,22 +375,22 @@ export class L0EventReplayer {
           }
           break;
 
-        case "FALLBACK":
+        case L0RecordedEventTypes.FALLBACK:
           state.fallbackIndex = event.to;
           break;
 
-        case "CONTINUATION":
+        case L0RecordedEventTypes.CONTINUATION:
           state.content = event.checkpoint;
           break;
 
-        case "COMPLETE":
+        case L0RecordedEventTypes.COMPLETE:
           state.completed = true;
           state.content = event.content;
           state.tokenCount = event.tokenCount;
           state.endTs = event.ts;
           break;
 
-        case "ERROR":
+        case L0RecordedEventTypes.ERROR:
           state.error = event.error;
           state.endTs = event.ts;
           break;
@@ -408,7 +408,7 @@ export class L0EventReplayer {
     options: { speed?: number } = {},
   ): AsyncGenerator<string> {
     for await (const envelope of this.replay(streamId, options)) {
-      if (envelope.event.type === "TOKEN") {
+      if (envelope.event.type === L0RecordedEventTypes.TOKEN) {
         yield envelope.event.value;
       }
     }

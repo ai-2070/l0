@@ -62,7 +62,7 @@ describe("L0Monitor", () => {
     it("should calculate duration on complete", async () => {
       const monitor = new L0Monitor({ enabled: true });
       monitor.start();
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 15));
       monitor.complete();
       const telemetry = monitor.getTelemetry();
       expect(telemetry?.endTime).toBeDefined();

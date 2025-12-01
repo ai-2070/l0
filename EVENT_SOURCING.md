@@ -70,9 +70,11 @@ console.log(result.state.completed); // true
 
 ## Event Types
 
-L0 uses a lean, composable event schema:
+L0 uses a lean, composable event schema. Import `L0RecordedEventTypes` for type-safe event type constants:
 
 ```typescript
+import { L0RecordedEventTypes } from "@ai2070/l0";
+
 type L0RecordedEvent =
   | { type: "START"; ts: number; options: SerializedOptions }
   | { type: "TOKEN"; ts: number; value: string; index: number }

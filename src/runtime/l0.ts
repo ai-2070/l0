@@ -13,7 +13,12 @@ import { RetryManager } from "./retry";
 import { detectZeroToken } from "./zeroToken";
 import { normalizeStreamEvent } from "./events";
 import { detectOverlap } from "../utils/tokens";
-import { isNetworkError, L0Error, ErrorCategory } from "../utils/errors";
+import {
+  isNetworkError,
+  L0Error,
+  ErrorCategory,
+  L0ErrorCodes,
+} from "../utils/errors";
 
 // Type-only imports for optional modules (injected at runtime)
 import type { DriftDetector as DriftDetectorType } from "./drift";
@@ -139,7 +144,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Interceptors require enableInterceptors() to be called first. " +
           'Import and call: import { enableInterceptors } from "@ai2070/l0"; enableInterceptors();',
-        { code: "FEATURE_NOT_ENABLED", recoverable: false },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, recoverable: false },
       );
     }
     interceptorManager = _interceptorManagerFactory(interceptors);
@@ -206,7 +211,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Monitoring requires enableMonitoring() to be called first. " +
           'Import and call: import { enableMonitoring } from "@ai2070/l0"; enableMonitoring();',
-        { code: "FEATURE_NOT_ENABLED", recoverable: false },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, recoverable: false },
       );
     }
     monitor = _monitorFactory({
@@ -256,7 +261,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Drift detection requires enableDriftDetection() to be called first. " +
           'Import and call: import { enableDriftDetection } from "@ai2070/l0"; enableDriftDetection();',
-        { code: "FEATURE_NOT_ENABLED", recoverable: false },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, recoverable: false },
       );
     }
     driftDetector = _driftDetectorFactory();
@@ -436,7 +441,10 @@ export async function l0<TOutput = unknown>(
                 throw new L0Error(
                   "String adapter names require enableAdapterRegistry() to be called first. " +
                     'Import and call: import { enableAdapterRegistry } from "@ai2070/l0"; enableAdapterRegistry();',
-                  { code: "FEATURE_NOT_ENABLED", recoverable: false },
+                  {
+                    code: L0ErrorCodes.FEATURE_NOT_ENABLED,
+                    recoverable: false,
+                  },
                 );
               }
               adapter = _adapterRegistry.getAdapter(processedOptions.adapter);
@@ -445,7 +453,7 @@ export async function l0<TOutput = unknown>(
                   `Adapter "${processedOptions.adapter}" not found. ` +
                     `Use registerAdapter() to register it first.`,
                   {
-                    code: "ADAPTER_NOT_FOUND",
+                    code: L0ErrorCodes.ADAPTER_NOT_FOUND,
                     modelRetryCount: state.modelRetryCount,
                     networkRetryCount: state.networkRetryCount,
                     fallbackIndex,
@@ -489,7 +497,7 @@ export async function l0<TOutput = unknown>(
               "Invalid stream result - no iterable stream found and no adapter matched. " +
                 "Use explicit `adapter: myAdapter` or register an adapter with detect().",
               {
-                code: "INVALID_STREAM",
+                code: L0ErrorCodes.INVALID_STREAM,
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
@@ -530,7 +538,7 @@ export async function l0<TOutput = unknown>(
             // Check abort signal
             if (signal?.aborted) {
               throw new L0Error("Stream aborted by signal", {
-                code: "STREAM_ABORTED",
+                code: L0ErrorCodes.STREAM_ABORTED,
                 checkpoint: state.checkpoint,
                 tokenCount: state.tokenCount,
                 contentLength: state.content.length,
@@ -549,7 +557,7 @@ export async function l0<TOutput = unknown>(
               if (timeSinceLastToken > interTimeout) {
                 metrics.timeouts++;
                 throw new L0Error("Inter-token timeout reached", {
-                  code: "INTER_TOKEN_TIMEOUT",
+                  code: L0ErrorCodes.INTER_TOKEN_TIMEOUT,
                   checkpoint: state.checkpoint,
                   tokenCount: state.tokenCount,
                   contentLength: state.content.length,
@@ -573,7 +581,7 @@ export async function l0<TOutput = unknown>(
             if (initialTimeoutReached && !firstTokenReceived) {
               metrics.timeouts++;
               throw new L0Error("Initial token timeout reached", {
-                code: "INITIAL_TOKEN_TIMEOUT",
+                code: L0ErrorCodes.INITIAL_TOKEN_TIMEOUT,
                 checkpoint: state.checkpoint,
                 tokenCount: 0,
                 contentLength: 0,
@@ -734,7 +742,7 @@ export async function l0<TOutput = unknown>(
                   throw new L0Error(
                     `Fatal guardrail violation: ${result.violations[0]?.message}`,
                     {
-                      code: "FATAL_GUARDRAIL_VIOLATION",
+                      code: L0ErrorCodes.FATAL_GUARDRAIL_VIOLATION,
                       checkpoint: state.checkpoint,
                       tokenCount: state.tokenCount,
                       contentLength: state.content.length,
@@ -892,7 +900,7 @@ export async function l0<TOutput = unknown>(
                   throw new L0Error(
                     `Fatal guardrail violation: ${result.violations[0]?.message}`,
                     {
-                      code: "FATAL_GUARDRAIL_VIOLATION",
+                      code: L0ErrorCodes.FATAL_GUARDRAIL_VIOLATION,
                       checkpoint: state.checkpoint,
                       tokenCount: state.tokenCount,
                       contentLength: state.content.length,
@@ -939,7 +947,7 @@ export async function l0<TOutput = unknown>(
           // Check for zero output
           if (processedDetectZeroTokens && detectZeroToken(state.content)) {
             throw new L0Error("Zero output detected - no meaningful content", {
-              code: "ZERO_OUTPUT",
+              code: L0ErrorCodes.ZERO_OUTPUT,
               checkpoint: state.checkpoint,
               tokenCount: state.tokenCount,
               contentLength: state.content.length,
@@ -984,7 +992,7 @@ export async function l0<TOutput = unknown>(
               throw new L0Error(
                 `Fatal guardrail violation: ${result.violations[0]?.message}`,
                 {
-                  code: "FATAL_GUARDRAIL_VIOLATION",
+                  code: L0ErrorCodes.FATAL_GUARDRAIL_VIOLATION,
                   checkpoint: state.checkpoint,
                   tokenCount: state.tokenCount,
                   contentLength: state.content.length,
