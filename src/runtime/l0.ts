@@ -91,6 +91,9 @@ export async function l0<TOutput = unknown>(
     detectDrift: processedDetectDrift = false,
     detectZeroTokens: processedDetectZeroTokens = true,
     checkIntervals: processedCheckIntervals = {},
+    onStart: processedOnStart,
+    onComplete: processedOnComplete,
+    onError: processedOnError,
     onEvent: processedOnEvent,
     onViolation: processedOnViolation,
     onRetry: processedOnRetry,
@@ -200,6 +203,13 @@ export async function l0<TOutput = unknown>(
       while (retryAttempt <= modelRetryLimit) {
         // Transition to init state at start of each attempt
         stateMachine.transition(RuntimeStates.INIT);
+
+        // Call onStart callback
+        if (processedOnStart) {
+          const isRetry = retryAttempt > 0 || isRetryAttempt;
+          const isFallback = fallbackIndex > 0;
+          processedOnStart(retryAttempt + 1, isRetry, isFallback);
+        }
 
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
@@ -917,6 +927,11 @@ export async function l0<TOutput = unknown>(
 
           stateMachine.transition(RuntimeStates.COMPLETE);
 
+          // Call onComplete callback
+          if (processedOnComplete) {
+            processedOnComplete(state);
+          }
+
           break; // Exit retry loop on success
         } catch (error) {
           const err = error instanceof Error ? error : new Error(String(error));
@@ -1037,6 +1052,14 @@ export async function l0<TOutput = unknown>(
               decision.shouldRetry,
               decision.delay,
             );
+          }
+
+          // Call onError callback before retry/fallback decision is acted upon
+          if (processedOnError) {
+            const willRetry = decision.shouldRetry;
+            const willFallback =
+              !decision.shouldRetry && fallbackIndex < allStreams.length - 1;
+            processedOnError(err, willRetry, willFallback);
           }
 
           // Check if should retry

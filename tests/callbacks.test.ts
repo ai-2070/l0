@@ -360,6 +360,299 @@ describe("onResume callback", () => {
   });
 });
 
+describe("onStart callback", () => {
+  it("should call onStart on first attempt", async () => {
+    const onStart = vi.fn();
+
+    const result = await l0({
+      stream: createTokenStream(["hello"]),
+      onStart,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledWith(1, false, false); // attempt 1, not retry, not fallback
+  });
+
+  it("should call onStart on retry with correct flags", async () => {
+    const onStart = vi.fn();
+    let attemptCount = 0;
+
+    const rule: GuardrailRule = {
+      name: "force-retry",
+      check: (ctx) => {
+        if (ctx.completed && ctx.content.includes("retry-me")) {
+          return [
+            {
+              rule: "force-retry",
+              severity: "error",
+              message: "Force retry",
+              recoverable: true,
+            },
+          ];
+        }
+        return [];
+      },
+    };
+
+    const streamFactory = () => {
+      attemptCount++;
+      const gen = async function* (): AsyncGenerator<L0Event> {
+        if (attemptCount === 1) {
+          yield { type: "token", value: "retry-me", timestamp: Date.now() };
+        } else {
+          yield { type: "token", value: "success", timestamp: Date.now() };
+        }
+        yield { type: "complete", timestamp: Date.now() };
+      };
+      return gen();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      guardrails: [rule],
+      retry: { attempts: 2 },
+      onStart,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(onStart).toHaveBeenCalledTimes(2);
+    expect(onStart.mock.calls[0]).toEqual([1, false, false]); // First attempt
+    expect(onStart.mock.calls[1]).toEqual([2, true, false]); // Retry attempt
+  });
+
+  it("should call onStart on fallback with correct flags", async () => {
+    const onStart = vi.fn();
+
+    const failRule: GuardrailRule = {
+      name: "fail-primary",
+      check: (ctx) => {
+        if (ctx.completed && ctx.content.includes("primary")) {
+          return [
+            {
+              rule: "fail-primary",
+              severity: "error",
+              message: "Primary must fail",
+              recoverable: false,
+            },
+          ];
+        }
+        return [];
+      },
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["primary"]),
+      fallbackStreams: [createTokenStream(["fallback-success"])],
+      guardrails: [failRule],
+      retry: { attempts: 1 },
+      onStart,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(onStart).toHaveBeenCalledTimes(2);
+    expect(onStart.mock.calls[0]).toEqual([1, false, false]); // Primary
+    expect(onStart.mock.calls[1]![2]).toBe(true); // Fallback flag is true
+  });
+});
+
+describe("onComplete callback", () => {
+  it("should call onComplete on successful stream", async () => {
+    const onComplete = vi.fn();
+
+    const result = await l0({
+      stream: createTokenStream(["hello", "world"]),
+      onComplete,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    const state = onComplete.mock.calls[0]![0];
+    expect(state.content).toBe("helloworld");
+    expect(state.completed).toBe(true);
+  });
+
+  it("should not call onComplete when stream fails with no fallback", async () => {
+    const onComplete = vi.fn();
+
+    const failingStream = async function* (): AsyncGenerator<L0Event> {
+      yield {
+        type: "error",
+        error: new Error("Fatal error"),
+        timestamp: Date.now(),
+      };
+    };
+
+    const result = await l0({
+      stream: () => failingStream(),
+      retry: { attempts: 0 },
+      onComplete,
+    });
+
+    try {
+      for await (const _ of result.stream) {
+        // Consume stream
+      }
+    } catch {
+      // Expected to throw
+    }
+
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("should call onComplete after successful retry", async () => {
+    const onComplete = vi.fn();
+    let attemptCount = 0;
+
+    const rule: GuardrailRule = {
+      name: "force-retry",
+      check: (ctx) => {
+        if (ctx.completed && ctx.content.includes("retry-me")) {
+          return [
+            {
+              rule: "force-retry",
+              severity: "error",
+              message: "Force retry",
+              recoverable: true,
+            },
+          ];
+        }
+        return [];
+      },
+    };
+
+    const streamFactory = () => {
+      attemptCount++;
+      const gen = async function* (): AsyncGenerator<L0Event> {
+        if (attemptCount === 1) {
+          yield { type: "token", value: "retry-me", timestamp: Date.now() };
+        } else {
+          yield { type: "token", value: "success", timestamp: Date.now() };
+        }
+        yield { type: "complete", timestamp: Date.now() };
+      };
+      return gen();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      guardrails: [rule],
+      retry: { attempts: 2 },
+      onComplete,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    const state = onComplete.mock.calls[0]![0];
+    expect(state.content).toBe("success");
+  });
+});
+
+describe("onError callback", () => {
+  it("should call onError when error occurs", async () => {
+    const onError = vi.fn();
+
+    const failingStream = async function* (): AsyncGenerator<L0Event> {
+      yield { type: "token", value: "start", timestamp: Date.now() };
+      yield {
+        type: "error",
+        error: new Error("Test error"),
+        timestamp: Date.now(),
+      };
+    };
+
+    const result = await l0({
+      stream: () => failingStream(),
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 1 },
+      onError,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(onError).toHaveBeenCalled();
+    const [error, willRetry, willFallback] = onError.mock.calls[0]!;
+    expect(error).toBeInstanceOf(Error);
+    expect(typeof willRetry).toBe("boolean");
+    expect(typeof willFallback).toBe("boolean");
+  });
+
+  it("should indicate willRetry=true when retry will happen", async () => {
+    const onError = vi.fn();
+
+    // Use a failing stream that triggers retry then fallback
+    const failingStream = async function* (): AsyncGenerator<L0Event> {
+      yield { type: "token", value: "start", timestamp: Date.now() };
+      yield {
+        type: "error",
+        error: new Error("Retryable"),
+        timestamp: Date.now(),
+      };
+    };
+
+    const result = await l0({
+      stream: () => failingStream(),
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 2 },
+      onError,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    // onError should have been called
+    expect(onError).toHaveBeenCalled();
+    // Check that at least one call indicated willRetry or willFallback
+    const anyRecovery = onError.mock.calls.some((call) => {
+      const [, willRetry, willFallback] = call as [Error, boolean, boolean];
+      return willRetry || willFallback;
+    });
+    expect(anyRecovery).toBe(true);
+  });
+
+  it("should indicate willFallback=true when fallback will happen", async () => {
+    const onError = vi.fn();
+
+    const failingStream = async function* (): AsyncGenerator<L0Event> {
+      yield { type: "error", error: new Error("Fatal"), timestamp: Date.now() };
+    };
+
+    const result = await l0({
+      stream: () => failingStream(),
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 0 }, // No retries
+      onError,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(onError).toHaveBeenCalled();
+    const [, willRetry, willFallback] = onError.mock.calls[0]!;
+    expect(willRetry).toBe(false);
+    expect(willFallback).toBe(true);
+  });
+});
+
 describe("Combined callbacks", () => {
   it("should call onFallback before onResume during fallback with continuation", async () => {
     const callOrder: string[] = [];

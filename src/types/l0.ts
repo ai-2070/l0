@@ -426,6 +426,49 @@ export interface L0Options<TOutput = unknown> {
   };
 
   /**
+   * Optional callback when a new execution attempt begins.
+   *
+   * Called when:
+   * - The initial stream starts
+   * - A retry attempt starts
+   * - A fallback attempt starts
+   *
+   * @param attempt - The attempt number (1 for first attempt, increments on retry)
+   * @param isRetry - Whether this is a retry (not the first attempt)
+   * @param isFallback - Whether this is a fallback model
+   */
+  onStart?: (attempt: number, isRetry: boolean, isFallback: boolean) => void;
+
+  /**
+   * Optional callback when the stream completes successfully.
+   *
+   * Called when:
+   * - The stream finishes without errors
+   * - All guardrails pass
+   * - The final state is available
+   *
+   * @param state - The final L0State with all accumulated data
+   */
+  onComplete?: (state: L0State) => void;
+
+  /**
+   * Optional callback when an error occurs.
+   *
+   * Called when:
+   * - A stream error occurs (before retry/fallback decision)
+   * - A timeout occurs
+   * - A fatal guardrail violation occurs
+   *
+   * This is called before retries or fallbacks are attempted.
+   * Use this for logging/monitoring errors as they happen.
+   *
+   * @param error - The error that occurred
+   * @param willRetry - Whether L0 will attempt a retry
+   * @param willFallback - Whether L0 will attempt a fallback
+   */
+  onError?: (error: Error, willRetry: boolean, willFallback: boolean) => void;
+
+  /**
    * Optional callback for each event
    */
   onEvent?: (event: L0Event) => void;
