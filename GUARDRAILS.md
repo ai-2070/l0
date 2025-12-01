@@ -315,6 +315,74 @@ const matches = findBadPatterns(content, BAD_PATTERNS.META_COMMENTARY);
 
 ---
 
+## Performance: Fast and Slow Paths
+
+L0 uses a two-path strategy to avoid blocking the streaming loop:
+
+### Fast Path (Synchronous)
+
+Runs immediately on each chunk for quick checks:
+
+- **Delta-only checks**: Only examines the latest chunk (`context.delta`)
+- **Small content**: Full check if total content < 5KB
+- **Instant violations**: Blocked words, obvious patterns
+
+```typescript
+// Fast path triggers for:
+// - Delta < 1KB
+// - Total content < 5KB
+// - Any violation found in delta
+```
+
+### Slow Path (Asynchronous)
+
+Deferred to `setImmediate()` to avoid blocking:
+
+- **Large content**: Full content scan for content > 5KB
+- **Complex rules**: Pattern matching, structure analysis
+- **Non-blocking**: Results delivered via callback
+
+```typescript
+import { runAsyncGuardrailCheck } from "@ai2070/l0/guardrails";
+
+const result = runAsyncGuardrailCheck(engine, context, (asyncResult) => {
+  // Called when slow path completes
+  if (asyncResult.shouldHalt) {
+    // Handle violation
+  }
+});
+
+if (result) {
+  // Fast path returned immediately
+} else {
+  // Deferred to async callback
+}
+```
+
+### Rule Complexity
+
+| Rule | Complexity | When Checked |
+|------|------------|--------------|
+| `zeroOutputRule` | O(1) | Fast path |
+| `jsonRule` | O(n) | Scans full content |
+| `markdownRule` | O(n) | Scans full content |
+| `latexRule` | O(n) | Scans full content |
+| `patternRule` | O(n × p) | Scans full content × patterns |
+
+For long outputs, increase `checkIntervals.guardrails` to reduce frequency:
+
+```typescript
+await l0({
+  stream,
+  guardrails: recommendedGuardrails,
+  checkIntervals: {
+    guardrails: 50, // Check every 50 tokens instead of default 5
+  },
+});
+```
+
+---
+
 ## Integration with Retry
 
 Guardrail violations integrate with retry logic:

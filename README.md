@@ -77,7 +77,7 @@ L0 includes 2,000+ tests covering all major reliability features.
 | **🧠 Drift Detection**                           | Detects tone shifts, duplicated sentences, entropy spikes, markdown collapse, and meta-AI patterns before corruption.                                                                                 |
 | **🧱 Structured Output**                         | Guaranteed-valid JSON with Zod (v3/v4), Effect Schema, or JSON Schema. Auto-corrects missing braces, commas, and markdown fences.                                                                     |
 | **🩹 JSON Auto-Healing + Markdown Fence Repair** | Automatic correction of truncated or malformed JSON (missing braces, brackets, quotes), and repair of broken Markdown code fences. Ensures clean extraction of structured data from noisy LLM output. |
-| **🛡️ Guardrails**                                | JSON, Markdown, LaTeX, and tool-call validation. Catches malformed output, broken fences, drift, repetition, and hallucination patterns.                                                              |
+| **🛡️ Guardrails**                                | JSON, Markdown, LaTeX, and pattern validation with fast/slow path execution. Delta-only checks run sync; full-content scans defer to async to never block streaming.                                  |
 | **⚡ Race: Fastest-Model Wins**                  | Run multiple models or providers in parallel and return the fastest valid stream. Ideal for ultra-low-latency chat and high-availability systems.                                                     |
 | **🌿 Parallel: Fan-Out / Fan-In**                | Start multiple streams simultaneously and collect structured or summarized results. Perfect for agent-style multi-model workflows.                                                                    |
 | **🔗 Pipe: Streaming Pipelines**                 | Compose multiple streaming steps (e.g., summarize → refine → translate) with safe state passing and guardrails between each stage.                                                                    |
@@ -727,6 +727,29 @@ import {
 // Recommended: + Markdown, drift, patterns
 // Strict: + function calls, schema validation
 ```
+
+### Fast/Slow Path Execution
+
+L0 uses a two-path strategy to avoid blocking the streaming loop:
+
+| Path | When | Behavior |
+|------|------|----------|
+| **Fast** | Delta < 1KB, total < 5KB | Synchronous check, immediate result |
+| **Slow** | Large content | Deferred via `setImmediate()`, non-blocking |
+
+For long outputs, tune the check frequency:
+
+```typescript
+await l0({
+  stream,
+  guardrails: recommendedGuardrails,
+  checkIntervals: {
+    guardrails: 50, // Check every 50 tokens (default: 5)
+  },
+});
+```
+
+See [GUARDRAILS.md](./GUARDRAILS.md) for full documentation.
 
 ---
 
