@@ -10,18 +10,84 @@ import type {
 import { GuardrailEngine } from "../guardrails/engine";
 import type { GuardrailContext } from "../types/guardrails";
 import { RetryManager } from "./retry";
-import { DriftDetector } from "./drift";
 import { detectZeroToken } from "./zeroToken";
 import { normalizeStreamEvent } from "./events";
 import { detectOverlap } from "../utils/tokens";
-import { L0Monitor } from "./monitoring";
 import { isNetworkError, L0Error, ErrorCategory } from "../utils/errors";
-import { InterceptorManager } from "./interceptors";
-import {
-  getAdapter,
-  detectAdapter,
-  hasMatchingAdapter,
-} from "../adapters/registry";
+
+// Type-only imports for optional modules (injected at runtime)
+import type { DriftDetector as DriftDetectorType } from "./drift";
+import type { L0Monitor as L0MonitorType } from "./monitoring";
+import type { InterceptorManager as InterceptorManagerType } from "./interceptors";
+
+// Optional feature loaders - these are set by calling enableXxx() functions
+// This allows the features to be tree-shaken when not used
+let _driftDetectorFactory: (() => DriftDetectorType) | null = null;
+let _monitorFactory: ((config: unknown) => L0MonitorType) | null = null;
+let _interceptorManagerFactory:
+  | ((interceptors: unknown[]) => InterceptorManagerType)
+  | null = null;
+let _adapterRegistry: {
+  getAdapter: (name: string) => L0Adapter | undefined;
+  hasMatchingAdapter: (stream: unknown) => boolean;
+  detectAdapter: (stream: unknown) => L0Adapter;
+} | null = null;
+
+/**
+ * Enable drift detection feature. Call this once before using detectDrift option.
+ * @example
+ * ```typescript
+ * import { enableDriftDetection } from "@ai2070/l0";
+ * enableDriftDetection();
+ * ```
+ */
+export function enableDriftDetection(factory: () => DriftDetectorType): void {
+  _driftDetectorFactory = factory;
+}
+
+/**
+ * Enable monitoring feature. Call this once before using monitoring option.
+ * @example
+ * ```typescript
+ * import { enableMonitoring } from "@ai2070/l0";
+ * enableMonitoring();
+ * ```
+ */
+export function enableMonitoring(
+  factory: (config: unknown) => L0MonitorType,
+): void {
+  _monitorFactory = factory;
+}
+
+/**
+ * Enable interceptors feature. Call this once before using interceptors option.
+ * @example
+ * ```typescript
+ * import { enableInterceptors } from "@ai2070/l0";
+ * enableInterceptors();
+ * ```
+ */
+export function enableInterceptors(
+  factory: (interceptors: unknown[]) => InterceptorManagerType,
+): void {
+  _interceptorManagerFactory = factory;
+}
+
+/**
+ * Enable adapter registry for auto-detection of SDK streams.
+ * @example
+ * ```typescript
+ * import { enableAdapterRegistry } from "@ai2070/l0";
+ * enableAdapterRegistry();
+ * ```
+ */
+export function enableAdapterRegistry(registry: {
+  getAdapter: (name: string) => L0Adapter | undefined;
+  hasMatchingAdapter: (stream: unknown) => boolean;
+  detectAdapter: (stream: unknown) => L0Adapter;
+}): void {
+  _adapterRegistry = registry;
+}
 
 // Import from extracted modules
 import { createInitialState, resetStateForRetry } from "./state";
@@ -64,19 +130,30 @@ export async function l0<TOutput = unknown>(
 ): Promise<L0Result<TOutput>> {
   const { signal: externalSignal, interceptors = [] } = options;
 
-  // Initialize interceptor manager
-  const interceptorManager = new InterceptorManager(interceptors);
-
-  // Execute "before" interceptors
+  // Use interceptor manager if interceptors provided AND feature is enabled
+  let interceptorManager: InterceptorManagerType | null = null;
   let processedOptions: L0Options<TOutput> = options;
-  try {
-    processedOptions = (await interceptorManager.executeBefore(
-      options,
-    )) as L0Options<TOutput>;
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    await interceptorManager.executeError(err, options);
-    throw err;
+
+  if (interceptors.length > 0) {
+    if (!_interceptorManagerFactory) {
+      throw new L0Error(
+        "Interceptors require enableInterceptors() to be called first. " +
+          'Import and call: import { enableInterceptors } from "@ai2070/l0"; enableInterceptors();',
+        { code: "FEATURE_NOT_ENABLED", recoverable: false },
+      );
+    }
+    interceptorManager = _interceptorManagerFactory(interceptors);
+
+    // Execute "before" interceptors
+    try {
+      processedOptions = (await interceptorManager.executeBefore(
+        options,
+      )) as L0Options<TOutput>;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      await interceptorManager.executeError(err, options);
+      throw err;
+    }
   }
 
   // Use processed options for the rest of execution
@@ -122,19 +199,26 @@ export async function l0<TOutput = unknown>(
   const abortController = new AbortController();
   const signal = processedSignal || externalSignal || abortController.signal;
 
-  // Initialize monitoring
-  const monitor = new L0Monitor({
-    enabled: processedMonitoring?.enabled ?? false,
-    sampleRate: processedMonitoring?.sampleRate ?? 1.0,
-    includeNetworkDetails: processedMonitoring?.includeNetworkDetails ?? true,
-    includeTimings: processedMonitoring?.includeTimings ?? true,
-    metadata: processedMonitoring?.metadata,
-  });
-
-  monitor.start();
-
-  // Record continuation setting in monitoring
-  monitor.recordContinuation(processedContinueFromCheckpoint, false);
+  // Use monitoring if enabled AND feature is loaded
+  let monitor: L0MonitorType | null = null;
+  if (processedMonitoring?.enabled) {
+    if (!_monitorFactory) {
+      throw new L0Error(
+        "Monitoring requires enableMonitoring() to be called first. " +
+          'Import and call: import { enableMonitoring } from "@ai2070/l0"; enableMonitoring();',
+        { code: "FEATURE_NOT_ENABLED", recoverable: false },
+      );
+    }
+    monitor = _monitorFactory({
+      enabled: true,
+      sampleRate: processedMonitoring?.sampleRate ?? 1.0,
+      includeNetworkDetails: processedMonitoring?.includeNetworkDetails ?? true,
+      includeTimings: processedMonitoring?.includeTimings ?? true,
+      metadata: processedMonitoring?.metadata,
+    });
+    monitor.start();
+    monitor.recordContinuation(processedContinueFromCheckpoint, false);
+  }
 
   // Initialize engines
   const guardrailEngine =
@@ -165,7 +249,18 @@ export async function l0<TOutput = unknown>(
     ],
   });
 
-  const driftDetector = processedDetectDrift ? new DriftDetector() : null;
+  // Use drift detector if enabled AND feature is loaded
+  let driftDetector: DriftDetectorType | null = null;
+  if (processedDetectDrift) {
+    if (!_driftDetectorFactory) {
+      throw new L0Error(
+        "Drift detection requires enableDriftDetection() to be called first. " +
+          'Import and call: import { enableDriftDetection } from "@ai2070/l0"; enableDriftDetection();',
+        { code: "FEATURE_NOT_ENABLED", recoverable: false },
+      );
+    }
+    driftDetector = _driftDetectorFactory();
+  }
 
   // Initialize state machine and metrics
   const stateMachine = new StateMachine();
@@ -234,13 +329,13 @@ export async function l0<TOutput = unknown>(
               // Record any violations found
               if (validation.violations.length > 0) {
                 state.violations.push(...validation.violations);
-                monitor.recordGuardrailViolations(validation.violations);
+                monitor?.recordGuardrailViolations(validation.violations);
               }
 
               // Record drift if detected
               if (validation.driftDetected) {
                 state.driftDetected = true;
-                monitor.recordDrift(true, validation.driftTypes);
+                monitor?.recordDrift(true, validation.driftTypes);
                 if (processedOnViolation) {
                   processedOnViolation({
                     rule: "drift",
@@ -277,7 +372,11 @@ export async function l0<TOutput = unknown>(
               }
 
               // Record continuation in monitoring
-              monitor.recordContinuation(true, true, checkpointForContinuation);
+              monitor?.recordContinuation(
+                true,
+                true,
+                checkpointForContinuation,
+              );
 
               // Emit the checkpoint content as tokens first
               // This ensures consumers see the full accumulated content
@@ -325,8 +424,15 @@ export async function l0<TOutput = unknown>(
             let adapter: L0Adapter | undefined;
 
             if (typeof processedOptions.adapter === "string") {
-              // Lookup by name
-              adapter = getAdapter(processedOptions.adapter);
+              // Lookup by name from adapter registry
+              if (!_adapterRegistry) {
+                throw new L0Error(
+                  "String adapter names require enableAdapterRegistry() to be called first. " +
+                    'Import and call: import { enableAdapterRegistry } from "@ai2070/l0"; enableAdapterRegistry();',
+                  { code: "FEATURE_NOT_ENABLED", recoverable: false },
+                );
+              }
+              adapter = _adapterRegistry.getAdapter(processedOptions.adapter);
               if (!adapter) {
                 throw new L0Error(
                   `Adapter "${processedOptions.adapter}" not found. ` +
@@ -356,11 +462,11 @@ export async function l0<TOutput = unknown>(
           } else if (streamResult.fullStream) {
             sourceStream = streamResult.fullStream;
           }
-          // 3. Auto-detection via registered adapters
+          // 3. Auto-detection via registered adapters (if registry enabled)
           // MUST come before generic Symbol.asyncIterator check!
           // Provider streams are async iterables but need adapters to convert to L0Events
-          else if (hasMatchingAdapter(streamResult)) {
-            const adapter = detectAdapter(streamResult);
+          else if (_adapterRegistry?.hasMatchingAdapter(streamResult)) {
+            const adapter = _adapterRegistry.detectAdapter(streamResult);
             sourceStream = adapter.wrap(
               streamResult,
               processedOptions.adapterOptions,
@@ -485,7 +591,7 @@ export async function l0<TOutput = unknown>(
                 normalizeError instanceof Error
                   ? normalizeError.message
                   : String(normalizeError);
-              monitor.logEvent({
+              monitor?.logEvent({
                 type: "warning",
                 message: `Failed to normalize stream chunk: ${errMsg}`,
                 chunk:
@@ -590,7 +696,7 @@ export async function l0<TOutput = unknown>(
               }
 
               // Record token in monitoring
-              monitor.recordToken(state.lastTokenAt);
+              monitor?.recordToken(state.lastTokenAt);
 
               // Update checkpoint periodically
               if (state.tokenCount % checkpointInterval === 0) {
@@ -613,7 +719,7 @@ export async function l0<TOutput = unknown>(
                 const result = guardrailEngine.check(context);
                 if (result.violations.length > 0) {
                   state.violations.push(...result.violations);
-                  monitor.recordGuardrailViolations(result.violations);
+                  monitor?.recordGuardrailViolations(result.violations);
                 }
 
                 // Check for fatal violations
@@ -643,7 +749,7 @@ export async function l0<TOutput = unknown>(
                 const drift = driftDetector.check(state.content, token);
                 if (drift.detected) {
                   state.driftDetected = true;
-                  monitor.recordDrift(true, drift.types);
+                  monitor?.recordDrift(true, drift.types);
                 }
               }
 
@@ -771,7 +877,7 @@ export async function l0<TOutput = unknown>(
                 const result = guardrailEngine.check(context);
                 if (result.violations.length > 0) {
                   state.violations.push(...result.violations);
-                  monitor.recordGuardrailViolations(result.violations);
+                  monitor?.recordGuardrailViolations(result.violations);
                 }
 
                 // Check for fatal violations
@@ -798,7 +904,7 @@ export async function l0<TOutput = unknown>(
                 const drift = driftDetector.check(state.content, flushedToken);
                 if (drift.detected) {
                   state.driftDetected = true;
-                  monitor.recordDrift(true, drift.types);
+                  monitor?.recordDrift(true, drift.types);
                 }
               }
 
@@ -849,7 +955,7 @@ export async function l0<TOutput = unknown>(
             const result = guardrailEngine.check(context);
             if (result.violations.length > 0) {
               state.violations.push(...result.violations);
-              monitor.recordGuardrailViolations(result.violations);
+              monitor?.recordGuardrailViolations(result.violations);
             }
 
             // Check if should retry
@@ -890,11 +996,11 @@ export async function l0<TOutput = unknown>(
             const finalDrift = driftDetector.check(state.content);
             if (finalDrift.detected && retryAttempt < modelRetryLimit) {
               state.driftDetected = true;
-              monitor.recordDrift(true, finalDrift.types);
+              monitor?.recordDrift(true, finalDrift.types);
               if (processedOnRetry) {
                 processedOnRetry(retryAttempt + 1, "Drift detected");
               }
-              monitor.recordRetry(false);
+              monitor?.recordRetry(false);
               retryAttempt++;
               state.modelRetryCount++;
               continue;
@@ -904,7 +1010,7 @@ export async function l0<TOutput = unknown>(
           // Success - mark as completed
           stateMachine.transition(RuntimeStates.FINALIZING);
           state.completed = true;
-          monitor.complete();
+          monitor?.complete();
           metrics.completions++;
 
           // Calculate duration
@@ -956,7 +1062,7 @@ export async function l0<TOutput = unknown>(
             const partialResult = guardrailEngine.check(partialContext);
             if (partialResult.violations.length > 0) {
               state.violations.push(...partialResult.violations);
-              monitor.recordGuardrailViolations(partialResult.violations);
+              monitor?.recordGuardrailViolations(partialResult.violations);
 
               // Notify about violations
               for (const violation of partialResult.violations) {
@@ -993,7 +1099,7 @@ export async function l0<TOutput = unknown>(
             const partialDrift = driftDetector.check(state.content);
             if (partialDrift.detected) {
               state.driftDetected = true;
-              monitor.recordDrift(true, partialDrift.types);
+              monitor?.recordDrift(true, partialDrift.types);
               if (processedOnViolation) {
                 processedOnViolation({
                   rule: "drift",
@@ -1047,7 +1153,7 @@ export async function l0<TOutput = unknown>(
           // Record network error in monitoring
           const isNetError = isNetworkError(err);
           if (isNetError) {
-            monitor.recordNetworkError(
+            monitor?.recordNetworkError(
               err,
               decision.shouldRetry,
               decision.delay,
@@ -1079,7 +1185,7 @@ export async function l0<TOutput = unknown>(
             }
 
             // Record in monitoring
-            monitor.recordRetry(isNetError);
+            monitor?.recordRetry(isNetError);
 
             if (processedOnRetry) {
               processedOnRetry(retryAttempt, decision.reason);
@@ -1109,7 +1215,7 @@ export async function l0<TOutput = unknown>(
           yield errorEvent;
 
           // Execute error interceptors
-          await interceptorManager.executeError(err, processedOptions);
+          await interceptorManager?.executeError(err, processedOptions);
 
           stateMachine.transition(RuntimeStates.ERROR);
           metrics.errors++;
@@ -1126,7 +1232,7 @@ export async function l0<TOutput = unknown>(
           metrics.fallbacks++;
           const fallbackMessage = `Retries exhausted for stream ${fallbackIndex}, falling back to stream ${fallbackIndex + 1}`;
 
-          monitor.logEvent({
+          monitor?.logEvent({
             type: "fallback",
             message: fallbackMessage,
             fromIndex: fallbackIndex - 1,
@@ -1153,13 +1259,13 @@ export async function l0<TOutput = unknown>(
             // Record any violations found
             if (validation.violations.length > 0) {
               state.violations.push(...validation.violations);
-              monitor.recordGuardrailViolations(validation.violations);
+              monitor?.recordGuardrailViolations(validation.violations);
             }
 
             // Record drift if detected
             if (validation.driftDetected) {
               state.driftDetected = true;
-              monitor.recordDrift(true, validation.driftTypes);
+              monitor?.recordDrift(true, validation.driftTypes);
               if (processedOnViolation) {
                 processedOnViolation({
                   rule: "drift",
@@ -1190,7 +1296,11 @@ export async function l0<TOutput = unknown>(
               }
 
               // Record continuation in monitoring
-              monitor.recordContinuation(true, true, checkpointForContinuation);
+              monitor?.recordContinuation(
+                true,
+                true,
+                checkpointForContinuation,
+              );
 
               // Emit the checkpoint content as tokens first
               const checkpointEvent: L0Event = {
@@ -1246,7 +1356,7 @@ export async function l0<TOutput = unknown>(
           yield errorEvent;
 
           // Execute error interceptors
-          await interceptorManager.executeError(
+          await interceptorManager?.executeError(
             exhaustedError,
             processedOptions,
           );
@@ -1267,19 +1377,21 @@ export async function l0<TOutput = unknown>(
     stream: streamGenerator(),
     state,
     errors,
-    telemetry: monitor.export(),
+    telemetry: monitor?.export(),
     abort: () => abortController.abort(),
   };
 
   // Execute "after" interceptors
-  try {
-    result = (await interceptorManager.executeAfter(
-      result,
-    )) as L0Result<TOutput>;
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    await interceptorManager.executeError(err, processedOptions);
-    throw err;
+  if (interceptorManager) {
+    try {
+      result = (await interceptorManager.executeAfter(
+        result,
+      )) as L0Result<TOutput>;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      await interceptorManager.executeError(err, processedOptions);
+      throw err;
+    }
   }
 
   // Return processed result

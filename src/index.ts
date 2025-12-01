@@ -1,6 +1,34 @@
 // L0 - The Missing Reliability Layer for AI
 // Main entry point
 
+// Auto-enable all optional features when importing from main entry
+import {
+  enableDriftDetection,
+  enableMonitoring,
+  enableInterceptors,
+  enableAdapterRegistry,
+} from "./runtime/l0.js";
+import { DriftDetector } from "./runtime/drift.js";
+import { L0Monitor } from "./runtime/monitoring.js";
+import { InterceptorManager } from "./runtime/interceptors.js";
+import {
+  getAdapter as _getAdapter,
+  hasMatchingAdapter as _hasMatchingAdapter,
+  detectAdapter as _detectAdapter,
+} from "./adapters/registry.js";
+
+// Enable all features by default for full L0 experience
+enableDriftDetection(() => new DriftDetector());
+enableMonitoring((config) => new L0Monitor(config as any));
+enableInterceptors(
+  (interceptors) => new InterceptorManager(interceptors as any),
+);
+enableAdapterRegistry({
+  getAdapter: _getAdapter,
+  hasMatchingAdapter: _hasMatchingAdapter,
+  detectAdapter: _detectAdapter,
+});
+
 // Core runtime
 export {
   l0,

@@ -6,6 +6,31 @@ config(); // Load .env file
 
 import { describe, it, expect, beforeAll } from "vitest";
 
+// Enable all L0 optional features for integration tests
+import {
+  enableDriftDetection,
+  enableMonitoring,
+  enableInterceptors,
+  enableAdapterRegistry,
+} from "../src/runtime/l0";
+import { DriftDetector } from "../src/runtime/drift";
+import { L0Monitor } from "../src/runtime/monitoring";
+import { InterceptorManager } from "../src/runtime/interceptors";
+import {
+  getAdapter,
+  hasMatchingAdapter,
+  detectAdapter,
+} from "../src/adapters/registry";
+
+enableDriftDetection(() => new DriftDetector());
+enableMonitoring((config) => new L0Monitor(config));
+enableInterceptors((interceptors) => new InterceptorManager(interceptors));
+enableAdapterRegistry({
+  getAdapter,
+  hasMatchingAdapter,
+  detectAdapter,
+});
+
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
