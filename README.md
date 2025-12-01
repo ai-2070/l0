@@ -880,6 +880,39 @@ const consensusResult = await consensus<typeof schema>({
 
 ---
 
+## Error Handling
+
+L0 provides detailed error context for debugging and recovery:
+
+```typescript
+import { isL0Error, L0Error } from "@ai2070/l0";
+
+try {
+  await l0({ stream, guardrails });
+} catch (error) {
+  if (isL0Error(error)) {
+    console.log(error.code); // "GUARDRAIL_VIOLATION", "ZERO_OUTPUT", etc.
+    console.log(error.context.checkpoint); // Last good content
+    console.log(error.context.tokenCount); // Tokens before failure
+    console.log(error.isRecoverable); // Can retry?
+  }
+}
+```
+
+Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `ZERO_OUTPUT`, `GUARDRAIL_VIOLATION`, `FATAL_GUARDRAIL_VIOLATION`, `INVALID_STREAM`, `ALL_STREAMS_EXHAUSTED`, `NETWORK_ERROR`, `DRIFT_DETECTED`
+
+---
+
+## Philosophy
+
+- **No magic** - Everything is explicit and predictable
+- **Streaming-first** - Built for real-time token delivery
+- **Signals, not rewrites** - Guardrails detect issues, don't modify output
+- **Model-agnostic** - Works with any model
+- **Zero dependencies** - Only peer dependency is the Vercel AI SDK, the OpenAI SDK, or Mastra AI
+
+---
+
 ## Monitoring
 
 Built-in telemetry with Prometheus, OTel and Sentry integrations.
@@ -1234,39 +1267,6 @@ console.log(result.state.dataOutputs);
 ```
 
 See [MULTIMODAL.md](./MULTIMODAL.md) for complete guide.
-
----
-
-## Error Handling
-
-L0 provides detailed error context for debugging and recovery:
-
-```typescript
-import { isL0Error, L0Error } from "@ai2070/l0";
-
-try {
-  await l0({ stream, guardrails });
-} catch (error) {
-  if (isL0Error(error)) {
-    console.log(error.code); // "GUARDRAIL_VIOLATION", "ZERO_OUTPUT", etc.
-    console.log(error.context.checkpoint); // Last good content
-    console.log(error.context.tokenCount); // Tokens before failure
-    console.log(error.isRecoverable); // Can retry?
-  }
-}
-```
-
-Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `ZERO_OUTPUT`, `GUARDRAIL_VIOLATION`, `FATAL_GUARDRAIL_VIOLATION`, `INVALID_STREAM`, `ALL_STREAMS_EXHAUSTED`, `NETWORK_ERROR`, `DRIFT_DETECTED`
-
----
-
-## Philosophy
-
-- **No magic** - Everything is explicit and predictable
-- **Streaming-first** - Built for real-time token delivery
-- **Signals, not rewrites** - Guardrails detect issues, don't modify output
-- **Model-agnostic** - Works with any model
-- **Zero dependencies** - Only peer dependency is the Vercel AI SDK, the OpenAI SDK, or Mastra AI
 
 ---
 
