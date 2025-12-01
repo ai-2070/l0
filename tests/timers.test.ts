@@ -88,7 +88,7 @@ describe("Timer Utilities", () => {
   describe("fullJitterBackoff", () => {
     it("should return random delay up to exponential", () => {
       const results = Array.from({ length: 10 }, () =>
-        fullJitterBackoff(2, 1000, 10000)
+        fullJitterBackoff(2, 1000, 10000),
       );
 
       results.forEach((result) => {
@@ -175,18 +175,15 @@ describe("Timer Utilities", () => {
 
   describe("withTimeout", () => {
     it("should return promise result if faster than timeout", async () => {
-      const result = await withTimeout(
-        Promise.resolve("success"),
-        100
-      );
+      const result = await withTimeout(Promise.resolve("success"), 100);
       expect(result).toBe("success");
     });
 
     it("should reject if timeout is reached", async () => {
       const slowPromise = new Promise((resolve) => setTimeout(resolve, 200));
-      await expect(
-        withTimeout(slowPromise, 10, "Too slow")
-      ).rejects.toThrow("Too slow");
+      await expect(withTimeout(slowPromise, 10, "Too slow")).rejects.toThrow(
+        "Too slow",
+      );
     });
   });
 

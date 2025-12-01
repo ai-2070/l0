@@ -47,9 +47,9 @@ describe("Normalize Utilities", () => {
     });
 
     it("should collapse multiple spaces when enabled", () => {
-      expect(normalizeWhitespace("hello   world", { collapseSpaces: true })).toBe(
-        "hello world"
-      );
+      expect(
+        normalizeWhitespace("hello   world", { collapseSpaces: true }),
+      ).toBe("hello world");
     });
 
     it("should not collapse spaces by default", () => {
@@ -57,14 +57,14 @@ describe("Normalize Utilities", () => {
     });
 
     it("should trim lines when enabled", () => {
-      expect(normalizeWhitespace("  hello  \n  world  ", { trimLines: true })).toBe(
-        "hello\nworld"
-      );
+      expect(
+        normalizeWhitespace("  hello  \n  world  ", { trimLines: true }),
+      ).toBe("hello\nworld");
     });
 
     it("should remove empty lines when enabled", () => {
       expect(
-        normalizeWhitespace("line1\n\n\nline2", { removeEmptyLines: true })
+        normalizeWhitespace("line1\n\n\nline2", { removeEmptyLines: true }),
       ).toBe("line1\nline2");
     });
 
@@ -190,17 +190,19 @@ describe("Normalize Utilities", () => {
 
     it("should normalize whitespace when enabled", () => {
       expect(normalizeText("hello   world", { whitespace: true })).toBe(
-        "hello world"
+        "hello world",
       );
     });
 
     it("should normalize indentation when enabled", () => {
-      expect(normalizeText("\thello", { indentation: "spaces" })).toBe("  hello");
+      expect(normalizeText("\thello", { indentation: "spaces" })).toBe(
+        "  hello",
+      );
     });
 
     it("should dedent when enabled", () => {
       expect(normalizeText("  hello\n  world", { dedent: true })).toBe(
-        "hello\nworld"
+        "hello\nworld",
       );
     });
 
@@ -248,7 +250,9 @@ describe("Normalize Utilities", () => {
     });
 
     it("should remove trailing spaces from lines", () => {
-      expect(removeTrailingWhitespace("hello   \nworld   ")).toBe("hello\nworld");
+      expect(removeTrailingWhitespace("hello   \nworld   ")).toBe(
+        "hello\nworld",
+      );
     });
 
     it("should remove trailing tabs", () => {
@@ -256,7 +260,9 @@ describe("Normalize Utilities", () => {
     });
 
     it("should preserve internal whitespace", () => {
-      expect(removeTrailingWhitespace("hello   world   ")).toBe("hello   world");
+      expect(removeTrailingWhitespace("hello   world   ")).toBe(
+        "hello   world",
+      );
     });
   });
 
@@ -348,7 +354,7 @@ describe("Normalize Utilities", () => {
 
     it("should replace line at index", () => {
       expect(replaceLine("line0\nline1\nline2", 1, "replaced")).toBe(
-        "line0\nreplaced\nline2"
+        "line0\nreplaced\nline2",
       );
     });
 
