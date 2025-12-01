@@ -7,7 +7,7 @@ import {
   openaiStream,
   openaiText,
   recommendedGuardrails,
-} from "../src/index";
+} from "@ai2070/l0";
 
 const client = new OpenAI();
 

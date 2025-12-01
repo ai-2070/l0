@@ -1,5 +1,20 @@
 // L0 - The Missing Reliability Layer for AI
 // Main entry point
+//
+// This is the "full" entry point that re-exports everything.
+// For reduced bundle size, use subpath imports:
+//   - "@ai2070/l0/core" - Minimal runtime (~15KB)
+//   - "@ai2070/l0/guardrails" - Guardrail rules and engine
+//   - "@ai2070/l0/drift" - Drift detection
+//   - "@ai2070/l0/monitoring" - Prometheus, OTel, Sentry
+//   - "@ai2070/l0/openai" - OpenAI adapter
+//   - "@ai2070/l0/anthropic" - Anthropic adapter
+//   - "@ai2070/l0/mastra" - Mastra adapter
+//
+// Optional features must be explicitly enabled:
+//   import { enableDriftDetection } from "@ai2070/l0";
+//   import { DriftDetector } from "@ai2070/l0/drift";
+//   enableDriftDetection(() => new DriftDetector());
 
 // Core runtime
 export {
@@ -9,6 +24,11 @@ export {
   StateMachine,
   RuntimeStates,
   Metrics,
+  // Feature enablers - call these to opt-in to optional features
+  enableDriftDetection,
+  enableMonitoring,
+  enableInterceptors,
+  enableAdapterRegistry,
 } from "./runtime/l0";
 export type { RuntimeState } from "./runtime/state-machine";
 export type { MetricsSnapshot } from "./runtime/metrics";
@@ -505,7 +525,7 @@ export {
   hasMatchingAdapter,
 } from "./adapters/registry";
 
-// SDK Adapters - Helpers for building custom adapters
+// SDK Adapters - Core helpers for building custom adapters
 export {
   toL0Events,
   toL0EventsWithMessages,
@@ -521,31 +541,35 @@ export {
   createJsonDataEvent,
 } from "./adapters/helpers";
 
-// SDK Adapters - OpenAI
+// SDK Adapters - OpenAI, Anthropic, Mastra
+// Also available via subpath imports for reduced bundle size:
+//   import { openaiAdapter } from "@ai2070/l0/openai"
+//   import { anthropicAdapter } from "@ai2070/l0/anthropic"
+//   import { mastraAdapter } from "@ai2070/l0/mastra"
+
+// OpenAI adapter
 export {
-  wrapOpenAIStream,
   openaiAdapter,
   openaiStream,
   openaiText,
   openaiJSON,
   openaiWithTools,
+  wrapOpenAIStream,
   isOpenAIChunk,
   isOpenAIStream,
   extractOpenAIText,
 } from "./adapters/openai";
+export type { OpenAIAdapterOptions, OpenAIStream } from "./adapters/openai";
 
-export type { OpenAIAdapterOptions } from "./adapters/openai";
-
-// SDK Adapters - Anthropic
+// Anthropic adapter
 export {
-  wrapAnthropicStream,
   anthropicAdapter,
   anthropicStream,
   anthropicText,
+  wrapAnthropicStream,
   isAnthropicStream,
   isAnthropicStreamEvent,
 } from "./adapters/anthropic";
-
 export type {
   AnthropicStream,
   AnthropicAdapterOptions,
@@ -558,19 +582,18 @@ export type {
   MessageCreateParamsBase,
 } from "./adapters/anthropic";
 
-// SDK Adapters - Mastra
+// Mastra adapter
 export {
-  wrapMastraStream,
-  wrapMastraFullStream,
   mastraAdapter,
   mastraStream,
   mastraText,
   mastraStructured,
+  wrapMastraStream,
+  wrapMastraFullStream,
   isMastraStream,
   extractMastraText,
   extractMastraObject,
 } from "./adapters/mastra";
-
 export type {
   MastraAdapterOptions,
   MastraMessageInput,

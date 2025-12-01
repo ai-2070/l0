@@ -6,6 +6,9 @@ config(); // Load .env file
 
 import { describe, it, expect, beforeAll } from "vitest";
 
+// Enable all L0 optional features for integration tests
+import "../tests/enable-features";
+
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 

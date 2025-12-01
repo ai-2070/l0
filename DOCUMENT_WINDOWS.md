@@ -2,6 +2,12 @@
 
 Automatic chunking and navigation for long documents.
 
+> **Bundle size tip:** For smaller bundles, use subpath imports:
+>
+> ```typescript
+> import { createWindow } from "@ai2070/l0/window";
+> ```
+
 ## Quick Start
 
 ```typescript

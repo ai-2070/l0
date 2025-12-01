@@ -2,6 +2,12 @@
 
 Guaranteed valid JSON matching your Zod schema.
 
+> **Bundle size tip:** For smaller bundles, use subpath imports:
+>
+> ```typescript
+> import { structured, structuredStream } from "@ai2070/l0/structured";
+> ```
+
 ## Quick Start
 
 ```typescript

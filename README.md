@@ -2,6 +2,23 @@
 
 ![L0: The Missing AI Reliability Substrate](img/l0-banner.png)
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/@ai2070/l0">
+    <img src="https://img.shields.io/npm/v/@ai2070/l0?color=brightgreen&label=npm" alt="npm version">
+  </a>
+  <a href="https://bundlephobia.com/package/@ai2070/l0">
+    <img src="https://img.shields.io/bundlephobia/minzip/@ai2070/l0?label=minzipped" alt="minzipped size">
+  </a>
+  <a href="https://packagephobia.com/result?p=@ai2070/l0">
+    <img src="https://packagephobia.com/badge?p=@ai2070/l0" alt="install size">
+  </a>
+  <img src="https://img.shields.io/badge/types-included-blue?logo=typescript&logoColor=white" alt="Types Included">
+  <a href="https://github.com/ai-2070/l0/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/ai-2070/l0/ci.yml?label=tests" alt="CI status">
+  </a>
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
+</p>
+
 **Tiny. Predictable. Replayable. Streaming-first.**
 
 > _LLMs are extraordinary minds wrapped in fragile interfaces._
@@ -21,6 +38,8 @@ L0 adds guardrails, retry logic, and network protection to LLM streams, turning 
 npm install @ai2070/l0
 ```
 
+Tree-shakeable subpath exports for minimal bundles.
+
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
 L0 includes 1,800+ tests covering all major reliability features.
@@ -28,6 +47,23 @@ L0 includes 1,800+ tests covering all major reliability features.
 **Upcoming versions:**
 
 - **1.0.0** - API freeze + Website docs + Python version
+
+**Bundle sizes (minified):**
+
+| Import                  | Size  | Gzipped | Description              |
+| ----------------------- | ----- | ------- | ------------------------ |
+| `@ai2070/l0` (full)     | 181KB | 52KB    | Everything               |
+| `@ai2070/l0/core`       | 52KB  | 15KB    | Runtime + retry + errors |
+| `@ai2070/l0/structured` | 43KB  | 12KB    | Structured output        |
+| `@ai2070/l0/consensus`  | 54KB  | 16KB    | Multi-model consensus    |
+| `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations |
+| `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking        |
+| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
+| `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
+| `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
+
+> Most applications should simply use `import { l0 } from "@ai2070/l0"`.
+> Only optimize imports if you're targeting edge runtimes or strict bundle constraints.
 
 ## Features
 
@@ -53,7 +89,7 @@ L0 includes 1,800+ tests covering all major reliability features.
 | **📼 Atomic Event Logs**                         | Record every token, retry, fallback, and guardrail check as immutable events. Full audit trail for debugging and compliance.                                                                          |
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
-| **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
+| **⚡ Tiny & Explicit**                           | 15KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
 | **🧪 Battle-Tested**                             | 1,600+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |

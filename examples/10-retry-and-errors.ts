@@ -8,7 +8,7 @@ import {
   isL0Error,
   isNetworkError,
   analyzeNetworkError,
-} from "../src/index";
+} from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 

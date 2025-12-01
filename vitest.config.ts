@@ -9,18 +9,29 @@ export default defineConfig({
     // Global test setup
     globals: true,
 
+    // Setup files - run before all tests
+    setupFiles: ["./tests/setup.ts"],
+
     // Coverage configuration
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
       exclude: [
         "node_modules/**",
+        "img/**",
         "dist/**",
         "tests/**",
+        "integration/**",
+        "examples/**",
         "**/*.test.ts",
         "**/*.spec.ts",
         "**/types/**",
         "vitest.config.ts",
+        "src/**/index.ts",
+        "src/adapters/**",
+        "src/runtime/opentelemetry.ts",
+        "src/runtime/prometheus.ts",
+        "src/runtime/sentry.ts",
       ],
       include: ["src/**/*.ts"],
       thresholds: {

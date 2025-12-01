@@ -8,20 +8,20 @@ import type { L0Monitor } from "./monitoring";
  *
  * @param callback - The callback function to invoke
  * @param arg - The argument to pass to the callback
- * @param monitor - The L0 monitor for logging warnings
+ * @param monitor - The L0 monitor for logging warnings (optional)
  * @param callbackName - Name of the callback for error messages
  */
 export function safeInvokeCallback<T>(
   callback: ((arg: T) => void) | undefined,
   arg: T,
-  monitor: L0Monitor,
+  monitor: L0Monitor | null,
   callbackName: string = "callback",
 ): void {
   if (!callback) return;
   try {
     callback(arg);
   } catch (error) {
-    monitor.logEvent({
+    monitor?.logEvent({
       type: "warning",
       message: `${callbackName} threw: ${error instanceof Error ? error.message : String(error)}`,
     });

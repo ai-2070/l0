@@ -26,6 +26,7 @@ export function getErrorCategory(code: L0ErrorCode): ErrorCategory {
       return ErrorCategory.CONTENT;
     case "INVALID_STREAM":
     case "ADAPTER_NOT_FOUND":
+    case "FEATURE_NOT_ENABLED":
       return ErrorCategory.INTERNAL;
     case "STREAM_ABORTED":
     case "ALL_STREAMS_EXHAUSTED":
@@ -48,7 +49,8 @@ export type L0ErrorCode =
   | "ALL_STREAMS_EXHAUSTED"
   | "NETWORK_ERROR"
   | "DRIFT_DETECTED"
-  | "ADAPTER_NOT_FOUND";
+  | "ADAPTER_NOT_FOUND"
+  | "FEATURE_NOT_ENABLED";
 
 /**
  * Context information for L0 errors

@@ -1,5 +1,11 @@
 # Interceptors & Parallel Operations
 
+> **Bundle size tip:** For smaller bundles, use subpath imports:
+>
+> ```typescript
+> import { parallel, race } from "@ai2070/l0/parallel";
+> ```
+
 ## Interceptors
 
 Interceptors provide hooks into the L0 execution pipeline for logging, auth, validation, and transforms.
@@ -27,7 +33,7 @@ import {
   rateLimitInterceptor, // Throttle requests
   transformInterceptor, // Post-process content
   analyticsInterceptor, // Send to analytics services
-} from "l0";
+} from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
@@ -84,7 +90,7 @@ const result = await l0({
 ### Basic Usage
 
 ```typescript
-import { parallel } from "l0";
+import { parallel } from "@ai2070/l0";
 
 const results = await parallel(
   [
@@ -140,7 +146,7 @@ interface ParallelResult {
 ### Helper Functions
 
 ```typescript
-import { parallel, parallelAll, sequential, batched, race } from "l0";
+import { parallel, parallelAll, sequential, batched, race } from "@ai2070/l0";
 
 // Limited concurrency
 await parallel(operations, { concurrency: 3 });
@@ -161,7 +167,7 @@ await race(operations);
 ### Race - Multi-Provider
 
 ```typescript
-import { race } from "l0";
+import { race } from "@ai2070/l0";
 
 const result = await race([
   { stream: () => streamText({ model: openai("gpt-4"), prompt }) },
@@ -174,7 +180,7 @@ const result = await race([
 ### Pool - Reusable Workers
 
 ```typescript
-import { createPool } from "l0";
+import { createPool } from "@ai2070/l0";
 
 const pool = createPool(3, {
   sharedRetry: recommendedRetry,

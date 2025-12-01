@@ -24,7 +24,7 @@ Derived computations (guardrails, drift, retries) are stored **AS events**, not 
 ### Recording a Stream
 
 ```typescript
-import { createInMemoryEventStore, createEventRecorder } from "l0";
+import { createInMemoryEventStore, createEventRecorder } from "@ai2070/l0";
 
 const store = createInMemoryEventStore();
 const recorder = createEventRecorder(store, "my-stream-id");
@@ -46,7 +46,7 @@ await recorder.recordComplete("Quantum computing is...", 5);
 ### Replaying a Stream
 
 ```typescript
-import { replay } from "l0";
+import { replay } from "@ai2070/l0";
 
 const result = await replay({
   streamId: "my-stream-id",
@@ -129,7 +129,7 @@ interface L0EventStore {
 For testing and short-lived sessions:
 
 ```typescript
-import { createInMemoryEventStore } from "l0";
+import { createInMemoryEventStore } from "@ai2070/l0";
 
 const store = createInMemoryEventStore();
 
@@ -156,7 +156,7 @@ store.clear();
 The recorder provides convenient methods for each event type:
 
 ```typescript
-import { createEventRecorder, createInMemoryEventStore } from "l0";
+import { createEventRecorder, createInMemoryEventStore } from "@ai2070/l0";
 
 const store = createInMemoryEventStore();
 const recorder = createEventRecorder(store);
@@ -240,7 +240,7 @@ await recorder.recordComplete("The data shows... growth", 5);
 ### Basic Replay
 
 ```typescript
-import { replay } from "l0";
+import { replay } from "@ai2070/l0";
 
 const result = await replay({
   streamId: "my-stream",
@@ -321,7 +321,7 @@ const result = await replay({
 Get final state without iterating:
 
 ```typescript
-import { createEventReplayer } from "l0";
+import { createEventReplayer } from "@ai2070/l0";
 
 const replayer = createEventReplayer(store);
 const state = await replayer.replayToState("my-stream");
@@ -349,7 +349,7 @@ for await (const token of replayer.replayTokens("my-stream")) {
 Get metadata without full replay:
 
 ```typescript
-import { getStreamMetadata } from "l0";
+import { getStreamMetadata } from "@ai2070/l0";
 
 const metadata = await getStreamMetadata(store, "my-stream");
 
@@ -371,7 +371,7 @@ console.log(metadata);
 Verify determinism by comparing two replay results:
 
 ```typescript
-import { compareReplays, createEventReplayer } from "l0";
+import { compareReplays, createEventReplayer } from "@ai2070/l0";
 
 const replayer = createEventReplayer(store);
 
@@ -545,7 +545,7 @@ L0 provides a pluggable storage adapter system. Register custom adapters or use 
 ### Using Built-in Adapters
 
 ```typescript
-import { createEventStore } from "l0";
+import { createEventStore } from "@ai2070/l0";
 
 // In-memory (default)
 const memStore = await createEventStore({ type: "memory" });
@@ -568,7 +568,11 @@ const browserStore = await createEventStore({
 ### Registering Custom Adapters
 
 ```typescript
-import { registerStorageAdapter, BaseEventStore, createEventStore } from "l0";
+import {
+  registerStorageAdapter,
+  BaseEventStore,
+  createEventStore,
+} from "@ai2070/l0";
 
 // Register a Redis adapter
 registerStorageAdapter("redis", async (config) => {
@@ -590,12 +594,12 @@ const store = await createEventStore({
 Use `BaseEventStore` for easier implementation:
 
 ```typescript
-import { BaseEventStore } from "l0";
+import { BaseEventStore } from "@ai2070/l0";
 import type {
   L0RecordedEvent,
   L0EventEnvelope,
   StorageAdapterConfig,
-} from "l0";
+} from "@ai2070/l0";
 
 class RedisEventStore extends BaseEventStore {
   private client: RedisClient;
@@ -648,7 +652,7 @@ import {
   createCompositeStore,
   createInMemoryEventStore,
   FileEventStore,
-} from "l0";
+} from "@ai2070/l0";
 
 // Write-through: memory cache + file persistence
 const store = createCompositeStore([
@@ -668,7 +672,7 @@ const events = await store.getEvents("stream-1");
 Add expiration to any store:
 
 ```typescript
-import { withTTL, createInMemoryEventStore } from "l0";
+import { withTTL, createInMemoryEventStore } from "@ai2070/l0";
 
 // Events expire after 24 hours
 const store = withTTL(createInMemoryEventStore(), 24 * 60 * 60 * 1000);
@@ -680,13 +684,16 @@ const events = await store.getEvents("stream-1"); // Only non-expired events
 ### Full PostgreSQL Example
 
 ```typescript
-import { BaseEventStoreWithSnapshots, registerStorageAdapter } from "l0";
+import {
+  BaseEventStoreWithSnapshots,
+  registerStorageAdapter,
+} from "@ai2070/l0";
 import type {
   L0RecordedEvent,
   L0EventEnvelope,
   L0Snapshot,
   StorageAdapterConfig,
-} from "l0";
+} from "@ai2070/l0";
 
 class PostgresEventStore extends BaseEventStoreWithSnapshots {
   private pool: Pool;
