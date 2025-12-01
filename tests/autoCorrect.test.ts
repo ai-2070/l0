@@ -12,12 +12,15 @@ import {
 
 describe("autoCorrectJSON edge cases", () => {
   it("should handle control characters in strings", () => {
-    // Create a string with actual control characters
+    // Create a string with actual control characters (newline)
     const withControlChars = '{"text": "line1\nline2"}';
     const result = autoCorrectJSON(withControlChars);
 
-    // Should handle or report the issue
-    expect(result).toBeDefined();
+    // Should escape the control character and produce valid JSON
+    expect(result.success).toBe(true);
+    expect(result.corrections).toContain("escape_control_chars");
+    const parsed = JSON.parse(result.corrected);
+    expect(parsed.text).toBe("line1\nline2");
   });
 
   it("should handle deeply nested structures", () => {
