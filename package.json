@@ -75,6 +75,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:esm": "node esbuild.config.js",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",

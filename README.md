@@ -21,6 +21,10 @@ L0 adds guardrails, retry logic, and network protection to LLM streams, turning 
 npm install @ai2070/l0
 ```
 
+**Bundle sizes (minified):**
+- Full: **235 KB** — `import { l0 } from "@ai2070/l0"`
+- Core only: **51 KB** — `import { l0 } from "@ai2070/l0/core"`
+
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
 L0 includes 1,800+ tests covering all major reliability features.
@@ -53,7 +57,7 @@ L0 includes 1,800+ tests covering all major reliability features.
 | **📼 Atomic Event Logs**                         | Record every token, retry, fallback, and guardrail check as immutable events. Full audit trail for debugging and compliance.                                                                          |
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
-| **⚡ Tiny & Explicit**                           | No frameworks, no heavy abstractions, zero hidden logic. Small, explicit functions for predictable behavior.                                                                                          |
+| **⚡ Tiny & Explicit**                           | 51 KB minified core, 235 KB full. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`). No frameworks, no heavy abstractions.                                                   |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
 | **🧪 Battle-Tested**                             | 1,600+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |

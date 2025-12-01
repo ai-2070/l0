@@ -8,6 +8,7 @@ pnpm-debug.log*
 # Build outputs
 dist/
 build/
+dist-esm/
 *.tsbuildinfo
 
 # IDE
@@ -43,13 +44,3 @@ temp/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
-
-# Bundle analyzer
-meta-*.json
-direct-bundle.js
-bundle-report.html
-meta.json
-bundle-analysis.js
-test-*.js
-test-*.ts
-minimal-bundle.js
