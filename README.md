@@ -32,13 +32,11 @@
 > _L0 is the missing foundation._
 > _A reliability layer that stabilizes the interface so the model's intelligence can actually reach you._
 
-L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, and **Mastra AI** directly. Supports custom adapters (Bring Your Own Adapter) and multimodal AI streams.
+L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, and **Mastra AI** directly. Supports custom adapters and multimodal AI streams.
 
 ```bash
 npm install @ai2070/l0
 ```
-
-Tree-shakeable subpath exports for minimal bundles.
 
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
@@ -61,6 +59,8 @@ L0 includes 2,000+ tests covering all major reliability features.
 | `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
 | `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
 | `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
+
+Tree-shakeable subpath exports for minimal bundles.
 
 > Most applications should simply use `import { l0 } from "@ai2070/l0"`.
 > Only optimize imports if you're targeting edge runtimes or strict bundle constraints.
