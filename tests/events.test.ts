@@ -211,19 +211,15 @@ describe("Event Normalization", () => {
       });
 
       it("should handle message_stop", () => {
-        // Note: message_stop has a type property, so it goes through the switch
-        // default case which returns error (the later check is unreachable)
         const chunk = { type: "message_stop" };
         const result = normalizeStreamEvent(chunk);
-        // Goes through switch default -> extractTextFromChunk fails -> error
-        expect(result.type).toBe("error");
+        expect(result.type).toBe("complete");
       });
 
       it("should handle content_block_stop", () => {
         const chunk = { type: "content_block_stop" };
         const result = normalizeStreamEvent(chunk);
-        // Same as message_stop - goes through switch default
-        expect(result.type).toBe("error");
+        expect(result.type).toBe("complete");
       });
 
       it("should handle Anthropic delta without type field", () => {
