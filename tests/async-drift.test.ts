@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import {
   runAsyncDriftCheck,
   runDriftCheckAsync,
@@ -10,6 +10,10 @@ vi.stubGlobal(
   "setImmediate",
   (fn: () => void) => setTimeout(fn, 0) as unknown as NodeJS.Immediate,
 );
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("Async Drift Detection", () => {
   let mockDetector: DriftDetector;

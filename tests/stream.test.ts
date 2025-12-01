@@ -96,14 +96,16 @@ describe("Stream Utilities", () => {
 
       controller.abort();
 
-      await expect(async () => {
+      const consumeStream = async () => {
         for await (const _ of normalizer.normalize(
           asyncGen(chunks),
           controller.signal,
         )) {
           // consume
         }
-      }).rejects.toThrow("Stream aborted");
+      };
+
+      await expect(consumeStream()).rejects.toThrow("Stream aborted");
 
       expect(normalizer.getState().aborted).toBe(true);
     });
@@ -388,13 +390,15 @@ describe("Stream Utilities", () => {
 
       controller.abort();
 
-      await expect(async () => {
+      const consumeStream = async () => {
         for await (const _ of normalizeStreamWithTimeout(asyncGen(chunks), {
           signal: controller.signal,
         })) {
           // consume
         }
-      }).rejects.toThrow("Stream aborted");
+      };
+
+      await expect(consumeStream()).rejects.toThrow("Stream aborted");
     });
 
     it("should use custom timeout values", async () => {

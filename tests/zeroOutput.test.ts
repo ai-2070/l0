@@ -263,7 +263,7 @@ describe("Zero Output Guardrail", () => {
 
       const violations = rule.check(context);
       // Should have violations from both validateZeroOutput and validateInstantOutput
-      expect(violations.length).toBeGreaterThanOrEqual(1);
+      expect(violations.length).toBeGreaterThanOrEqual(2);
     });
 
     it("should return empty array for valid content", () => {
