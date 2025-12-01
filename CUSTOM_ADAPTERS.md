@@ -8,8 +8,8 @@ L0 provides **official first-party adapters** for:
 
 - **Vercel AI SDK** - Native support, no adapter needed
 - **OpenAI SDK** - `openaiAdapter` via `@ai2070/l0/openai`
-- **Anthropic SDK** - `anthropicAdapter` via `@ai2070/l0/anthropic`
 - **Mastra AI** - `mastraAdapter` via `@ai2070/l0/mastra`
+- **Anthropic SDK** - `anthropicAdapter` via `@ai2070/l0/anthropic` (reference implementation)
 
 These are the only integrations maintained within the core project.
 Support for additional providers is out of scope.
@@ -475,7 +475,7 @@ const result = await l0({
 });
 ```
 
-### Anthropic Adapter
+### Anthropic Adapter Reference Implementation
 
 ```typescript
 import { l0 } from "@ai2070/l0/core";

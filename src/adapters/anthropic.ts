@@ -1,4 +1,4 @@
-// Anthropic SDK adapter for L0
+// Anthropic SDK adapter for L0 (reference implementation)
 // Allows using Anthropic SDK directly with L0
 //
 // This adapter works with the `@anthropic-ai/sdk` package.

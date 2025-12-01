@@ -2369,8 +2369,8 @@ L0 provides subpath exports for reduced bundle sizes. Most applications should u
 | `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
 | `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
 | `@ai2070/l0/openai`     | —     | —       | OpenAI SDK adapter       |
-| `@ai2070/l0/anthropic`  | —     | —       | Anthropic SDK adapter    |
 | `@ai2070/l0/mastra`     | —     | —       | Mastra adapter           |
+| `@ai2070/l0/anthropic`  | —     | —       | Anthropic SDK adapter (reference implementation)    |
 
 ### Usage
 
