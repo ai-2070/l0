@@ -95,8 +95,8 @@ interface L0ErrorContext {
   checkpoint?: string; // Last good content
   tokenCount?: number; // Tokens before failure
   contentLength?: number; // Content length before failure
-  retryAttempts?: number; // Retry attempts made
-  networkRetries?: number; // Network retries made
+  modelRetryCount?: number; // Retry attempts made
+  networkRetryCount?: number; // Network retries made
   fallbackIndex?: number; // Which fallback was tried
   recoverable?: boolean; // Can be retried
   metadata?: Record<string, unknown>;
@@ -126,7 +126,7 @@ try {
 
     // Access specific context
     console.log(`Failed after ${error.context.tokenCount} tokens`);
-    console.log(`Retry attempts: ${error.context.retryAttempts}`);
+    console.log(`Retry attempts: ${error.context.modelRetryCount}`);
   }
 }
 ```
@@ -408,7 +408,7 @@ catch (error) {
     logger.error({
       code: error.code,
       tokenCount: error.context.tokenCount,
-      retryAttempts: error.context.retryAttempts,
+      modelRetryCount: error.context.modelRetryCount,
       checkpoint: error.getCheckpoint()?.slice(0, 100),
       timestamp: error.timestamp
     });

@@ -181,9 +181,9 @@ export async function* wrapMastraStream(
       // Finish reason not available
     }
 
-    // Emit done event
+    // Emit complete event
     yield {
-      type: "done",
+      type: "complete",
       timestamp: Date.now(),
       ...(includeUsage && usage ? { usage } : {}),
       ...(finishReason ? { finishReason } : {}),
@@ -433,7 +433,7 @@ export async function* wrapMastraFullStream(
           break;
 
         case "finish":
-          // Get usage for done event
+          // Get usage for complete event
           let usage: any;
           if (includeUsage) {
             try {
@@ -444,7 +444,7 @@ export async function* wrapMastraFullStream(
           }
 
           yield {
-            type: "done",
+            type: "complete",
             timestamp: Date.now(),
             ...(includeUsage && usage ? { usage } : {}),
             ...(chunk.finishReason ? { finishReason: chunk.finishReason } : {}),

@@ -185,9 +185,9 @@ export async function replay(
 
         case "RETRY": {
           if (event.countsTowardLimit) {
-            state.retryAttempts++;
+            state.modelRetryCount++;
           } else {
-            state.networkRetries++;
+            state.networkRetryCount++;
           }
           monitor.recordRetry(!event.countsTowardLimit);
 
@@ -203,8 +203,8 @@ export async function replay(
           break;
 
         case "CONTINUATION":
-          state.continuedFromCheckpoint = true;
-          state.continuationCheckpoint = event.checkpoint;
+          state.resumed = true;
+          state.resumePoint = event.checkpoint;
           monitor.recordContinuation(true, true, event.checkpoint);
           break;
 
@@ -214,17 +214,17 @@ export async function replay(
           state.tokenCount = event.tokenCount;
           monitor.complete();
 
-          // Emit done event
-          const doneEvent: L0Event = {
-            type: "done",
+          // Emit complete event
+          const completeEvent: L0Event = {
+            type: "complete",
             timestamp: event.ts,
           };
 
           if (fireCallbacks && onEvent) {
-            onEvent(doneEvent);
+            onEvent(completeEvent);
           }
 
-          yield doneEvent;
+          yield completeEvent;
           break;
         }
 
@@ -281,14 +281,14 @@ function createInitialState(): L0State {
     content: "",
     checkpoint: "",
     tokenCount: 0,
-    retryAttempts: 0,
-    networkRetries: 0,
+    modelRetryCount: 0,
+    networkRetryCount: 0,
     fallbackIndex: 0,
     violations: [],
     driftDetected: false,
     completed: false,
     networkErrors: [],
-    continuedFromCheckpoint: false,
+    resumed: false,
     dataOutputs: [],
   };
 }
@@ -335,8 +335,10 @@ export function compareReplays(a: L0State, b: L0State): ReplayComparison {
   if (a.completed !== b.completed) {
     differences.push(`completed: ${a.completed} vs ${b.completed}`);
   }
-  if (a.retryAttempts !== b.retryAttempts) {
-    differences.push(`retryAttempts: ${a.retryAttempts} vs ${b.retryAttempts}`);
+  if (a.modelRetryCount !== b.modelRetryCount) {
+    differences.push(
+      `modelRetryCount: ${a.modelRetryCount} vs ${b.modelRetryCount}`,
+    );
   }
   if (a.fallbackIndex !== b.fallbackIndex) {
     differences.push(`fallbackIndex: ${a.fallbackIndex} vs ${b.fallbackIndex}`);

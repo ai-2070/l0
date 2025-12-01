@@ -27,8 +27,7 @@ L0 includes 1,800+ tests covering all major reliability features.
 
 **Upcoming versions:**
 
-- **0.9.0** - Website docs + Python version
-- **1.0.0** - API freeze
+- **1.0.0** - API freeze + Website docs + Python version
 
 ## Features
 
@@ -50,7 +49,7 @@ L0 includes 1,800+ tests covering all major reliability features.
 | **📄 Document Windows**                          | Built-in chunking (token, paragraph, sentence, character). Ideal for long documents, transcripts, or multi-page processing.                                                                           |
 | **🎨 Formatting Helpers**                        | Extract JSON/code from markdown fences, strip thinking tags, normalize whitespace, and clean LLM output for downstream processing.                                                                    |
 | **📊 Monitoring Hooks**                          | `onToken`, `onViolation`, `onRetry`, `onFallback`, and more - integrates with Prometheus, OTel, Sentry.                                                                                               |
-| **📡 Streaming-First Runtime**                   | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `done`) for easy UIs.                                                                                     |
+| **📡 Streaming-First Runtime**                   | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `complete`) for easy UIs.                                                                                 |
 | **📼 Atomic Event Logs**                         | Record every token, retry, fallback, and guardrail check as immutable events. Full audit trail for debugging and compliance.                                                                          |
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
@@ -243,11 +242,11 @@ for await (const event of result.stream) {
     case "token":
       console.log(event.value);
       break;
-    case "done":
+    case "complete":
       console.log("Complete");
       break;
     case "error":
-      console.error(event.error);
+      console.error(event.error, event.reason); // reason: ErrorCategory
       break;
   }
 }
@@ -547,8 +546,9 @@ const result = await l0({
 });
 
 // Check if continuation was used
-console.log(result.state.continuedFromCheckpoint); // true if resumed
-console.log(result.state.continuationCheckpoint); // The checkpoint content
+console.log(result.state.resumed); // true if resumed from checkpoint
+console.log(result.state.resumePoint); // The checkpoint content
+console.log(result.state.resumeFrom); // Character offset where resume occurred
 ```
 
 ### How It Works
@@ -1017,7 +1017,7 @@ Adapters MUST:
 - Preserve text exactly (no trimming, no modification)
 - Include timestamps on every event
 - Convert errors to error events (never throw)
-- Emit done event exactly once at end
+- Emit complete event exactly once at end
 
 See [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md) for complete guide including helper functions, registry API, and testing patterns.
 

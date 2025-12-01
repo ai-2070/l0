@@ -60,7 +60,7 @@ function createAdapterA(): L0Adapter<MockStreamA> {
       for await (const text of stream.data) {
         yield { type: "token", value: text, timestamp: Date.now() };
       }
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     },
   };
 }
@@ -79,7 +79,7 @@ function createAdapterB(): L0Adapter<MockStreamB> {
       for await (const chunk of stream.chunks) {
         yield { type: "token", value: chunk.text, timestamp: Date.now() };
       }
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     },
   };
 }
@@ -91,7 +91,7 @@ function createAdapterWithoutDetect(): L0Adapter<MockStreamA> {
       for await (const text of stream.data) {
         yield { type: "token", value: text, timestamp: Date.now() };
       }
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     },
   };
 }
@@ -269,7 +269,7 @@ describe("Adapter Registry", () => {
         detect: (input): input is MockStreamA =>
           (input as any)?.__brand === "streamA",
         async *wrap() {
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
       const adapter2: L0Adapter<MockStreamA> = {
@@ -277,7 +277,7 @@ describe("Adapter Registry", () => {
         detect: (input): input is MockStreamA =>
           (input as any)?.__brand === "streamA",
         async *wrap() {
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
 
@@ -349,14 +349,14 @@ describe("Adapter Registry", () => {
         name: "dup-1",
         detect: (input): input is unknown => true,
         async *wrap() {
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
       const adapter2: L0Adapter<unknown> = {
         name: "dup-2",
         detect: (input): input is unknown => true,
         async *wrap() {
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
 
@@ -391,13 +391,13 @@ describe("Adapter Registry", () => {
       }
 
       const tokens = events.filter((e) => e.type === "token");
-      const doneEvents = events.filter((e) => e.type === "done");
+      const completeEvent = events.filter((e) => e.type === "complete");
 
       expect(tokens).toHaveLength(3);
       expect(tokens[0]!.value).toBe("Hello");
       expect(tokens[1]!.value).toBe(" ");
       expect(tokens[2]!.value).toBe("World");
-      expect(doneEvents).toHaveLength(1);
+      expect(completeEvent).toHaveLength(1);
     });
 
     it("should include timestamps on all events", async () => {
@@ -445,7 +445,7 @@ describe("Adapter Registry", () => {
           throw new Error("Detection error");
         },
         async *wrap() {
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
 
@@ -466,7 +466,7 @@ describe("Adapter Registry", () => {
         },
         async *wrap() {
           yield { type: "token", value: "broad", timestamp: Date.now() };
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
 
@@ -482,7 +482,7 @@ describe("Adapter Registry", () => {
         },
         async *wrap() {
           yield { type: "token", value: "specific", timestamp: Date.now() };
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
 
@@ -526,7 +526,7 @@ describe("Adapter Registry", () => {
         detect: (input): input is object =>
           typeof input === "object" && input !== null,
         async *wrap() {
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
       const adapter2: L0Adapter<object> = {
@@ -534,7 +534,7 @@ describe("Adapter Registry", () => {
         detect: (input): input is object =>
           typeof input === "object" && input !== null,
         async *wrap() {
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
       const adapter3: L0Adapter<object> = {
@@ -542,7 +542,7 @@ describe("Adapter Registry", () => {
         detect: (input): input is object =>
           typeof input === "object" && input !== null,
         async *wrap() {
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
         },
       };
 

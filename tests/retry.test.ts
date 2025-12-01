@@ -213,7 +213,7 @@ describe("RetryManager", () => {
       const state = retryManager.getState();
 
       expect(state.attempt).toBe(0);
-      expect(state.networkRetries).toBe(0);
+      expect(state.networkRetryCount).toBe(0);
       expect(state.transientRetries).toBe(0);
       expect(state.totalDelay).toBe(0);
       expect(state.errorHistory).toHaveLength(0);
@@ -251,8 +251,8 @@ describe("RetryManager", () => {
     });
 
     it("should track model retries", () => {
-      const modelRetries = retryManager.getModelRetries();
-      expect(modelRetries).toBe(0);
+      const modelRetryCount = retryManager.getmodelRetryCount();
+      expect(modelRetryCount).toBe(0);
     });
 
     it("should track limit status", () => {
@@ -419,7 +419,7 @@ describe("RetryManager", () => {
         expect(decision.shouldRetry).toBe(true);
         // Manually increment counters without calling recordRetry (which has delays)
         const state = manager.getState();
-        (manager as any).state.networkRetries++;
+        (manager as any).state.networkRetryCount++;
       }
 
       // Still should be able to retry even after 50 retries

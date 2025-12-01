@@ -53,8 +53,8 @@ export class L0Monitor {
       metrics: {
         totalTokens: 0,
         totalRetries: 0,
-        networkRetries: 0,
-        modelRetries: 0,
+        networkRetryCount: 0,
+        modelRetryCount: 0,
       },
       network: {
         errorCount: 0,
@@ -149,9 +149,9 @@ export class L0Monitor {
     this.telemetry.metrics.totalRetries++;
 
     if (isNetworkError) {
-      this.telemetry.metrics.networkRetries++;
+      this.telemetry.metrics.networkRetryCount++;
     } else {
-      this.telemetry.metrics.modelRetries++;
+      this.telemetry.metrics.modelRetryCount++;
     }
   }
 
@@ -465,8 +465,8 @@ export class TelemetryExporter {
         time_to_first_token_ms: telemetry.metrics.timeToFirstToken,
         avg_inter_token_time_ms: telemetry.metrics.avgInterTokenTime,
         total_retries: telemetry.metrics.totalRetries,
-        network_retries: telemetry.metrics.networkRetries,
-        model_retries: telemetry.metrics.modelRetries,
+        network_retries: telemetry.metrics.networkRetryCount,
+        model_retries: telemetry.metrics.modelRetryCount,
       },
       network: {
         error_count: telemetry.network.errorCount,
@@ -552,14 +552,14 @@ export class TelemetryExporter {
 
     metrics.push({
       name: "l0.retries.network",
-      value: telemetry.metrics.networkRetries,
+      value: telemetry.metrics.networkRetryCount,
       timestamp,
       tags,
     });
 
     metrics.push({
       name: "l0.retries.model",
-      value: telemetry.metrics.modelRetries,
+      value: telemetry.metrics.modelRetryCount,
       timestamp,
       tags,
     });

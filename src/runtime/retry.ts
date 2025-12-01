@@ -48,7 +48,7 @@ export class RetryManager {
   private createInitialState(): RetryState {
     return {
       attempt: 0,
-      networkRetries: 0,
+      networkRetryCount: 0,
       transientRetries: 0,
       errorHistory: [],
       totalDelay: 0,
@@ -280,7 +280,7 @@ export class RetryManager {
     const attemptCount = categorized.countsTowardLimit
       ? this.state.attempt
       : categorized.category === ErrorCategory.NETWORK
-        ? this.state.networkRetries
+        ? this.state.networkRetryCount
         : this.state.transientRetries;
 
     // For network errors, check if custom delay is configured
@@ -334,7 +334,7 @@ export class RetryManager {
     if (decision.countsTowardLimit) {
       this.state.attempt++;
     } else if (categorizedError.category === ErrorCategory.NETWORK) {
-      this.state.networkRetries++;
+      this.state.networkRetryCount++;
     } else if (categorizedError.category === ErrorCategory.TRANSIENT) {
       this.state.transientRetries++;
     }
@@ -383,7 +383,7 @@ export class RetryManager {
         const attemptCount = decision.countsTowardLimit
           ? this.state.attempt
           : categorized.category === ErrorCategory.NETWORK
-            ? this.state.networkRetries
+            ? this.state.networkRetryCount
             : this.state.transientRetries;
 
         // Calculate backoff with custom delays if network error
@@ -458,7 +458,7 @@ export class RetryManager {
   getTotalRetries(): number {
     return (
       this.state.attempt +
-      this.state.networkRetries +
+      this.state.networkRetryCount +
       this.state.transientRetries
     );
   }
@@ -466,7 +466,7 @@ export class RetryManager {
   /**
    * Get model failure retry count
    */
-  getModelRetries(): number {
+  getmodelRetryCount(): number {
     return this.state.attempt;
   }
 

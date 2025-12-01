@@ -309,7 +309,7 @@ export interface L0Snapshot {
   /** Retry attempts count */
   retryAttempts: number;
   /** Network retries count */
-  networkRetries: number;
+  networkRetryCount: number;
   /** Current fallback index */
   fallbackIndex: number;
 }

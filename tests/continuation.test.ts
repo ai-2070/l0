@@ -54,7 +54,7 @@ describe("continueFromLastKnownGoodToken", () => {
         // consume
       }
 
-      expect(result.state.continuedFromCheckpoint).toBe(false);
+      expect(result.state.resumed).toBe(false);
     });
 
     it("should track continuation state when enabled", async () => {
@@ -68,7 +68,7 @@ describe("continueFromLastKnownGoodToken", () => {
       }
 
       // No retry happened, so no continuation was used
-      expect(result.state.continuedFromCheckpoint).toBe(false);
+      expect(result.state.resumed).toBe(false);
     });
   });
 
@@ -111,8 +111,8 @@ describe("continueFromLastKnownGoodToken", () => {
       }
 
       // Should have continued from checkpoint
-      expect(result.state.continuedFromCheckpoint).toBe(true);
-      expect(result.state.continuationCheckpoint).toBeDefined();
+      expect(result.state.resumed).toBe(true);
+      expect(result.state.resumePoint).toBeDefined();
       expect(attemptCount).toBe(2);
     });
 
@@ -148,8 +148,8 @@ describe("continueFromLastKnownGoodToken", () => {
         // consume
       }
 
-      expect(result.state.continuedFromCheckpoint).toBe(false);
-      expect(result.state.continuationCheckpoint).toBeUndefined();
+      expect(result.state.resumed).toBe(false);
+      expect(result.state.resumePoint).toBeUndefined();
     });
   });
 
@@ -196,9 +196,9 @@ describe("continueFromLastKnownGoodToken", () => {
 
         // If we reach here, check the assertions
         expect(primaryAttempts).toBeGreaterThanOrEqual(1);
-        // When fallback is used, continuedFromCheckpoint should be true if there was a checkpoint
+        // When fallback is used, resumed should be true if there was a checkpoint
         if (result.state.fallbackIndex === 1) {
-          expect(result.state.continuedFromCheckpoint).toBe(true);
+          expect(result.state.resumed).toBe(true);
         }
       } catch (_error) {
         // Fallback behavior may vary with mock streams - this is expected
@@ -241,11 +241,11 @@ describe("continueFromLastKnownGoodToken", () => {
         }
 
         expect(primaryAttempts).toBeGreaterThanOrEqual(1);
-        expect(result.state.continuedFromCheckpoint).toBe(false);
+        expect(result.state.resumed).toBe(false);
       } catch (_error) {
         // Fallback behavior may vary with mock streams
         expect(primaryAttempts).toBeGreaterThanOrEqual(1);
-        expect(result.state.continuedFromCheckpoint).toBe(false);
+        expect(result.state.resumed).toBe(false);
       }
     });
   });
@@ -282,9 +282,9 @@ describe("continueFromLastKnownGoodToken", () => {
         // consume
       }
 
-      expect(result.state.continuedFromCheckpoint).toBe(true);
+      expect(result.state.resumed).toBe(true);
       // Checkpoint is saved every 5 tokens, so after 5 tokens we have "ABCDE"
-      expect(result.state.continuationCheckpoint).toBe("ABCDE");
+      expect(result.state.resumePoint).toBe("ABCDE");
     });
 
     it("should not continue if no checkpoint exists", async () => {
@@ -318,7 +318,7 @@ describe("continueFromLastKnownGoodToken", () => {
       }
 
       // No checkpoint was saved before error, so no continuation
-      expect(result.state.continuedFromCheckpoint).toBe(false);
+      expect(result.state.resumed).toBe(false);
     });
   });
 
@@ -432,7 +432,7 @@ describe("continueFromLastKnownGoodToken", () => {
 
       // No checkpoint was saved (only 2 tokens, interval is 10)
       // So continuation should not have been used
-      expect(result.state.continuedFromCheckpoint).toBe(false);
+      expect(result.state.resumed).toBe(false);
       // Telemetry should not have stale checkpoint content
       expect(result.telemetry?.continuation?.checkpointContent).toBeUndefined();
       expect(result.telemetry?.continuation?.checkpointLength).toBeUndefined();
@@ -470,7 +470,7 @@ describe("continueFromLastKnownGoodToken", () => {
       }
 
       // No checkpoint to continue from
-      expect(result.state.continuedFromCheckpoint).toBe(false);
+      expect(result.state.resumed).toBe(false);
       expect(result.state.content).toBe("Success");
     });
 
@@ -506,12 +506,79 @@ describe("continueFromLastKnownGoodToken", () => {
         // consume
       }
 
-      expect(result.state.continuedFromCheckpoint).toBe(true);
+      expect(result.state.resumed).toBe(true);
       expect(attemptCount).toBe(3);
     });
   });
 
   describe("Guardrails on Continuation", () => {
+    it("should run completion-only guardrails on checkpoint validation", async () => {
+      // This test verifies that guardrails marked with completed: true only
+      // are still triggered when validating checkpoint content before continuation.
+      // The checkpoint context should have completed: true so these rules run.
+      let attemptCount = 0;
+      const violations: any[] = [];
+
+      // Guardrail that ONLY runs on completion (checks ctx.completed)
+      const completionOnlyRule: GuardrailRule = {
+        name: "completion-only-check",
+        check: (ctx) => {
+          // Only check when completed is true
+          if (!ctx.completed) return [];
+          if (ctx.content.includes("bad-word")) {
+            return [
+              {
+                rule: "completion-only-check",
+                message: "Bad word found on completion",
+                severity: "error",
+                recoverable: true,
+              },
+            ];
+          }
+          return [];
+        },
+      };
+
+      const result = await l0({
+        stream: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            // First attempt: emit content with "bad-word" then fail
+            return {
+              textStream: createMockStream(
+                ["hello", " ", "bad-word", " ", "content"],
+                { shouldError: true },
+              ),
+            };
+          }
+          // Second attempt: clean content
+          return {
+            textStream: createMockStream([" continued"]),
+          };
+        },
+        guardrails: [completionOnlyRule],
+        continueFromLastKnownGoodToken: true,
+        retry: {
+          attempts: 3,
+          baseDelay: 10,
+          retryOn: ["unknown", "network_error", "guardrail_violation"],
+        },
+        checkIntervals: { checkpoint: 1 },
+        detectZeroTokens: false,
+        onViolation: (v) => violations.push(v),
+      });
+
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      // The completion-only guardrail should have been triggered during checkpoint validation
+      // This proves that checkpoint validation sets completed: true in the context
+      expect(violations.some((v) => v.rule === "completion-only-check")).toBe(
+        true,
+      );
+    });
+
     it("should run guardrails on checkpoint content", async () => {
       let attemptCount = 0;
       const violations: any[] = [];
@@ -629,7 +696,7 @@ describe("continueFromLastKnownGoodToken", () => {
         // consume
       }
 
-      expect(result.state.continuedFromCheckpoint).toBe(true);
+      expect(result.state.resumed).toBe(true);
       // Checkpoint is saved every 5 tokens, so "ABCDE" after 5 tokens, "ABCDEFGHIJ" after 10
       expect(receivedCheckpoint).toBe("ABCDEFGHIJ");
     });
@@ -673,7 +740,7 @@ describe("continueFromLastKnownGoodToken", () => {
         }
 
         // If fallback was used with continuation
-        if (result.state.continuedFromCheckpoint) {
+        if (result.state.resumed) {
           expect(receivedCheckpoint.length).toBeGreaterThan(0);
         }
       } catch (_error) {
@@ -760,7 +827,7 @@ describe("continueFromLastKnownGoodToken", () => {
       }
 
       // Should have: checkpoint "Hello world" + deduplicated " is great"
-      expect(result.state.continuedFromCheckpoint).toBe(true);
+      expect(result.state.resumed).toBe(true);
       expect(result.state.content).toBe("Hello world is great");
     });
 
@@ -984,7 +1051,7 @@ describe("continueFromLastKnownGoodToken", () => {
       // Primary should have been attempted
       expect(primaryAttempts).toBeGreaterThanOrEqual(1);
       // Continuation should have been used on fallback
-      expect(result.state.continuedFromCheckpoint).toBe(true);
+      expect(result.state.resumed).toBe(true);
       // Content should be deduplicated
       expect(result.state.content).toBe("Primary content here and more");
     });

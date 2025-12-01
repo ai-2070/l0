@@ -75,7 +75,7 @@ describe("toL0Events", () => {
       expect(events[0]).toMatchObject({ type: "token", value: "Hello" });
       expect(events[1]).toMatchObject({ type: "token", value: " " });
       expect(events[2]).toMatchObject({ type: "token", value: "World" });
-      expect(events[3]).toMatchObject({ type: "done" });
+      expect(events[3]).toMatchObject({ type: "complete" });
     });
 
     it("should preserve exact text content without modification", async () => {
@@ -143,7 +143,7 @@ describe("toL0Events", () => {
       expect(events).toHaveLength(3); // 2 tokens + 1 done
       expect(events[0]).toMatchObject({ type: "token", value: "Hello" });
       expect(events[1]).toMatchObject({ type: "token", value: "World" });
-      expect(events[2]).toMatchObject({ type: "done" });
+      expect(events[2]).toMatchObject({ type: "complete" });
     });
 
     it("should skip chunks where extractText returns undefined", async () => {
@@ -201,7 +201,7 @@ describe("toL0Events", () => {
       );
 
       const lastEvent = events[events.length - 1];
-      expect(lastEvent).toMatchObject({ type: "done" });
+      expect(lastEvent).toMatchObject({ type: "complete" });
     });
 
     it("should emit done event even for empty streams", async () => {
@@ -213,7 +213,7 @@ describe("toL0Events", () => {
       );
 
       expect(events).toHaveLength(1);
-      expect(events[0]).toMatchObject({ type: "done" });
+      expect(events[0]).toMatchObject({ type: "complete" });
     });
 
     it("should emit done event when all chunks are filtered out", async () => {
@@ -223,7 +223,7 @@ describe("toL0Events", () => {
       const events = await collectEvents(toL0Events(stream, () => null));
 
       expect(events).toHaveLength(1);
-      expect(events[0]).toMatchObject({ type: "done" });
+      expect(events[0]).toMatchObject({ type: "complete" });
     });
   });
 
@@ -283,7 +283,7 @@ describe("toL0Events", () => {
 
       // Should have: 1 token (A), then error when trying to yield B
       expect(events.filter((e) => e.type === "token")).toHaveLength(1);
-      expect(events.filter((e) => e.type === "done")).toHaveLength(0);
+      expect(events.filter((e) => e.type === "complete")).toHaveLength(0);
       expect(events.filter((e) => e.type === "error")).toHaveLength(1);
     });
   });
@@ -567,7 +567,7 @@ describe("createAdapterDoneEvent", () => {
     const event = createAdapterDoneEvent();
 
     expect(event).toEqual({
-      type: "done",
+      type: "complete",
       timestamp: 99999,
     });
   });
@@ -815,7 +815,7 @@ describe("adapter helper integration patterns", () => {
     );
 
     expect(events.filter((e) => e.type === "token")).toHaveLength(2);
-    expect(events.filter((e) => e.type === "done")).toHaveLength(1);
+    expect(events.filter((e) => e.type === "complete")).toHaveLength(1);
   });
 
   it("should work with event creation helpers for manual adapter", async () => {
@@ -1100,7 +1100,7 @@ describe("toMultimodalL0Events", () => {
     expect(events).toHaveLength(3); // 2 tokens + done
     expect(events[0]).toMatchObject({ type: "token", value: "Hello" });
     expect(events[1]).toMatchObject({ type: "token", value: " World" });
-    expect(events[2]).toMatchObject({ type: "done" });
+    expect(events[2]).toMatchObject({ type: "complete" });
   });
 
   it("should handle data extraction for images", async () => {
@@ -1173,7 +1173,7 @@ describe("toMultimodalL0Events", () => {
     expect(events[0]?.type).toBe("progress");
     expect(events[1]?.type).toBe("token");
     expect(events[2]?.type).toBe("data");
-    expect(events[3]?.type).toBe("done");
+    expect(events[3]?.type).toBe("complete");
   });
 
   it("should handle message extraction", async () => {

@@ -77,7 +77,7 @@ type L0Event =
   | { type: "token"; value: string; timestamp: number }
   | { type: "message"; value: string; role?: string; timestamp: number }
   | {
-      type: "done";
+      type: "complete";
       timestamp: number;
       usage?: { input_tokens?: number; output_tokens?: number };
     }
@@ -190,7 +190,7 @@ const myAdapter: L0Adapter<MyStream> = {
           };
         }
       }
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     } catch (err) {
       yield {
         type: "error",
@@ -243,7 +243,7 @@ const myAdapter: L0Adapter<MyStream, MyAdapterOptions> = {
     }
 
     yield {
-      type: "done",
+      type: "complete",
       timestamp: Date.now(),
       ...(includeUsage ? { usage: { output_tokens: 100 } } : {}),
     };
@@ -264,14 +264,14 @@ Adapters MUST follow these rules. L0 depends on them for reliability.
 
 ### MUST Do
 
-| Requirement                  | Description                                        |
-| ---------------------------- | -------------------------------------------------- |
-| **Preserve text exactly**    | Never trim, modify, or transform text content      |
-| **Include timestamps**       | Every event must have `timestamp: Date.now()`      |
-| **Emit events in order**     | Yield events in exact order received from provider |
-| **Convert errors to events** | Catch all errors, yield `{ type: "error" }`        |
-| **Emit done exactly once**   | Always yield `{ type: "done" }` at stream end      |
-| **Be synchronous iteration** | Only async operation is `for await` on the stream  |
+| Requirement                    | Description                                        |
+| ------------------------------ | -------------------------------------------------- |
+| **Preserve text exactly**      | Never trim, modify, or transform text content      |
+| **Include timestamps**         | Every event must have `timestamp: Date.now()`      |
+| **Emit events in order**       | Yield events in exact order received from provider |
+| **Convert errors to events**   | Catch all errors, yield `{ type: "error" }`        |
+| **Emit complete exactly once** | Always yield `{ type: "complete" }` at stream end  |
+| **Be synchronous iteration**   | Only async operation is `for await` on the stream  |
 
 ### MUST NOT Do
 
@@ -332,7 +332,7 @@ const myAdapter: L0Adapter<MyStream> = {
 
 - Timestamp generation
 - Error conversion to error events
-- Automatic done event emission
+- Automatic complete event emission
 - Null/undefined filtering
 
 ### toL0EventsWithMessages
@@ -593,7 +593,7 @@ export const customProviderAdapter: L0Adapter<CustomProviderStream> = {
 import type { L0Adapter, L0Event } from "@ai2070/l0";
 
 interface ToolProviderChunk {
-  type: "text" | "tool_call" | "tool_result" | "done";
+  type: "text" | "tool_call" | "tool_result" | "complete";
   text?: string;
   tool?: { id: string; name: string; arguments: string };
   result?: { id: string; output: string };
@@ -646,14 +646,14 @@ export const toolProviderAdapter: L0Adapter<ToolProviderStream> = {
             }
             break;
 
-          case "done":
-            yield { type: "done", timestamp: Date.now() };
+          case "complete":
+            yield { type: "complete", timestamp: Date.now() };
             return;
         }
       }
 
-      // Ensure done is emitted
-      yield { type: "done", timestamp: Date.now() };
+      // Ensure complete is emitted
+      yield { type: "complete", timestamp: Date.now() };
     } catch (err) {
       yield {
         type: "error",
@@ -705,7 +705,7 @@ export const restApiAdapter: L0Adapter<Response> = {
     try {
       for await (const message of parseSSE(response)) {
         if (message.data === "[DONE]") {
-          yield { type: "done", timestamp: Date.now() };
+          yield { type: "complete", timestamp: Date.now() };
           return;
         }
 
@@ -719,7 +719,7 @@ export const restApiAdapter: L0Adapter<Response> = {
         }
       }
 
-      yield { type: "done", timestamp: Date.now() };
+      yield { type: "complete", timestamp: Date.now() };
     } catch (err) {
       yield {
         type: "error",
@@ -799,12 +799,12 @@ describe("myAdapter", () => {
     }
   });
 
-  it("should emit done event exactly once", async () => {
+  it("should emit complete event exactly once", async () => {
     const stream = mockStream([{ text: "A" }, { text: "B" }]);
     const events = await collectEvents(myAdapter.wrap(stream));
 
-    const doneEvents = events.filter((e) => e.type === "done");
-    expect(doneEvents).toHaveLength(1);
+    const completeEvents = events.filter((e) => e.type === "complete");
+    expect(completeEvents).toHaveLength(1);
   });
 
   it("should convert errors to error events", async () => {
@@ -836,10 +836,10 @@ describe("myAdapter", () => {
 
 1. **Text preservation** - Exact text including whitespace, newlines, special chars
 2. **Timestamps** - Every event has numeric timestamp
-3. **Done event** - Emitted exactly once at end
+3. **Complete event** - Emitted exactly once at end
 4. **Error handling** - Errors become error events, never thrown
 5. **Event ordering** - Events emitted in receive order
-6. **Empty streams** - Still emit done event
+6. **Empty streams** - Still emit complete event
 7. **Detection** - Type guard returns correct boolean
 
 ## Best Practices

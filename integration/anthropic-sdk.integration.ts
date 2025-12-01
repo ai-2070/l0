@@ -41,10 +41,10 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
         }
 
         const tokens = events.filter((e) => e.type === "token");
-        const doneEvents = events.filter((e) => e.type === "done");
+        const completeEvent = events.filter((e) => e.type === "complete");
 
         expect(tokens.length).toBeGreaterThan(0);
-        expect(doneEvents).toHaveLength(1);
+        expect(completeEvent).toHaveLength(1);
 
         const fullText = tokens.map((e) => e.value).join("");
         expectValidResponse(fullText);
@@ -66,7 +66,7 @@ describeIf(hasAnthropic)("Anthropic SDK Direct Integration", () => {
           events.push(event);
         }
 
-        const doneEvent = events.find((e) => e.type === "done");
+        const doneEvent = events.find((e) => e.type === "complete");
         expect(doneEvent).toBeDefined();
         expect((doneEvent as any).usage).toBeDefined();
         expect((doneEvent as any).usage.input_tokens).toBeGreaterThan(0);

@@ -4,11 +4,6 @@ import type { GuardrailRule, GuardrailViolation } from "./guardrails";
 import type { BackoffStrategy, RetryReason } from "./retry";
 import { RETRY_DEFAULTS, ErrorCategory } from "./retry";
 
-// Re-export for convenience
-export type { GuardrailRule, GuardrailViolation } from "./guardrails";
-export type { BackoffStrategy, RetryReason } from "./retry";
-export { RETRY_DEFAULTS, ErrorCategory } from "./retry";
-
 /**
  * Result of checkpoint validation for continuation
  */
@@ -119,9 +114,9 @@ export interface L0Event {
    * - "data": Multimodal data (images, audio, etc.)
    * - "progress": Progress update for long-running operations
    * - "error": Error event
-   * - "done": Stream completion
+   * - "complete": Stream completion
    */
-  type: "token" | "message" | "data" | "progress" | "error" | "done";
+  type: "token" | "message" | "data" | "progress" | "error" | "complete";
 
   /** Text value (for token/message events) */
   value?: string;
@@ -138,11 +133,14 @@ export interface L0Event {
   /** Error (for error events) */
   error?: Error;
 
+  /** Error category/reason (for error events) */
+  reason?: ErrorCategory;
+
   /** Event timestamp */
   timestamp?: number;
 
   /**
-   * Usage information (typically on done event)
+   * Usage information (typically on complete event)
    */
   usage?: {
     input_tokens?: number;
@@ -248,17 +246,36 @@ export interface L0Options<TOutput = unknown> {
 
   /**
    * Configure check intervals for streaming operations
+   *
+   * **Performance Note:** Both guardrails and drift detection scan the accumulated
+   * content at each check interval. For very long outputs (multi-MB), this becomes
+   * O(n) per check. Consider:
+   * - Increasing intervals for long-form content
+   * - Using streaming-optimized guardrail rules that only check the delta
+   * - Setting a maximum content length before disabling checks
    */
   checkIntervals?: {
     /**
      * Run guardrail checks every N tokens (default: 5)
-     * Lower values = more frequent checks, higher CPU usage
-     * Higher values = less frequent checks, potential for more content before violation detected
+     *
+     * **Performance Warning:** If guardrail rules include expensive operations
+     * (regex on full content, JSON parsing), lower values can cause significant
+     * CPU overhead. For rules that scan full content, each check is O(n) where
+     * n is content length.
+     *
+     * Recommendations:
+     * - For simple delta-only rules: 1-5 tokens
+     * - For rules scanning full content: 10-50 tokens
+     * - For very long outputs (>100KB): 50-100 tokens
      */
     guardrails?: number;
 
     /**
      * Run drift detection every N tokens (default: 10)
+     *
+     * **Performance Warning:** Drift detection scans the entire accumulated
+     * content at each interval, making it O(n) per check. For multi-MB outputs,
+     * consider increasing this interval or disabling drift detection.
      */
     drift?: number;
 
@@ -271,6 +288,15 @@ export interface L0Options<TOutput = unknown> {
 
   /**
    * Enable drift detection
+   *
+   * **Performance Warning:** Drift detection scans the entire accumulated content
+   * at regular intervals (configured via checkIntervals.drift). For very long
+   * streaming outputs, this can become expensive. The check is O(n) where n is
+   * the content length at each interval.
+   *
+   * For long-form content generation, consider:
+   * - Increasing checkIntervals.drift to reduce frequency
+   * - Disabling drift detection and validating at completion only
    */
   detectDrift?: boolean;
 
@@ -485,7 +511,7 @@ export interface L0Options<TOutput = unknown> {
  *           yield { type: "token", value: chunk.content, timestamp: Date.now() };
  *         }
  *       }
- *       yield { type: "done", timestamp: Date.now() };
+ *       yield { type: "complete", timestamp: Date.now() };
  *     } catch (err) {
  *       yield {
  *         type: "error",
@@ -525,7 +551,7 @@ export interface L0Adapter<StreamType = unknown, Options = unknown> {
    * - Yield events in exact order received
    * - Include timestamp on every event
    * - Convert errors to { type: "error" } events (never throw)
-   * - Yield { type: "done" } exactly once at end
+   * - Yield { type: "complete" } exactly once at end
    *
    * MUST NOT:
    * - Modify text content in any way
@@ -627,14 +653,14 @@ export interface L0State {
   tokenCount: number;
 
   /**
-   * Retry attempts made (only counts model failures)
+   * Model retry attempts made (counts toward retry limit)
    */
-  retryAttempts: number;
+  modelRetryCount: number;
 
   /**
    * Network retry attempts (doesn't count toward limit)
    */
-  networkRetries: number;
+  networkRetryCount: number;
 
   /**
    * Index of current fallback stream being used (0 = primary, 1+ = fallback)
@@ -677,14 +703,20 @@ export interface L0State {
   networkErrors: CategorizedNetworkError[];
 
   /**
-   * Whether continuation from checkpoint was used
+   * Whether continuation from checkpoint was used (resumed from prior content)
    */
-  continuedFromCheckpoint: boolean;
+  resumed: boolean;
 
   /**
    * The checkpoint content that was used for continuation (if any)
    */
-  continuationCheckpoint?: string;
+  resumePoint?: string;
+
+  /**
+   * Character offset where resume occurred (length of checkpoint content)
+   * Useful for debugging and telemetry
+   */
+  resumeFrom?: number;
 
   /**
    * Multimodal data outputs collected during streaming.
@@ -752,14 +784,14 @@ export interface L0Telemetry {
     totalRetries: number;
 
     /**
-     * Network retries (doesn't count toward limit)
+     * Network retry count (doesn't count toward limit)
      */
-    networkRetries: number;
+    networkRetryCount: number;
 
     /**
-     * Model retries (counts toward limit)
+     * Model retry count (counts toward limit)
      */
-    modelRetries: number;
+    modelRetryCount: number;
   };
 
   /**

@@ -12,7 +12,7 @@ const result = await l0({
   retry: recommendedRetry, // Handles all network errors automatically
 });
 
-console.log("Network retries:", result.state.networkRetries);
+console.log("Network retries:", result.state.networkRetryCount);
 ```
 
 ---
@@ -185,8 +185,8 @@ const result = await l0({
 });
 
 // After completion
-console.log("Network retries:", result.state.networkRetries);
-console.log("Model retries:", result.state.retryAttempts);
+console.log("Network retries:", result.state.networkRetryCount);
+console.log("Model retries:", result.state.modelRetryCount);
 ```
 
 ---

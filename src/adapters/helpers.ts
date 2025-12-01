@@ -63,7 +63,7 @@ export async function* toL0Events<T>(
       }
     }
     yield {
-      type: "done",
+      type: "complete",
       timestamp: Date.now(),
     };
   } catch (err) {
@@ -143,7 +143,7 @@ export async function* toL0EventsWithMessages<T>(
       }
     }
     yield {
-      type: "done",
+      type: "complete",
       timestamp: Date.now(),
     };
   } catch (err) {
@@ -171,14 +171,14 @@ export function createAdapterTokenEvent(value: string): L0Event {
 }
 
 /**
- * Create an L0 done event.
+ * Create an L0 complete event.
  * Ensures timestamp is always present.
  *
- * @returns L0Event of type "done"
+ * @returns L0Event of type "complete"
  */
 export function createAdapterDoneEvent(): L0Event {
   return {
-    type: "done",
+    type: "complete",
     timestamp: Date.now(),
   };
 }

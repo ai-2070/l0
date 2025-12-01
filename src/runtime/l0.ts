@@ -6,17 +6,16 @@ import type {
   L0State,
   L0Event,
   L0Adapter,
-  CheckpointValidationResult,
 } from "../types/l0";
-import type { GuardrailContext } from "../types/guardrails";
 import { GuardrailEngine } from "../guardrails/engine";
+import type { GuardrailContext } from "../types/guardrails";
 import { RetryManager } from "./retry";
 import { DriftDetector } from "./drift";
 import { detectZeroToken } from "./zeroToken";
 import { normalizeStreamEvent } from "./events";
 import { detectOverlap } from "../utils/tokens";
 import { L0Monitor } from "./monitoring";
-import { isNetworkError, L0Error } from "../utils/errors";
+import { isNetworkError, L0Error, ErrorCategory } from "../utils/errors";
 import { InterceptorManager } from "./interceptors";
 import {
   getAdapter,
@@ -24,55 +23,20 @@ import {
   hasMatchingAdapter,
 } from "../adapters/registry";
 
-/**
- * Validate checkpoint content before using for continuation
- * This ensures all protections apply to the resumed content
- */
-function validateCheckpointForContinuation(
-  checkpointContent: string,
-  guardrailEngine: GuardrailEngine | null,
-  driftDetector: DriftDetector | null,
-): CheckpointValidationResult {
-  const result: CheckpointValidationResult = {
-    skipContinuation: false,
-    violations: [],
-    driftDetected: false,
-    driftTypes: [],
-  };
+// Import from extracted modules
+import { createInitialState, resetStateForRetry } from "./state";
+import { validateCheckpointForContinuation } from "./checkpoint";
+import { safeInvokeCallback } from "./callbacks";
+import { StateMachine, RuntimeStates } from "./state-machine";
+import { Metrics } from "./metrics";
 
-  // Run guardrails on checkpoint content
-  if (guardrailEngine) {
-    const checkpointContext: GuardrailContext = {
-      content: checkpointContent,
-      checkpoint: "",
-      delta: checkpointContent,
-      tokenCount: 1,
-      completed: false,
-    };
-    const checkpointResult = guardrailEngine.check(checkpointContext);
-    if (checkpointResult.violations.length > 0) {
-      result.violations = checkpointResult.violations;
-      // Check for fatal violations - if any, skip continuation
-      const hasFatal = checkpointResult.violations.some(
-        (v) => v.severity === "fatal",
-      );
-      if (hasFatal) {
-        result.skipContinuation = true;
-      }
-    }
-  }
+// Re-export helpers for backward compatibility
+export { getText, consumeStream } from "./helpers";
 
-  // Run drift detection on checkpoint content (only if not already skipping)
-  if (!result.skipContinuation && driftDetector) {
-    const driftResult = driftDetector.check(checkpointContent);
-    if (driftResult.detected) {
-      result.driftDetected = true;
-      result.driftTypes = driftResult.types;
-    }
-  }
-
-  return result;
-}
+// Re-export new modules for advanced usage
+export { StateMachine, RuntimeStates } from "./state-machine";
+export type { RuntimeState } from "./state-machine";
+export { Metrics } from "./metrics";
 
 /**
  * Main L0 wrapper function
@@ -198,6 +162,11 @@ export async function l0<TOutput = unknown>(
 
   const driftDetector = processedDetectDrift ? new DriftDetector() : null;
 
+  // Initialize state machine and metrics
+  const stateMachine = new StateMachine();
+  const metrics = new Metrics();
+  metrics.requests++;
+
   // Create async generator for streaming
   const streamGenerator = async function* (): AsyncGenerator<L0Event> {
     let fallbackIndex = 0;
@@ -209,10 +178,10 @@ export async function l0<TOutput = unknown>(
     // Track checkpoint for continuation
     let checkpointForContinuation = "";
 
-    // Deduplication state for continuation
-    // LLMs often repeat content when continuing, so we buffer and deduplicate
-    let deduplicationBuffer = "";
-    let deduplicationComplete = false;
+    // Overlap matching state for continuation
+    // LLMs often repeat content when continuing, so we buffer and match overlaps
+    let overlapBuffer = "";
+    let overlapResolved = false;
 
     // Try primary stream first, then fallbacks if exhausted
     while (fallbackIndex < allStreams.length) {
@@ -227,6 +196,9 @@ export async function l0<TOutput = unknown>(
       state.fallbackIndex = fallbackIndex;
 
       while (retryAttempt <= modelRetryLimit) {
+        // Transition to init state at start of each attempt
+        stateMachine.transition(RuntimeStates.INIT);
+
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
           // retryAttempt > 0: guardrail/drift retries increment this directly
@@ -238,6 +210,7 @@ export async function l0<TOutput = unknown>(
               state.checkpoint.length > 0
             ) {
               checkpointForContinuation = state.checkpoint;
+              stateMachine.transition(RuntimeStates.CHECKPOINT_VERIFYING);
 
               // Validate checkpoint content before continuation
               const validation = validateCheckpointForContinuation(
@@ -269,21 +242,17 @@ export async function l0<TOutput = unknown>(
               if (validation.skipContinuation) {
                 // Fatal violation in checkpoint, start fresh
                 tokenBuffer = [];
-                state.content = "";
-                state.tokenCount = 0;
-                state.violations = [];
-                state.driftDetected = false;
-                state.dataOutputs = [];
-                state.lastProgress = undefined;
+                resetStateForRetry(state);
                 continue;
               }
 
-              state.continuedFromCheckpoint = true;
-              state.continuationCheckpoint = checkpointForContinuation;
+              state.resumed = true;
+              state.resumePoint = checkpointForContinuation;
+              state.resumeFrom = checkpointForContinuation.length;
 
-              // Reset deduplication state for the new continuation
-              deduplicationBuffer = "";
-              deduplicationComplete = false;
+              // Reset overlap matching state for the new continuation
+              overlapBuffer = "";
+              overlapResolved = false;
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for retry)
               if (processedBuildContinuationPrompt) {
@@ -300,22 +269,32 @@ export async function l0<TOutput = unknown>(
                 value: checkpointForContinuation,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(checkpointEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                checkpointEvent,
+                monitor,
+                "onEvent",
+              );
               yield checkpointEvent;
 
               // Initialize token buffer with checkpoint
               tokenBuffer = [checkpointForContinuation];
               state.content = checkpointForContinuation;
               state.tokenCount = 1; // Count checkpoint as one token
+              // Reset other state fields
+              resetStateForRetry(state, {
+                checkpoint: state.checkpoint,
+                resumed: true,
+                resumePoint: checkpointForContinuation,
+                resumeFrom: checkpointForContinuation.length,
+              });
+              // Restore values that resetStateForRetry cleared
+              state.content = checkpointForContinuation;
+              state.tokenCount = 1;
             } else {
               tokenBuffer = [];
-              state.content = "";
-              state.tokenCount = 0;
+              resetStateForRetry(state);
             }
-            state.violations = [];
-            state.driftDetected = false;
-            state.dataOutputs = [];
-            state.lastProgress = undefined;
           }
 
           // Get stream from factory
@@ -337,8 +316,8 @@ export async function l0<TOutput = unknown>(
                     `Use registerAdapter() to register it first.`,
                   {
                     code: "ADAPTER_NOT_FOUND",
-                    retryAttempts: state.retryAttempts,
-                    networkRetries: state.networkRetries,
+                    modelRetryCount: state.modelRetryCount,
+                    networkRetryCount: state.networkRetryCount,
                     fallbackIndex,
                     recoverable: false,
                   },
@@ -381,8 +360,8 @@ export async function l0<TOutput = unknown>(
                 "Use explicit `adapter: myAdapter` or register an adapter with detect().",
               {
                 code: "INVALID_STREAM",
-                retryAttempts: state.retryAttempts,
-                networkRetries: state.networkRetries,
+                modelRetryCount: state.modelRetryCount,
+                networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
                 recoverable: true,
               },
@@ -395,7 +374,12 @@ export async function l0<TOutput = unknown>(
           state.lastTokenAt = undefined;
 
           let firstTokenReceived = false;
-          let lastTokenTime = startTime;
+          stateMachine.transition(RuntimeStates.WAITING_FOR_TOKEN);
+
+          // Track time of last token emission for inter-token timeout
+          // This is set BEFORE reading each chunk, so the timeout check
+          // measures time waiting for the next token, not time since processing
+          let lastTokenEmissionTime = startTime;
 
           const defaultInitialTokenTimeout = 5000;
 
@@ -420,11 +404,32 @@ export async function l0<TOutput = unknown>(
                 checkpoint: state.checkpoint,
                 tokenCount: state.tokenCount,
                 contentLength: state.content.length,
-                retryAttempts: state.retryAttempts,
-                networkRetries: state.networkRetries,
+                modelRetryCount: state.modelRetryCount,
+                networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
                 recoverable: state.checkpoint.length > 0,
               });
+            }
+
+            // Check inter-token timeout BEFORE processing this chunk
+            // This measures how long we waited for this token
+            if (firstTokenReceived) {
+              const interTimeout = processedTimeout.interToken ?? 10000;
+              const timeSinceLastToken = Date.now() - lastTokenEmissionTime;
+              if (timeSinceLastToken > interTimeout) {
+                metrics.timeouts++;
+                throw new L0Error("Inter-token timeout reached", {
+                  code: "INTER_TOKEN_TIMEOUT",
+                  checkpoint: state.checkpoint,
+                  tokenCount: state.tokenCount,
+                  contentLength: state.content.length,
+                  modelRetryCount: state.modelRetryCount,
+                  networkRetryCount: state.networkRetryCount,
+                  fallbackIndex,
+                  recoverable: state.checkpoint.length > 0,
+                  metadata: { timeout: interTimeout, timeSinceLastToken },
+                });
+              }
             }
 
             // Clear initial timeout on first chunk
@@ -436,13 +441,14 @@ export async function l0<TOutput = unknown>(
 
             // Check initial timeout
             if (initialTimeoutReached && !firstTokenReceived) {
+              metrics.timeouts++;
               throw new L0Error("Initial token timeout reached", {
                 code: "INITIAL_TOKEN_TIMEOUT",
                 checkpoint: state.checkpoint,
                 tokenCount: 0,
                 contentLength: 0,
-                retryAttempts: state.retryAttempts,
-                networkRetries: state.networkRetries,
+                modelRetryCount: state.modelRetryCount,
+                networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
                 recoverable: true,
                 metadata: {
@@ -452,8 +458,24 @@ export async function l0<TOutput = unknown>(
               });
             }
 
-            // Normalize event
-            const event = normalizeStreamEvent(chunk);
+            // Normalize event with safety wrapper
+            let event: L0Event;
+            try {
+              event = normalizeStreamEvent(chunk);
+            } catch (normalizeError) {
+              // Malformed input from stream - log and skip this chunk
+              const errMsg =
+                normalizeError instanceof Error
+                  ? normalizeError.message
+                  : String(normalizeError);
+              monitor.logEvent({
+                type: "warning",
+                message: `Failed to normalize stream chunk: ${errMsg}`,
+                chunk:
+                  typeof chunk === "object" ? JSON.stringify(chunk) : chunk,
+              });
+              continue;
+            }
 
             if (event.type === "token" && event.value) {
               let token = event.value;
@@ -462,25 +484,33 @@ export async function l0<TOutput = unknown>(
               if (!firstTokenReceived) {
                 firstTokenReceived = true;
                 state.firstTokenAt = Date.now();
+                stateMachine.transition(RuntimeStates.STREAMING);
               }
+
+              metrics.tokens++;
 
               // Handle deduplication for continuation
               // LLMs stream tokens one at a time, so we need to accumulate tokens
               // until we can detect where the overlap ends
               if (
-                state.continuedFromCheckpoint &&
+                state.resumed &&
                 shouldDeduplicateContinuation &&
                 checkpointForContinuation.length > 0 &&
-                !deduplicationComplete
+                !overlapResolved
               ) {
+                // Transition to deduplicating state on first buffer
+                if (overlapBuffer.length === 0) {
+                  stateMachine.transition(RuntimeStates.CONTINUATION_MATCHING);
+                }
+
                 // Accumulate tokens in the deduplication buffer
-                deduplicationBuffer += token;
+                overlapBuffer += token;
 
                 // Check if we've accumulated enough to detect overlap
                 // We check after each token to find the overlap boundary
                 const overlapResult = detectOverlap(
                   checkpointForContinuation,
-                  deduplicationBuffer,
+                  overlapBuffer,
                   {
                     minOverlap: processedDeduplicationOptions.minOverlap ?? 2,
                     maxOverlap: processedDeduplicationOptions.maxOverlap ?? 500,
@@ -501,10 +531,11 @@ export async function l0<TOutput = unknown>(
                 const shouldFinalize =
                   (overlapResult.hasOverlap &&
                     overlapResult.deduplicatedContinuation.length > 0) ||
-                  deduplicationBuffer.length > maxOverlapLen;
+                  overlapBuffer.length > maxOverlapLen;
 
                 if (shouldFinalize) {
-                  deduplicationComplete = true;
+                  overlapResolved = true;
+                  stateMachine.transition(RuntimeStates.STREAMING);
 
                   if (overlapResult.hasOverlap) {
                     // Emit only the non-overlapping portion
@@ -515,7 +546,7 @@ export async function l0<TOutput = unknown>(
                     }
                   } else {
                     // No overlap found, emit the entire buffer
-                    token = deduplicationBuffer;
+                    token = overlapBuffer;
                   }
                 } else {
                   // Still accumulating, don't emit yet
@@ -527,7 +558,6 @@ export async function l0<TOutput = unknown>(
               tokenBuffer.push(token);
               state.tokenCount++;
               state.lastTokenAt = Date.now();
-              lastTokenTime = state.lastTokenAt;
 
               // Build content string only when needed (for guardrails/drift checks)
               // This is O(n) total instead of O(n²) from repeated concatenation
@@ -544,23 +574,6 @@ export async function l0<TOutput = unknown>(
 
               // Record token in monitoring
               monitor.recordToken(state.lastTokenAt);
-
-              // Check inter-token timeout
-              const interTimeout = processedTimeout.interToken ?? 10000;
-              const timeSinceLastToken = Date.now() - lastTokenTime;
-              if (timeSinceLastToken > interTimeout) {
-                throw new L0Error("Inter-token timeout reached", {
-                  code: "INTER_TOKEN_TIMEOUT",
-                  checkpoint: state.checkpoint,
-                  tokenCount: state.tokenCount,
-                  contentLength: state.content.length,
-                  retryAttempts: state.retryAttempts,
-                  networkRetries: state.networkRetries,
-                  fallbackIndex,
-                  recoverable: state.checkpoint.length > 0,
-                  metadata: { timeout: interTimeout, timeSinceLastToken },
-                });
-              }
 
               // Update checkpoint periodically
               if (state.tokenCount % checkpointInterval === 0) {
@@ -595,8 +608,8 @@ export async function l0<TOutput = unknown>(
                       checkpoint: state.checkpoint,
                       tokenCount: state.tokenCount,
                       contentLength: state.content.length,
-                      retryAttempts: state.retryAttempts,
-                      networkRetries: state.networkRetries,
+                      modelRetryCount: state.modelRetryCount,
+                      networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
                       recoverable: false,
                       metadata: { violation: result.violations[0] },
@@ -624,8 +637,11 @@ export async function l0<TOutput = unknown>(
                 timestamp: Date.now(),
               };
 
-              if (processedOnEvent) processedOnEvent(l0Event);
+              safeInvokeCallback(processedOnEvent, l0Event, monitor, "onEvent");
               yield l0Event;
+
+              // Update emission time AFTER yielding for accurate inter-token timeout measurement
+              lastTokenEmissionTime = Date.now();
             } else if (event.type === "message") {
               // Pass through message events (e.g., tool calls, function calls)
               // Preserve all original event properties including role
@@ -635,7 +651,12 @@ export async function l0<TOutput = unknown>(
                 role: event.role,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(messageEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                messageEvent,
+                monitor,
+                "onEvent",
+              );
               yield messageEvent;
             } else if (event.type === "data") {
               // Handle multimodal data events (images, audio, etc.)
@@ -647,7 +668,12 @@ export async function l0<TOutput = unknown>(
                 data: event.data,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(dataEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                dataEvent,
+                monitor,
+                "onEvent",
+              );
               yield dataEvent;
             } else if (event.type === "progress") {
               // Handle progress events for long-running operations
@@ -657,11 +683,16 @@ export async function l0<TOutput = unknown>(
                 progress: event.progress,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(progressEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                progressEvent,
+                monitor,
+                "onEvent",
+              );
               yield progressEvent;
             } else if (event.type === "error") {
               throw event.error || new Error("Stream error");
-            } else if (event.type === "done") {
+            } else if (event.type === "complete") {
               break;
             }
           }
@@ -674,15 +705,15 @@ export async function l0<TOutput = unknown>(
           // Flush any remaining deduplication buffer content
           // This handles the case where the stream ends before we could finalize deduplication
           if (
-            state.continuedFromCheckpoint &&
+            state.resumed &&
             shouldDeduplicateContinuation &&
-            !deduplicationComplete &&
-            deduplicationBuffer.length > 0
+            !overlapResolved &&
+            overlapBuffer.length > 0
           ) {
             // Stream ended, finalize deduplication with whatever we have
             const overlapResult = detectOverlap(
               checkpointForContinuation,
-              deduplicationBuffer,
+              overlapBuffer,
               {
                 minOverlap: processedDeduplicationOptions.minOverlap ?? 2,
                 maxOverlap: processedDeduplicationOptions.maxOverlap ?? 500,
@@ -699,7 +730,7 @@ export async function l0<TOutput = unknown>(
               flushedToken = overlapResult.deduplicatedContinuation;
             } else {
               // No overlap found, add the entire buffer
-              flushedToken = deduplicationBuffer;
+              flushedToken = overlapBuffer;
             }
 
             // Only emit and add to buffer if there's content
@@ -735,8 +766,8 @@ export async function l0<TOutput = unknown>(
                       checkpoint: state.checkpoint,
                       tokenCount: state.tokenCount,
                       contentLength: state.content.length,
-                      retryAttempts: state.retryAttempts,
-                      networkRetries: state.networkRetries,
+                      modelRetryCount: state.modelRetryCount,
+                      networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
                       recoverable: false,
                       metadata: { violation: result.violations[0] },
@@ -760,11 +791,16 @@ export async function l0<TOutput = unknown>(
                 value: flushedToken,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(flushedEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                flushedEvent,
+                monitor,
+                "onEvent",
+              );
               yield flushedEvent;
             }
 
-            deduplicationComplete = true;
+            overlapResolved = true;
           }
 
           // Finalize content from buffer
@@ -777,8 +813,8 @@ export async function l0<TOutput = unknown>(
               checkpoint: state.checkpoint,
               tokenCount: state.tokenCount,
               contentLength: state.content.length,
-              retryAttempts: state.retryAttempts,
-              networkRetries: state.networkRetries,
+              modelRetryCount: state.modelRetryCount,
+              networkRetryCount: state.networkRetryCount,
               fallbackIndex,
               recoverable: true,
             });
@@ -809,7 +845,7 @@ export async function l0<TOutput = unknown>(
                 );
               }
               retryAttempt++;
-              state.retryAttempts++;
+              state.modelRetryCount++;
               continue;
             }
 
@@ -822,8 +858,8 @@ export async function l0<TOutput = unknown>(
                   checkpoint: state.checkpoint,
                   tokenCount: state.tokenCount,
                   contentLength: state.content.length,
-                  retryAttempts: state.retryAttempts,
-                  networkRetries: state.networkRetries,
+                  modelRetryCount: state.modelRetryCount,
+                  networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
                   recoverable: false,
                   metadata: { violation: result.violations[0] },
@@ -843,27 +879,36 @@ export async function l0<TOutput = unknown>(
               }
               monitor.recordRetry(false);
               retryAttempt++;
-              state.retryAttempts++;
+              state.modelRetryCount++;
               continue;
             }
           }
 
           // Success - mark as completed
+          stateMachine.transition(RuntimeStates.FINALIZING);
           state.completed = true;
           monitor.complete();
+          metrics.completions++;
 
           // Calculate duration
           if (state.firstTokenAt) {
             state.duration = Date.now() - state.firstTokenAt;
           }
 
-          // Emit done event
-          const doneEvent: L0Event = {
-            type: "done",
+          // Emit complete event
+          const completeEvent: L0Event = {
+            type: "complete",
             timestamp: Date.now(),
           };
-          if (processedOnEvent) processedOnEvent(doneEvent);
-          yield doneEvent;
+          safeInvokeCallback(
+            processedOnEvent,
+            completeEvent,
+            monitor,
+            "onEvent",
+          );
+          yield completeEvent;
+
+          stateMachine.transition(RuntimeStates.COMPLETE);
 
           break; // Exit retry loop on success
         } catch (error) {
@@ -946,7 +991,7 @@ export async function l0<TOutput = unknown>(
           if (processedRetry.shouldRetry) {
             const customDecision = processedRetry.shouldRetry(err, {
               attempt: retryAttempt,
-              totalAttempts: retryAttempt + state.networkRetries,
+              totalAttempts: retryAttempt + state.networkRetryCount,
               category: categorized.category,
               reason: categorized.reason,
               content: state.content,
@@ -965,7 +1010,7 @@ export async function l0<TOutput = unknown>(
           if (processedRetry.calculateDelay && decision.shouldRetry) {
             const customDelay = processedRetry.calculateDelay({
               attempt: retryAttempt,
-              totalAttempts: retryAttempt + state.networkRetries,
+              totalAttempts: retryAttempt + state.networkRetryCount,
               category: categorized.category,
               reason: categorized.reason,
               error: err,
@@ -991,12 +1036,17 @@ export async function l0<TOutput = unknown>(
           if (decision.shouldRetry) {
             if (decision.countsTowardLimit) {
               retryAttempt++;
-              state.retryAttempts++;
+              state.modelRetryCount++;
             } else {
-              state.networkRetries++;
+              state.networkRetryCount++;
             }
             // Mark that next iteration is a retry (for state reset)
             isRetryAttempt = true;
+            stateMachine.transition(RuntimeStates.RETRYING);
+            metrics.retries++;
+            if (isNetError) {
+              metrics.networkRetryCount++;
+            }
 
             // Record in monitoring
             monitor.recordRetry(isNetError);
@@ -1017,17 +1067,22 @@ export async function l0<TOutput = unknown>(
           }
 
           // No fallbacks available - emit error and throw
+          const errorCategory =
+            err instanceof L0Error ? err.category : ErrorCategory.INTERNAL;
           const errorEvent: L0Event = {
             type: "error",
             error: err,
+            reason: errorCategory,
             timestamp: Date.now(),
           };
-          if (processedOnEvent) processedOnEvent(errorEvent);
+          safeInvokeCallback(processedOnEvent, errorEvent, monitor, "onEvent");
           yield errorEvent;
 
           // Execute error interceptors
           await interceptorManager.executeError(err, processedOptions);
 
+          stateMachine.transition(RuntimeStates.ERROR);
+          metrics.errors++;
           throw err;
         }
       }
@@ -1037,6 +1092,8 @@ export async function l0<TOutput = unknown>(
         if (fallbackIndex < allStreams.length - 1) {
           // Move to next fallback
           fallbackIndex++;
+          stateMachine.transition(RuntimeStates.FALLBACK);
+          metrics.fallbacks++;
           const fallbackMessage = `Retries exhausted for stream ${fallbackIndex}, falling back to stream ${fallbackIndex + 1}`;
 
           monitor.logEvent({
@@ -1053,6 +1110,7 @@ export async function l0<TOutput = unknown>(
           // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
           if (processedContinueFromCheckpoint && state.checkpoint.length > 0) {
             checkpointForContinuation = state.checkpoint;
+            stateMachine.transition(RuntimeStates.CHECKPOINT_VERIFYING);
 
             // Validate checkpoint content before continuation
             const validation = validateCheckpointForContinuation(
@@ -1082,12 +1140,13 @@ export async function l0<TOutput = unknown>(
             }
 
             if (!validation.skipContinuation) {
-              state.continuedFromCheckpoint = true;
-              state.continuationCheckpoint = checkpointForContinuation;
+              state.resumed = true;
+              state.resumePoint = checkpointForContinuation;
+              state.resumeFrom = checkpointForContinuation.length;
 
-              // Reset deduplication state for the new continuation
-              deduplicationBuffer = "";
-              deduplicationComplete = false;
+              // Reset overlap matching state for the new continuation
+              overlapBuffer = "";
+              overlapResolved = false;
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for fallback)
               if (processedBuildContinuationPrompt) {
@@ -1103,29 +1162,34 @@ export async function l0<TOutput = unknown>(
                 value: checkpointForContinuation,
                 timestamp: Date.now(),
               };
-              if (processedOnEvent) processedOnEvent(checkpointEvent);
+              safeInvokeCallback(
+                processedOnEvent,
+                checkpointEvent,
+                monitor,
+                "onEvent",
+              );
               yield checkpointEvent;
 
               // Initialize with checkpoint
               tokenBuffer = [checkpointForContinuation];
+              resetStateForRetry(state, {
+                checkpoint: state.checkpoint,
+                resumed: true,
+                resumePoint: checkpointForContinuation,
+                resumeFrom: checkpointForContinuation.length,
+                fallbackIndex,
+              });
               state.content = checkpointForContinuation;
               state.tokenCount = 1;
             } else {
               // Fatal violation in checkpoint, start fresh
               tokenBuffer = [];
-              state.content = "";
-              state.tokenCount = 0;
+              resetStateForRetry(state, { fallbackIndex });
             }
           } else {
             tokenBuffer = [];
-            state.content = "";
-            state.tokenCount = 0;
+            resetStateForRetry(state, { fallbackIndex });
           }
-          state.violations = [];
-          state.driftDetected = false;
-          state.dataOutputs = [];
-          state.lastProgress = undefined;
-          state.retryAttempts = 0;
 
           // Continue to next fallback
           continue;
@@ -1139,9 +1203,10 @@ export async function l0<TOutput = unknown>(
           const errorEvent: L0Event = {
             type: "error",
             error: exhaustedError,
+            reason: ErrorCategory.INTERNAL,
             timestamp: Date.now(),
           };
-          if (processedOnEvent) processedOnEvent(errorEvent);
+          safeInvokeCallback(processedOnEvent, errorEvent, monitor, "onEvent");
           yield errorEvent;
 
           // Execute error interceptors
@@ -1150,6 +1215,8 @@ export async function l0<TOutput = unknown>(
             processedOptions,
           );
 
+          stateMachine.transition(RuntimeStates.ERROR);
+          metrics.errors++;
           throw exhaustedError;
         }
       }
@@ -1181,49 +1248,4 @@ export async function l0<TOutput = unknown>(
 
   // Return processed result
   return result;
-}
-
-/**
- * Create initial L0 state
- */
-function createInitialState(): L0State {
-  return {
-    content: "",
-    checkpoint: "",
-    tokenCount: 0,
-    retryAttempts: 0,
-    networkRetries: 0,
-    fallbackIndex: 0,
-    violations: [],
-    driftDetected: false,
-    completed: false,
-    networkErrors: [],
-    continuedFromCheckpoint: false,
-    dataOutputs: [],
-  };
-}
-
-/**
- * Helper to consume stream and get final text
- */
-export async function getText(result: L0Result): Promise<string> {
-  for await (const _event of result.stream) {
-    // Just consume the stream
-  }
-  return result.state.content;
-}
-
-/**
- * Helper to consume stream with callback
- */
-export async function consumeStream(
-  result: L0Result,
-  onToken: (token: string) => void,
-): Promise<string> {
-  for await (const event of result.stream) {
-    if (event.type === "token" && event.value) {
-      onToken(event.value);
-    }
-  }
-  return result.state.content;
 }

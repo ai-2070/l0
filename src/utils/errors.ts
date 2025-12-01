@@ -1,6 +1,38 @@
 // Network error detection utilities for L0
 
-import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "../types/retry";
+import {
+  RETRY_DEFAULTS,
+  ERROR_TYPE_DELAY_DEFAULTS,
+  ErrorCategory,
+} from "../types/retry";
+
+// Re-export ErrorCategory for convenience
+export { ErrorCategory };
+
+/**
+ * Map error codes to categories
+ */
+export function getErrorCategory(code: L0ErrorCode): ErrorCategory {
+  switch (code) {
+    case "NETWORK_ERROR":
+      return ErrorCategory.NETWORK;
+    case "INITIAL_TOKEN_TIMEOUT":
+    case "INTER_TOKEN_TIMEOUT":
+      return ErrorCategory.TRANSIENT;
+    case "GUARDRAIL_VIOLATION":
+    case "FATAL_GUARDRAIL_VIOLATION":
+    case "DRIFT_DETECTED":
+    case "ZERO_OUTPUT":
+      return ErrorCategory.CONTENT;
+    case "INVALID_STREAM":
+    case "ADAPTER_NOT_FOUND":
+      return ErrorCategory.INTERNAL;
+    case "STREAM_ABORTED":
+    case "ALL_STREAMS_EXHAUSTED":
+    default:
+      return ErrorCategory.PROVIDER;
+  }
+}
 
 /**
  * Error codes for L0 errors
@@ -45,12 +77,12 @@ export interface L0ErrorContext {
   /**
    * Number of retry attempts made
    */
-  retryAttempts?: number;
+  modelRetryCount?: number;
 
   /**
    * Number of network retries (don't count toward limit)
    */
-  networkRetries?: number;
+  networkRetryCount?: number;
 
   /**
    * Index of fallback stream being used (0 = primary)
@@ -99,6 +131,13 @@ export class L0Error extends Error {
   }
 
   /**
+   * Get error category for routing decisions
+   */
+  get category(): ErrorCategory {
+    return getErrorCategory(this.code);
+  }
+
+  /**
    * Check if error is recoverable based on checkpoint
    */
   get isRecoverable(): boolean {
@@ -125,8 +164,8 @@ export class L0Error extends Error {
     if (this.context.tokenCount !== undefined) {
       parts.push(`Tokens: ${this.context.tokenCount}`);
     }
-    if (this.context.retryAttempts !== undefined) {
-      parts.push(`Retries: ${this.context.retryAttempts}`);
+    if (this.context.modelRetryCount !== undefined) {
+      parts.push(`Retries: ${this.context.modelRetryCount}`);
     }
     if (
       this.context.fallbackIndex !== undefined &&
@@ -139,6 +178,27 @@ export class L0Error extends Error {
     }
 
     return parts.join(" | ");
+  }
+
+  /**
+   * Serialize error for logging/transport
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      code: this.code,
+      category: this.category,
+      message: this.message,
+      timestamp: this.timestamp,
+      recoverable: this.isRecoverable,
+      checkpoint: this.context.checkpoint
+        ? this.context.checkpoint.length
+        : undefined,
+      tokenCount: this.context.tokenCount,
+      modelRetryCount: this.context.modelRetryCount,
+      networkRetryCount: this.context.networkRetryCount,
+      fallbackIndex: this.context.fallbackIndex,
+    };
   }
 }
 

@@ -330,7 +330,7 @@ export class L0EventReplayer {
       violations: [],
       driftDetected: false,
       retryAttempts: 0,
-      networkRetries: 0,
+      networkRetryCount: 0,
       fallbackIndex: 0,
       completed: false,
       error: null,
@@ -371,7 +371,7 @@ export class L0EventReplayer {
           if (event.countsTowardLimit) {
             state.retryAttempts++;
           } else {
-            state.networkRetries++;
+            state.networkRetryCount++;
           }
           break;
 
@@ -425,7 +425,7 @@ export interface ReplayedState {
   violations: import("../types/guardrails").GuardrailViolation[];
   driftDetected: boolean;
   retryAttempts: number;
-  networkRetries: number;
+  networkRetryCount: number;
   fallbackIndex: number;
   completed: boolean;
   error: import("../types/events").SerializedError | null;

@@ -89,13 +89,13 @@ describe("OpenAI SDK Adapter", () => {
 
       // Should have 3 token events + 1 done event
       const tokenEvents = events.filter((e) => e.type === "token");
-      const doneEvents = events.filter((e) => e.type === "done");
+      const completeEvent = events.filter((e) => e.type === "complete");
 
       expect(tokenEvents).toHaveLength(3);
       expect(tokenEvents[0]!.value).toBe("Hello");
       expect(tokenEvents[1]!.value).toBe(" ");
       expect(tokenEvents[2]!.value).toBe("world");
-      expect(doneEvents).toHaveLength(1);
+      expect(completeEvent).toHaveLength(1);
     });
 
     it("should include usage information when available", async () => {
@@ -114,7 +114,7 @@ describe("OpenAI SDK Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect(doneEvent).toBeDefined();
       expect((doneEvent as any).usage).toBeDefined();
       expect((doneEvent as any).usage.total_tokens).toBe(15);
@@ -138,7 +138,7 @@ describe("OpenAI SDK Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect(doneEvent).toBeDefined();
       expect((doneEvent as any).usage).toBeUndefined();
     });
@@ -374,7 +374,7 @@ describe("OpenAI SDK Adapter", () => {
         events.push(event);
       }
 
-      const doneEvent = events.find((e) => e.type === "done");
+      const doneEvent = events.find((e) => e.type === "complete");
       expect((doneEvent as any).usage).toBeUndefined();
     });
   });
@@ -590,7 +590,7 @@ describe("OpenAI SDK Adapter", () => {
         if (event.type === "token") {
           fullText += event.value;
         }
-        if (event.type === "done" && (event as any).usage) {
+        if (event.type === "complete" && (event as any).usage) {
           usage = (event as any).usage;
         }
       }

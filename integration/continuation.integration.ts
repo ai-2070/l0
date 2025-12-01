@@ -33,7 +33,7 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
 
         expectValidResponse(result.state.content);
         // No retry happened, so no continuation was used
-        expect(result.state.continuedFromCheckpoint).toBe(false);
+        expect(result.state.resumed).toBe(false);
         expect(result.telemetry?.continuation?.enabled).toBe(true);
         expect(result.telemetry?.continuation?.used).toBe(false);
       },
@@ -58,7 +58,7 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
         }
 
         expectValidResponse(result.state.content);
-        expect(result.state.continuedFromCheckpoint).toBe(false);
+        expect(result.state.resumed).toBe(false);
         expect(result.telemetry?.continuation?.enabled).toBe(false);
       },
       LLM_TIMEOUT,
@@ -113,7 +113,7 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
         expectValidResponse(result.state.content);
         expect(attemptCount).toBe(2);
         // Continuation should have been used since we had a checkpoint
-        expect(result.state.continuedFromCheckpoint).toBe(true);
+        expect(result.state.resumed).toBe(true);
         expect(result.telemetry?.continuation?.enabled).toBe(true);
         expect(result.telemetry?.continuation?.used).toBe(true);
       },
@@ -155,7 +155,7 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
         expectValidResponse(result.state.content);
         expect(attemptCount).toBe(2);
         // No continuation since no checkpoint existed
-        expect(result.state.continuedFromCheckpoint).toBe(false);
+        expect(result.state.resumed).toBe(false);
       },
       LLM_TIMEOUT * 2,
     );
@@ -440,7 +440,7 @@ describeIf(hasOpenAI)("Continuation Integration", () => {
 
         expectValidResponse(result.state.content);
         expect(result.state.completed).toBe(true);
-        expect(result.state.continuedFromCheckpoint).toBe(false);
+        expect(result.state.resumed).toBe(false);
       },
       LLM_TIMEOUT,
     );
