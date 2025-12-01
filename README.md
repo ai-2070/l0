@@ -1069,16 +1069,17 @@ const result = await l0({
 
 ### Callback Reference
 
-| Callback      | When Called                              | Parameters                                      |
-| ------------- | ---------------------------------------- | ----------------------------------------------- |
-| `onStart`     | Stream begins (including retries)        | `(context: StartContext)`                       |
-| `onToken`     | Each token received                      | `(token: string, context: TokenContext)`        |
-| `onEvent`     | Every L0 event (token, progress, data)   | `(event: L0Event)`                              |
-| `onViolation` | Guardrail violation detected             | `(violation: Violation)`                        |
-| `onRetry`     | Before retry attempt                     | `(attempt: number, error: L0Error, context)`    |
-| `onFallback`  | Switching to fallback model              | `(index: number, error: L0Error, context)`      |
-| `onComplete`  | Stream finished successfully             | `(content: string, context: CompleteContext)`   |
-| `onError`     | Stream failed after all retries/fallback | `(error: L0Error, context: ErrorContext)`       |
+| Callback      | When Called                              | Parameters                                       |
+| ------------- | ---------------------------------------- | ------------------------------------------------ |
+| `onStart`     | Stream begins (including retries)        | `(context: StartContext)`                        |
+| `onToken`     | Each token received                      | `(token: string, context: TokenContext)`         |
+| `onEvent`     | Every L0 event (token, progress, data)   | `(event: L0Event)`                               |
+| `onViolation` | Guardrail violation detected             | `(violation: Violation)`                         |
+| `onRetry`     | Before retry attempt                     | `(attempt: number, error: L0Error, context)`     |
+| `onFallback`  | Switching to fallback model              | `(index: number, error: L0Error, context)`       |
+| `onResume`    | Continuing from checkpoint               | `(checkpoint: string, tokenCount: number)`       |
+| `onComplete`  | Stream finished successfully             | `(content: string, context: CompleteContext)`    |
+| `onError`     | Stream failed after all retries/fallback | `(error: L0Error, context: ErrorContext)`        |
 
 ### Use Cases
 
