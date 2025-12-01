@@ -475,7 +475,7 @@ const result = await l0({
 });
 ```
 
-### Anthropic Adapter Reference Reference Implementation
+### Anthropic Adapter Reference Implementation
 
 ```typescript
 import { l0 } from "@ai2070/l0/core";
