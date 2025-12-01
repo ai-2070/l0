@@ -48,7 +48,7 @@ L0 includes 2,000+ tests covering all major reliability features.
 
 ```
   SDK Stream                     L0 Layer                            Your App
- ─────────────       ┌────────────────────────────────────────┐     ─────────
+ ─────────────       ┌────────────────────────────────────────┐      ─────────
    Vercel AI/        │ Timeouts ──▶ Guardrails ──▶ Checkpoints│
     OpenAI/  ──────▶ │     │            │              │      │ ──────▶ Output
     Mastra           │     └─────▶ Retry ◀──▶ Fallbacks ◀─────│
