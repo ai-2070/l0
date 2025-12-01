@@ -47,12 +47,13 @@ L0 includes 2,000+ tests covering all major reliability features.
 - **1.0.0** - API freeze + Website docs + Python version
 
 ```
- AI SDK Stream                       L0 Layer                       Your App
+ AI SDK Stream                       L0 Layer                        Your App
  ─────────────       ┌────────────────────────────────────────┐      ─────────
    Vercel AI/        │ Timeouts ──▶ Guardrails ──▶ Checkpoints│
     OpenAI/  ──────▶ │     │            │              │      │ ──────▶ Output
-    Mastra           │     └─────▶ Retry ◀──▶ Fallbacks ◀─────│
- ─────────────       └────────────────────────────────────────┘
+    Mastra/          │     └─────▶ Retry ◀──▶ Fallbacks ◀─────│
+    Custom           └────────────────────────────────────────┘
+ ─────────────
 ```
 
 **Bundle sizes (minified):**
