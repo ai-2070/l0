@@ -32,7 +32,7 @@
 > _L0 is the missing foundation._
 > _A reliability layer that stabilizes the interface so the model's intelligence can actually reach you._
 
-L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, and **Mastra AI** directly.
+L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, and **Mastra AI** directly. Supports custom adapters (Bring Your Own Adapter) and multimodal AI streams.
 
 ```bash
 npm install @ai2070/l0
