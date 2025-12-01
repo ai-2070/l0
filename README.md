@@ -241,7 +241,7 @@ for await (const event of result.stream) {
 | [Streaming Runtime](#streaming-runtime)                               | Token-by-token normalization, checkpoints, resumable generation |
 | [Retry Logic](#retry-logic)                                           | Smart retries with backoff, network vs model error distinction  |
 | [Network Protection](#network-protection)                             | Auto-recovery from 12+ network failure types                    |
-| [Structured Output](#structured-output)                               | Guaranteed valid JSON with Zod schema validation                |
+| [Structured Output](#structured-output)                               | Guaranteed valid JSON with Zod, Effect Schema, or JSON Schema   |
 | [Fallback Models](#fallback-models)                                   | Sequential fallback when primary model fails                    |
 | [Document Windows](#document-windows)                                 | Automatic chunking for long documents                           |
 | [Formatting Helpers](#formatting-helpers)                             | Context, memory, tools, and output formatting utilities         |
@@ -250,6 +250,10 @@ for await (const event of result.stream) {
 | [Consensus](#consensus)                                               | Multi-model agreement with voting strategies                    |
 | [Parallel Operations](#parallel-operations)                           | Race, batch, pool patterns for concurrent LLM calls             |
 | [Type-Safe Generics](#type-safe-generics)                             | Forward output types through all L0 functions                   |
+| [Custom Adapters (BYOA)](#custom-adapters-byoa)                       | Bring your own adapter for any LLM provider                     |
+| [Multimodal Support](#multimodal-support)                             | Image, audio, video generation with progress tracking           |
+| [Lifecycle Callbacks](#lifecycle-callbacks)                           | Full observability into every stream phase                      |
+| [Event Sourcing](#event-sourcing)                                     | Record/replay streams for testing and audit trails              |
 | [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
 | [Testing](#testing)                                                   | 2,000+ tests covering all features and SDK adapters             |
