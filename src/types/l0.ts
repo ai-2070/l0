@@ -436,9 +436,48 @@ export interface L0Options<TOutput = unknown> {
   onViolation?: (violation: GuardrailViolation) => void;
 
   /**
-   * Optional callback for retry attempts
+   * Optional callback for retry attempts.
+   *
+   * Called when a retry is triggered due to:
+   * - Network errors
+   * - Timeout (initial or inter-token)
+   * - Provider errors
+   * - Guardrail violations
+   * - Drift detection
+   *
+   * Called before the new attempt starts.
+   *
+   * @param attempt - The attempt number (1-based)
+   * @param reason - Description of why the retry is happening
    */
   onRetry?: (attempt: number, reason: string) => void;
+
+  /**
+   * Optional callback when switching to a fallback model.
+   *
+   * Called when:
+   * - The current model/stream is exhausted (all retries failed)
+   * - L0 is switching to the next fallback model
+   *
+   * Called before the fallback model initializes.
+   *
+   * @param index - The fallback index (0-based, 0 = first fallback)
+   * @param reason - Description of why the fallback is happening
+   */
+  onFallback?: (index: number, reason: string) => void;
+
+  /**
+   * Optional callback when resuming from a checkpoint.
+   *
+   * Called when:
+   * - A retry or fallback is using continuation
+   * - The checkpoint has been validated
+   * - Before the resumed content is emitted
+   *
+   * @param checkpoint - The checkpoint content being resumed from
+   * @param tokenCount - Number of tokens in the checkpoint
+   */
+  onResume?: (checkpoint: string, tokenCount: number) => void;
 
   /**
    * Interceptors for preprocessing and postprocessing

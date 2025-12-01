@@ -94,6 +94,8 @@ export async function l0<TOutput = unknown>(
     onEvent: processedOnEvent,
     onViolation: processedOnViolation,
     onRetry: processedOnRetry,
+    onFallback: processedOnFallback,
+    onResume: processedOnResume,
     continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
     buildContinuationPrompt: processedBuildContinuationPrompt,
     deduplicateContinuation: processedDeduplicateContinuation,
@@ -253,6 +255,11 @@ export async function l0<TOutput = unknown>(
               // Reset overlap matching state for the new continuation
               overlapBuffer = "";
               overlapResolved = false;
+
+              // Call onResume callback
+              if (processedOnResume) {
+                processedOnResume(checkpointForContinuation, state.tokenCount);
+              }
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for retry)
               if (processedBuildContinuationPrompt) {
@@ -1103,8 +1110,9 @@ export async function l0<TOutput = unknown>(
             toIndex: fallbackIndex,
           });
 
-          if (processedOnRetry) {
-            processedOnRetry(0, fallbackMessage);
+          // Call onFallback callback
+          if (processedOnFallback) {
+            processedOnFallback(fallbackIndex - 1, fallbackMessage);
           }
 
           // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
@@ -1147,6 +1155,11 @@ export async function l0<TOutput = unknown>(
               // Reset overlap matching state for the new continuation
               overlapBuffer = "";
               overlapResolved = false;
+
+              // Call onResume callback
+              if (processedOnResume) {
+                processedOnResume(checkpointForContinuation, state.tokenCount);
+              }
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for fallback)
               if (processedBuildContinuationPrompt) {
