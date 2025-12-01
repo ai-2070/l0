@@ -1,6 +1,7 @@
 // Comprehensive tests for L0 Consensus API - Utilities and Helper Functions
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
+  consensus,
   quickConsensus,
   getConsensusValue,
   validateConsensus,
@@ -735,6 +736,23 @@ describe("Consensus Utilities", () => {
 
       expect(meetsMinimumAgreement(agreements, 5, 0.6)).toBe(true);
     });
+
+    it("should return true when threshold is 0 regardless of agreements", () => {
+      // With agreements
+      const agreements: Agreement[] = [
+        {
+          content: "test",
+          count: 1,
+          ratio: 0.25,
+          indices: [0],
+          type: "similar",
+        },
+      ];
+      expect(meetsMinimumAgreement(agreements, 4, 0)).toBe(true);
+
+      // Without agreements (empty array)
+      expect(meetsMinimumAgreement([], 4, 0)).toBe(true);
+    });
   });
 });
 
@@ -1181,5 +1199,497 @@ describe("Integration Scenarios", () => {
     expect(standardConsensus.strategy).toBe("majority");
     expect(lenientConsensus.resolveConflicts).toBe("merge");
     expect(bestConsensus.strategy).toBe("best");
+  });
+});
+
+// Helper to create a mock stream factory that returns tokens
+function createMockStreamFactory(text: string) {
+  return async function* () {
+    for (const char of text) {
+      yield { type: "token" as const, value: char };
+    }
+    yield { type: "complete" as const };
+  };
+}
+
+// Helper to create a properly typed L0Result mock
+function createMockL0Result(text: string) {
+  return {
+    stream: (async function* () {
+      yield { type: "token" as const, value: text };
+      yield { type: "complete" as const };
+    })(),
+    state: {
+      content: text,
+      checkpoint: "",
+      tokenCount: text.length,
+      modelRetryCount: 0,
+      networkRetryCount: 0,
+      fallbackIndex: 0,
+      violations: [],
+      driftDetected: false,
+      completed: true,
+      networkErrors: [],
+      resumed: false,
+      dataOutputs: [],
+    },
+    errors: [],
+    telemetry: undefined,
+    abort: () => {},
+  };
+}
+
+// Mock l0 to return controllable results
+vi.mock("../src/runtime/l0", () => ({
+  l0: vi.fn(),
+}));
+
+vi.mock("../src/structured", () => ({
+  structured: vi.fn(),
+}));
+
+import { l0 } from "../src/runtime/l0";
+import { structured } from "../src/structured";
+
+const mockL0 = vi.mocked(l0);
+const mockStructured = vi.mocked(structured);
+
+describe("consensus() main function", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("basic text consensus", () => {
+    it("should require at least 2 streams", async () => {
+      await expect(
+        consensus({
+          streams: [() => Promise.resolve({} as any)],
+        }),
+      ).rejects.toThrow("Consensus requires at least 2 streams");
+    });
+
+    it("should execute all streams and return consensus", async () => {
+      mockL0.mockImplementation(async () => createMockL0Result("answer"));
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+      });
+
+      expect(result.consensus).toBe("answer");
+      expect(result.type).toBe("text");
+      expect(result.outputs.length).toBe(3);
+      expect(result.status).toBe("success");
+    });
+
+    it("should calculate confidence correctly", async () => {
+      mockL0.mockImplementation(async () => createMockL0Result("same"));
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+      });
+
+      expect(result.confidence).toBeGreaterThan(0.8);
+    });
+
+    it("should handle mixed success/error outputs", async () => {
+      let callCount = 0;
+      mockL0.mockImplementation(async () => {
+        callCount++;
+        if (callCount === 2) {
+          throw new Error("Stream failed");
+        }
+        return createMockL0Result("answer");
+      });
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+      });
+
+      expect(result.status).toBe("partial");
+      expect(result.analysis.failedOutputs).toBe(1);
+      expect(result.analysis.successfulOutputs).toBe(2);
+    });
+
+    it("should throw when all streams fail", async () => {
+      mockL0.mockRejectedValue(new Error("All failed"));
+
+      await expect(
+        consensus({
+          streams: [
+            () => Promise.resolve({} as any),
+            () => Promise.resolve({} as any),
+          ],
+        }),
+      ).rejects.toThrow("All consensus streams failed");
+    });
+  });
+
+  describe("strategies", () => {
+    it("should use majority strategy by default", async () => {
+      let callCount = 0;
+      mockL0.mockImplementation(async () => {
+        callCount++;
+        const text = callCount <= 2 ? "majority" : "minority";
+        return createMockL0Result(text);
+      });
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        strategy: "majority",
+      });
+
+      expect(result.consensus).toBe("majority");
+      expect(result.analysis.strategy).toBe("majority");
+    });
+
+    it("should use unanimous strategy", async () => {
+      mockL0.mockImplementation(async () => createMockL0Result("unanimous"));
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        strategy: "unanimous",
+      });
+
+      expect(result.consensus).toBe("unanimous");
+      expect(result.analysis.strategy).toBe("unanimous");
+    });
+
+    it("should fail unanimous strategy when outputs differ", async () => {
+      // Use similar strings (~90% similarity) to pass minimumAgreement (0.6) and threshold (0.8)
+      // but fail unanimous check which requires 0.95 similarity
+      let callCount = 0;
+      mockL0.mockImplementation(async () => {
+        callCount++;
+        const text =
+          callCount === 1 ? "the quick brown fox" : "the quick brown dog";
+        return createMockL0Result(text);
+      });
+
+      await expect(
+        consensus({
+          streams: [
+            () => Promise.resolve({} as any),
+            () => Promise.resolve({} as any),
+          ],
+          strategy: "unanimous",
+          resolveConflicts: "fail",
+        }),
+      ).rejects.toThrow("Unanimous consensus failed");
+    });
+
+    it("should use weighted strategy", async () => {
+      let callCount = 0;
+      mockL0.mockImplementation(async () => {
+        callCount++;
+        const text = callCount === 1 ? "weighted" : "other";
+        return createMockL0Result(text);
+      });
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        strategy: "weighted",
+        weights: [10.0, 1.0],
+      });
+
+      expect(result.analysis.strategy).toBe("weighted");
+    });
+
+    it("should throw when weighted strategy lacks weights", async () => {
+      mockL0.mockImplementation(async () => createMockL0Result("test"));
+
+      await expect(
+        consensus({
+          streams: [
+            () => Promise.resolve({} as any),
+            () => Promise.resolve({} as any),
+          ],
+          strategy: "weighted",
+        }),
+      ).rejects.toThrow("Weighted strategy requires weights");
+    });
+
+    it("should use best strategy", async () => {
+      let callCount = 0;
+      mockL0.mockImplementation(async () => {
+        callCount++;
+        const text = callCount === 1 ? "best" : "other";
+        return createMockL0Result(text);
+      });
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        strategy: "best",
+        weights: [5.0, 1.0],
+      });
+
+      expect(result.consensus).toBe("best");
+      expect(result.analysis.strategy).toBe("best");
+    });
+  });
+
+  describe("conflict resolution", () => {
+    it("should use vote resolution by default", async () => {
+      let callCount = 0;
+      mockL0.mockImplementation(async () => {
+        callCount++;
+        const text = callCount <= 2 ? "voted" : "outvoted";
+        return createMockL0Result(text);
+      });
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        resolveConflicts: "vote",
+      });
+
+      expect(result.analysis.conflictResolution).toBe("vote");
+    });
+
+    it("should use merge resolution", async () => {
+      let callCount = 0;
+      mockL0.mockImplementation(async () => {
+        callCount++;
+        const text = callCount === 1 ? "first" : "second";
+        return createMockL0Result(text);
+      });
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        resolveConflicts: "merge",
+      });
+
+      expect(result.analysis.conflictResolution).toBe("merge");
+    });
+
+    it("should fail on disagreements when resolveConflicts is fail", async () => {
+      // Use completely different strings to ensure they don't get grouped as similar
+      const responses = [
+        "apple banana cherry",
+        "xyz 123 qwerty",
+        "foo bar baz",
+      ];
+      let callCount = 0;
+      mockL0.mockImplementation(async () => {
+        const text = responses[callCount++]!;
+        return createMockL0Result(text);
+      });
+
+      await expect(
+        consensus({
+          streams: [
+            () => Promise.resolve({} as any),
+            () => Promise.resolve({} as any),
+            () => Promise.resolve({} as any),
+          ],
+          resolveConflicts: "fail",
+          minimumAgreement: 0.9,
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("structured consensus", () => {
+    it("should use structured output with schema", async () => {
+      mockStructured.mockResolvedValue({
+        data: { answer: "yes", confidence: 0.9 },
+        raw: '{"answer":"yes","confidence":0.9}',
+        corrected: false,
+        corrections: [],
+        state: {} as any,
+        telemetry: {},
+      } as any);
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        schema: {} as any, // Mock schema
+      });
+
+      expect(result.type).toBe("structured");
+      expect(result.consensus).toEqual({ answer: "yes", confidence: 0.9 });
+      expect(result.fieldConsensus).toBeDefined();
+    });
+
+    it("should calculate field consensus for structured data", async () => {
+      let callCount = 0;
+      mockStructured.mockImplementation((async () => {
+        callCount++;
+        return {
+          data: { answer: "yes", score: callCount === 1 ? 90 : 85 },
+          raw: JSON.stringify({
+            answer: "yes",
+            score: callCount === 1 ? 90 : 85,
+          }),
+          corrected: false,
+          corrections: [],
+          state: {},
+          telemetry: {},
+        };
+      }) as any);
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        schema: {} as any,
+      });
+
+      expect(result.fieldConsensus).toBeDefined();
+      expect(result.fieldConsensus!.fields.answer).toBeDefined();
+    });
+  });
+
+  describe("callbacks", () => {
+    it("should call onComplete callback", async () => {
+      const onComplete = vi.fn();
+
+      mockL0.mockImplementation(async () => createMockL0Result("test"));
+
+      await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        onComplete,
+      });
+
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(onComplete).toHaveBeenCalledWith(expect.any(Array));
+    });
+
+    it("should call onConsensus callback", async () => {
+      const onConsensus = vi.fn();
+
+      mockL0.mockImplementation(async () => createMockL0Result("test"));
+
+      await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        onConsensus,
+      });
+
+      expect(onConsensus).toHaveBeenCalledTimes(1);
+      expect(onConsensus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          consensus: expect.any(String),
+          confidence: expect.any(Number),
+        }),
+      );
+    });
+  });
+
+  describe("timeout", () => {
+    it("should respect timeout option", async () => {
+      mockL0.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return createMockL0Result("slow");
+      });
+
+      await expect(
+        consensus({
+          streams: [
+            () => Promise.resolve({} as any),
+            () => Promise.resolve({} as any),
+          ],
+          timeout: 100,
+        }),
+      ).rejects.toThrow("Consensus timeout");
+    });
+  });
+
+  describe("analysis", () => {
+    it("should calculate similarity matrix", async () => {
+      mockL0.mockImplementation(async () => createMockL0Result("same"));
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+      });
+
+      expect(result.analysis.similarityMatrix).toBeDefined();
+      expect(result.analysis.similarityMatrix.length).toBe(3);
+      expect(result.analysis.averageSimilarity).toBe(1.0);
+    });
+
+    it("should count identical outputs", async () => {
+      mockL0.mockImplementation(async () => createMockL0Result("identical"));
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+      });
+
+      expect(result.analysis.identicalOutputs).toBe(3);
+    });
+
+    it("should track duration", async () => {
+      mockL0.mockImplementation(async () => createMockL0Result("test"));
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+      });
+
+      expect(result.analysis.duration).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("metadata", () => {
+    it("should pass through metadata", async () => {
+      mockL0.mockImplementation(async () => createMockL0Result("test"));
+
+      const result = await consensus({
+        streams: [
+          () => Promise.resolve({} as any),
+          () => Promise.resolve({} as any),
+        ],
+        metadata: { customKey: "customValue" },
+      });
+
+      expect(result.metadata).toEqual({ customKey: "customValue" });
+    });
   });
 });

@@ -767,6 +767,9 @@ export function meetsMinimumAgreement(
   outputs: number,
   threshold: number,
 ): boolean {
+  // If threshold is 0, any level of agreement (including none) is acceptable
+  if (threshold === 0) return true;
+
   if (agreements.length === 0) return false;
 
   // Find highest agreement ratio (use count/outputs for accuracy)
