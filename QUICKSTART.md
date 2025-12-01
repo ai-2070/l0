@@ -14,10 +14,22 @@ npm install @ai2070/l0
 npm install ai @ai-sdk/openai
 ```
 
+## Bundle Size
+
+| Import                  | Size   | Gzipped |
+| ----------------------- | ------ | ------- |
+| `@ai2070/l0` (full)     | 177 KB | 51 KB   |
+| `@ai2070/l0/core`       | 51 KB  | 15 KB   |
+| `@ai2070/l0/guardrails` | 18 KB  | 6 KB    |
+
+Use subpath imports for smaller bundles.
+
 ## Basic Usage
 
 ```typescript
-import { l0, recommendedGuardrails, recommendedRetry } from "@ai2070/l0";
+import { l0 } from "@ai2070/l0/core";
+import { recommendedGuardrails } from "@ai2070/l0/guardrails";
+import { recommendedRetry } from "@ai2070/l0/core";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 

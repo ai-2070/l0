@@ -7,12 +7,14 @@ L0 supports custom adapters for integrating any LLM provider or streaming source
 L0 provides **official first-party adapters** for:
 
 - **Vercel AI SDK** - Native support, no adapter needed
-- **OpenAI SDK** - `openaiAdapter`
-- **Anthropic SDK** - `anthropicAdapter`
-- **Mastra AI** - `mastraAdapter`
+- **OpenAI SDK** - `openaiAdapter` via `@ai2070/l0/openai`
+- **Anthropic SDK** - `anthropicAdapter` via `@ai2070/l0/anthropic`
+- **Mastra AI** - `mastraAdapter` via `@ai2070/l0/mastra`
 
 These are the only integrations maintained within the core project.
 Support for additional providers is out of scope.
+
+> **Bundle size tip:** Import adapters from their subpaths (`@ai2070/l0/openai`, etc.) to reduce bundle size. The main `@ai2070/l0` entry also exports all adapters for convenience.
 
 ---
 
@@ -91,7 +93,8 @@ type L0Event =
 Pass the adapter directly. No `detect()` needed.
 
 ```typescript
-import { l0, anthropicAdapter } from "@ai2070/l0";
+import { l0 } from "@ai2070/l0/core";
+import { anthropicAdapter } from "@ai2070/l0/anthropic";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
@@ -112,7 +115,8 @@ const result = await l0({
 Reference a registered adapter by name:
 
 ```typescript
-import { l0, registerAdapter, anthropicAdapter } from "@ai2070/l0";
+import { l0, registerAdapter } from "@ai2070/l0";
+import { anthropicAdapter } from "@ai2070/l0/anthropic";
 
 // Register once at startup
 registerAdapter(anthropicAdapter);
@@ -132,12 +136,9 @@ const result = await l0({
 Register adapters with `detect()` for automatic stream detection:
 
 ```typescript
-import {
-  l0,
-  registerAdapter,
-  anthropicAdapter,
-  openaiAdapter,
-} from "@ai2070/l0";
+import { l0, registerAdapter } from "@ai2070/l0";
+import { anthropicAdapter } from "@ai2070/l0/anthropic";
+import { openaiAdapter } from "@ai2070/l0/openai";
 
 // Register at startup
 registerAdapter(anthropicAdapter);
@@ -167,7 +168,7 @@ When L0 receives a stream, it resolves the adapter in this order:
 ### Minimal Adapter
 
 ```typescript
-import type { L0Adapter, L0Event } from "@ai2070/l0";
+import type { L0Adapter, L0Event } from "@ai2070/l0/core";
 
 interface MyChunk {
   text?: string;
@@ -318,7 +319,8 @@ L0 provides helpers to make building correct adapters easier.
 The simplest way to build an adapter:
 
 ```typescript
-import { toL0Events, type L0Adapter } from "@ai2070/l0";
+import { toL0Events } from "@ai2070/l0/adapters/helpers";
+import type { L0Adapter } from "@ai2070/l0/core";
 
 const myAdapter: L0Adapter<MyStream> = {
   name: "myai",
@@ -340,7 +342,8 @@ const myAdapter: L0Adapter<MyStream> = {
 For streams with both text and structured messages (tool calls, etc.):
 
 ```typescript
-import { toL0EventsWithMessages, type L0Adapter } from "@ai2070/l0";
+import { toL0EventsWithMessages } from "@ai2070/l0/adapters/helpers";
+import type { L0Adapter } from "@ai2070/l0/core";
 
 const toolAdapter: L0Adapter<ToolStream> = {
   name: "tool-ai",
@@ -371,7 +374,7 @@ import {
   createAdapterDoneEvent,
   createAdapterErrorEvent,
   createAdapterMessageEvent,
-} from "@ai2070/l0";
+} from "@ai2070/l0/adapters/helpers";
 
 async function* manualAdapter(stream: MyStream): AsyncGenerator<L0Event> {
   try {
@@ -442,7 +445,8 @@ Suppress with `{ silent: true }` or in production (`NODE_ENV=production`).
 ### OpenAI Adapter
 
 ```typescript
-import { l0, openaiAdapter, wrapOpenAIStream } from "@ai2070/l0";
+import { l0 } from "@ai2070/l0/core";
+import { openaiAdapter, wrapOpenAIStream } from "@ai2070/l0/openai";
 import OpenAI from "openai";
 
 const openai = new OpenAI();
@@ -474,12 +478,12 @@ const result = await l0({
 ### Anthropic Adapter
 
 ```typescript
+import { l0 } from "@ai2070/l0/core";
 import {
-  l0,
   anthropicAdapter,
   wrapAnthropicStream,
   anthropicStream,
-} from "@ai2070/l0";
+} from "@ai2070/l0/anthropic";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
@@ -520,7 +524,8 @@ const result = await l0({
 ### Mastra Adapter
 
 ```typescript
-import { l0, mastraAdapter, wrapMastraStream } from "@ai2070/l0";
+import { l0 } from "@ai2070/l0/core";
+import { mastraAdapter, wrapMastraStream } from "@ai2070/l0/mastra";
 import { Agent } from "@mastra/core";
 
 const agent = new Agent({
@@ -547,8 +552,8 @@ const result = await l0({
 ### Custom Provider Adapter
 
 ```typescript
-import type { L0Adapter, L0Event } from "@ai2070/l0";
-import { toL0Events } from "@ai2070/l0";
+import type { L0Adapter, L0Event } from "@ai2070/l0/core";
+import { toL0Events } from "@ai2070/l0/adapters/helpers";
 
 // Define the provider's stream types
 interface CustomProviderChunk {
@@ -590,7 +595,7 @@ export const customProviderAdapter: L0Adapter<CustomProviderStream> = {
 ### Adapter with Tool Support
 
 ```typescript
-import type { L0Adapter, L0Event } from "@ai2070/l0";
+import type { L0Adapter, L0Event } from "@ai2070/l0/core";
 
 interface ToolProviderChunk {
   type: "text" | "tool_call" | "tool_result" | "complete";
@@ -668,7 +673,7 @@ export const toolProviderAdapter: L0Adapter<ToolProviderStream> = {
 ### Wrapping a REST API
 
 ```typescript
-import type { L0Adapter, L0Event } from "@ai2070/l0";
+import type { L0Adapter, L0Event } from "@ai2070/l0/core";
 
 interface SSEMessage {
   data: string;

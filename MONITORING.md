@@ -20,7 +20,7 @@ L0 includes a **built-in monitoring system** that tracks:
 ### Enable Monitoring
 
 ```typescript
-import { l0 } from "l0";
+import { l0 } from "@ai2070/l0/core";
 import { streamText } from "ai";
 
 const result = await l0({
@@ -297,7 +297,7 @@ if (telemetry.continuation) {
 ### To JSON
 
 ```typescript
-import { TelemetryExporter } from "l0";
+import { TelemetryExporter } from "@ai2070/l0/monitoring";
 
 // Export to JSON string
 const json = TelemetryExporter.toJSON(telemetry);
@@ -459,7 +459,8 @@ statsd.gauge("l0.retries", telemetry.metrics.totalRetries);
 L0 includes a native Prometheus exporter:
 
 ```typescript
-import { l0, createPrometheusCollector, prometheusMiddleware } from "l0";
+import { l0 } from "@ai2070/l0/core";
+import { createPrometheusCollector, prometheusMiddleware } from "@ai2070/l0/monitoring";
 import express from "express";
 
 // Create collector
@@ -657,7 +658,7 @@ await trackABTest(performance);
 Use the `L0Monitor` class directly for fine-grained control:
 
 ```typescript
-import { L0Monitor } from "l0";
+import { L0Monitor } from "@ai2070/l0/monitoring";
 
 const monitor = new L0Monitor({
   enabled: true,
@@ -844,7 +845,8 @@ L0 includes native Prometheus support with automatic metric generation.
 ### Quick Start
 
 ```typescript
-import { l0, createPrometheusCollector, prometheusMiddleware } from "l0";
+import { l0 } from "@ai2070/l0/core";
+import { createPrometheusCollector, prometheusMiddleware } from "@ai2070/l0/monitoring";
 import express from "express";
 
 const collector = createPrometheusCollector();
@@ -930,7 +932,7 @@ collector.record(telemetry, {
 For more control, use `PrometheusRegistry`:
 
 ```typescript
-import { createPrometheusRegistry } from "l0";
+import { createPrometheusRegistry } from "@ai2070/l0/monitoring";
 
 const registry = createPrometheusRegistry({
   prefix: "myapp_l0",
@@ -1014,7 +1016,7 @@ If you're already using `prom-client`, you can still use L0's exporter alongside
 
 ```typescript
 import { Registry } from "prom-client";
-import { createPrometheusCollector } from "l0";
+import { createPrometheusCollector } from "@ai2070/l0/monitoring";
 
 const promRegistry = new Registry();
 const l0Collector = createPrometheusCollector();
@@ -1039,7 +1041,8 @@ L0 includes native Sentry support for error tracking and performance monitoring.
 
 ```typescript
 import * as Sentry from "@sentry/node";
-import { l0, sentryInterceptor } from "l0";
+import { l0 } from "@ai2070/l0/core";
+import { sentryInterceptor } from "@ai2070/l0/monitoring";
 
 Sentry.init({ dsn: "your-sentry-dsn" });
 
@@ -1054,7 +1057,8 @@ const result = await l0({
 
 ```typescript
 import * as Sentry from "@sentry/node";
-import { l0, withSentry } from "l0";
+import { l0 } from "@ai2070/l0/core";
+import { withSentry } from "@ai2070/l0/monitoring";
 
 const result = await withSentry({ sentry: Sentry }, () =>
   l0({
@@ -1067,7 +1071,7 @@ const result = await withSentry({ sentry: Sentry }, () =>
 ### Configuration
 
 ```typescript
-import { sentryInterceptor } from "l0";
+import { sentryInterceptor } from "@ai2070/l0/monitoring";
 
 sentryInterceptor({
   sentry: Sentry, // Required: Sentry instance
@@ -1114,7 +1118,8 @@ For fine-grained control:
 
 ```typescript
 import * as Sentry from "@sentry/node";
-import { l0, createSentryIntegration } from "l0";
+import { l0 } from "@ai2070/l0/core";
+import { createSentryIntegration } from "@ai2070/l0/monitoring";
 
 const sentry = createSentryIntegration({ sentry: Sentry });
 
@@ -1208,7 +1213,8 @@ L0 includes native OpenTelemetry support for distributed tracing and metrics, fo
 
 ```typescript
 import { trace, metrics } from "@opentelemetry/api";
-import { l0, openTelemetryInterceptor } from "l0";
+import { l0 } from "@ai2070/l0/core";
+import { openTelemetryInterceptor } from "@ai2070/l0/monitoring";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
@@ -1228,7 +1234,7 @@ For more control over tracing:
 
 ```typescript
 import { trace, metrics } from "@opentelemetry/api";
-import { L0OpenTelemetry, createOpenTelemetry } from "l0";
+import { L0OpenTelemetry, createOpenTelemetry } from "@ai2070/l0/monitoring";
 
 const otel = createOpenTelemetry({
   tracer: trace.getTracer("l0"),
@@ -1248,7 +1254,7 @@ const result = await otel.traceStream("chat-completion", async (span) => {
 ### Configuration
 
 ```typescript
-import { openTelemetryInterceptor } from "l0";
+import { openTelemetryInterceptor } from "@ai2070/l0/monitoring";
 
 openTelemetryInterceptor({
   tracer: trace.getTracer("l0"), // Required: OTel tracer
@@ -1270,7 +1276,7 @@ openTelemetryInterceptor({
 L0 follows OpenTelemetry GenAI semantic conventions:
 
 ```typescript
-import { SemanticAttributes } from "l0";
+import { SemanticAttributes } from "@ai2070/l0/monitoring";
 
 // Standard GenAI attributes
 SemanticAttributes.LLM_SYSTEM; // "gen_ai.system"
@@ -1317,7 +1323,7 @@ SemanticAttributes.L0_TOKENS_PER_SECOND; // "l0.tokens_per_second"
 
 ```typescript
 import { trace } from "@opentelemetry/api";
-import { L0OpenTelemetry, SemanticAttributes } from "l0";
+import { L0OpenTelemetry, SemanticAttributes } from "@ai2070/l0/monitoring";
 
 const otel = new L0OpenTelemetry({
   tracer: trace.getTracer("l0"),
@@ -1400,7 +1406,8 @@ If you already have OpenTelemetry configured in your application:
 
 ```typescript
 import { trace, metrics, context, propagation } from "@opentelemetry/api";
-import { l0, openTelemetryInterceptor } from "l0";
+import { l0 } from "@ai2070/l0/core";
+import { openTelemetryInterceptor } from "@ai2070/l0/monitoring";
 
 // L0 will automatically use the active context for trace propagation
 async function handleRequest(req) {

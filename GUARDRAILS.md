@@ -5,13 +5,16 @@ Guardrails are pure functions that validate streaming output without rewriting i
 ## Quick Start
 
 ```typescript
-import { l0, recommendedGuardrails } from "@ai2070/l0";
+import { l0 } from "@ai2070/l0/core";
+import { recommendedGuardrails } from "@ai2070/l0/guardrails";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
   guardrails: recommendedGuardrails,
 });
 ```
+
+> **Note:** Guardrails are also available from the main `@ai2070/l0` entry point for convenience. Use `@ai2070/l0/guardrails` for smaller bundle sizes.
 
 ## Presets
 
@@ -23,7 +26,7 @@ import {
   jsonOnlyGuardrails, // JSON + zero output
   markdownOnlyGuardrails, // Markdown + zero output
   latexOnlyGuardrails, // LaTeX + zero output
-} from "@ai2070/l0";
+} from "@ai2070/l0/guardrails";
 ```
 
 ---
@@ -35,7 +38,7 @@ import {
 Validates JSON structure during streaming:
 
 ```typescript
-import { jsonRule, strictJsonRule } from "@ai2070/l0";
+import { jsonRule, strictJsonRule } from "@ai2070/l0/guardrails";
 
 jsonRule(); // Balanced braces/brackets, streaming-aware
 strictJsonRule(); // + Must be parseable, root must be object/array
@@ -53,7 +56,7 @@ strictJsonRule(); // + Must be parseable, root must be object/array
 Validates Markdown structure:
 
 ```typescript
-import { markdownRule } from "@ai2070/l0";
+import { markdownRule } from "@ai2070/l0/guardrails";
 
 markdownRule();
 ```
@@ -70,7 +73,7 @@ markdownRule();
 Validates LaTeX environments and math:
 
 ```typescript
-import { latexRule } from "@ai2070/l0";
+import { latexRule } from "@ai2070/l0/guardrails";
 
 latexRule();
 ```
@@ -87,7 +90,7 @@ latexRule();
 Detects empty or meaningless output:
 
 ```typescript
-import { zeroOutputRule } from "@ai2070/l0";
+import { zeroOutputRule } from "@ai2070/l0/guardrails";
 
 zeroOutputRule();
 ```
@@ -105,7 +108,7 @@ zeroOutputRule();
 Detects known bad patterns:
 
 ```typescript
-import { patternRule, customPatternRule } from "@ai2070/l0";
+import { patternRule, customPatternRule } from "@ai2070/l0/guardrails";
 
 patternRule(); // All built-in patterns
 
@@ -153,7 +156,7 @@ interface GuardrailViolation {
 ### Simple Rule
 
 ```typescript
-import { GuardrailRule } from "@ai2070/l0";
+import type { GuardrailRule } from "@ai2070/l0/guardrails";
 
 const noSwearing: GuardrailRule = {
   name: "no-swearing",
@@ -230,7 +233,7 @@ import {
   GuardrailEngine,
   createGuardrailEngine,
   checkGuardrails,
-} from "@ai2070/l0";
+} from "@ai2070/l0/guardrails";
 
 // Create engine
 const engine = createGuardrailEngine(recommendedGuardrails, {

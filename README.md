@@ -21,9 +21,17 @@ L0 adds guardrails, retry logic, and network protection to LLM streams, turning 
 npm install @ai2070/l0
 ```
 
-**Bundle sizes (minified):**
-- Full: **235 KB** — `import { l0 } from "@ai2070/l0"`
-- Core only: **51 KB** — `import { l0 } from "@ai2070/l0/core"`
+**Bundle sizes (minified, gzipped):**
+
+| Import                     | Size    | Gzipped |
+| -------------------------- | ------- | ------- |
+| `@ai2070/l0` (full)        | 177 KB  | 51 KB   |
+| `@ai2070/l0/core`          | 51 KB   | 15 KB   |
+| `@ai2070/l0/guardrails`    | 18 KB   | 6 KB    |
+| `@ai2070/l0/drift`         | 4 KB    | 2 KB    |
+| `@ai2070/l0/monitoring`    | 32 KB   | 8 KB    |
+
+Tree-shakeable subpath exports for minimal bundles.
 
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 

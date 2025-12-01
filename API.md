@@ -2,6 +2,26 @@
 
 Complete API reference for L0.
 
+## Subpath Imports (Bundle Optimization)
+
+For reduced bundle sizes, use subpath imports:
+
+```typescript
+// Full bundle (~177 KB minified)
+import { l0, recommendedGuardrails } from "@ai2070/l0";
+
+// Core only (~51 KB minified) 
+import { l0 } from "@ai2070/l0/core";
+import { recommendedGuardrails } from "@ai2070/l0/guardrails";
+import { DriftDetector } from "@ai2070/l0/drift";
+import { createPrometheusCollector } from "@ai2070/l0/monitoring";
+import { openaiAdapter } from "@ai2070/l0/openai";
+import { anthropicAdapter } from "@ai2070/l0/anthropic";
+import { mastraAdapter } from "@ai2070/l0/mastra";
+```
+
+All examples below use `@ai2070/l0` for simplicity, but subpath imports work identically.
+
 ## Table of Contents
 
 - [Core Functions](#core-functions)

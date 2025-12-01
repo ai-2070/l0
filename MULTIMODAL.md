@@ -68,7 +68,8 @@ interface L0Progress {
 The simplest way to build a multimodal adapter:
 
 ```typescript
-import { toMultimodalL0Events, type L0Adapter } from "@ai2070/l0";
+import { toMultimodalL0Events } from "@ai2070/l0/adapters/helpers";
+import type { L0Adapter } from "@ai2070/l0/core";
 
 interface FluxChunk {
   type: "progress" | "image";
@@ -127,9 +128,8 @@ import {
   createImageEvent,
   createAdapterDoneEvent,
   createAdapterErrorEvent,
-  type L0Adapter,
-  type L0Event,
-} from "@ai2070/l0";
+} from "@ai2070/l0/adapters/helpers";
+import type { L0Adapter, L0Event } from "@ai2070/l0/core";
 
 const fluxAdapter: L0Adapter<FluxStream> = {
   name: "flux",
@@ -174,7 +174,7 @@ const fluxAdapter: L0Adapter<FluxStream> = {
 ## Consuming Multimodal Streams
 
 ```typescript
-import { l0 } from "@ai2070/l0";
+import { l0 } from "@ai2070/l0/core";
 
 const result = await l0({
   stream: () => fluxGenerate({ prompt: "A cat in space" }),
@@ -241,7 +241,9 @@ const result = await l0({
 ## Complete Example: Flux Image Generation
 
 ```typescript
-import { l0, toMultimodalL0Events, type L0Adapter } from "@ai2070/l0";
+import { l0 } from "@ai2070/l0/core";
+import { toMultimodalL0Events } from "@ai2070/l0/adapters/helpers";
+import type { L0Adapter } from "@ai2070/l0/core";
 
 // Define the Flux stream types
 interface FluxChunk {
