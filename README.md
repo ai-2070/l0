@@ -880,29 +880,6 @@ const consensusResult = await consensus<typeof schema>({
 
 ---
 
-## Error Handling
-
-L0 provides detailed error context for debugging and recovery:
-
-```typescript
-import { isL0Error, L0Error } from "@ai2070/l0";
-
-try {
-  await l0({ stream, guardrails });
-} catch (error) {
-  if (isL0Error(error)) {
-    console.log(error.code); // "GUARDRAIL_VIOLATION", "ZERO_OUTPUT", etc.
-    console.log(error.context.checkpoint); // Last good content
-    console.log(error.context.tokenCount); // Tokens before failure
-    console.log(error.isRecoverable); // Can retry?
-  }
-}
-```
-
-Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `ZERO_OUTPUT`, `GUARDRAIL_VIOLATION`, `FATAL_GUARDRAIL_VIOLATION`, `INVALID_STREAM`, `ALL_STREAMS_EXHAUSTED`, `NETWORK_ERROR`, `DRIFT_DETECTED`
-
----
-
 ## Custom Adapters (BYOA)
 
 L0 supports custom adapters for integrating any LLM provider. Built-in adapters include `openaiAdapter`, `mastraAdapter`, and `anthropicAdapter` (reference implementation).
@@ -1160,6 +1137,29 @@ for await (const event of result.stream) {
 - Response caching
 
 See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for complete guide.
+
+---
+
+## Error Handling
+
+L0 provides detailed error context for debugging and recovery:
+
+```typescript
+import { isL0Error, L0Error } from "@ai2070/l0";
+
+try {
+  await l0({ stream, guardrails });
+} catch (error) {
+  if (isL0Error(error)) {
+    console.log(error.code); // "GUARDRAIL_VIOLATION", "ZERO_OUTPUT", etc.
+    console.log(error.context.checkpoint); // Last good content
+    console.log(error.context.tokenCount); // Tokens before failure
+    console.log(error.isRecoverable); // Can retry?
+  }
+}
+```
+
+Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `ZERO_OUTPUT`, `GUARDRAIL_VIOLATION`, `FATAL_GUARDRAIL_VIOLATION`, `INVALID_STREAM`, `ALL_STREAMS_EXHAUSTED`, `NETWORK_ERROR`, `DRIFT_DETECTED`
 
 ---
 
