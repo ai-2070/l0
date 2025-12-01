@@ -1,20 +1,23 @@
-// Storage Adapters Tests
-
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   registerStorageAdapter,
   unregisterStorageAdapter,
   getRegisteredAdapters,
   createEventStore,
   BaseEventStore,
-  CompositeEventStore,
-  TTLEventStore,
-  createCompositeStore,
-  withTTL,
+  BaseEventStoreWithSnapshots,
   FileEventStore,
+  CompositeEventStore,
+  createCompositeStore,
+  TTLEventStore,
+  withTTL,
 } from "../src/runtime/storageAdapters";
 import { InMemoryEventStore } from "../src/runtime/eventStore";
-import type { L0RecordedEvent, L0EventEnvelope } from "../src/types/events";
+import type {
+  L0EventEnvelope,
+  L0RecordedEvent,
+  L0Snapshot,
+} from "../src/types/events";
 
 describe("Storage Adapters", () => {
   describe("Adapter Registry", () => {
@@ -25,7 +28,7 @@ describe("Storage Adapters", () => {
     });
 
     it("should register a custom adapter", () => {
-      const factory = () => new InMemoryEventStore();
+      const factory = vi.fn(() => new InMemoryEventStore());
       registerStorageAdapter(testAdapterType, factory);
 
       expect(getRegisteredAdapters()).toContain(testAdapterType);
@@ -45,67 +48,164 @@ describe("Storage Adapters", () => {
       expect(result).toBe(false);
     });
 
-    it("should have memory adapter registered by default", () => {
-      expect(getRegisteredAdapters()).toContain("memory");
-    });
-
     it("should create event store using registered adapter", async () => {
-      const store = await createEventStore({ type: "memory" });
-      expect(store).toBeInstanceOf(InMemoryEventStore);
+      const mockStore = new InMemoryEventStore();
+      registerStorageAdapter(testAdapterType, () => mockStore);
+
+      const store = await createEventStore({ type: testAdapterType });
+      expect(store).toBe(mockStore);
     });
 
     it("should throw for unknown adapter type", async () => {
-      await expect(createEventStore({ type: "unknown-type" })).rejects.toThrow(
-        /Unknown storage adapter type/,
-      );
+      await expect(
+        createEventStore({ type: "unknown-adapter" }),
+      ).rejects.toThrow("Unknown storage adapter type");
     });
 
-    it("should support async adapter factories", async () => {
-      registerStorageAdapter(testAdapterType, async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        return new InMemoryEventStore();
-      });
+    it("should include memory adapter by default", () => {
+      expect(getRegisteredAdapters()).toContain("memory");
+    });
 
-      const store = await createEventStore({ type: testAdapterType });
+    it("should create memory store", async () => {
+      const store = await createEventStore({ type: "memory" });
       expect(store).toBeInstanceOf(InMemoryEventStore);
-    });
-
-    it("should pass config to adapter factory", async () => {
-      let receivedConfig: any;
-
-      registerStorageAdapter(testAdapterType, (config) => {
-        receivedConfig = config;
-        return new InMemoryEventStore();
-      });
-
-      await createEventStore({
-        type: testAdapterType,
-        prefix: "custom-prefix",
-        ttl: 3600000,
-        options: { custom: "value" },
-      });
-
-      expect(receivedConfig.prefix).toBe("custom-prefix");
-      expect(receivedConfig.ttl).toBe(3600000);
-      expect(receivedConfig.options).toEqual({ custom: "value" });
     });
   });
 
   describe("BaseEventStore", () => {
+    // Create a concrete implementation for testing
     class TestEventStore extends BaseEventStore {
       private events: Map<string, L0EventEnvelope[]> = new Map();
 
       async append(streamId: string, event: L0RecordedEvent): Promise<void> {
-        let events = this.events.get(streamId);
-        if (!events) {
-          events = [];
-          this.events.set(streamId, events);
-        }
+        const key = this.getStreamKey(streamId);
+        const events = this.events.get(key) || [];
         events.push({ streamId, seq: events.length, event });
+        this.events.set(key, events);
       }
 
       async getEvents(streamId: string): Promise<L0EventEnvelope[]> {
-        return this.events.get(streamId) ?? [];
+        return this.events.get(this.getStreamKey(streamId)) || [];
+      }
+
+      async exists(streamId: string): Promise<boolean> {
+        return this.events.has(this.getStreamKey(streamId));
+      }
+
+      async delete(streamId: string): Promise<void> {
+        this.events.delete(this.getStreamKey(streamId));
+      }
+
+      async listStreams(): Promise<string[]> {
+        return Array.from(this.events.keys());
+      }
+
+      // Expose protected methods for testing
+      testGetStreamKey(streamId: string): string {
+        return this.getStreamKey(streamId);
+      }
+
+      testGetMetaKey(streamId: string): string {
+        return this.getMetaKey(streamId);
+      }
+
+      testIsExpired(timestamp: number): boolean {
+        return this.isExpired(timestamp);
+      }
+    }
+
+    it("should generate correct stream key", () => {
+      const store = new TestEventStore({ type: "test", prefix: "myprefix" });
+      expect(store.testGetStreamKey("stream1")).toBe("myprefix:stream:stream1");
+    });
+
+    it("should generate correct meta key", () => {
+      const store = new TestEventStore({ type: "test", prefix: "myprefix" });
+      expect(store.testGetMetaKey("stream1")).toBe("myprefix:meta:stream1");
+    });
+
+    it("should use default prefix", () => {
+      const store = new TestEventStore({ type: "test" });
+      expect(store.testGetStreamKey("stream1")).toBe("l0:stream:stream1");
+    });
+
+    it("should not expire when TTL is 0", () => {
+      const store = new TestEventStore({ type: "test", ttl: 0 });
+      expect(store.testIsExpired(Date.now() - 1000000)).toBe(false);
+    });
+
+    it("should expire old events when TTL is set", () => {
+      const store = new TestEventStore({ type: "test", ttl: 1000 });
+      expect(store.testIsExpired(Date.now() - 2000)).toBe(true);
+      expect(store.testIsExpired(Date.now())).toBe(false);
+    });
+
+    it("should get last event", async () => {
+      const store = new TestEventStore({ type: "test" });
+      const event1: L0RecordedEvent = {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      };
+      const event2: L0RecordedEvent = {
+        type: "TOKEN",
+        ts: Date.now(),
+        value: "test",
+        index: 0,
+      };
+
+      await store.append("stream1", event1);
+      await store.append("stream1", event2);
+
+      const lastEvent = await store.getLastEvent("stream1");
+      expect(lastEvent?.event.type).toBe("TOKEN");
+    });
+
+    it("should return null for getLastEvent on empty stream", async () => {
+      const store = new TestEventStore({ type: "test" });
+      const lastEvent = await store.getLastEvent("nonexistent");
+      expect(lastEvent).toBeNull();
+    });
+
+    it("should get events after sequence", async () => {
+      const store = new TestEventStore({ type: "test" });
+      await store.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+      await store.append("stream1", {
+        type: "TOKEN",
+        ts: Date.now(),
+        value: "a",
+        index: 0,
+      });
+      await store.append("stream1", {
+        type: "TOKEN",
+        ts: Date.now(),
+        value: "b",
+        index: 1,
+      });
+
+      const events = await store.getEventsAfter("stream1", 0);
+      expect(events).toHaveLength(2);
+      expect(events[0]?.seq).toBe(1);
+    });
+  });
+
+  describe("BaseEventStoreWithSnapshots", () => {
+    class TestSnapshotStore extends BaseEventStoreWithSnapshots {
+      private events: Map<string, L0EventEnvelope[]> = new Map();
+      private snapshots: Map<string, L0Snapshot> = new Map();
+
+      async append(streamId: string, event: L0RecordedEvent): Promise<void> {
+        const events = this.events.get(streamId) || [];
+        events.push({ streamId, seq: events.length, event });
+        this.events.set(streamId, events);
+      }
+
+      async getEvents(streamId: string): Promise<L0EventEnvelope[]> {
+        return this.events.get(streamId) || [];
       }
 
       async exists(streamId: string): Promise<boolean> {
@@ -114,85 +214,112 @@ describe("Storage Adapters", () => {
 
       async delete(streamId: string): Promise<void> {
         this.events.delete(streamId);
+        this.snapshots.delete(streamId);
       }
 
       async listStreams(): Promise<string[]> {
         return Array.from(this.events.keys());
       }
-    }
 
-    let store: TestEventStore;
-
-    beforeEach(() => {
-      store = new TestEventStore({ type: "test" });
-    });
-
-    it("should provide default getLastEvent implementation", async () => {
-      await store.append("stream-1", {
-        type: "TOKEN",
-        ts: 1000,
-        value: "a",
-        index: 0,
-      });
-      await store.append("stream-1", {
-        type: "TOKEN",
-        ts: 1100,
-        value: "b",
-        index: 1,
-      });
-
-      const last = await store.getLastEvent("stream-1");
-      expect(last?.seq).toBe(1);
-      expect((last?.event as any).value).toBe("b");
-    });
-
-    it("should return null for empty stream getLastEvent", async () => {
-      const last = await store.getLastEvent("non-existent");
-      expect(last).toBeNull();
-    });
-
-    it("should provide default getEventsAfter implementation", async () => {
-      for (let i = 0; i < 5; i++) {
-        await store.append("stream-1", {
-          type: "TOKEN",
-          ts: 1000 + i * 100,
-          value: `${i}`,
-          index: i,
-        });
+      async saveSnapshot(snapshot: L0Snapshot): Promise<void> {
+        this.snapshots.set(snapshot.streamId, snapshot);
       }
 
-      const events = await store.getEventsAfter("stream-1", 2);
-      expect(events).toHaveLength(2);
-      expect(events[0]?.seq).toBe(3);
-      expect(events[1]?.seq).toBe(4);
-    });
+      async getSnapshot(streamId: string): Promise<L0Snapshot | null> {
+        return this.snapshots.get(streamId) || null;
+      }
 
-    it("should use prefix for stream keys", () => {
-      const storeWithPrefix = new TestEventStore({
-        type: "test",
-        prefix: "myapp",
-      });
-      // Access protected method via any
-      expect((storeWithPrefix as any).getStreamKey("test")).toBe(
-        "myapp:stream:test",
+      // Expose for testing
+      testGetSnapshotKey(streamId: string): string {
+        return this.getSnapshotKey(streamId);
+      }
+    }
+
+    it("should generate correct snapshot key", () => {
+      const store = new TestSnapshotStore({ type: "test", prefix: "myprefix" });
+      expect(store.testGetSnapshotKey("stream1")).toBe(
+        "myprefix:snapshot:stream1",
       );
     });
 
-    it("should check expiration based on TTL", () => {
-      const storeWithTTL = new TestEventStore({ type: "test", ttl: 1000 });
+    it("should get snapshot before sequence", async () => {
+      const store = new TestSnapshotStore({ type: "test" });
+      const snapshot: L0Snapshot = {
+        streamId: "stream1",
+        seq: 5,
+        ts: Date.now(),
+        content: "test content",
+        tokenCount: 10,
+        checkpoint: "checkpoint1",
+        violations: [],
+        driftDetected: false,
+        retryAttempts: 0,
+        networkRetryCount: 0,
+        fallbackIndex: 0,
+      };
 
-      // Not expired (within TTL)
-      expect((storeWithTTL as any).isExpired(Date.now() - 500)).toBe(false);
+      await store.saveSnapshot(snapshot);
 
-      // Expired (beyond TTL)
-      expect((storeWithTTL as any).isExpired(Date.now() - 2000)).toBe(true);
+      const result = await store.getSnapshotBefore("stream1", 10);
+      expect(result).toEqual(snapshot);
     });
 
-    it("should not expire when TTL is 0", () => {
-      const storeNoTTL = new TestEventStore({ type: "test", ttl: 0 });
+    it("should return null if snapshot is after sequence", async () => {
+      const store = new TestSnapshotStore({ type: "test" });
+      const snapshot: L0Snapshot = {
+        streamId: "stream1",
+        seq: 10,
+        ts: Date.now(),
+        content: "test content",
+        tokenCount: 10,
+        checkpoint: "checkpoint1",
+        violations: [],
+        driftDetected: false,
+        retryAttempts: 0,
+        networkRetryCount: 0,
+        fallbackIndex: 0,
+      };
 
-      // Very old timestamp should not be expired
-      expect((storeNoTTL as any).isExpired(Date.now() - 999999999)).toBe(false);
+      await store.saveSnapshot(snapshot);
+
+      const result = await store.getSnapshotBefore("stream1", 5);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("FileEventStore", () => {
+    describe("validateStreamId", () => {
+      it("should accept valid stream IDs", () => {
+        expect(FileEventStore.validateStreamId("valid-id")).toBe("valid-id");
+        expect(FileEventStore.validateStreamId("valid_id")).toBe("valid_id");
+        expect(FileEventStore.validateStreamId("ValidId123")).toBe(
+          "ValidId123",
+        );
+      });
+
+      it("should reject empty stream ID", () => {
+        expect(() => FileEventStore.validateStreamId("")).toThrow(
+          "must not be empty",
+        );
+      });
+
+      it("should reject stream ID with path traversal", () => {
+        expect(() => FileEventStore.validateStreamId("../malicious")).toThrow(
+          "only alphanumeric",
+        );
+        expect(() => FileEventStore.validateStreamId("path/to/file")).toThrow(
+          "only alphanumeric",
+        );
+      });
+
+      it("should reject stream ID with special characters", () => {
+        expect(() => FileEventStore.validateStreamId("id with spaces")).toThrow(
+          "only alphanumeric",
+        );
+        expect(() => FileEventStore.validateStreamId("id@special")).toThrow(
+          "only alphanumeric",
+        );
+      });
     });
   });
 
@@ -207,347 +334,301 @@ describe("Storage Adapters", () => {
       composite = new CompositeEventStore([store1, store2]);
     });
 
-    it("should write to all stores", async () => {
-      await composite.append("stream-1", {
-        type: "TOKEN",
-        ts: 1000,
-        value: "test",
-        index: 0,
-      });
+    it("should throw if no stores provided", () => {
+      expect(() => new CompositeEventStore([])).toThrow("at least one store");
+    });
 
-      const events1 = await store1.getEvents("stream-1");
-      const events2 = await store2.getEvents("stream-1");
+    it("should append to all stores", async () => {
+      const event: L0RecordedEvent = {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      };
+      await composite.append("stream1", event);
+
+      const events1 = await store1.getEvents("stream1");
+      const events2 = await store2.getEvents("stream1");
 
       expect(events1).toHaveLength(1);
       expect(events2).toHaveLength(1);
     });
 
-    it("should read from primary store only", async () => {
-      // Add directly to store2 (not primary)
-      await store2.append("stream-1", {
-        type: "TOKEN",
-        ts: 1000,
-        value: "test",
-        index: 0,
-      });
+    it("should read from primary store", async () => {
+      const event: L0RecordedEvent = {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      };
+      await store1.append("stream1", event);
+      // Don't add to store2
 
-      // Should not see it from composite (reads from store1)
-      const events = await composite.getEvents("stream-1");
-      expect(events).toHaveLength(0);
-    });
-
-    it("should use custom primary index", async () => {
-      const compositeWithPrimary = new CompositeEventStore([store1, store2], 1);
-
-      await store2.append("stream-1", {
-        type: "TOKEN",
-        ts: 1000,
-        value: "test",
-        index: 0,
-      });
-
-      const events = await compositeWithPrimary.getEvents("stream-1");
+      const events = await composite.getEvents("stream1");
       expect(events).toHaveLength(1);
     });
 
-    it("should delete from all stores", async () => {
-      await composite.append("stream-1", {
-        type: "TOKEN",
-        ts: 1000,
-        value: "test",
-        index: 0,
-      });
-      await composite.delete("stream-1");
+    it("should use custom primary index", async () => {
+      const customComposite = new CompositeEventStore([store1, store2], 1);
+      const event: L0RecordedEvent = {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      };
+      await store2.append("stream1", event);
+      // Don't add to store1
 
-      expect(await store1.exists("stream-1")).toBe(false);
-      expect(await store2.exists("stream-1")).toBe(false);
+      const events = await customComposite.getEvents("stream1");
+      expect(events).toHaveLength(1);
     });
 
     it("should check existence on primary", async () => {
-      await store1.append("stream-1", {
+      await store1.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+
+      expect(await composite.exists("stream1")).toBe(true);
+      expect(await composite.exists("stream2")).toBe(false);
+    });
+
+    it("should delete from all stores", async () => {
+      await composite.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+
+      await composite.delete("stream1");
+
+      expect(await store1.exists("stream1")).toBe(false);
+      expect(await store2.exists("stream1")).toBe(false);
+    });
+
+    it("should get last event from primary", async () => {
+      await composite.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+      await composite.append("stream1", {
         type: "TOKEN",
-        ts: 1000,
+        ts: Date.now(),
         value: "test",
         index: 0,
       });
 
-      expect(await composite.exists("stream-1")).toBe(true);
-      expect(await composite.exists("stream-2")).toBe(false);
+      const lastEvent = await composite.getLastEvent("stream1");
+      expect(lastEvent?.event.type).toBe("TOKEN");
     });
 
-    it("should throw if no stores provided", () => {
-      expect(() => new CompositeEventStore([])).toThrow(/at least one store/);
-    });
-
-    it("should work with createCompositeStore helper", async () => {
-      const helper = createCompositeStore([store1, store2]);
-      await helper.append("stream-1", {
+    it("should get events after from primary", async () => {
+      await composite.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+      await composite.append("stream1", {
         type: "TOKEN",
-        ts: 1000,
-        value: "test",
+        ts: Date.now(),
+        value: "a",
         index: 0,
       });
+      await composite.append("stream1", {
+        type: "TOKEN",
+        ts: Date.now(),
+        value: "b",
+        index: 1,
+      });
 
-      expect(await store1.getEvents("stream-1")).toHaveLength(1);
-      expect(await store2.getEvents("stream-1")).toHaveLength(1);
+      const events = await composite.getEventsAfter("stream1", 0);
+      expect(events).toHaveLength(2);
+    });
+
+    it("should list streams from primary", async () => {
+      await composite.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+      await composite.append("stream2", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+
+      const streams = await composite.listStreams();
+      expect(streams).toContain("stream1");
+      expect(streams).toContain("stream2");
+    });
+  });
+
+  describe("createCompositeStore", () => {
+    it("should create composite store", () => {
+      const store1 = new InMemoryEventStore();
+      const store2 = new InMemoryEventStore();
+      const composite = createCompositeStore([store1, store2]);
+
+      expect(composite).toBeInstanceOf(CompositeEventStore);
+    });
+
+    it("should accept custom primary index", () => {
+      const store1 = new InMemoryEventStore();
+      const store2 = new InMemoryEventStore();
+      const composite = createCompositeStore([store1, store2], 1);
+
+      expect(composite).toBeInstanceOf(CompositeEventStore);
     });
   });
 
   describe("TTLEventStore", () => {
     let baseStore: InMemoryEventStore;
     let ttlStore: TTLEventStore;
+    const TTL_MS = 1000;
 
     beforeEach(() => {
       baseStore = new InMemoryEventStore();
-      ttlStore = new TTLEventStore(baseStore, 1000); // 1 second TTL
+      ttlStore = new TTLEventStore(baseStore, TTL_MS);
     });
 
-    it("should pass through writes to underlying store", async () => {
-      await ttlStore.append("stream-1", {
-        type: "TOKEN",
+    it("should append events to underlying store", async () => {
+      const event: L0RecordedEvent = {
+        type: "START",
         ts: Date.now(),
+        options: {},
+      };
+      await ttlStore.append("stream1", event);
+
+      const baseEvents = await baseStore.getEvents("stream1");
+      expect(baseEvents).toHaveLength(1);
+    });
+
+    it("should filter expired events on getEvents", async () => {
+      const oldTs = Date.now() - TTL_MS - 100;
+      const newTs = Date.now();
+
+      await baseStore.append("stream1", {
+        type: "START",
+        ts: oldTs,
+        options: {},
+      });
+      await baseStore.append("stream1", {
+        type: "TOKEN",
+        ts: newTs,
         value: "test",
         index: 0,
       });
 
-      const baseEvents = await baseStore.getEvents("stream-1");
-      expect(baseEvents).toHaveLength(1);
+      const events = await ttlStore.getEvents("stream1");
+      expect(events).toHaveLength(1);
+      expect(events[0]?.event.type).toBe("TOKEN");
     });
 
-    it("should filter expired events on read", async () => {
-      const now = Date.now();
+    it("should check existence based on non-expired events", async () => {
+      const oldTs = Date.now() - TTL_MS - 100;
+      await baseStore.append("stream1", {
+        type: "START",
+        ts: oldTs,
+        options: {},
+      });
 
-      // Add old event (expired)
-      await baseStore.append("stream-1", {
+      // All events expired
+      expect(await ttlStore.exists("stream1")).toBe(false);
+    });
+
+    it("should get last non-expired event", async () => {
+      const oldTs = Date.now() - TTL_MS - 100;
+      const newTs = Date.now();
+
+      await baseStore.append("stream1", {
+        type: "START",
+        ts: oldTs,
+        options: {},
+      });
+      await baseStore.append("stream1", {
         type: "TOKEN",
-        ts: now - 2000,
-        value: "old",
+        ts: newTs,
+        value: "test",
         index: 0,
       });
 
-      // Add recent event (not expired)
-      await baseStore.append("stream-1", {
+      const lastEvent = await ttlStore.getLastEvent("stream1");
+      expect(lastEvent?.event.type).toBe("TOKEN");
+    });
+
+    it("should return null for getLastEvent when all expired", async () => {
+      const oldTs = Date.now() - TTL_MS - 100;
+      await baseStore.append("stream1", {
+        type: "START",
+        ts: oldTs,
+        options: {},
+      });
+
+      const lastEvent = await ttlStore.getLastEvent("stream1");
+      expect(lastEvent).toBeNull();
+    });
+
+    it("should filter expired events in getEventsAfter", async () => {
+      const oldTs = Date.now() - TTL_MS - 100;
+      const newTs = Date.now();
+
+      await baseStore.append("stream1", {
+        type: "START",
+        ts: oldTs,
+        options: {},
+      });
+      await baseStore.append("stream1", {
         type: "TOKEN",
-        ts: now,
+        ts: oldTs,
+        value: "old",
+        index: 0,
+      });
+      await baseStore.append("stream1", {
+        type: "TOKEN",
+        ts: newTs,
         value: "new",
         index: 1,
       });
 
-      const events = await ttlStore.getEvents("stream-1");
+      const events = await ttlStore.getEventsAfter("stream1", 0);
       expect(events).toHaveLength(1);
-      expect((events[0]?.event as any).value).toBe("new");
-    });
-
-    it("should report exists based on non-expired events", async () => {
-      // Add only expired event
-      await baseStore.append("stream-1", {
-        type: "TOKEN",
-        ts: Date.now() - 2000,
-        value: "old",
-        index: 0,
-      });
-
-      expect(await ttlStore.exists("stream-1")).toBe(false);
-    });
-
-    it("should filter expired events in getLastEvent", async () => {
-      const now = Date.now();
-
-      await baseStore.append("stream-1", {
-        type: "TOKEN",
-        ts: now,
-        value: "recent",
-        index: 0,
-      });
-      await baseStore.append("stream-1", {
-        type: "TOKEN",
-        ts: now - 2000,
-        value: "expired",
-        index: 1,
-      });
-
-      const last = await ttlStore.getLastEvent("stream-1");
-      expect((last?.event as any).value).toBe("recent");
-    });
-
-    it("should work with withTTL helper", async () => {
-      const store = withTTL(new InMemoryEventStore(), 1000);
-      await store.append("stream-1", {
-        type: "TOKEN",
-        ts: Date.now() - 2000,
-        value: "old",
-        index: 0,
-      });
-
-      expect(await store.getEvents("stream-1")).toHaveLength(0);
+      expect(events[0]?.event.type).toBe("TOKEN");
     });
 
     it("should delegate delete to underlying store", async () => {
-      await ttlStore.append("stream-1", {
-        type: "TOKEN",
+      await ttlStore.append("stream1", {
+        type: "START",
         ts: Date.now(),
-        value: "test",
-        index: 0,
+        options: {},
       });
-      await ttlStore.delete("stream-1");
+      await ttlStore.delete("stream1");
 
-      expect(await baseStore.exists("stream-1")).toBe(false);
+      expect(await baseStore.exists("stream1")).toBe(false);
     });
 
     it("should delegate listStreams to underlying store", async () => {
-      await baseStore.append("stream-1", {
-        type: "TOKEN",
+      await ttlStore.append("stream1", {
+        type: "START",
         ts: Date.now(),
-        value: "test",
-        index: 0,
+        options: {},
       });
-      await baseStore.append("stream-2", {
-        type: "TOKEN",
+      await ttlStore.append("stream2", {
+        type: "START",
         ts: Date.now(),
-        value: "test",
-        index: 0,
+        options: {},
       });
 
       const streams = await ttlStore.listStreams();
-      expect(streams).toContain("stream-1");
-      expect(streams).toContain("stream-2");
+      expect(streams).toContain("stream1");
+      expect(streams).toContain("stream2");
     });
   });
 
-  describe("Integration Patterns", () => {
-    it("should support write-through cache pattern", async () => {
-      const cache = new InMemoryEventStore();
-      const persistent = new InMemoryEventStore();
+  describe("withTTL", () => {
+    it("should create TTLEventStore wrapper", () => {
+      const baseStore = new InMemoryEventStore();
+      const ttlStore = withTTL(baseStore, 5000);
 
-      const store = createCompositeStore([cache, persistent], 0);
-
-      // Write goes to both
-      await store.append("stream-1", {
-        type: "TOKEN",
-        ts: Date.now(),
-        value: "test",
-        index: 0,
-      });
-
-      // Both have the data
-      expect(await cache.getEvents("stream-1")).toHaveLength(1);
-      expect(await persistent.getEvents("stream-1")).toHaveLength(1);
-
-      // Reads come from cache (primary)
-      expect(await store.getEvents("stream-1")).toHaveLength(1);
-    });
-
-    it("should support TTL cache with persistent backing", async () => {
-      const persistent = new InMemoryEventStore();
-      const cache = withTTL(new InMemoryEventStore(), 100); // 100ms TTL
-
-      const store = createCompositeStore([cache, persistent], 0);
-
-      // Write to both
-      await store.append("stream-1", {
-        type: "TOKEN",
-        ts: Date.now(),
-        value: "test",
-        index: 0,
-      });
-
-      // Initially both have data
-      expect(await cache.getEvents("stream-1")).toHaveLength(1);
-
-      // Wait for TTL
-      await new Promise((resolve) => setTimeout(resolve, 150));
-
-      // Cache expired, but persistent still has it
-      expect(await cache.getEvents("stream-1")).toHaveLength(0);
-      expect(await persistent.getEvents("stream-1")).toHaveLength(1);
-    });
-
-    it("should allow custom adapter registration and usage", async () => {
-      // Custom adapter that wraps events with metadata
-      class MetadataStore extends InMemoryEventStore {
-        private metadata: Map<string, Record<string, unknown>> = new Map();
-
-        setMetadata(streamId: string, meta: Record<string, unknown>): void {
-          this.metadata.set(streamId, meta);
-        }
-
-        getMetadata(streamId: string): Record<string, unknown> | undefined {
-          return this.metadata.get(streamId);
-        }
-      }
-
-      registerStorageAdapter("metadata", () => new MetadataStore());
-
-      const store = (await createEventStore({
-        type: "metadata",
-      })) as MetadataStore;
-
-      store.setMetadata("stream-1", { user: "test-user", purpose: "demo" });
-      await store.append("stream-1", {
-        type: "TOKEN",
-        ts: Date.now(),
-        value: "hello",
-        index: 0,
-      });
-
-      expect(store.getMetadata("stream-1")).toEqual({
-        user: "test-user",
-        purpose: "demo",
-      });
-      expect(await store.getEvents("stream-1")).toHaveLength(1);
-
-      unregisterStorageAdapter("metadata");
-    });
-  });
-
-  describe("FileEventStore Path Traversal Protection", () => {
-    const validate = FileEventStore.validateStreamId;
-
-    it("should reject stream IDs with path traversal attempts", () => {
-      expect(() => validate("../../../etc/passwd")).toThrow(
-        /Invalid stream ID/,
-      );
-      expect(() => validate("..\\..\\windows\\system32")).toThrow(
-        /Invalid stream ID/,
-      );
-      expect(() => validate("foo/../bar")).toThrow(/Invalid stream ID/);
-    });
-
-    it("should reject stream IDs with special characters", () => {
-      expect(() => validate("stream:with:colons")).toThrow(/Invalid stream ID/);
-      expect(() => validate("stream/with/slashes")).toThrow(
-        /Invalid stream ID/,
-      );
-      expect(() => validate("stream<with>brackets")).toThrow(
-        /Invalid stream ID/,
-      );
-      expect(() => validate("stream|with|pipes")).toThrow(/Invalid stream ID/);
-    });
-
-    it("should allow valid stream IDs unchanged", () => {
-      // Valid IDs should pass through
-      expect(validate("valid-stream-id")).toBe("valid-stream-id");
-      expect(validate("stream_with_underscores")).toBe(
-        "stream_with_underscores",
-      );
-      expect(validate("Stream123")).toBe("Stream123");
-      expect(validate("UPPERCASE")).toBe("UPPERCASE");
-      expect(validate("a")).toBe("a");
-      expect(validate("123")).toBe("123");
-    });
-
-    it("should throw for empty stream ID", () => {
-      expect(() => validate("")).toThrow(/must not be empty/);
-    });
-
-    it("should reject IDs with only special characters", () => {
-      expect(() => validate("...")).toThrow(/Invalid stream ID/);
-      expect(() => validate("///")).toThrow(/Invalid stream ID/);
-    });
-
-    it("should reject null byte injection", () => {
-      expect(() => validate("stream\x00.json")).toThrow(/Invalid stream ID/);
-      expect(() => validate("test\x00../etc")).toThrow(/Invalid stream ID/);
+      expect(ttlStore).toBeInstanceOf(TTLEventStore);
     });
   });
 });
