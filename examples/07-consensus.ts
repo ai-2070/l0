@@ -1,7 +1,7 @@
 // Consensus Example
 // Run: OPENAI_API_KEY=sk-... npx tsx examples/07-consensus.ts
 
-import { consensus } from "../src/index";
+import { consensus } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 

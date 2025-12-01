@@ -1,7 +1,7 @@
 // Parallel and Race Example
 // Run: OPENAI_API_KEY=sk-... npx tsx examples/06-parallel-and-race.ts
 
-import { parallel, race, recommendedGuardrails } from "../src/index";
+import { parallel, race, recommendedGuardrails } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 

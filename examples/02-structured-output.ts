@@ -1,7 +1,7 @@
 // Structured Output Example
 // Run: OPENAI_API_KEY=sk-... npx tsx examples/02-structured-output.ts
 
-import { structured, structuredArray } from "../src/structured";
+import { structured, structuredArray } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";

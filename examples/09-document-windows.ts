@@ -1,7 +1,7 @@
 // Document Windows Example
 // Run: OPENAI_API_KEY=sk-... npx tsx examples/09-document-windows.ts
 
-import { createWindow } from "../src/index";
+import { createWindow } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
