@@ -1,5 +1,5 @@
 // Retry manager tests
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   RetryManager,
   isRetryableError,
@@ -551,6 +551,122 @@ describe("RetryManager", () => {
         0,
       );
     });
+  });
+});
+
+describe("RetryManager.execute", () => {
+  it("should execute function successfully without retry", async () => {
+    const manager = new RetryManager({ attempts: 3, baseDelay: 10 });
+    const fn = vi.fn().mockResolvedValue("success");
+
+    const result = await manager.execute(fn);
+
+    expect(result).toBe("success");
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("should retry on failure and eventually succeed", async () => {
+    const manager = new RetryManager({
+      attempts: 3,
+      baseDelay: 10,
+      maxDelay: 50,
+    });
+
+    let callCount = 0;
+    const fn = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount < 3) {
+        throw new Error("ECONNRESET");
+      }
+      return "success";
+    });
+
+    const result = await manager.execute(fn);
+
+    expect(result).toBe("success");
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it("should call onRetry callback", async () => {
+    const manager = new RetryManager({
+      attempts: 3,
+      baseDelay: 10,
+      maxDelay: 50,
+    });
+
+    let callCount = 0;
+    const fn = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount < 2) {
+        throw new Error("ECONNRESET");
+      }
+      return "success";
+    });
+
+    const onRetry = vi.fn();
+    await manager.execute(fn, onRetry);
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(onRetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.any(Object),
+        config: expect.any(Object),
+        error: expect.any(Object),
+        backoff: expect.any(Object),
+      }),
+    );
+  });
+
+  it("should throw when max retries exceeded", async () => {
+    const manager = new RetryManager({
+      maxRetries: 2,
+      baseDelay: 10,
+      maxDelay: 50,
+    });
+
+    // Use ECONNRESET which is categorized as network_error and retryable
+    const fn = vi.fn().mockRejectedValue(new Error("ECONNRESET"));
+
+    await expect(manager.execute(fn)).rejects.toThrow("ECONNRESET");
+    // 1 initial + 2 retries = 3 calls (maxRetries: 2 means 2 retries allowed)
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it("should convert non-Error to Error", async () => {
+    const manager = new RetryManager({
+      attempts: 1,
+      baseDelay: 10,
+      retryOn: [], // Don't retry anything
+    });
+
+    const fn = vi.fn().mockRejectedValue("string error");
+
+    await expect(manager.execute(fn)).rejects.toThrow("string error");
+  });
+
+  it("should use custom error type delays for network errors", async () => {
+    const manager = new RetryManager({
+      attempts: 3,
+      baseDelay: 10,
+      maxDelay: 100,
+      errorTypeDelays: {
+        connectionDropped: 50,
+      },
+    });
+
+    let callCount = 0;
+    const fn = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount < 2) {
+        throw new Error("Connection dropped");
+      }
+      return "success";
+    });
+
+    const onRetry = vi.fn();
+    await manager.execute(fn, onRetry);
+
+    expect(onRetry).toHaveBeenCalled();
   });
 });
 

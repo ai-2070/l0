@@ -829,6 +829,115 @@ describe("Window Presets", () => {
 });
 
 // ============================================================================
+// l0WithWindow Tests
+// ============================================================================
+
+describe("l0WithWindow", () => {
+  it("should throw when window is not provided", async () => {
+    await expect(
+      l0WithWindow({
+        window: undefined as any,
+        stream: createMockStreamFactory("test"),
+      }),
+    ).rejects.toThrow("Window is required");
+  });
+
+  it("should throw for invalid chunk index", async () => {
+    const window = createWindow(MEDIUM_DOC, { size: 200 });
+
+    await expect(
+      l0WithWindow({
+        window,
+        chunkIndex: 999,
+        stream: createMockStreamFactory("test"),
+      }),
+    ).rejects.toThrow("Invalid chunk index: 999");
+  });
+
+  it("should process chunk successfully without drift", async () => {
+    const window = createWindow(MEDIUM_DOC, { size: 200 });
+
+    const result = await l0WithWindow({
+      window,
+      chunkIndex: 0,
+      stream: createMockStreamFactory("success"),
+    });
+
+    expect(result).toBeDefined();
+    expect(result.state).toBeDefined();
+  });
+
+  it("should use default chunk index of 0", async () => {
+    const window = createWindow(MEDIUM_DOC, { size: 200 });
+
+    const result = await l0WithWindow({
+      window,
+      stream: createMockStreamFactory("test"),
+    });
+
+    expect(result).toBeDefined();
+  });
+
+  it("should handle context restoration disabled", async () => {
+    const window = createWindow(MEDIUM_DOC, { size: 200 });
+
+    const result = await l0WithWindow({
+      window,
+      chunkIndex: 0,
+      stream: createMockStreamFactory("test"),
+      contextRestoration: { enabled: false },
+    });
+
+    expect(result).toBeDefined();
+  });
+
+  it("should handle maxAttempts configuration", async () => {
+    const window = createWindow(MEDIUM_DOC, { size: 200 });
+
+    // Test with custom maxAttempts - should complete successfully without drift
+    const result = await l0WithWindow({
+      window,
+      chunkIndex: 0,
+      stream: createMockStreamFactory("test"),
+      contextRestoration: { maxAttempts: 5 },
+    });
+
+    expect(result).toBeDefined();
+  });
+
+  it("should accept different context restoration strategies", async () => {
+    const window = createWindow(MEDIUM_DOC, { size: 200 });
+
+    // Test with 'adjacent' strategy
+    const result1 = await l0WithWindow({
+      window,
+      chunkIndex: 0,
+      stream: createMockStreamFactory("adjacent test"),
+      contextRestoration: { strategy: "adjacent" },
+    });
+    expect(result1).toBeDefined();
+
+    // Test with 'overlap' strategy
+    const result2 = await l0WithWindow({
+      window,
+      chunkIndex: 0,
+      stream: createMockStreamFactory("overlap test"),
+      contextRestoration: { strategy: "overlap" },
+    });
+    expect(result2).toBeDefined();
+
+    // Test with 'full' strategy
+    const result3 = await l0WithWindow({
+      window,
+      chunkIndex: 0,
+      stream: createMockStreamFactory("full test"),
+      contextRestoration: { strategy: "full" },
+    });
+    expect(result3).toBeDefined();
+  });
+});
+
+// ============================================================================
 // Edge Cases and Integration Tests
 // ============================================================================
 
