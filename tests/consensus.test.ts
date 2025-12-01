@@ -753,6 +753,12 @@ describe("Consensus Utilities", () => {
       // Without agreements (empty array)
       expect(meetsMinimumAgreement([], 4, 0)).toBe(true);
     });
+
+    it("should return true for single output (trivially unanimous)", () => {
+      // Single output is always unanimous, regardless of agreements or threshold
+      expect(meetsMinimumAgreement([], 1, 0.8)).toBe(true);
+      expect(meetsMinimumAgreement([], 1, 1.0)).toBe(true);
+    });
   });
 });
 
