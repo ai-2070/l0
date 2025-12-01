@@ -254,8 +254,8 @@ for await (const event of result.stream) {
 | [Multimodal Support](#multimodal-support)                             | Image, audio, video generation with progress tracking           |
 | [Lifecycle Callbacks](#lifecycle-callbacks)                           | Full observability into every stream phase                      |
 | [Event Sourcing](#event-sourcing)                                     | Record/replay streams for testing and audit trails              |
-| [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
+| [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
 | [Testing](#testing)                                                   | 2,000+ tests covering all features and SDK adapters             |
 
 ---
