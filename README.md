@@ -45,6 +45,8 @@ npm install @ai2070/l0
     OpenAI/  ──────▶ │     │            │              │      │ ──────▶ Output
     Mastra/          │     └─────▶ Retry ◀──▶ Fallbacks ◀─────│
     Custom           └────────────────────────────────────────┘
+ (text/image/
+  video/audio)
  ─────────────
 ```
 
