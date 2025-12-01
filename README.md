@@ -42,7 +42,7 @@ Tree-shakeable subpath exports for minimal bundles.
 
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
-L0 includes 1,800+ tests covering all major reliability features.
+L0 includes 2,600+ tests covering all major reliability features.
 
 **Upcoming versions:**
 
@@ -92,7 +92,7 @@ L0 includes 1,800+ tests covering all major reliability features.
 | **⚡ Tiny & Explicit**                           | 15KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
-| **🧪 Battle-Tested**                             | 1,600+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
+| **🧪 Battle-Tested**                             | 2,100+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
 ## Quick Start
 
@@ -1147,7 +1147,7 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 
 | Category          | Tests  | Description                      |
 | ----------------- | ------ | -------------------------------- |
-| Unit Tests        | 1,600+ | Fast, mocked, no API calls       |
+| Unit Tests        | 2,100+ | Fast, mocked, no API calls       |
 | Integration Tests | 250+   | Real API calls, all SDK adapters |
 
 ```bash
