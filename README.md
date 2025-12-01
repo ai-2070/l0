@@ -38,14 +38,6 @@ L0 adds guardrails, retry logic, and network protection to LLM streams, turning 
 npm install @ai2070/l0
 ```
 
-_Production-grade reliability. Just pass your stream. L0'll take it from here._
-
-L0 includes 2,000+ tests covering all major reliability features.
-
-**Upcoming versions:**
-
-- **1.0.0** - API freeze + Website docs + Python version
-
 ```
  AI SDK Stream                       L0 Layer                          Your App
  ─────────────       ┌────────────────────────────────────────┐        ─────────
@@ -55,6 +47,14 @@ L0 includes 2,000+ tests covering all major reliability features.
     Custom           └────────────────────────────────────────┘
  ─────────────
 ```
+
+_Production-grade reliability. Just pass your stream. L0'll take it from here._
+
+L0 includes 2,000+ tests covering all major reliability features.
+
+**Upcoming versions:**
+
+- **1.0.0** - API freeze + Website docs + Python version
 
 **Bundle sizes (minified):**
 
