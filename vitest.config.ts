@@ -18,12 +18,16 @@ export default defineConfig({
       reporter: ["text", "json", "html", "lcov"],
       exclude: [
         "node_modules/**",
+        "img/**",
         "dist/**",
         "tests/**",
+        "integration/**",
+        "examples/**",
         "**/*.test.ts",
         "**/*.spec.ts",
         "**/types/**",
         "vitest.config.ts",
+        "src/**/index.ts",
       ],
       include: ["src/**/*.ts"],
       thresholds: {
