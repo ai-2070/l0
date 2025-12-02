@@ -42,16 +42,17 @@ _Production-grade reliability. Just pass your stream. L0'll take it from here._
 L0 includes 2,600+ tests covering all major reliability features.
 
 ```
- AI SDK Stream                       L0 Layer                          Your App
- ─────────────       ┌────────────────────────────────────────┐        ─────────
-   Vercel AI/        │ Timeouts ──▶ Guardrails ──▶ Checkpoints│
-    OpenAI/  ──────▶ │     │            │              │      │ ──────▶ Output
-    Mastra/          │     └─────▶ Retry ◀──▶ Fallbacks ◀─────│
-    Custom           └────────────────────────────────────────┘
- (text/image/
-  video/audio)
- ─────────────
-                           L0 = token-level reliability
+   Any AI Stream                    L0 Layer                         Your App
+ ─────────────────    ┌──────────────────────────────────────┐    ─────────────
+                      │                                      │
+   Vercel AI SDK      │   Retry · Fallback · Resume          │      Reliable
+   OpenAI / Azure ───▶│   Guardrails · Timeouts · Consensus  │─────▶ Output
+   Anthropic / AWS    │   Full Observability                 │
+   Mastra / Custom    │                                      │
+                      └──────────────────────────────────────┘
+ ─────────────────                                                ─────────────
+  text / image /                 Token-Level Reliability
+  video / audio
 ```
 
 **Upcoming versions:**
