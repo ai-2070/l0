@@ -7,7 +7,7 @@
  * - Never throws from handler failures
  */
 
-import { v7 as uuidv7 } from "uuid";
+import { uuidv7 } from "../utils/uuid";
 import type {
   L0ObservabilityEvent,
   L0EventHandler,

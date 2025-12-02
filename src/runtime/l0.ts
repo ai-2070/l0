@@ -763,7 +763,7 @@ export async function l0<TOutput = unknown>(
                     const violation = result.violations[i];
                     dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
                       index: i,
-                      ruleId: violation.rule,
+                      ruleId: violation!.rule,
                       passed: false,
                       violation,
                     });
@@ -801,7 +801,7 @@ export async function l0<TOutput = unknown>(
                   dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
                     detected: true,
                     types: drift.types,
-                    score: drift.score,
+                    confidence: drift.confidence,
                   });
                 }
               }
@@ -1094,7 +1094,7 @@ export async function l0<TOutput = unknown>(
                     const violation = result.violations[i];
                     dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
                       index: i,
-                      ruleId: violation.rule,
+                      ruleId: violation!.rule,
                       passed: false,
                       violation,
                     });
@@ -1129,7 +1129,7 @@ export async function l0<TOutput = unknown>(
                   dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
                     detected: true,
                     types: drift.types,
-                    score: drift.score,
+                    confidence: drift.confidence,
                   });
                 }
               }
@@ -1188,7 +1188,7 @@ export async function l0<TOutput = unknown>(
                 const violation = result.violations[i];
                 dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
                   index: i,
-                  ruleId: violation.rule,
+                  ruleId: violation!.rule,
                   passed: false,
                   violation,
                 });
@@ -1241,7 +1241,7 @@ export async function l0<TOutput = unknown>(
               dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
                 detected: true,
                 types: finalDrift.types,
-                score: finalDrift.score,
+                confidence: finalDrift.confidence,
               });
               dispatcher.emit(EventType.RETRY_ATTEMPT, {
                 attempt: retryAttempt + 1,
@@ -1324,7 +1324,7 @@ export async function l0<TOutput = unknown>(
                 const violation = partialResult.violations[i];
                 dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
                   index: i,
-                  ruleId: violation.rule,
+                  ruleId: violation!.rule,
                   passed: false,
                   violation,
                 });
@@ -1366,7 +1366,7 @@ export async function l0<TOutput = unknown>(
               dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
                 detected: true,
                 types: partialDrift.types,
-                score: partialDrift.score,
+                confidence: partialDrift.confidence,
               });
               dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
                 index: 0,
