@@ -2570,7 +2570,7 @@ import { consensus } from "@ai2070/l0/consensus";
 import { parallel, race } from "@ai2070/l0/parallel";
 import { createWindow } from "@ai2070/l0/window";
 import { recommendedGuardrails } from "@ai2070/l0/guardrails";
-import { sentryInterceptor } from "@ai2070/l0/monitoring";
+import { createSentryHandler } from "@ai2070/l0/monitoring";
 import { DriftDetector } from "@ai2070/l0/drift";
 import { openaiAdapter } from "@ai2070/l0/openai";
 import { anthropicAdapter } from "@ai2070/l0/anthropic";

@@ -522,44 +522,6 @@ export function createSentryHandler(config: SentryConfig): EventHandler {
 }
 
 /**
- * @deprecated Use `createSentryHandler` with `onEvent` instead.
- *
- * The interceptor pattern is deprecated. Use the event handler pattern:
- *
- * ```typescript
- * // Old (deprecated):
- * interceptors: [sentryInterceptor({ sentry: Sentry })]
- *
- * // New (recommended):
- * onEvent: createSentryHandler({ sentry: Sentry })
- * ```
- */
-export function sentryInterceptor(config: SentryConfig) {
-  console.warn(
-    "sentryInterceptor is deprecated. Use createSentryHandler with onEvent instead.",
-  );
-
-  const integration = createSentryIntegration(config);
-
-  // Return a backward-compatible interceptor with all expected methods
-  return {
-    name: "sentry-deprecated",
-    before: async (options: any) => {
-      integration.startExecution("l0.execution", options);
-      integration.startStream();
-      return options;
-    },
-    after: async (result: any) => {
-      return result;
-    },
-    onError: async (error: Error) => {
-      integration.recordFailure(error);
-      throw error;
-    },
-  };
-}
-
-/**
  * Wrap L0 execution with Sentry tracking
  *
  * @example

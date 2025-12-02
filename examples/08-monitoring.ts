@@ -4,9 +4,9 @@
 import {
   l0,
   recommendedGuardrails,
-  sentryInterceptor,
+  createSentryHandler,
   L0OpenTelemetry,
-  openTelemetryInterceptor,
+  createOpenTelemetryHandler,
 } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -80,21 +80,17 @@ async function sentryExample() {
   //
   // const result = await l0({
   //   stream: () => streamText({ model: openai("gpt-5-nano"), prompt: "Hello" }),
-  //   interceptors: [
-  //     sentryInterceptor({ sentry: Sentry, enableTracing: true })
-  //   ],
+  //   onEvent: createSentryHandler({ sentry: Sentry, enableTracing: true }),
   // });
 
   console.log("Example code:");
   console.log(`
   import * as Sentry from "@sentry/node";
-  import { l0, sentryInterceptor } from "@ai2070/l0";
+  import { l0, createSentryHandler } from "@ai2070/l0";
 
   const result = await l0({
     stream: () => streamText({ model, prompt }),
-    interceptors: [
-      sentryInterceptor({ sentry: Sentry, enableTracing: true })
-    ],
+    onEvent: createSentryHandler({ sentry: Sentry, enableTracing: true }),
   });
   `);
 }
@@ -129,15 +125,13 @@ async function openTelemetryExample() {
   //   return res;
   // });
   //
-  // // Option 2: Use the interceptor for automatic tracing
+  // // Option 2: Use the event handler for automatic tracing
   // const result = await l0({
   //   stream: () => streamText({ model: openai("gpt-5-nano"), prompt: "Hello" }),
-  //   interceptors: [
-  //     openTelemetryInterceptor({
-  //       tracer: trace.getTracer("my-app"),
-  //       meter: metrics.getMeter("my-app"),
-  //     }),
-  //   ],
+  //   onEvent: createOpenTelemetryHandler({
+  //     tracer: trace.getTracer("my-app"),
+  //     meter: metrics.getMeter("my-app"),
+  //   }),
   // });
 
   console.log("Example code (manual tracing):");
@@ -165,19 +159,17 @@ async function openTelemetryExample() {
   });
   `);
 
-  console.log("Example code (interceptor):");
+  console.log("Example code (event handler):");
   console.log(`
   import { trace, metrics } from "@opentelemetry/api";
-  import { l0, openTelemetryInterceptor } from "@ai2070/l0";
+  import { l0, createOpenTelemetryHandler } from "@ai2070/l0";
 
   const result = await l0({
     stream: () => streamText({ model, prompt }),
-    interceptors: [
-      openTelemetryInterceptor({
-        tracer: trace.getTracer("my-app"),
-        meter: metrics.getMeter("my-app"),
-      }),
-    ],
+    onEvent: createOpenTelemetryHandler({
+      tracer: trace.getTracer("my-app"),
+      meter: metrics.getMeter("my-app"),
+    }),
   });
   `);
 

@@ -47,7 +47,6 @@ export {
   L0Sentry,
   createSentryIntegration,
   createSentryHandler,
-  sentryInterceptor, // deprecated
   withSentry,
 } from "./runtime/sentry.js";
 
@@ -58,7 +57,6 @@ export {
   L0OpenTelemetry,
   createOpenTelemetry,
   createOpenTelemetryHandler,
-  openTelemetryInterceptor, // deprecated
   SemanticAttributes,
   SpanStatusCode,
   SpanKind,

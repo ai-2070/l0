@@ -713,29 +713,3 @@ export function createOpenTelemetryHandler(
     }
   };
 }
-
-/**
- * @deprecated Use `createOpenTelemetryHandler` with `onEvent` instead.
- *
- * The interceptor pattern is deprecated. Use the event handler pattern:
- *
- * ```typescript
- * // Old (deprecated):
- * interceptors: [openTelemetryInterceptor({ tracer })]
- *
- * // New (recommended):
- * onEvent: createOpenTelemetryHandler({ tracer, meter })
- * ```
- */
-export function openTelemetryInterceptor(_config: OpenTelemetryConfig) {
-  console.warn(
-    "openTelemetryInterceptor is deprecated. Use createOpenTelemetryHandler with onEvent instead.",
-  );
-
-  // Return a minimal interceptor that logs the deprecation
-  return {
-    name: "opentelemetry-deprecated",
-    before: async (options: any) => options,
-    after: async (result: any) => result,
-  };
-}
