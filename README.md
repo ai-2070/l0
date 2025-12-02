@@ -1083,6 +1083,12 @@ const result = await l0({
   onDrift: (types, score) => {
     console.log(`Drift detected: ${types.join(", ")} (score: ${score})`);
   },
+
+  // Called when a tool call is detected
+  onToolCall: (toolName, toolCallId, args) => {
+    console.log(`Tool call: ${toolName} (${toolCallId})`);
+    console.log(`  Args: ${JSON.stringify(args)}`);
+  },
 });
 ```
 
@@ -1102,6 +1108,7 @@ const result = await l0({
 | `onTimeout`    | Timeout occurred                       | `(type: "initial" \| "inter", elapsedMs: number) => void`          |
 | `onAbort`      | Stream aborted                         | `(tokenCount: number, contentLength: number) => void`              |
 | `onDrift`      | Drift detected                         | `(types: string[], score?: number) => void`                        |
+| `onToolCall`   | Tool call detected                     | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` |
 
 ### Use Cases
 
@@ -1257,7 +1264,7 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Consensus Events
 
 ```typescript
-{ type: "CONSENSUS_START", ts }  // L2 begins multi-stream execution
+{ type: "CONSENSUS_START", ts }
 
 // Per-stream lifecycle
 { type: "CONSENSUS_STREAM_START", ts, streamIndex, model }
