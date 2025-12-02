@@ -24,10 +24,11 @@
 > LLMs produce high-value reasoning over a low-integrity transport layer.
 > Streams stall, drop tokens, reorder events, violate timing guarantees, and expose no deterministic contract.
 >
-> This breaks retries. It breaks guardrails. It breaks supervision. It breaks reproducibility.
+> This breaks retries. It breaks supervision. It breaks reproducibility.
 > It makes reliable AI systems impossible to build on top of raw provider streams.
 >
-> **L0 is the deterministic execution substrate that fixes the transport.**
+> **L0 is the deterministic execution substrate that fixes the transport -
+with guardrails designed for the streaming layer itself: pattern-based, loop-safe, and timing-aware.**
 
 L0 adds deterministic execution, fallbacks, retries, network protection, guardrails, drift detection, and tool tracking to any LLM stream - turning raw model output into production-grade behavior.
 
