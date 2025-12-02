@@ -835,9 +835,7 @@ export function serializeEvent(event: L0ObservabilityEvent): string {
   return JSON.stringify(event, (_key, value) => {
     if (value instanceof Error) {
       // Preserve all enumerable properties (code, cause, metadata, etc.)
-      const serialized: Record<string, unknown> = {
-        __type: "Error",
-      };
+      const serialized: Record<string, unknown> = {};
       // Copy all enumerable properties first
       for (const key of Object.keys(value)) {
         serialized[key] = (value as unknown as Record<string, unknown>)[key];
@@ -846,6 +844,8 @@ export function serializeEvent(event: L0ObservabilityEvent): string {
       serialized.name = value.name;
       serialized.message = value.message;
       serialized.stack = value.stack;
+      // Set __type sentinel AFTER copying properties to prevent user-defined __type from overwriting it
+      serialized.__type = "Error";
       return serialized;
     }
     return value;
