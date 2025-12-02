@@ -783,14 +783,17 @@ export async function l0<TOutput = unknown>(
               state.tokenCount++;
               state.lastTokenAt = Date.now();
 
-              // Build content string only when needed (for guardrails/drift checks)
+              // Build content string only when needed (for guardrails/drift checks/checkpoints)
               // This is O(n) total instead of O(n²) from repeated concatenation
+              const needsCheckpoint =
+                processedContinueFromCheckpoint &&
+                state.tokenCount % checkpointInterval === 0;
               const needsContent =
                 (guardrailEngine &&
                   state.tokenCount % guardrailCheckInterval === 0) ||
                 (driftDetector &&
                   state.tokenCount % driftCheckInterval === 0) ||
-                state.tokenCount % checkpointInterval === 0; // checkpoint
+                needsCheckpoint;
 
               if (needsContent) {
                 state.content = tokenBuffer.join("");
@@ -799,8 +802,8 @@ export async function l0<TOutput = unknown>(
               // Record token in monitoring
               monitor?.recordToken(state.lastTokenAt);
 
-              // Update checkpoint periodically
-              if (state.tokenCount % checkpointInterval === 0) {
+              // Update checkpoint periodically (only when continuation is enabled)
+              if (needsCheckpoint) {
                 state.checkpoint = state.content;
                 dispatcher.emit(EventType.CHECKPOINT_SAVED, {
                   checkpoint: state.checkpoint,
@@ -1409,7 +1412,9 @@ export async function l0<TOutput = unknown>(
 
             // If no fatal violations and we have content, update checkpoint
             // so continuation can use the validated partial content
+            // (only when continuation is enabled)
             if (
+              processedContinueFromCheckpoint &&
               !partialResult.violations.some((v) => v.severity === "fatal") &&
               state.content.length > 0
             ) {
