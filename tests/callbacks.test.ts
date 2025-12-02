@@ -808,12 +808,16 @@ describe("onCheckpoint callback", () => {
     expect(tokenCount).toBeGreaterThan(0);
   });
 
-  it("should not call onCheckpoint when continuation is disabled", async () => {
+  it("should still call onCheckpoint when continuation is disabled (for observability)", async () => {
     const onCheckpoint = vi.fn();
 
+    // Generate enough tokens to exceed checkpoint interval
+    const tokens = Array.from({ length: 25 }, (_, i) => `t${i}-`);
+
     const result = await l0({
-      stream: createTokenStream(["hello", "world"]),
+      stream: createTokenStream(tokens),
       continueFromLastKnownGoodToken: false,
+      checkIntervals: { checkpoint: 5 },
       onCheckpoint,
     });
 
@@ -821,8 +825,9 @@ describe("onCheckpoint callback", () => {
       // Consume stream
     }
 
-    // No checkpoint should be saved when continuation is disabled
-    expect(onCheckpoint).not.toHaveBeenCalled();
+    // Checkpoints are saved for observability even when continuation is disabled
+    // (continueFromLastKnownGoodToken only controls recovery behavior, not checkpoint saving)
+    expect(onCheckpoint).toHaveBeenCalled();
   });
 });
 

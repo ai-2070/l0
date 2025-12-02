@@ -350,8 +350,11 @@ describeIf(hasOpenAI)("Mastra AI Integration", () => {
           // consume stream
         }
 
-        // Should have at least one tool call
-        expect(toolCalls.length).toBeGreaterThanOrEqual(1);
+        // Should have both tool calls
+        expect(toolCalls.length).toBeGreaterThanOrEqual(2);
+        expect(toolCalls.map((t) => t.name)).toEqual(
+          expect.arrayContaining(["get_weather", "get_time"]),
+        );
       },
       LLM_TIMEOUT,
     );

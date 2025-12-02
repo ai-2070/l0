@@ -10,6 +10,7 @@
 import { uuidv7 } from "../utils/uuid";
 import type {
   L0ObservabilityEvent,
+  L0Event,
   L0EventHandler,
   EventType,
 } from "../types/observability";
@@ -64,7 +65,8 @@ export class EventDispatcher {
     for (const handler of [...this.handlers]) {
       queueMicrotask(() => {
         try {
-          const result = handler(event) as unknown;
+          // Cast to L0Event - the constructed event matches one of the union members
+          const result = handler(event as L0Event) as unknown;
           // Handle async handlers that return promises
           if (result && typeof result === "object" && "catch" in result) {
             (result as Promise<void>).catch(() => {
@@ -97,7 +99,8 @@ export class EventDispatcher {
     // Snapshot handlers to avoid issues if handlers modify the list during dispatch
     for (const handler of [...this.handlers]) {
       try {
-        const result = handler(event) as unknown;
+        // Cast to L0Event - the constructed event matches one of the union members
+        const result = handler(event as L0Event) as unknown;
         // Handle async handlers that return promises
         if (result && typeof result === "object" && "catch" in result) {
           (result as Promise<void>).catch(() => {

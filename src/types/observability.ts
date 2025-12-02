@@ -268,9 +268,9 @@ export interface L0ObservabilityEvent {
 }
 
 /**
- * Event handler type
+ * Event handler type - uses L0Event discriminated union for type-safe event handling
  */
-export type L0EventHandler = (event: L0ObservabilityEvent) => void;
+export type L0EventHandler = (event: L0Event) => void;
 
 // ============================================================================
 // Session Events
