@@ -45,8 +45,8 @@ function createStreamWithToolCall(
 
 describe("Tool Call Observability", () => {
   describe("L0 Flat Format (Custom Adapters)", () => {
-    it("should emit TOOL_REQUESTED and TOOL_START for flat tool_call format", async () => {
-      const events: any[] = [];
+    it("should emit TOOL_REQUESTED for flat tool_call format", async () => {
+      const onToolCall = vi.fn();
 
       const result = await l0({
         stream: createStreamWithToolCall({
@@ -55,21 +55,18 @@ describe("Tool Call Observability", () => {
           name: "get_weather",
           arguments: { location: "Seattle" },
         }),
-        onEvent: (event) => {
-          if (event.type === "message") {
-            events.push(event);
-          }
-        },
+        onToolCall,
       });
 
-      // Access the internal dispatcher via the result
-      const dispatcherEvents: any[] = [];
-      // We need to consume the stream to trigger events
       for await (const _ of result.stream) {
         // consume
       }
 
-      // Check state for tool tracking
+      // Verify TOOL_REQUESTED event was emitted via onToolCall callback
+      expect(onToolCall).toHaveBeenCalledTimes(1);
+      expect(onToolCall).toHaveBeenCalledWith("get_weather", "call_123", {
+        location: "Seattle",
+      });
       expect(result.state.completed).toBe(true);
     });
 
