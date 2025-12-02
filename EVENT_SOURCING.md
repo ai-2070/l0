@@ -51,7 +51,7 @@ import { replay } from "@ai2070/l0";
 const result = await replay({
   streamId: "my-stream-id",
   eventStore: store,
-  fireCallbacks: true, // onToken, onViolation still fire!
+  fireCallbacks: true, // Replay callbacks (onToken, onViolation, etc.) fire
   speed: 0, // 0 = instant, 1 = real-time
 });
 

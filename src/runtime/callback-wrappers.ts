@@ -2,7 +2,7 @@
  * Callback Wrappers
  *
  * Maps legacy L0Options callbacks to the unified observability event system.
- * Each legacy callback (onStart, onToken, etc.) becomes a filtered wrapper
+ * Each callback (onStart, onComplete, etc.) becomes a filtered wrapper
  * around the EventDispatcher.
  */
 

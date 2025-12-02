@@ -96,7 +96,7 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 | **📄 Document Windows**                          | Built-in chunking (token, paragraph, sentence, character). Ideal for long documents, transcripts, or multi-page processing.                                                                           |
 | **🎨 Formatting Helpers**                        | Extract JSON/code from markdown fences, strip thinking tags, normalize whitespace, and clean LLM output for downstream processing.                                                                    |
 | **📊 Monitoring**                                | Built-in integrations with OpenTelemetry and Sentry for metrics, tracing, and error tracking.                                                                                                         |
-| **🔔 Lifecycle Callbacks**                       | `onStart`, `onComplete`, `onError`, `onEvent`, `onToken`, `onViolation`, `onRetry`, `onFallback` - full observability into every stream phase.                                                        |
+| **🔔 Lifecycle Callbacks**                       | `onStart`, `onComplete`, `onError`, `onEvent`, `onViolation`, `onRetry`, `onFallback`, `onToolCall` - full observability into every stream phase.                                                     |
 | **📡 Streaming-First Runtime**                   | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `complete`) for easy UIs.                                                                                 |
 | **📼 Atomic Event Logs**                         | Record every token, retry, fallback, and guardrail check as immutable events. Full audit trail for debugging and compliance.                                                                          |
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
@@ -183,13 +183,17 @@ const result = await l0({
   // Optional: Abort signal
   signal: abortController.signal,
 
-  // Optional: Monitoring callbacks
-  monitoring: {
-    onToken: (token) => {},
-    onViolation: (violation) => {},
-    onRetry: (attempt, error) => {},
-    onFallback: (index) => {},
-  },
+  // Optional: Enable telemetry
+  monitoring: { enabled: true },
+
+  // Optional: Lifecycle callbacks (all are optional)
+  onStart: (attempt, isRetry, isFallback) => {},
+  onComplete: (state) => {},
+  onError: (error, willRetry, willFallback) => {},
+  onViolation: (violation) => {},
+  onRetry: (attempt, reason) => {},
+  onFallback: (index, reason) => {},
+  onToolCall: (toolName, toolCallId, args) => {},
 });
 
 // Read the stream
@@ -1355,7 +1359,7 @@ await recorder.recordComplete("Hello World", 2);
 const result = await replay({
   streamId: "my-stream",
   eventStore: store,
-  fireCallbacks: true, // onToken still fires!
+  fireCallbacks: true, // Replay callbacks fire
 });
 
 for await (const event of result.stream) {
