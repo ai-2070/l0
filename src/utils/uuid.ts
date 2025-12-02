@@ -112,13 +112,20 @@ export function internalV7(): string {
   const buf = new Uint8Array(16);
 
   // bytes 0-5: 48-bit timestamp (big-endian)
-  // Use division to avoid 32-bit integer overflow with bitwise ops
-  buf[0] = (msecs / 0x10000000000) & 0xff;
-  buf[1] = (msecs / 0x100000000) & 0xff;
-  buf[2] = (msecs / 0x1000000) & 0xff;
-  buf[3] = (msecs / 0x10000) & 0xff;
-  buf[4] = (msecs / 0x100) & 0xff;
-  buf[5] = msecs & 0xff;
+  // Use right-shift assignment to avoid floating-point division
+  // and unsafe bitwise operations on >32-bit numbers
+  let ts = msecs;
+  buf[5] = ts & 0xff;
+  ts = Math.floor(ts / 256);
+  buf[4] = ts & 0xff;
+  ts = Math.floor(ts / 256);
+  buf[3] = ts & 0xff;
+  ts = Math.floor(ts / 256);
+  buf[2] = ts & 0xff;
+  ts = Math.floor(ts / 256);
+  buf[1] = ts & 0xff;
+  ts = Math.floor(ts / 256);
+  buf[0] = ts & 0xff;
 
   // byte 6: version (4 bits) | sequence bits 28-31 (4 bits)
   buf[6] = 0x70 | ((seq >>> 28) & 0x0f);

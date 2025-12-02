@@ -160,6 +160,30 @@ describe("internalV7 (built-in implementation)", () => {
       // UUID from later time should be greater
       expect(uuid2 > uuid1).toBe(true);
     });
+
+    it("sorts 10k UUIDs correctly", () => {
+      // Stress test: generate 10k UUIDs and verify they're already sorted
+      const ids = Array.from({ length: 10000 }, () => internalV7());
+      const sorted = [...ids].sort();
+      expect(ids).toEqual(sorted);
+    });
+
+    it("monotonic within same ms", () => {
+      _resetState();
+      const now = Date.now();
+
+      const ids: string[] = [];
+      while (Date.now() === now) {
+        ids.push(internalV7());
+      }
+
+      // Ensure we generated enough UUIDs to make test meaningful
+      expect(ids.length).toBeGreaterThan(10);
+
+      for (let i = 1; i < ids.length; i++) {
+        expect(ids[i]! > ids[i - 1]!).toBe(true);
+      }
+    });
   });
 
   describe("timestamp handling edge cases", () => {
