@@ -374,8 +374,8 @@ export async function l0<TOutput = unknown>(
               overlapBuffer = "";
               overlapResolved = false;
 
-              // Emit CHECKPOINT_RESTORED event (callback wrappers handle legacy onResume)
-              dispatcher.emit(EventType.CHECKPOINT_RESTORED, {
+              // Emit RESUME_START event (callback wrappers handle legacy onResume)
+              dispatcher.emit(EventType.RESUME_START, {
                 checkpoint: checkpointForContinuation,
                 tokenCount: state.tokenCount,
               });
@@ -1332,8 +1332,8 @@ export async function l0<TOutput = unknown>(
               overlapBuffer = "";
               overlapResolved = false;
 
-              // Emit CHECKPOINT_RESTORED event (callback wrappers handle legacy onResume)
-              dispatcher.emit(EventType.CHECKPOINT_RESTORED, {
+              // Emit RESUME_START event (callback wrappers handle legacy onResume)
+              dispatcher.emit(EventType.RESUME_START, {
                 checkpoint: checkpointForContinuation,
                 tokenCount: state.tokenCount,
               });

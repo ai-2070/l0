@@ -167,6 +167,7 @@ export {
   GuardrailEvents,
   DriftEvents,
   CheckpointEvents,
+  ResumeEvents,
   RetryEvents,
   FallbackEvents,
   StructuredEvents,
@@ -222,7 +223,9 @@ export type {
   CheckpointStartEvent,
   CheckpointEndEvent,
   CheckpointSavedEvent,
-  CheckpointRestoredEvent,
+  // Resume events
+  ResumeStartEvent,
+  ResumeEndEvent,
   // Retry events
   RetryStartEvent,
   RetryAttemptEvent,

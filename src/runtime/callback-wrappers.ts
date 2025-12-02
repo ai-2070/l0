@@ -18,7 +18,7 @@ import type {
   RetryStartEvent,
   RetryEndEvent,
   FallbackStartEvent,
-  CheckpointRestoredEvent,
+  ResumeStartEvent,
   CheckpointSavedEvent,
   DriftCheckStartEvent,
   DriftCheckEndEvent,
@@ -94,12 +94,12 @@ export function registerCallbackWrappers(
     });
   }
 
-  // onResume -> CHECKPOINT_RESTORED
+  // onResume -> RESUME_START
   if (options.onResume) {
     const callback = options.onResume;
     dispatcher.onEvent((event: L0ObservabilityEvent) => {
-      if (event.type === EventType.CHECKPOINT_RESTORED) {
-        const e = event as CheckpointRestoredEvent;
+      if (event.type === EventType.RESUME_START) {
+        const e = event as ResumeStartEvent;
         callback(e.checkpoint, e.tokenCount);
       }
     });

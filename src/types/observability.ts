@@ -21,6 +21,7 @@ export const EventCategory = {
   GUARDRAIL: "GUARDRAIL",
   DRIFT: "DRIFT",
   CHECKPOINT: "CHECKPOINT",
+  RESUME: "RESUME",
   RETRY: "RETRY",
   FALLBACK: "FALLBACK",
   STRUCTURED: "STRUCTURED",
@@ -100,7 +101,12 @@ export const CheckpointEvents = {
   CHECKPOINT_START: "CHECKPOINT_START",
   CHECKPOINT_END: "CHECKPOINT_END",
   CHECKPOINT_SAVED: "CHECKPOINT_SAVED",
-  CHECKPOINT_RESTORED: "CHECKPOINT_RESTORED",
+} as const;
+
+/** Resume events */
+export const ResumeEvents = {
+  RESUME_START: "RESUME_START",
+  RESUME_END: "RESUME_END",
 } as const;
 
 /** Retry events */
@@ -169,6 +175,7 @@ export const EventType = {
   ...GuardrailEvents,
   ...DriftEvents,
   ...CheckpointEvents,
+  ...ResumeEvents,
   ...RetryEvents,
   ...FallbackEvents,
   ...StructuredEvents,
@@ -190,6 +197,7 @@ export const EventTypesByCategory = {
   [EventCategory.GUARDRAIL]: GuardrailEvents,
   [EventCategory.DRIFT]: DriftEvents,
   [EventCategory.CHECKPOINT]: CheckpointEvents,
+  [EventCategory.RESUME]: ResumeEvents,
   [EventCategory.RETRY]: RetryEvents,
   [EventCategory.FALLBACK]: FallbackEvents,
   [EventCategory.STRUCTURED]: StructuredEvents,
@@ -241,11 +249,18 @@ export interface SessionEndEvent extends L0ObservabilityEvent {
 
 export interface SessionSummaryEvent extends L0ObservabilityEvent {
   type: "SESSION_SUMMARY";
+  tokenCount: number;
+  startTs: number;
+  endTs: number;
   totalTokens: number;
   totalRetries: number;
   totalFallbacks: number;
   violations: number;
   driftDetected: boolean;
+  guardrailViolations: number;
+  fallbackDepth: number;
+  retryCount: number;
+  checkpointsCreated: number;
 }
 
 // ============================================================================
@@ -268,6 +283,7 @@ export interface StreamReadyEvent extends L0ObservabilityEvent {
 export interface AdapterDetectedEvent extends L0ObservabilityEvent {
   type: "ADAPTER_DETECTED";
   adapterName: string;
+  adapter: string;
 }
 
 export interface AdapterWrapStartEvent extends L0ObservabilityEvent {
@@ -294,6 +310,7 @@ export interface TimeoutStartEvent extends L0ObservabilityEvent {
 export interface TimeoutResetEvent extends L0ObservabilityEvent {
   type: "TIMEOUT_RESET";
   timeoutType: "initial" | "inter";
+  tokenIndex?: number;
 }
 
 export interface TimeoutTriggeredEvent extends L0ObservabilityEvent {
@@ -310,13 +327,17 @@ export interface NetworkErrorEvent extends L0ObservabilityEvent {
   type: "NETWORK_ERROR";
   error: string;
   errorCode?: string;
+  code?: string;
   category: string;
+  retryable: boolean;
 }
 
 export interface NetworkRecoveryEvent extends L0ObservabilityEvent {
   type: "NETWORK_RECOVERY";
   attempt: number;
+  attemptCount: number;
   delayMs: number;
+  durationMs: number;
 }
 
 export interface ConnectionDroppedEvent extends L0ObservabilityEvent {
@@ -335,12 +356,14 @@ export interface ConnectionRestoredEvent extends L0ObservabilityEvent {
 
 export interface AbortRequestedEvent extends L0ObservabilityEvent {
   type: "ABORT_REQUESTED";
+  source?: "user" | "timeout" | "error";
 }
 
 export interface AbortCompletedEvent extends L0ObservabilityEvent {
   type: "ABORT_COMPLETED";
   tokenCount: number;
   contentLength: number;
+  resourcesFreed?: boolean;
 }
 
 // ============================================================================
@@ -349,21 +372,26 @@ export interface AbortCompletedEvent extends L0ObservabilityEvent {
 
 export interface GuardrailPhaseStartEvent extends L0ObservabilityEvent {
   type: "GUARDRAIL_PHASE_START";
+  callbackId?: string;
   ruleCount: number;
   tokenCount: number;
+  contextSize?: number;
 }
 
 export interface GuardrailRuleStartEvent extends L0ObservabilityEvent {
   type: "GUARDRAIL_RULE_START";
   index: number;
   ruleId: string;
+  callbackId?: string;
 }
 
 export interface GuardrailRuleResultEvent extends L0ObservabilityEvent {
   type: "GUARDRAIL_RULE_RESULT";
   index: number;
   ruleId: string;
+  callbackId?: string;
   passed: boolean;
+  result?: unknown;
   violation?: GuardrailViolation;
   /** The rule callback for inspection */
   rule?: unknown;
@@ -373,12 +401,15 @@ export interface GuardrailRuleEndEvent extends L0ObservabilityEvent {
   type: "GUARDRAIL_RULE_END";
   index: number;
   ruleId: string;
+  callbackId?: string;
   durationMs: number;
 }
 
 export interface GuardrailPhaseEndEvent extends L0ObservabilityEvent {
   type: "GUARDRAIL_PHASE_END";
+  callbackId?: string;
   totalDurationMs: number;
+  durationMs: number;
   ruleCount: number;
   violations: GuardrailViolation[];
   shouldRetry: boolean;
@@ -387,13 +418,21 @@ export interface GuardrailPhaseEndEvent extends L0ObservabilityEvent {
 
 export interface GuardrailCallbackStartEvent extends L0ObservabilityEvent {
   type: "GUARDRAIL_CALLBACK_START";
+  callbackId?: string;
   callbackType: "onViolation";
+  index?: number;
+  ruleId?: string;
 }
 
 export interface GuardrailCallbackEndEvent extends L0ObservabilityEvent {
   type: "GUARDRAIL_CALLBACK_END";
+  callbackId?: string;
   callbackType: "onViolation";
+  index?: number;
+  ruleId?: string;
   durationMs: number;
+  success?: boolean;
+  error?: string;
 }
 
 // ============================================================================
@@ -402,8 +441,10 @@ export interface GuardrailCallbackEndEvent extends L0ObservabilityEvent {
 
 export interface DriftCheckStartEvent extends L0ObservabilityEvent {
   type: "DRIFT_CHECK_START";
+  checkpoint?: string;
   tokenCount: number;
   contentLength: number;
+  strategy?: string;
 }
 
 export interface DriftCheckResultEvent extends L0ObservabilityEvent {
@@ -411,6 +452,9 @@ export interface DriftCheckResultEvent extends L0ObservabilityEvent {
   detected: boolean;
   types: string[];
   confidence?: number;
+  score?: number;
+  metrics?: Record<string, unknown>;
+  threshold?: number;
 }
 
 export interface DriftCheckEndEvent extends L0ObservabilityEvent {
@@ -435,20 +479,34 @@ export interface CheckpointStartEvent extends L0ObservabilityEvent {
 
 export interface CheckpointEndEvent extends L0ObservabilityEvent {
   type: "CHECKPOINT_END";
+  stateHash?: string;
   durationMs: number;
 }
 
 export interface CheckpointSavedEvent extends L0ObservabilityEvent {
   type: "CHECKPOINT_SAVED";
   checkpoint: string;
+  stateHash?: string;
   tokenCount: number;
   contentLength: number;
 }
 
-export interface CheckpointRestoredEvent extends L0ObservabilityEvent {
-  type: "CHECKPOINT_RESTORED";
+// ============================================================================
+// Resume Events
+// ============================================================================
+
+export interface ResumeStartEvent extends L0ObservabilityEvent {
+  type: "RESUME_START";
   checkpoint: string;
+  stateHash?: string;
   tokenCount: number;
+}
+
+export interface ResumeEndEvent extends L0ObservabilityEvent {
+  type: "RESUME_END";
+  checkpoint: string;
+  durationMs: number;
+  success: boolean;
 }
 
 // ============================================================================
@@ -457,22 +515,29 @@ export interface CheckpointRestoredEvent extends L0ObservabilityEvent {
 
 export interface RetryStartEvent extends L0ObservabilityEvent {
   type: "RETRY_START";
+  attempt: number;
   maxAttempts: number;
   reason: string;
 }
 
 export interface RetryAttemptEvent extends L0ObservabilityEvent {
   type: "RETRY_ATTEMPT";
+  index?: number;
   attempt: number;
   maxAttempts: number;
   reason: string;
   delayMs: number;
+  countsTowardLimit?: boolean;
+  isNetwork?: boolean;
+  isModelIssue?: boolean;
 }
 
 export interface RetryEndEvent extends L0ObservabilityEvent {
   type: "RETRY_END";
+  attempt: number;
   totalAttempts: number;
   success: boolean;
+  durationMs?: number;
   finalReason?: string;
 }
 
@@ -497,7 +562,6 @@ export interface FallbackStartEvent extends L0ObservabilityEvent {
 export interface FallbackModelSelectedEvent extends L0ObservabilityEvent {
   type: "FALLBACK_MODEL_SELECTED";
   index: number;
-  model?: string;
 }
 
 export interface FallbackEndEvent extends L0ObservabilityEvent {
@@ -697,7 +761,9 @@ export type L0Event =
   | CheckpointStartEvent
   | CheckpointEndEvent
   | CheckpointSavedEvent
-  | CheckpointRestoredEvent
+  // Resume
+  | ResumeStartEvent
+  | ResumeEndEvent
   // Retry
   | RetryStartEvent
   | RetryAttemptEvent
