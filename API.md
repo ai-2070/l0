@@ -2117,6 +2117,30 @@ interface RecoveryPolicy {
 }
 ```
 
+#### Error Code Mapping
+
+Complete mapping of L0 error codes to failure types, categories, and retry behavior.
+
+| Error Code | FailureType | Category | Counts Toward Limit | Description |
+|------------|-------------|----------|---------------------|-------------|
+| `NETWORK_ERROR` | `network` | `network` | No | Connection drops, DNS, SSL, fetch errors |
+| `INITIAL_TOKEN_TIMEOUT` | `timeout` | `transient` | No | No first token within timeout |
+| `INTER_TOKEN_TIMEOUT` | `timeout` | `transient` | No | Gap between tokens exceeded threshold |
+| `ZERO_OUTPUT` | `zero_output` | `content` | Yes | Model returned empty response |
+| `GUARDRAIL_VIOLATION` | `model` | `content` | Yes | Recoverable guardrail rule violated |
+| `FATAL_GUARDRAIL_VIOLATION` | `model` | `content` | Yes | Fatal guardrail, no retry |
+| `DRIFT_DETECTED` | `model` | `content` | Yes | Output drifted from expected pattern |
+| `STREAM_ABORTED` | `abort` | `provider` | N/A | User or signal aborted stream |
+| `ALL_STREAMS_EXHAUSTED` | `unknown` | `provider` | N/A | All retries and fallbacks failed |
+| `INVALID_STREAM` | `unknown` | `internal` | N/A | Stream factory returned invalid object |
+| `ADAPTER_NOT_FOUND` | `unknown` | `internal` | N/A | No adapter found for stream type |
+| `FEATURE_NOT_ENABLED` | `unknown` | `internal` | N/A | Feature requires explicit enablement |
+
+**Category Behavior:**
+- `network` / `transient`: Retry indefinitely with backoff, doesn't count toward retry limit
+- `content` / `model`: Counts toward retry limit, may trigger fallback
+- `provider` / `internal`: Usually fatal, no automatic retry
+
 #### Example: Using Observability Events
 
 ```typescript
@@ -2124,7 +2148,7 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   onEvent: (event) => {
     if (event.type === "ERROR") {
-      console.log(`Failure: ${event.failureType}`);        // "network" | "model" | ...
+      console.log(`Failure: ${event.failureType}`);        // "network" | "timeout" | ...
       console.log(`Recovery: ${event.recoveryStrategy}`);  // "retry" | "fallback" | ...
       console.log(`Policy:`, event.policy);                // { retryEnabled, attempt, ... }
     }
