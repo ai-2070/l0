@@ -97,11 +97,11 @@ export function validateZeroOutput(
     return violations;
   }
 
-  // Check if stream finished instantly with very little content
-  if (completed && content.trim().length < 10) {
+  // Check if stream finished with empty content
+  if (completed && content.trim().length < 1) {
     violations.push({
       rule: "zero-output",
-      message: `Output too short: ${content.trim().length} characters`,
+      message: "Output is empty",
       severity: "warning",
       recoverable: false,
       suggestion: "Retry - output may be truncated",

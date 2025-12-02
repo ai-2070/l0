@@ -9,6 +9,8 @@ import {
   expectValidResponse,
 } from "./setup";
 import { l0, recommendedGuardrails, recommendedRetry } from "../src/index";
+// Import to auto-register the vercelAIAdapter for tool call detection
+import "../src/adapters/vercel-ai";
 import { streamText, tool } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -225,7 +227,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
               tools: {
                 get_weather: tool({
                   description: "Get the current weather for a location",
-                  parameters: z.object({
+                  inputSchema: z.object({
                     location: z.string().describe("City name"),
                     unit: z.enum(["celsius", "fahrenheit"]).optional(),
                   }),
@@ -267,13 +269,13 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
               tools: {
                 get_weather: tool({
                   description: "Get the current weather for a location",
-                  parameters: z.object({
+                  inputSchema: z.object({
                     location: z.string().describe("City name"),
                   }),
                 }),
                 get_time: tool({
                   description: "Get the current time for a timezone",
-                  parameters: z.object({
+                  inputSchema: z.object({
                     timezone: z.string().describe("IANA timezone name"),
                   }),
                 }),
@@ -314,7 +316,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
               tools: {
                 search_products: tool({
                   description: "Search for products with filters",
-                  parameters: z.object({
+                  inputSchema: z.object({
                     query: z.string(),
                     filters: z
                       .object({
@@ -359,7 +361,7 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
               tools: {
                 get_weather: tool({
                   description: "Get the current weather for a location",
-                  parameters: z.object({
+                  inputSchema: z.object({
                     location: z.string().describe("City name"),
                   }),
                 }),

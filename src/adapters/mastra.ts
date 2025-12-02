@@ -541,6 +541,14 @@ export const mastraAdapter: L0Adapter<
   wrap: wrapMastraStream,
 };
 
+// Auto-register for detection when this module is imported
+import { registerAdapter } from "./registry";
+try {
+  registerAdapter(mastraAdapter, { silent: true });
+} catch {
+  // Already registered, ignore
+}
+
 // Re-export Mastra types for convenience
 export type { Agent } from "@mastra/core/agent";
 export type { MastraModelOutput } from "@mastra/core/stream";

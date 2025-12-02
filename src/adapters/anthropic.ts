@@ -290,6 +290,14 @@ export const anthropicAdapter: L0Adapter<
   wrap: wrapAnthropicStream,
 };
 
+// Auto-register for detection when this module is imported
+import { registerAdapter } from "./registry";
+try {
+  registerAdapter(anthropicAdapter, { silent: true });
+} catch {
+  // Already registered, ignore
+}
+
 /**
  * Create a stream factory for Anthropic SDK
  *

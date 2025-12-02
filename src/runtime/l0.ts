@@ -475,21 +475,21 @@ export async function l0<TOutput = unknown>(
               processedOptions.adapterOptions,
             );
           }
-          // 2. Native L0-compatible streams (Vercel AI SDK pattern)
-          else if (streamResult.textStream) {
-            sourceStream = streamResult.textStream;
-          } else if (streamResult.fullStream) {
-            sourceStream = streamResult.fullStream;
-          }
-          // 3. Auto-detection via registered adapters (if registry enabled)
-          // MUST come before generic Symbol.asyncIterator check!
-          // Provider streams are async iterables but need adapters to convert to L0Events
+          // 2. Auto-detection via registered adapters (if registry enabled)
+          // MUST come before textStream/fullStream fallback to allow adapters
+          // to provide enhanced handling (e.g., tool calls via fullStream)
           else if (_adapterRegistry?.hasMatchingAdapter(streamResult)) {
             const adapter = _adapterRegistry.detectAdapter(streamResult);
             sourceStream = adapter.wrap(
               streamResult,
               processedOptions.adapterOptions,
             );
+          }
+          // 3. Native L0-compatible streams (Vercel AI SDK pattern - simple text only)
+          else if (streamResult.textStream) {
+            sourceStream = streamResult.textStream;
+          } else if (streamResult.fullStream) {
+            sourceStream = streamResult.fullStream;
           }
           // 4. Generic async iterable (already L0Events or compatible)
           else if (Symbol.asyncIterator in streamResult) {
