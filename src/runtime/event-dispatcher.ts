@@ -52,6 +52,9 @@ export class EventDispatcher {
     type: EventType,
     payload?: Omit<T, "type" | "ts" | "streamId" | "meta">,
   ): void {
+    // Skip event creation if no handlers registered (zero overhead when observability unused)
+    if (this.handlers.length === 0) return;
+
     const event: L0ObservabilityEvent = {
       type,
       ts: Date.now(),
@@ -88,6 +91,9 @@ export class EventDispatcher {
     type: EventType,
     payload?: Omit<T, "type" | "ts" | "streamId" | "meta">,
   ): void {
+    // Skip event creation if no handlers registered (zero overhead when observability unused)
+    if (this.handlers.length === 0) return;
+
     const event: L0ObservabilityEvent = {
       type,
       ts: Date.now(),

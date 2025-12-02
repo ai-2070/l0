@@ -101,6 +101,19 @@ describe("EventDispatcher", () => {
   });
 
   describe("emit (async)", () => {
+    it("should skip event creation when no handlers registered", async () => {
+      const dispatcher = new EventDispatcher();
+
+      // Should not throw and return immediately
+      expect(() => dispatcher.emit(EventType.SESSION_START)).not.toThrow();
+
+      // Verify no handlers were called (none registered)
+      expect(dispatcher.getHandlerCount()).toBe(0);
+
+      // Even after microtask, nothing should happen
+      await Promise.resolve();
+    });
+
     it("should call handlers asynchronously via microtask", async () => {
       const dispatcher = new EventDispatcher();
       const handler = vi.fn();
@@ -238,6 +251,16 @@ describe("EventDispatcher", () => {
   });
 
   describe("emitSync", () => {
+    it("should skip event creation when no handlers registered", () => {
+      const dispatcher = new EventDispatcher();
+
+      // Should not throw and return immediately
+      expect(() => dispatcher.emitSync(EventType.SESSION_START)).not.toThrow();
+
+      // Verify no handlers were called (none registered)
+      expect(dispatcher.getHandlerCount()).toBe(0);
+    });
+
     it("should call handlers synchronously", () => {
       const dispatcher = new EventDispatcher();
       const handler = vi.fn();
