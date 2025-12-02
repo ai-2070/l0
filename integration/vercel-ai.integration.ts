@@ -1,7 +1,7 @@
 // Vercel AI SDK Integration Tests
 // Run: OPENAI_API_KEY=sk-... npm run test:integration
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   describeIf,
   hasOpenAI,
@@ -9,8 +9,9 @@ import {
   expectValidResponse,
 } from "./setup";
 import { l0, recommendedGuardrails, recommendedRetry } from "../src/index";
-import { streamText } from "ai";
+import { streamText, tool } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
 
 describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
   describe("Basic Streaming", () => {
