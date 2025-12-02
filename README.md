@@ -1160,71 +1160,41 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Stream Initialization Events
 
 ```typescript
-{
-  type: ("SESSION_START", ts, sessionId);
-} // anchor for entire session
-{
-  type: ("STREAM_INIT", ts, model, provider);
-} // before contacting provider
-{
-  type: ("STREAM_READY", ts);
-} // connection established, ready to emit
+{ type: "SESSION_START", ts, sessionId }  // anchor for entire session
+{ type: "STREAM_INIT", ts, model, provider }  // before contacting provider
+{ type: "STREAM_READY", ts }  // connection established, ready to emit
 ```
 
 ### Adapter Events
 
 ```typescript
-{
-  type: ("ADAPTER_DETECTED", ts, adapter, provider, version);
-}
-{
-  type: ("ADAPTER_WRAP_START", ts, adapter);
-}
-{
-  type: ("ADAPTER_WRAP_END", ts, adapter, durationMs);
-}
+{ type: "ADAPTER_DETECTED", ts, adapter, provider, version }
+{ type: "ADAPTER_WRAP_START", ts, adapter }
+{ type: "ADAPTER_WRAP_END", ts, adapter, durationMs }
 ```
 
 ### Timeout Events
 
 ```typescript
-{
-  type: ("TIMEOUT_START", ts, type, durationMs);
-} // type: initial|inter-token
-{
-  type: ("TIMEOUT_RESET", ts, type, tokenIndex);
-} // timer reset on token
-{
-  type: ("TIMEOUT_TRIGGERED", ts, type, elapsed);
-} // before error event
+{ type: "TIMEOUT_START", ts, type, durationMs }  // type: initial|inter-token
+{ type: "TIMEOUT_RESET", ts, type, tokenIndex }  // timer reset on token
+{ type: "TIMEOUT_TRIGGERED", ts, type, elapsed }  // before error event
 ```
 
 ### Network Events
 
 ```typescript
-{
-  type: ("NETWORK_ERROR", ts, error, code, retryable);
-}
-{
-  type: ("NETWORK_RECOVERY", ts, attemptCount, durationMs);
-}
-{
-  type: ("CONNECTION_DROPPED", ts, reason);
-}
-{
-  type: ("CONNECTION_RESTORED", ts, durationMs);
-}
+{ type: "NETWORK_ERROR", ts, error, code, retryable }
+{ type: "NETWORK_RECOVERY", ts, attemptCount, durationMs }
+{ type: "CONNECTION_DROPPED", ts, reason }
+{ type: "CONNECTION_RESTORED", ts, durationMs }
 ```
 
 ### Abort Events
 
 ```typescript
-{
-  type: ("ABORT_REQUESTED", ts, source);
-} // source: user|timeout|error
-{
-  type: ("ABORT_COMPLETED", ts, resourcesFreed);
-}
+{ type: "ABORT_REQUESTED", ts, source }  // source: user|timeout|error
+{ type: "ABORT_COMPLETED", ts, resourcesFreed }
 ```
 
 ### Tool Events
@@ -1258,140 +1228,71 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Drift Events
 
 ```typescript
-{
-  type: ("DRIFT_CHECK_START", ts, checkpoint, tokenCount, strategy);
-}
-{
-  type: ("DRIFT_CHECK_RESULT", ts, detected, score, metrics, threshold);
-}
-{
-  type: ("DRIFT_CHECK_END", ts, durationMs);
-}
-{
-  type: ("DRIFT_CHECK_SKIPPED", ts, reason);
-} // when drift disabled
+{ type: "DRIFT_CHECK_START", ts, checkpoint, tokenCount, strategy }
+{ type: "DRIFT_CHECK_RESULT", ts, detected, score, metrics, threshold }
+{ type: "DRIFT_CHECK_END", ts, durationMs }
+{ type: "DRIFT_CHECK_SKIPPED", ts, reason }  // when drift disabled
 ```
 
 ### Checkpoint Events
 
 ```typescript
-{
-  type: ("CHECKPOINT_SAVED", ts, checkpoint, tokenCount);
-}
+{ type: "CHECKPOINT_SAVED", ts, checkpoint, tokenCount }
 ```
 
 ### Resume Events
 
 ```typescript
-{
-  type: ("RESUME_START", ts, checkpoint, stateHash, tokenCount);
-}
-{
-  type: ("RESUME_END", ts, checkpoint, durationMs, success);
-}
+{ type: "RESUME_START", ts, checkpoint, stateHash, tokenCount }
+{ type: "RESUME_END", ts, checkpoint, durationMs, success }
 ```
 
 ### Retry Events
 
 ```typescript
-{
-  type: ("RETRY_START", ts, attempt, maxAttempts);
-}
-{
-  type: ("RETRY_ATTEMPT",
-    ts,
-    index,
-    reason,
-    countsTowardLimit,
-    isNetwork,
-    isModelIssue);
-}
-{
-  type: ("RETRY_END", ts, attempt, success, durationMs);
-}
-{
-  type: ("RETRY_GIVE_UP", ts, attempts, lastError);
-} // exhausted
+{ type: "RETRY_START", ts, attempt, maxAttempts }
+{ type: "RETRY_ATTEMPT", ts, index, reason, countsTowardLimit, isNetwork, isModelIssue }
+{ type: "RETRY_END", ts, attempt, success, durationMs }
+{ type: "RETRY_GIVE_UP", ts, attempts, lastError }  // exhausted
 ```
 
 ### Fallback Events
 
 ```typescript
-{
-  type: ("FALLBACK_START", ts, from, to, reason);
-}
-{
-  type: ("FALLBACK_MODEL_SELECTED", ts, index, model);
-}
-{
-  type: ("FALLBACK_END", ts, index, durationMs);
-}
+{ type: "FALLBACK_START", ts, from, to, reason }
+{ type: "FALLBACK_MODEL_SELECTED", ts, index, model }
+{ type: "FALLBACK_END", ts, index, durationMs }
 ```
 
 ### Completion Events
 
 ```typescript
-{
-  type: ("FINALIZATION_START", ts);
-} // tokens done, closing session
-{
-  type: ("FINALIZATION_END", ts, durationMs);
-} // all workers closed
+{ type: "FINALIZATION_START", ts }  // tokens done, closing session
+{ type: "FINALIZATION_END", ts, durationMs }  // all workers closed
 
 // Final session summary for replay
-{
-  type: ("SESSION_SUMMARY",
-    ts,
-    tokenCount,
-    startTs,
-    endTs,
-    driftDetected,
-    guardrailViolations,
-    fallbackDepth,
-    retryCount,
-    checkpointsCreated);
-}
+{ type: "SESSION_SUMMARY", ts, tokenCount, startTs, endTs, driftDetected,
+  guardrailViolations, fallbackDepth, retryCount, checkpointsCreated }
 
-{
-  type: ("SESSION_END", ts);
-} // hard end-of-stream marker
+{ type: "SESSION_END", ts }  // hard end-of-stream marker
 ```
 
 ### Consensus Events
 
 ```typescript
-{
-  type: ("CONSENSUS_START", ts);
-}
+{ type: "CONSENSUS_START", ts }
 
 // Per-stream lifecycle
-{
-  type: ("CONSENSUS_STREAM_START", ts, streamIndex, model);
-}
-{
-  type: ("CONSENSUS_STREAM_END", ts, streamIndex, durationMs, status);
-}
-{
-  type: ("CONSENSUS_OUTPUT_COLLECTED", ts, streamIndex, length, hasErrors);
-}
+{ type: "CONSENSUS_STREAM_START", ts, streamIndex, model }
+{ type: "CONSENSUS_STREAM_END", ts, streamIndex, durationMs, status }
+{ type: "CONSENSUS_OUTPUT_COLLECTED", ts, streamIndex, length, hasErrors }
 
 // Analysis and resolution
-{
-  type: ("CONSENSUS_ANALYSIS",
-    ts,
-    agreementRatio,
-    disagreements,
-    strategy,
-    similarityMatrix,
-    averageSimilarity);
-}
-{
-  type: ("CONSENSUS_RESOLUTION", ts, method, finalSelection, confidence);
-} // method: vote|merge|best|fail
+{ type: "CONSENSUS_ANALYSIS", ts, agreementRatio, disagreements, strategy,
+  similarityMatrix, averageSimilarity }
+{ type: "CONSENSUS_RESOLUTION", ts, method, finalSelection, confidence }  // method: vote|merge|best|fail
 
-{
-  type: ("CONSENSUS_END", ts, status, confidence, durationMs);
-}
+{ type: "CONSENSUS_END", ts, status, confidence, durationMs }
 ```
 
 ### Structured Output Events
@@ -1414,20 +1315,12 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Continuation Events
 
 ```typescript
-{
-  type: ("CONTINUATION_START", ts, checkpoint, tokenCount);
-}
-{
-  type: ("CONTINUATION_END", ts, success, durationMs);
-}
+{ type: "CONTINUATION_START", ts, checkpoint, tokenCount }
+{ type: "CONTINUATION_END", ts, success, durationMs }
 
 // Deduplication (when resuming)
-{
-  type: ("DEDUPLICATION_START", ts, overlapSize);
-}
-{
-  type: ("DEDUPLICATION_END", ts, removed, durationMs);
-}
+{ type: "DEDUPLICATION_START", ts, overlapSize }
+{ type: "DEDUPLICATION_END", ts, removed, durationMs }
 ```
 
 ### Event Reference
