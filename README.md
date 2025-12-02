@@ -1131,7 +1131,10 @@ const callbacks = {
 };
 
 // Use callbacks with l0
-const { stream } = await l0(source, { callbacks });
+const { stream } = await l0({
+  stream: () => streamText({ model, prompt }),
+  ...callbacks,
+});
 
 // For real-time UI updates, use onEvent
 for await (const event of stream) {
