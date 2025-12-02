@@ -12,6 +12,9 @@ export default defineConfig({
     // Setup files - run before all tests
     setupFiles: ["./tests/setup.ts"],
 
+    // Exclude integration tests from unit test runs
+    exclude: ["node_modules/**", "integration/**"],
+
     // Coverage configuration
     coverage: {
       provider: "v8",
