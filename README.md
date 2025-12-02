@@ -1080,8 +1080,8 @@ const result = await l0({
   },
 
   // Called when drift is detected
-  onDrift: (types, score) => {
-    console.log(`Drift detected: ${types.join(", ")} (score: ${score})`);
+  onDrift: (types, confidence) => {
+    console.log(`Drift detected: ${types.join(", ")} (confidence: ${confidence})`);
   },
 
   // Called when a tool call is detected
@@ -1107,7 +1107,7 @@ const result = await l0({
 | `onCheckpoint` | Checkpoint saved                       | `(checkpoint: string, tokenCount: number) => void`                 |
 | `onTimeout`    | Timeout occurred                       | `(type: "initial" \| "inter", elapsedMs: number) => void`          |
 | `onAbort`      | Stream aborted                         | `(tokenCount: number, contentLength: number) => void`              |
-| `onDrift`      | Drift detected                         | `(types: string[], score?: number) => void`                        |
+| `onDrift`      | Drift detected                         | `(types: string[], confidence?: number) => void`                   |
 | `onToolCall`   | Tool call detected                     | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` |
 
 ### Use Cases

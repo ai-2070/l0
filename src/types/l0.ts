@@ -586,9 +586,9 @@ export interface L0Options<TOutput = unknown> {
    * with the generated content.
    *
    * @param types - Array of drift types detected
-   * @param score - Drift confidence score
+   * @param confidence - Drift confidence score (0-1)
    */
-  onDrift?: (types: string[], score?: number) => void;
+  onDrift?: (types: string[], confidence?: number) => void;
 
   /**
    * Optional callback when a tool call is detected.

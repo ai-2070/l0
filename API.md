@@ -98,7 +98,7 @@ const result = await l0({
   onCheckpoint: (checkpoint, tokenCount) => {},
   onTimeout: (type, elapsedMs) => {},
   onAbort: (tokenCount, contentLength) => {},
-  onDrift: (types, score) => {},
+  onDrift: (types, confidence) => {},
   onToolCall: (toolName, toolCallId, args) => {},
 });
 
@@ -228,7 +228,7 @@ L0 provides a complete set of lifecycle callbacks for monitoring and responding 
 | `onCheckpoint` | `(checkpoint: string, tokenCount: number) => void`                  | Checkpoint saved                       |
 | `onTimeout`    | `(type: "initial" \| "inter", elapsedMs: number) => void`           | Timeout occurred                       |
 | `onAbort`      | `(tokenCount: number, contentLength: number) => void`               | Stream aborted                         |
-| `onDrift`      | `(types: string[], score?: number) => void`                         | Drift detected                         |
+| `onDrift`      | `(types: string[], confidence?: number) => void`                    | Drift detected                         |
 | `onToolCall`   | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` | Tool call detected                     |
 
 ### Usage Example
@@ -293,8 +293,8 @@ const result = await l0({
     console.log(`Aborted after ${tokenCount} tokens (${contentLength} chars)`);
   },
 
-  onDrift: (types, score) => {
-    console.log(`Drift detected: ${types.join(", ")} (score: ${score})`);
+  onDrift: (types, confidence) => {
+    console.log(`Drift detected: ${types.join(", ")} (confidence: ${confidence})`);
   },
 
   onToolCall: (toolName, toolCallId, args) => {
@@ -427,11 +427,11 @@ onAbort: (tokenCount: number, contentLength: number) => void
 Called when drift is detected in the generated content.
 
 ```typescript
-onDrift: (types: string[], score?: number) => void
+onDrift: (types: string[], confidence?: number) => void
 ```
 
 - `types`: Array of drift types detected (e.g., "repetition", "topic_shift")
-- `score`: Optional drift confidence score
+- `confidence`: Optional drift confidence score (0-1)
 
 #### onToolCall
 

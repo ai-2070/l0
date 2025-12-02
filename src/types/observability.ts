@@ -450,7 +450,6 @@ export interface DriftCheckResultEvent extends L0ObservabilityEvent {
   detected: boolean;
   types: string[];
   confidence?: number;
-  score?: number;
   metrics?: Record<string, unknown>;
   threshold?: number;
 }

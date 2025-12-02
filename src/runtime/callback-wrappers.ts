@@ -157,7 +157,7 @@ export function registerCallbackWrappers(
       if (event.type === EventType.DRIFT_CHECK_RESULT) {
         const e = event as DriftCheckResultEvent;
         if (e.detected) {
-          callback(e.types, e.score);
+          callback(e.types, e.confidence);
         }
       }
     });

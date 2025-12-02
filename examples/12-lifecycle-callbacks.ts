@@ -288,8 +288,10 @@ async function advancedCallbacks() {
     },
 
     // Called when drift is detected
-    onDrift: (types, score) => {
-      console.log(`[onDrift] Detected: ${types.join(", ")} (score: ${score})`);
+    onDrift: (types, confidence) => {
+      console.log(
+        `[onDrift] Detected: ${types.join(", ")} (confidence: ${confidence})`,
+      );
     },
 
     onComplete: (state) => {
@@ -386,8 +388,8 @@ async function allCallbacks() {
       );
     },
 
-    onDrift: (types, score) => {
-      console.log(`[DRIFT] ${types.join(", ")} (score: ${score})`);
+    onDrift: (types, confidence) => {
+      console.log(`[DRIFT] ${types.join(", ")} (confidence: ${confidence})`);
     },
   });
 
