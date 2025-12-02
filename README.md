@@ -64,14 +64,14 @@ L0 includes 2,600+ tests covering all major reliability features.
 
 | Import                  | Size  | Gzipped | Description              |
 | ----------------------- | ----- | ------- | ------------------------ |
-| `@ai2070/l0` (full)     | 187KB | 55KB    | Everything               |
+| `@ai2070/l0` (full)     | 188KB | 55KB    | Everything               |
 | `@ai2070/l0/core`       | 68KB  | 20KB    | Runtime + retry + errors |
-| `@ai2070/l0/structured` | 59KB  | 18KB    | Structured output        |
-| `@ai2070/l0/consensus`  | 70KB  | 21KB    | Multi-model consensus    |
-| `@ai2070/l0/parallel`   | 56KB  | 17KB    | Parallel/race operations |
+| `@ai2070/l0/structured` | 59KB  | 17KB    | Structured output        |
+| `@ai2070/l0/consensus`  | 69KB  | 21KB    | Multi-model consensus    |
+| `@ai2070/l0/parallel`   | 56KB  | 16KB    | Parallel/race operations |
 | `@ai2070/l0/window`     | 60KB  | 18KB    | Document chunking        |
 | `@ai2070/l0/guardrails` | 17KB  | 5KB     | Validation rules         |
-| `@ai2070/l0/monitoring` | 23KB  | 6KB     | OTel/Sentry              |
+| `@ai2070/l0/monitoring` | 27KB  | 7KB     | OTel/Sentry              |
 | `@ai2070/l0/drift`      | 4KB   | 2KB     | Drift detection          |
 
 Dependency-free. Tree-shakeable subpath exports for minimal bundles.

@@ -4,6 +4,7 @@ examples/
 tests/
 integration/
 coverage/
+scripts/
 
 # Tests
 *.test.*

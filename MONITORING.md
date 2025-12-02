@@ -811,14 +811,13 @@ L0 includes native Sentry support for error tracking and performance monitoring.
 ```typescript
 import * as Sentry from "@sentry/node";
 import { l0 } from "@ai2070/l0/core";
-import { sentryInterceptor } from "@ai2070/l0/monitoring";
+import { createSentryHandler } from "@ai2070/l0/monitoring";
 
 Sentry.init({ dsn: "your-sentry-dsn" });
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true },
-  interceptors: [sentryInterceptor({ sentry: Sentry })],
+  onEvent: createSentryHandler({ sentry: Sentry }),
 });
 ```
 
@@ -840,9 +839,9 @@ const result = await withSentry({ sentry: Sentry }, () =>
 ### Configuration
 
 ```typescript
-import { sentryInterceptor } from "@ai2070/l0/monitoring";
+import { createSentryHandler } from "@ai2070/l0/monitoring";
 
-sentryInterceptor({
+createSentryHandler({
   sentry: Sentry, // Required: Sentry instance
   captureNetworkErrors: true, // Capture network failures (default: true)
   captureGuardrailViolations: true, // Capture guardrail violations (default: true)
@@ -983,17 +982,14 @@ L0 includes native OpenTelemetry support for distributed tracing and metrics, fo
 ```typescript
 import { trace, metrics } from "@opentelemetry/api";
 import { l0 } from "@ai2070/l0/core";
-import { openTelemetryInterceptor } from "@ai2070/l0/monitoring";
+import { createOpenTelemetryHandler } from "@ai2070/l0/monitoring";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true },
-  interceptors: [
-    openTelemetryInterceptor({
-      tracer: trace.getTracer("my-app"),
-      meter: metrics.getMeter("my-app"),
-    }),
-  ],
+  onEvent: createOpenTelemetryHandler({
+    tracer: trace.getTracer("my-app"),
+    meter: metrics.getMeter("my-app"),
+  }),
 });
 ```
 
@@ -1023,9 +1019,9 @@ const result = await otel.traceStream("chat-completion", async (span) => {
 ### Configuration
 
 ```typescript
-import { openTelemetryInterceptor } from "@ai2070/l0/monitoring";
+import { createOpenTelemetryHandler } from "@ai2070/l0/monitoring";
 
-openTelemetryInterceptor({
+createOpenTelemetryHandler({
   tracer: trace.getTracer("l0"), // Required: OTel tracer
   meter: metrics.getMeter("l0"), // Optional: OTel meter for metrics
   serviceName: "l0", // Service name for spans (default: 'l0')
@@ -1144,11 +1140,9 @@ provider.register();
 // Use with L0
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  interceptors: [
-    openTelemetryInterceptor({
-      tracer: trace.getTracer("my-app"),
-    }),
-  ],
+  onEvent: createOpenTelemetryHandler({
+    tracer: trace.getTracer("my-app"),
+  }),
 });
 ```
 
@@ -1176,7 +1170,7 @@ If you already have OpenTelemetry configured in your application:
 ```typescript
 import { trace, metrics, context, propagation } from "@opentelemetry/api";
 import { l0 } from "@ai2070/l0/core";
-import { openTelemetryInterceptor } from "@ai2070/l0/monitoring";
+import { createOpenTelemetryHandler } from "@ai2070/l0/monitoring";
 
 // L0 will automatically use the active context for trace propagation
 async function handleRequest(req) {
@@ -1187,11 +1181,9 @@ async function handleRequest(req) {
     // L0 traces will be children of the extracted context
     const result = await l0({
       stream: () => streamText({ model, prompt }),
-      interceptors: [
-        openTelemetryInterceptor({
-          tracer: trace.getTracer("my-app"),
-        }),
-      ],
+      onEvent: createOpenTelemetryHandler({
+        tracer: trace.getTracer("my-app"),
+      }),
     });
 
     // ... process result

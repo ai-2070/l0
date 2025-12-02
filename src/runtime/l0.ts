@@ -263,6 +263,11 @@ export async function l0<TOutput = unknown>(
   // Initialize event dispatcher for observability
   const dispatcher = new EventDispatcher(processedMeta);
 
+  // Register onEvent handler with dispatcher for lifecycle events
+  if (processedOnEvent) {
+    dispatcher.onEvent(processedOnEvent);
+  }
+
   // Register legacy callback wrappers
   registerCallbackWrappers(dispatcher, processedOptions);
 

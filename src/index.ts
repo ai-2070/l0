@@ -353,7 +353,6 @@ export {
   L0Sentry,
   createSentryIntegration,
   createSentryHandler,
-  sentryInterceptor, // deprecated
   withSentry,
 } from "./runtime/sentry";
 
@@ -364,7 +363,6 @@ export {
   L0OpenTelemetry,
   createOpenTelemetry,
   createOpenTelemetryHandler,
-  openTelemetryInterceptor, // deprecated
   SemanticAttributes,
   SpanStatusCode,
   SpanKind,

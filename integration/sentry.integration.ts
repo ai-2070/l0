@@ -6,7 +6,7 @@ import { describeIf, hasOpenAI, LLM_TIMEOUT } from "./setup";
 import {
   L0Sentry,
   createSentryIntegration,
-  sentryInterceptor,
+  createSentryHandler,
   withSentry,
 } from "../src/runtime/sentry";
 import type { SentryClient } from "../src/runtime/sentry";
@@ -237,25 +237,6 @@ describe("Sentry Integration", () => {
     });
   });
 
-  describe("sentryInterceptor", () => {
-    it("should create an interceptor object", () => {
-      const mockSentry = createMockSentry();
-      const interceptor = sentryInterceptor({ sentry: mockSentry });
-
-      expect(typeof interceptor).toBe("object");
-    });
-
-    it("should return an interceptor with expected methods", () => {
-      const mockSentry = createMockSentry();
-      const interceptor = sentryInterceptor({ sentry: mockSentry });
-
-      expect(interceptor).toHaveProperty("name");
-      expect(interceptor).toHaveProperty("before");
-      expect(interceptor).toHaveProperty("after");
-      expect(interceptor).toHaveProperty("onError");
-    });
-  });
-
   describeIf(hasOpenAI)("Live Sentry Integration with LLM", () => {
     it(
       "should track L0 execution with breadcrumbs",
@@ -302,10 +283,10 @@ describe("Sentry Integration", () => {
     );
 
     it(
-      "should use sentry interceptor with L0",
+      "should use createSentryHandler with L0",
       async () => {
         const mockSentry = createMockSentry();
-        const interceptor = sentryInterceptor({ sentry: mockSentry });
+        const handler = createSentryHandler({ sentry: mockSentry });
 
         const result = await l0({
           stream: () =>
@@ -313,7 +294,7 @@ describe("Sentry Integration", () => {
               model: openai("gpt-5-nano"),
               prompt: "Say: test",
             }),
-          interceptors: [interceptor],
+          onEvent: handler,
           detectZeroTokens: false,
         });
 
@@ -322,7 +303,7 @@ describe("Sentry Integration", () => {
           // consume
         }
 
-        // Interceptor should have added breadcrumbs
+        // Handler should have added breadcrumbs
         expect(mockSentry._captured.breadcrumbs.length).toBeGreaterThan(0);
       },
       LLM_TIMEOUT,

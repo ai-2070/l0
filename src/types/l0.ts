@@ -3,6 +3,7 @@
 import type { GuardrailRule, GuardrailViolation } from "./guardrails";
 import type { BackoffStrategy, RetryReason } from "./retry";
 import { RETRY_DEFAULTS, ErrorCategory } from "./retry";
+import type { L0Event as L0ObservabilityEvent } from "./observability";
 
 /**
  * Result of checkpoint validation for continuation
@@ -491,9 +492,23 @@ export interface L0Options<TOutput = unknown> {
   onError?: (error: Error, willRetry: boolean, willFallback: boolean) => void;
 
   /**
-   * Optional callback for each event
+   * Optional callback for all L0 events (streaming + lifecycle).
+   *
+   * Receives both streaming events (token, message, data, etc.) and
+   * lifecycle events (SESSION_START, COMPLETE, ERROR, etc.).
+   *
+   * @example
+   * ```typescript
+   * // Process tokens
+   * onEvent: (event) => {
+   *   if (event.type === "token") console.log(event.value);
+   * }
+   *
+   * // Or use with monitoring handlers
+   * onEvent: createSentryHandler({ sentry: Sentry })
+   * ```
    */
-  onEvent?: (event: L0Event) => void;
+  onEvent?: (event: L0Event | L0ObservabilityEvent) => void;
 
   /**
    * Optional callback for guardrail violations
