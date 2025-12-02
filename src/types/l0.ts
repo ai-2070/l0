@@ -3,6 +3,7 @@
 import type { GuardrailRule, GuardrailViolation } from "./guardrails";
 import type { BackoffStrategy, RetryReason } from "./retry";
 import { RETRY_DEFAULTS, ErrorCategory } from "./retry";
+import type { L0Event as L0ObservabilityEvent } from "./observability";
 
 /**
  * Result of checkpoint validation for continuation
@@ -491,9 +492,26 @@ export interface L0Options<TOutput = unknown> {
   onError?: (error: Error, willRetry: boolean, willFallback: boolean) => void;
 
   /**
-   * Optional callback for each event
+   * Optional callback for each streaming event (token, message, data, etc.)
    */
   onEvent?: (event: L0Event) => void;
+
+  /**
+   * Optional callback for observability events (SESSION_START, COMPLETE, ERROR, etc.)
+   *
+   * Use this to integrate with monitoring systems like Sentry or OpenTelemetry:
+   *
+   * @example
+   * ```typescript
+   * import { createSentryHandler } from "@ai2070/l0";
+   *
+   * const result = await l0({
+   *   stream: () => streamText({ model, prompt }),
+   *   onObservabilityEvent: createSentryHandler({ sentry: Sentry }),
+   * });
+   * ```
+   */
+  onObservabilityEvent?: (event: L0ObservabilityEvent) => void;
 
   /**
    * Optional callback for guardrail violations

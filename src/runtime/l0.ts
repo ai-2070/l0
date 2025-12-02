@@ -253,6 +253,7 @@ export async function l0<TOutput = unknown>(
     // Note: onError is handled by registerCallbackWrappers via ERROR event
     // Note: onViolation is handled by registerCallbackWrappers via GUARDRAIL_RULE_RESULT event
     onEvent: processedOnEvent,
+    onObservabilityEvent: processedOnObservabilityEvent,
     continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
     buildContinuationPrompt: processedBuildContinuationPrompt,
     deduplicateContinuation: processedDeduplicateContinuation,
@@ -262,6 +263,11 @@ export async function l0<TOutput = unknown>(
 
   // Initialize event dispatcher for observability
   const dispatcher = new EventDispatcher(processedMeta);
+
+  // Register observability event handler if provided
+  if (processedOnObservabilityEvent) {
+    dispatcher.onEvent(processedOnObservabilityEvent);
+  }
 
   // Register legacy callback wrappers
   registerCallbackWrappers(dispatcher, processedOptions);

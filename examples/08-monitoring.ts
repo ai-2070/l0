@@ -80,7 +80,7 @@ async function sentryExample() {
   //
   // const result = await l0({
   //   stream: () => streamText({ model: openai("gpt-5-nano"), prompt: "Hello" }),
-  //   onEvent: createSentryHandler({ sentry: Sentry, enableTracing: true }),
+  //   onObservabilityEvent: createSentryHandler({ sentry: Sentry, enableTracing: true }),
   // });
 
   console.log("Example code:");
@@ -90,7 +90,7 @@ async function sentryExample() {
 
   const result = await l0({
     stream: () => streamText({ model, prompt }),
-    onEvent: createSentryHandler({ sentry: Sentry, enableTracing: true }),
+    onObservabilityEvent: createSentryHandler({ sentry: Sentry, enableTracing: true }),
   });
   `);
 }
@@ -128,7 +128,7 @@ async function openTelemetryExample() {
   // // Option 2: Use the event handler for automatic tracing
   // const result = await l0({
   //   stream: () => streamText({ model: openai("gpt-5-nano"), prompt: "Hello" }),
-  //   onEvent: createOpenTelemetryHandler({
+  //   onObservabilityEvent: createOpenTelemetryHandler({
   //     tracer: trace.getTracer("my-app"),
   //     meter: metrics.getMeter("my-app"),
   //   }),
@@ -166,7 +166,7 @@ async function openTelemetryExample() {
 
   const result = await l0({
     stream: () => streamText({ model, prompt }),
-    onEvent: createOpenTelemetryHandler({
+    onObservabilityEvent: createOpenTelemetryHandler({
       tracer: trace.getTracer("my-app"),
       meter: metrics.getMeter("my-app"),
     }),

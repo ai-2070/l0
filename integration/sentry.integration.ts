@@ -294,7 +294,7 @@ describe("Sentry Integration", () => {
               model: openai("gpt-5-nano"),
               prompt: "Say: test",
             }),
-          onEvent: handler,
+          onObservabilityEvent: handler,
           detectZeroTokens: false,
         });
 
