@@ -9,6 +9,7 @@ export const RuntimeStates = {
   INIT: "init",
   WAITING_FOR_TOKEN: "waiting_for_token",
   STREAMING: "streaming",
+  TOOL_CALL_DETECTED: "tool_call_detected",
   CONTINUATION_MATCHING: "continuation_matching",
   CHECKPOINT_VERIFYING: "checkpoint_verifying",
   RETRYING: "retrying",

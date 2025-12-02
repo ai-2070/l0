@@ -814,6 +814,163 @@ export async function l0<TOutput = unknown>(
                 role: event.role,
                 timestamp: Date.now(),
               };
+
+              // Detect tool calls/results and emit observability events
+              if (event.value) {
+                try {
+                  const parsed = JSON.parse(event.value);
+
+                  // Helper to emit tool call events
+                  const emitToolCall = (
+                    toolCallId: string,
+                    toolName: string,
+                    args: Record<string, unknown>,
+                  ) => {
+                    stateMachine.transition(RuntimeStates.TOOL_CALL_DETECTED);
+                    state.toolCallStartTimes =
+                      state.toolCallStartTimes || new Map();
+                    state.toolCallStartTimes.set(toolCallId, Date.now());
+                    state.toolCallNames = state.toolCallNames || new Map();
+                    state.toolCallNames.set(toolCallId, toolName);
+
+                    dispatcher.emit(EventType.TOOL_REQUESTED, {
+                      toolName,
+                      toolCallId,
+                      arguments: args,
+                    });
+                    dispatcher.emit(EventType.TOOL_START, {
+                      toolCallId,
+                      toolName,
+                    });
+                  };
+
+                  // Helper to parse arguments (may be string or object)
+                  const parseArgs = (
+                    args: unknown,
+                  ): Record<string, unknown> => {
+                    if (typeof args === "string") {
+                      try {
+                        return JSON.parse(args);
+                      } catch {
+                        return {};
+                      }
+                    }
+                    return (args as Record<string, unknown>) || {};
+                  };
+
+                  // Helper to emit tool result events
+                  const emitToolResult = (
+                    toolCallId: string,
+                    result: unknown,
+                    error?: string,
+                  ) => {
+                    const startTime = state.toolCallStartTimes?.get(toolCallId);
+                    const durationMs = startTime ? Date.now() - startTime : 0;
+
+                    if (error) {
+                      dispatcher.emit(EventType.TOOL_ERROR, {
+                        toolCallId,
+                        error,
+                        errorType: "EXECUTION_ERROR",
+                        durationMs,
+                      });
+                      dispatcher.emit(EventType.TOOL_COMPLETED, {
+                        toolCallId,
+                        status: "error",
+                      });
+                    } else {
+                      dispatcher.emit(EventType.TOOL_RESULT, {
+                        toolCallId,
+                        result,
+                        durationMs,
+                      });
+                      dispatcher.emit(EventType.TOOL_COMPLETED, {
+                        toolCallId,
+                        status: "success",
+                      });
+                    }
+
+                    // Clean up tracking
+                    state.toolCallStartTimes?.delete(toolCallId);
+                    state.toolCallNames?.delete(toolCallId);
+
+                    // Transition back to streaming if no more pending tool calls
+                    if (!state.toolCallStartTimes?.size) {
+                      stateMachine.transition(RuntimeStates.STREAMING);
+                    }
+                  };
+
+                  // === TOOL CALL FORMATS ===
+
+                  // L0 standard flat format (recommended for custom adapters)
+                  // { type: "tool_call", id, name, arguments }
+                  if (parsed.type === "tool_call" && parsed.id && parsed.name) {
+                    emitToolCall(
+                      parsed.id,
+                      parsed.name,
+                      parseArgs(parsed.arguments),
+                    );
+                  }
+                  // OpenAI format: { type: "tool_calls", tool_calls: [...] }
+                  else if (
+                    parsed.type === "tool_calls" &&
+                    Array.isArray(parsed.tool_calls)
+                  ) {
+                    for (const tc of parsed.tool_calls) {
+                      emitToolCall(tc.id, tc.name, parseArgs(tc.arguments));
+                    }
+                  }
+                  // Legacy OpenAI function_call format
+                  else if (
+                    parsed.type === "function_call" &&
+                    parsed.function_call
+                  ) {
+                    emitToolCall(
+                      `fn_${Date.now()}`,
+                      parsed.function_call.name,
+                      parseArgs(parsed.function_call.arguments),
+                    );
+                  }
+                  // Anthropic tool_use format
+                  else if (parsed.type === "tool_use" && parsed.tool_use) {
+                    emitToolCall(
+                      parsed.tool_use.id,
+                      parsed.tool_use.name,
+                      parseArgs(parsed.tool_use.input),
+                    );
+                  }
+                  // Nested tool_call format (Mastra/legacy)
+                  else if (parsed.type === "tool_call" && parsed.tool_call) {
+                    emitToolCall(
+                      parsed.tool_call.id,
+                      parsed.tool_call.name,
+                      parseArgs(parsed.tool_call.arguments),
+                    );
+                  }
+
+                  // === TOOL RESULT FORMATS ===
+
+                  // L0 standard flat format (recommended for custom adapters)
+                  // { type: "tool_result", id, result, error? }
+                  else if (parsed.type === "tool_result" && parsed.id) {
+                    emitToolResult(parsed.id, parsed.result, parsed.error);
+                  }
+                  // Nested tool_result format (Mastra/legacy)
+                  else if (
+                    parsed.type === "tool_result" &&
+                    parsed.tool_result
+                  ) {
+                    emitToolResult(
+                      parsed.tool_result.id,
+                      parsed.tool_result.result,
+                      parsed.tool_result.error,
+                    );
+                  }
+                } catch {
+                  // Not JSON or parsing failed - that's fine, not all messages are tool calls
+                }
+              }
+
               safeInvokeCallback(
                 processedOnEvent,
                 messageEvent,

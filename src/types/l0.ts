@@ -591,6 +591,23 @@ export interface L0Options<TOutput = unknown> {
   onDrift?: (types: string[], score?: number) => void;
 
   /**
+   * Optional callback when a tool call is detected.
+   *
+   * Called when the model requests a tool/function call.
+   * L0 does not execute tools - this is for observability only.
+   * Tool execution is the responsibility of the orchestrator.
+   *
+   * @param toolName - Name of the tool being called
+   * @param toolCallId - Unique identifier for this tool call
+   * @param args - Arguments passed to the tool
+   */
+  onToolCall?: (
+    toolName: string,
+    toolCallId: string,
+    args: Record<string, unknown>,
+  ) => void;
+
+  /**
    * Interceptors for preprocessing and postprocessing
    */
   interceptors?: L0Interceptor[];
@@ -878,6 +895,16 @@ export interface L0State {
    * Last progress update received (for long-running operations)
    */
   lastProgress?: L0Progress;
+
+  /**
+   * Tool call start times for duration tracking (internal use)
+   */
+  toolCallStartTimes?: Map<string, number>;
+
+  /**
+   * Tool call names for tracking (internal use)
+   */
+  toolCallNames?: Map<string, string>;
 }
 
 /**

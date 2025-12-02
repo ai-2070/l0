@@ -99,6 +99,7 @@ const result = await l0({
   onTimeout: (type, elapsedMs) => {},
   onAbort: (tokenCount, contentLength) => {},
   onDrift: (types, score) => {},
+  onToolCall: (toolName, toolCallId, args) => {},
 });
 
 // Consume stream
@@ -228,6 +229,7 @@ L0 provides a complete set of lifecycle callbacks for monitoring and responding 
 | `onTimeout`    | `(type: "initial" \| "inter", elapsedMs: number) => void`           | Timeout occurred                       |
 | `onAbort`      | `(tokenCount: number, contentLength: number) => void`               | Stream aborted                         |
 | `onDrift`      | `(types: string[], score?: number) => void`                         | Drift detected                         |
+| `onToolCall`   | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` | Tool call detected                     |
 
 ### Usage Example
 
@@ -293,6 +295,11 @@ const result = await l0({
 
   onDrift: (types, score) => {
     console.log(`Drift detected: ${types.join(", ")} (score: ${score})`);
+  },
+
+  onToolCall: (toolName, toolCallId, args) => {
+    console.log(`Tool call: ${toolName} (${toolCallId})`);
+    console.log(`  Args: ${JSON.stringify(args)}`);
   },
 });
 ```
@@ -425,6 +432,18 @@ onDrift: (types: string[], score?: number) => void
 
 - `types`: Array of drift types detected (e.g., "repetition", "topic_shift")
 - `score`: Optional drift confidence score
+
+#### onToolCall
+
+Called when a tool call is detected in the stream. L0 does not execute tools - this is for observability only.
+
+```typescript
+onToolCall: (toolName: string, toolCallId: string, args: Record<string, unknown>) => void
+```
+
+- `toolName`: Name of the tool being called
+- `toolCallId`: Unique identifier for this tool call
+- `args`: Arguments passed to the tool
 
 ---
 

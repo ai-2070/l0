@@ -594,14 +594,57 @@ export const customProviderAdapter: L0Adapter<CustomProviderStream> = {
 
 ### Adapter with Tool Support
 
+Custom adapters that emit tool calls must use L0's **standardized flat format** for tool observability events to work correctly.
+
+#### L0 Tool Call Schema
+
+L0 detects and tracks tool calls/results for observability. Custom adapters **MUST** emit tool messages using this flat format:
+
+```typescript
+// Tool call (assistant requests tool execution)
+{
+  type: "tool_call",
+  id: string,        // Unique identifier for this tool call
+  name: string,      // Tool/function name
+  arguments: object  // Tool arguments (parsed JSON object, not string)
+}
+
+// Tool result (tool execution response)
+{
+  type: "tool_result",
+  id: string,        // Must match the tool_call id
+  result: unknown,   // Tool execution result
+  error?: string     // Optional error message if execution failed
+}
+```
+
+#### Why This Format?
+
+L0 emits observability events when it detects tool calls:
+
+| Event | Description |
+|-------|-------------|
+| `TOOL_REQUESTED` | Tool call detected, contains name, id, and arguments |
+| `TOOL_START` | Tool execution began |
+| `TOOL_RESULT` | Tool completed successfully, includes duration |
+| `TOOL_ERROR` | Tool execution failed |
+| `TOOL_COMPLETED` | Tool lifecycle finished (success or error) |
+
+These events enable:
+- Duration tracking between tool call and result
+- Error monitoring for tool executions
+- Tool usage analytics via `onToolCall` callback
+
+#### Complete Example
+
 ```typescript
 import type { L0Adapter, L0Event } from "@ai2070/l0/core";
 
 interface ToolProviderChunk {
   type: "text" | "tool_call" | "tool_result" | "complete";
   text?: string;
-  tool?: { id: string; name: string; arguments: string };
-  result?: { id: string; output: string };
+  tool?: { id: string; name: string; arguments: Record<string, unknown> };
+  result?: { id: string; output: unknown; error?: string };
 }
 
 type ToolProviderStream = AsyncIterable<ToolProviderChunk>;
@@ -625,11 +668,14 @@ export const toolProviderAdapter: L0Adapter<ToolProviderStream> = {
 
           case "tool_call":
             if (chunk.tool) {
+              // Use L0's flat format for tool calls
               yield {
                 type: "message",
                 value: JSON.stringify({
                   type: "tool_call",
-                  ...chunk.tool,
+                  id: chunk.tool.id,
+                  name: chunk.tool.name,
+                  arguments: chunk.tool.arguments,
                 }),
                 role: "assistant",
                 timestamp: Date.now(),
@@ -639,11 +685,14 @@ export const toolProviderAdapter: L0Adapter<ToolProviderStream> = {
 
           case "tool_result":
             if (chunk.result) {
+              // Use L0's flat format for tool results
               yield {
                 type: "message",
                 value: JSON.stringify({
                   type: "tool_result",
-                  ...chunk.result,
+                  id: chunk.result.id,
+                  result: chunk.result.output,
+                  error: chunk.result.error,
                 }),
                 role: "tool",
                 timestamp: Date.now(),

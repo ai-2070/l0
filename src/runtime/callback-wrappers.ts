@@ -20,6 +20,7 @@ import type {
   DriftCheckResultEvent,
   TimeoutTriggeredEvent,
   AbortCompletedEvent,
+  ToolRequestedEvent,
   L0ObservabilityEvent,
 } from "../types/observability";
 
@@ -146,6 +147,17 @@ export function registerCallbackWrappers(
         if (e.detected) {
           callback(e.types, e.score);
         }
+      }
+    });
+  }
+
+  // onToolCall -> TOOL_REQUESTED
+  if (options.onToolCall) {
+    const callback = options.onToolCall;
+    dispatcher.onEvent((event: L0ObservabilityEvent) => {
+      if (event.type === EventType.TOOL_REQUESTED) {
+        const e = event as ToolRequestedEvent;
+        callback(e.toolName, e.toolCallId, e.arguments);
       }
     });
   }
