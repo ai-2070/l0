@@ -173,6 +173,9 @@
       "optional": true
     }
   },
+  "dependencies": {
+    "uuid": "^10.0.0"
+  },
   "devDependencies": {
     "@ai-sdk/openai": "^2.0.0 || ^3.0.0",
     "@anthropic-ai/sdk": "^0.71.0",

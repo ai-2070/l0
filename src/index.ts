@@ -147,6 +147,118 @@ export type {
   L0Progress,
 } from "./types";
 
+// Observability Event System
+export {
+  EventDispatcher,
+  createEventDispatcher,
+} from "./runtime/event-dispatcher";
+
+export {
+  EventType,
+  EventCategory,
+  EventTypesByCategory,
+  // Event category consts
+  SessionEvents,
+  StreamEvents,
+  AdapterEvents,
+  TimeoutEvents,
+  NetworkEvents,
+  AbortEvents,
+  GuardrailEvents,
+  DriftEvents,
+  CheckpointEvents,
+  RetryEvents,
+  FallbackEvents,
+  StructuredEvents,
+  ContinuationEvents,
+  ToolEvents,
+  CompletionEvents,
+  // Serialization
+  serializeEvent,
+  deserializeEvent,
+} from "./types/observability";
+
+export type {
+  L0ObservabilityEvent,
+  L0EventHandler,
+  L0Event as L0ObservabilityEventUnion,
+  // Session events
+  SessionStartEvent,
+  SessionEndEvent,
+  SessionSummaryEvent,
+  // Stream events
+  StreamInitEvent,
+  StreamReadyEvent,
+  // Adapter events
+  AdapterDetectedEvent,
+  AdapterWrapStartEvent,
+  AdapterWrapEndEvent,
+  // Timeout events
+  TimeoutStartEvent,
+  TimeoutResetEvent,
+  TimeoutTriggeredEvent,
+  // Network events
+  NetworkErrorEvent,
+  NetworkRecoveryEvent,
+  ConnectionDroppedEvent,
+  ConnectionRestoredEvent,
+  // Abort events
+  AbortRequestedEvent,
+  AbortCompletedEvent,
+  // Guardrail events
+  GuardrailPhaseStartEvent,
+  GuardrailRuleStartEvent,
+  GuardrailRuleResultEvent,
+  GuardrailRuleEndEvent,
+  GuardrailPhaseEndEvent,
+  GuardrailCallbackStartEvent,
+  GuardrailCallbackEndEvent,
+  // Drift events
+  DriftCheckStartEvent,
+  DriftCheckResultEvent,
+  DriftCheckEndEvent,
+  DriftCheckSkippedEvent,
+  // Checkpoint events
+  CheckpointStartEvent,
+  CheckpointEndEvent,
+  CheckpointSavedEvent,
+  CheckpointRestoredEvent,
+  // Retry events
+  RetryStartEvent,
+  RetryAttemptEvent,
+  RetryEndEvent,
+  RetryGiveUpEvent,
+  // Fallback events
+  FallbackStartEvent,
+  FallbackModelSelectedEvent,
+  FallbackEndEvent,
+  // Structured events
+  StructuredParseStartEvent,
+  StructuredParseEndEvent,
+  StructuredParseErrorEvent,
+  StructuredValidationStartEvent,
+  StructuredValidationEndEvent,
+  StructuredValidationErrorEvent,
+  StructuredAutoCorrectStartEvent,
+  StructuredAutoCorrectEndEvent,
+  // Continuation events
+  ContinuationStartEvent,
+  ContinuationEndEvent,
+  ContinuationDeduplicationStartEvent,
+  ContinuationDeduplicationEndEvent,
+  // Tool events
+  ToolRequestedEvent,
+  ToolStartEvent,
+  ToolResultEvent,
+  ToolErrorEvent,
+  ToolCompletedEvent,
+  ToolErrorType,
+  // Completion events
+  TokenEvent,
+  CompleteEvent,
+  ErrorEvent,
+} from "./types/observability";
+
 // Guardrails
 export {
   GuardrailEngine,

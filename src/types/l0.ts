@@ -169,6 +169,28 @@ export interface L0Options<TOutput = unknown> {
   stream: () => Promise<any> | any;
 
   /**
+   * User metadata attached to all observability events.
+   * This metadata is immutable for the duration of the session
+   * and included in every event emitted via onEvent.
+   *
+   * Use this to attach request IDs, user IDs, or other context
+   * for tracing and debugging.
+   *
+   * @example
+   * ```typescript
+   * await l0({
+   *   stream: () => streamText({ model, prompt }),
+   *   meta: {
+   *     requestId: "req_123",
+   *     userId: "user_456",
+   *     environment: "production"
+   *   }
+   * });
+   * ```
+   */
+  meta?: Record<string, unknown>;
+
+  /**
    * Optional fallback stream functions to try if primary stream fails
    * after exhausting retries. Useful for falling back to cheaper models.
    *

@@ -19,6 +19,9 @@ import {
   ErrorCategory,
   L0ErrorCodes,
 } from "../utils/errors";
+import { EventDispatcher } from "./event-dispatcher";
+import { registerCallbackWrappers } from "./callback-wrappers";
+import { EventType } from "../types/observability";
 
 // Type-only imports for optional modules (injected at runtime)
 import type { DriftDetector as DriftDetectorType } from "./drift";
@@ -173,19 +176,22 @@ export async function l0<TOutput = unknown>(
     detectDrift: processedDetectDrift = false,
     detectZeroTokens: processedDetectZeroTokens = true,
     checkIntervals: processedCheckIntervals = {},
-    onStart: processedOnStart,
     onComplete: processedOnComplete,
     onError: processedOnError,
     onEvent: processedOnEvent,
     onViolation: processedOnViolation,
-    onRetry: processedOnRetry,
-    onFallback: processedOnFallback,
-    onResume: processedOnResume,
     continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
     buildContinuationPrompt: processedBuildContinuationPrompt,
     deduplicateContinuation: processedDeduplicateContinuation,
     deduplicationOptions: processedDeduplicationOptions = {},
+    meta: processedMeta = {},
   } = processedOptions;
+
+  // Initialize event dispatcher for observability
+  const dispatcher = new EventDispatcher(processedMeta);
+
+  // Register legacy callback wrappers
+  registerCallbackWrappers(dispatcher, processedOptions);
 
   // Deduplication is enabled by default when continuation is enabled
   const shouldDeduplicateContinuation =
@@ -304,19 +310,14 @@ export async function l0<TOutput = unknown>(
         // Transition to init state at start of each attempt
         stateMachine.transition(RuntimeStates.INIT);
 
-        // Call onStart callback (wrapped to prevent user errors from crashing runtime)
-        if (processedOnStart) {
-          const isRetry = retryAttempt > 0 || isRetryAttempt;
-          const isFallback = fallbackIndex > 0;
-          try {
-            processedOnStart(retryAttempt + 1, isRetry, isFallback);
-          } catch (error) {
-            monitor?.logEvent({
-              type: "warning",
-              message: `onStart callback threw: ${error instanceof Error ? error.message : String(error)}`,
-            });
-          }
-        }
+        // Emit SESSION_START event (callback wrappers handle legacy onStart)
+        const isRetry = retryAttempt > 0 || isRetryAttempt;
+        const isFallback = fallbackIndex > 0;
+        dispatcher.emit(EventType.SESSION_START, {
+          attempt: retryAttempt + 1,
+          isRetry,
+          isFallback,
+        });
 
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
@@ -373,10 +374,11 @@ export async function l0<TOutput = unknown>(
               overlapBuffer = "";
               overlapResolved = false;
 
-              // Call onResume callback
-              if (processedOnResume) {
-                processedOnResume(checkpointForContinuation, state.tokenCount);
-              }
+              // Emit CHECKPOINT_RESTORED event (callback wrappers handle legacy onResume)
+              dispatcher.emit(EventType.CHECKPOINT_RESTORED, {
+                checkpoint: checkpointForContinuation,
+                tokenCount: state.tokenCount,
+              });
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for retry)
               if (processedBuildContinuationPrompt) {
@@ -537,6 +539,10 @@ export async function l0<TOutput = unknown>(
           for await (const chunk of sourceStream) {
             // Check abort signal
             if (signal?.aborted) {
+              dispatcher.emit(EventType.ABORT_COMPLETED, {
+                tokenCount: state.tokenCount,
+                contentLength: state.content.length,
+              });
               throw new L0Error("Stream aborted by signal", {
                 code: L0ErrorCodes.STREAM_ABORTED,
                 checkpoint: state.checkpoint,
@@ -976,12 +982,13 @@ export async function l0<TOutput = unknown>(
             // Check if should retry
             if (result.shouldRetry && retryAttempt < modelRetryLimit) {
               const violation = result.violations[0];
-              if (processedOnRetry) {
-                processedOnRetry(
-                  retryAttempt + 1,
-                  `Guardrail violation: ${violation?.message}`,
-                );
-              }
+              const reason = `Guardrail violation: ${violation?.message}`;
+              dispatcher.emit(EventType.RETRY_ATTEMPT, {
+                attempt: retryAttempt + 1,
+                maxAttempts: modelRetryLimit,
+                reason,
+                delayMs: 0,
+              });
               retryAttempt++;
               state.modelRetryCount++;
               continue;
@@ -1012,9 +1019,12 @@ export async function l0<TOutput = unknown>(
             if (finalDrift.detected && retryAttempt < modelRetryLimit) {
               state.driftDetected = true;
               monitor?.recordDrift(true, finalDrift.types);
-              if (processedOnRetry) {
-                processedOnRetry(retryAttempt + 1, "Drift detected");
-              }
+              dispatcher.emit(EventType.RETRY_ATTEMPT, {
+                attempt: retryAttempt + 1,
+                maxAttempts: modelRetryLimit,
+                reason: "Drift detected",
+                delayMs: 0,
+              });
               monitor?.recordRetry(false);
               retryAttempt++;
               state.modelRetryCount++;
@@ -1048,7 +1058,14 @@ export async function l0<TOutput = unknown>(
 
           stateMachine.transition(RuntimeStates.COMPLETE);
 
-          // Call onComplete callback
+          // Emit COMPLETE event
+          dispatcher.emit(EventType.COMPLETE, {
+            tokenCount: state.tokenCount,
+            contentLength: state.content.length,
+            durationMs: state.duration ?? 0,
+          });
+
+          // Call onComplete callback directly (needs full L0State)
           if (processedOnComplete) {
             processedOnComplete(state);
           }
@@ -1175,11 +1192,20 @@ export async function l0<TOutput = unknown>(
             );
           }
 
-          // Call onError callback before retry/fallback decision is acted upon
+          // Emit ERROR event before retry/fallback decision is acted upon
+          const willRetry = decision.shouldRetry;
+          const willFallback =
+            !decision.shouldRetry && fallbackIndex < allStreams.length - 1;
+          dispatcher.emit(EventType.ERROR, {
+            error: err.message,
+            errorCode: (err as any).code,
+            recoverable: willRetry || willFallback,
+            willRetry,
+            willFallback,
+          });
+
+          // Call onError callback directly (needs full Error object)
           if (processedOnError) {
-            const willRetry = decision.shouldRetry;
-            const willFallback =
-              !decision.shouldRetry && fallbackIndex < allStreams.length - 1;
             processedOnError(err, willRetry, willFallback);
           }
 
@@ -1202,9 +1228,13 @@ export async function l0<TOutput = unknown>(
             // Record in monitoring
             monitor?.recordRetry(isNetError);
 
-            if (processedOnRetry) {
-              processedOnRetry(retryAttempt, decision.reason);
-            }
+            // Emit RETRY_ATTEMPT event
+            dispatcher.emit(EventType.RETRY_ATTEMPT, {
+              attempt: retryAttempt,
+              maxAttempts: modelRetryLimit,
+              reason: decision.reason,
+              delayMs: decision.delay ?? 0,
+            });
 
             // Record retry and wait
             await retryManager.recordRetry(categorized, decision);
@@ -1254,10 +1284,12 @@ export async function l0<TOutput = unknown>(
             toIndex: fallbackIndex,
           });
 
-          // Call onFallback callback
-          if (processedOnFallback) {
-            processedOnFallback(fallbackIndex - 1, fallbackMessage);
-          }
+          // Emit FALLBACK_START event
+          dispatcher.emit(EventType.FALLBACK_START, {
+            fromIndex: fallbackIndex - 1,
+            toIndex: fallbackIndex,
+            reason: fallbackMessage,
+          });
 
           // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
           if (processedContinueFromCheckpoint && state.checkpoint.length > 0) {
@@ -1300,10 +1332,11 @@ export async function l0<TOutput = unknown>(
               overlapBuffer = "";
               overlapResolved = false;
 
-              // Call onResume callback
-              if (processedOnResume) {
-                processedOnResume(checkpointForContinuation, state.tokenCount);
-              }
+              // Emit CHECKPOINT_RESTORED event (callback wrappers handle legacy onResume)
+              dispatcher.emit(EventType.CHECKPOINT_RESTORED, {
+                checkpoint: checkpointForContinuation,
+                tokenCount: state.tokenCount,
+              });
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for fallback)
               if (processedBuildContinuationPrompt) {
@@ -1387,13 +1420,19 @@ export async function l0<TOutput = unknown>(
     }
   };
 
+  // Create abort function that emits events
+  const abort = () => {
+    dispatcher.emit(EventType.ABORT_REQUESTED);
+    abortController.abort();
+  };
+
   // Create initial result
   let result: L0Result<TOutput> = {
     stream: streamGenerator(),
     state,
     errors,
     telemetry: monitor?.export(),
-    abort: () => abortController.abort(),
+    abort,
   };
 
   // Execute "after" interceptors
