@@ -64,9 +64,15 @@ export class EventDispatcher {
     for (const handler of [...this.handlers]) {
       queueMicrotask(() => {
         try {
-          handler(event);
+          const result = handler(event) as unknown;
+          // Handle async handlers that return promises
+          if (result && typeof result === "object" && "catch" in result) {
+            (result as Promise<void>).catch(() => {
+              // Silently ignore async handler errors - fire and forget
+            });
+          }
         } catch {
-          // Silently ignore handler errors - fire and forget
+          // Silently ignore sync handler errors - fire and forget
         }
       });
     }
@@ -91,9 +97,15 @@ export class EventDispatcher {
     // Snapshot handlers to avoid issues if handlers modify the list during dispatch
     for (const handler of [...this.handlers]) {
       try {
-        handler(event);
+        const result = handler(event) as unknown;
+        // Handle async handlers that return promises
+        if (result && typeof result === "object" && "catch" in result) {
+          (result as Promise<void>).catch(() => {
+            // Silently ignore async handler errors - fire and forget
+          });
+        }
       } catch {
-        // Silently ignore handler errors
+        // Silently ignore sync handler errors
       }
     }
   }

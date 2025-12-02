@@ -68,9 +68,9 @@ function getRandomBytes(length: number): Uint8Array {
  */
 function updateV7State(state: V7State, now: number, rnds: Uint8Array): void {
   if (now > state.msecs) {
-    // New millisecond - reset sequence from random
+    // New millisecond - reset sequence from random (use all 32 bits)
     state.seq =
-      (rnds[6]! << 23) | (rnds[7]! << 16) | (rnds[8]! << 8) | rnds[9]!;
+      (rnds[6]! << 24) | (rnds[7]! << 16) | (rnds[8]! << 8) | rnds[9]!;
     state.msecs = now;
   } else {
     // Same or earlier millisecond - increment sequence

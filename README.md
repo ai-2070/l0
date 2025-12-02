@@ -1115,23 +1115,30 @@ const result = await l0({
 ### Use Cases
 
 ```typescript
-// Logging and debugging
-onStart: (attempt, isRetry) => logger.info("stream.start", { attempt, isRetry }),
-onComplete: (state) => logger.info("stream.complete", { tokens: state.tokenCount }),
-onError: (err) => logger.error("stream.failed", { error: err.message }),
+const callbacks = {
+  // Logging and debugging
+  onStart: (attempt, isRetry) => logger.info("stream.start", { attempt, isRetry }),
+  onComplete: (state) => logger.info("stream.complete", { tokens: state.tokenCount }),
+  onError: (err) => logger.error("stream.failed", { error: err.message }),
 
-// Real-time UI updates
-onEvent: (event) => event.type === "token" && appendToChat(event.value),
-onRetry: () => showRetryingIndicator(),
-onFallback: () => showFallbackNotice(),
+  // Real-time UI updates
+  onRetry: () => showRetryingIndicator(),
+  onFallback: () => showFallbackNotice(),
 
-// Custom metrics collection
-onComplete: (state) => {
-  metrics.recordHistogram("duration", state.duration);
-  metrics.incrementCounter("tokens", state.tokenCount);
-},
-onViolation: (v) => metrics.incrementCounter("violations", { rule: v.rule }),
-onTimeout: (type) => metrics.incrementCounter("timeouts", { type }),
+  // Custom metrics collection
+  onViolation: (v) => metrics.incrementCounter("violations", { rule: v.rule }),
+  onTimeout: (type) => metrics.incrementCounter("timeouts", { type }),
+};
+
+// Use callbacks with l0
+const { stream } = await l0(source, { callbacks });
+
+// For real-time UI updates, use onEvent
+for await (const event of stream) {
+  if (event.type === "token") {
+    appendToChat(event.value);
+  }
+}
 ```
 
 See [API.md#lifecycle-callbacks](./API.md#lifecycle-callbacks) for complete callback type definitions.

@@ -13,7 +13,7 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
 
     // Exclude integration tests from unit test runs
-    exclude: ["node_modules/**", "integration/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/integration/**"],
 
     // Coverage configuration
     coverage: {

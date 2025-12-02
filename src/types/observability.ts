@@ -834,12 +834,19 @@ export type L0Event =
 export function serializeEvent(event: L0ObservabilityEvent): string {
   return JSON.stringify(event, (_key, value) => {
     if (value instanceof Error) {
-      return {
+      // Preserve all enumerable properties (code, cause, metadata, etc.)
+      const serialized: Record<string, unknown> = {
         __type: "Error",
-        name: value.name,
-        message: value.message,
-        stack: value.stack,
       };
+      // Copy all enumerable properties first
+      for (const key of Object.keys(value)) {
+        serialized[key] = (value as unknown as Record<string, unknown>)[key];
+      }
+      // Ensure standard Error properties are included (they're not enumerable)
+      serialized.name = value.name;
+      serialized.message = value.message;
+      serialized.stack = value.stack;
+      return serialized;
     }
     return value;
   });
