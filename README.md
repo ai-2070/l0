@@ -19,18 +19,15 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
 </p>
 
-**L0 adds deterministic execution, fallbacks, retries, network protection, guardrails, drift detection, and tool tracking to any LLM stream - turning raw model output into production-grade behavior. It works with OpenAI, Vercel AI SDK, Mastra AI, and custom adapters. Supports multimodal streams, tool calls, and full deterministic replay.**
+> LLMs produce high-value reasoning over a low-integrity transport layer.
+> Streams stall, drop tokens, reorder events, violate timing guarantees, and expose no deterministic contract.
+> 
+> This breaks retries. It breaks guardrails. It breaks supervision. It breaks reproducibility.
+> It makes reliable AI systems impossible to build on top of raw provider streams.
+> 
+> L0 is the reliability substrate that fixes the transport.
 
-> _LLMs are extraordinary minds wrapped in fragile interfaces._
-> _The reasoning is brilliant._
-> _The capability is vast._
-> _The potential is limitless._
->
-> _Yet the surface - the streaming layer -_
-> _can flicker, stall, or fracture without warning._
->
-> _L0 is the missing foundation._
-> _A reliability layer that stabilizes the interface so the model's intelligence can actually reach you._
+**L0 adds deterministic execution, fallbacks, retries, network protection, guardrails, drift detection, and tool tracking to any LLM stream** - turning raw model output into production-grade behavior. It works with **OpenAI**, **Vercel AI SDK**, **Mastra AI**, and **custom adapters**. Supports **multimodal streams**, tool calls, and **full deterministic replay**.
 
 ```bash
 npm install @ai2070/l0
