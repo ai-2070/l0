@@ -7,6 +7,7 @@ import {
   BaseEventStore,
   BaseEventStoreWithSnapshots,
   FileEventStore,
+  LocalStorageEventStore,
   CompositeEventStore,
   createCompositeStore,
   TTLEventStore,
@@ -629,6 +630,262 @@ describe("Storage Adapters", () => {
       const ttlStore = withTTL(baseStore, 5000);
 
       expect(ttlStore).toBeInstanceOf(TTLEventStore);
+    });
+  });
+
+  describe("LocalStorageEventStore", () => {
+    // Mock localStorage
+    let mockStorage: Map<string, string>;
+    let mockLocalStorage: {
+      getItem: (key: string) => string | null;
+      setItem: (key: string, value: string) => void;
+      removeItem: (key: string) => void;
+    };
+
+    beforeEach(() => {
+      mockStorage = new Map();
+      mockLocalStorage = {
+        getItem: (key: string) => mockStorage.get(key) ?? null,
+        setItem: (key: string, value: string) => mockStorage.set(key, value),
+        removeItem: (key: string) => mockStorage.delete(key),
+      };
+
+      // Mock globalThis.localStorage
+      (globalThis as any).localStorage = mockLocalStorage;
+    });
+
+    afterEach(() => {
+      delete (globalThis as any).localStorage;
+    });
+
+    it("should throw if localStorage is not available", () => {
+      delete (globalThis as any).localStorage;
+      expect(() => new LocalStorageEventStore()).toThrow(
+        "LocalStorage is not available",
+      );
+    });
+
+    it("should append events", async () => {
+      const store = new LocalStorageEventStore();
+      const event: L0RecordedEvent = {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      };
+
+      await store.append("stream1", event);
+
+      const events = await store.getEvents("stream1");
+      expect(events).toHaveLength(1);
+      expect(events[0]?.event.type).toBe("START");
+    });
+
+    it("should append multiple events with correct sequence", async () => {
+      const store = new LocalStorageEventStore();
+
+      await store.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+      await store.append("stream1", {
+        type: "TOKEN",
+        ts: Date.now(),
+        value: "hello",
+        index: 0,
+      });
+
+      const events = await store.getEvents("stream1");
+      expect(events).toHaveLength(2);
+      expect(events[0]?.seq).toBe(0);
+      expect(events[1]?.seq).toBe(1);
+    });
+
+    it("should return empty array for non-existent stream", async () => {
+      const store = new LocalStorageEventStore();
+      const events = await store.getEvents("nonexistent");
+      expect(events).toEqual([]);
+    });
+
+    it("should check stream existence", async () => {
+      const store = new LocalStorageEventStore();
+      expect(await store.exists("stream1")).toBe(false);
+
+      await store.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+
+      expect(await store.exists("stream1")).toBe(true);
+    });
+
+    it("should delete stream and snapshot", async () => {
+      const store = new LocalStorageEventStore();
+
+      await store.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+      await store.saveSnapshot({
+        streamId: "stream1",
+        seq: 0,
+        ts: Date.now(),
+        content: "test",
+        tokenCount: 1,
+        checkpoint: "",
+        violations: [],
+        driftDetected: false,
+        retryAttempts: 0,
+        networkRetryCount: 0,
+        fallbackIndex: 0,
+      });
+
+      await store.delete("stream1");
+
+      expect(await store.exists("stream1")).toBe(false);
+      expect(await store.getSnapshot("stream1")).toBeNull();
+    });
+
+    it("should list streams", async () => {
+      const store = new LocalStorageEventStore();
+
+      await store.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+      await store.append("stream2", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+
+      const streams = await store.listStreams();
+      expect(streams).toContain("stream1");
+      expect(streams).toContain("stream2");
+    });
+
+    it("should return empty list when no streams", async () => {
+      const store = new LocalStorageEventStore();
+      const streams = await store.listStreams();
+      expect(streams).toEqual([]);
+    });
+
+    it("should save and get snapshot", async () => {
+      const store = new LocalStorageEventStore();
+      const snapshot: L0Snapshot = {
+        streamId: "stream1",
+        seq: 5,
+        ts: Date.now(),
+        content: "test content",
+        tokenCount: 10,
+        checkpoint: "checkpoint1",
+        violations: [],
+        driftDetected: false,
+        retryAttempts: 0,
+        networkRetryCount: 0,
+        fallbackIndex: 0,
+      };
+
+      await store.saveSnapshot(snapshot);
+      const retrieved = await store.getSnapshot("stream1");
+
+      expect(retrieved).toEqual(snapshot);
+    });
+
+    it("should return null for non-existent snapshot", async () => {
+      const store = new LocalStorageEventStore();
+      const snapshot = await store.getSnapshot("nonexistent");
+      expect(snapshot).toBeNull();
+    });
+
+    it("should filter expired events when TTL is set", async () => {
+      const store = new LocalStorageEventStore({
+        type: "localStorage",
+        ttl: 1000,
+      });
+      const oldTs = Date.now() - 2000;
+      const newTs = Date.now();
+
+      // Manually set events with old timestamps
+      const key = "l0:stream:stream1";
+      mockStorage.set(
+        key,
+        JSON.stringify([
+          {
+            streamId: "stream1",
+            seq: 0,
+            event: { type: "START", ts: oldTs, options: {} },
+          },
+          {
+            streamId: "stream1",
+            seq: 1,
+            event: { type: "TOKEN", ts: newTs, value: "new", index: 0 },
+          },
+        ]),
+      );
+
+      const events = await store.getEvents("stream1");
+      expect(events).toHaveLength(1);
+      expect(events[0]?.event.type).toBe("TOKEN");
+    });
+
+    it("should not duplicate stream in list on multiple appends", async () => {
+      const store = new LocalStorageEventStore();
+
+      await store.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+      await store.append("stream1", {
+        type: "TOKEN",
+        ts: Date.now(),
+        value: "test",
+        index: 0,
+      });
+
+      const streams = await store.listStreams();
+      expect(streams.filter((s) => s === "stream1")).toHaveLength(1);
+    });
+
+    it("should use custom prefix", async () => {
+      const store = new LocalStorageEventStore({
+        type: "localStorage",
+        prefix: "custom",
+      });
+
+      await store.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+
+      // Check the key uses custom prefix
+      expect(mockStorage.has("custom:stream:stream1")).toBe(true);
+    });
+
+    it("should remove stream from list on delete", async () => {
+      const store = new LocalStorageEventStore();
+
+      await store.append("stream1", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+      await store.append("stream2", {
+        type: "START",
+        ts: Date.now(),
+        options: {},
+      });
+
+      await store.delete("stream1");
+
+      const streams = await store.listStreams();
+      expect(streams).not.toContain("stream1");
+      expect(streams).toContain("stream2");
     });
   });
 });
