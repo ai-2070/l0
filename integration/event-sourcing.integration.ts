@@ -349,7 +349,16 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         await recorder.recordToken("Partial", 0);
         await recorder.recordError(
           { name: "NetworkError", message: "Connection lost" },
-          true, // recoverable
+          "network",
+          "retry",
+          {
+            retryEnabled: true,
+            fallbackEnabled: false,
+            maxRetries: 3,
+            maxFallbacks: 0,
+            attempt: 1,
+            fallbackIndex: 0,
+          },
         );
 
         const events = await store.getEvents(streamId);
@@ -358,7 +367,8 @@ describeIf(hasOpenAI)("Event Sourcing Integration", () => {
         expect(errorEvent).toBeDefined();
         if (errorEvent && errorEvent.event.type === "ERROR") {
           expect(errorEvent.event.error.name).toBe("NetworkError");
-          expect(errorEvent.event.recoverable).toBe(true);
+          expect(errorEvent.event.failureType).toBe("network");
+          expect(errorEvent.event.recoveryStrategy).toBe("retry");
         }
       },
       LLM_TIMEOUT,
