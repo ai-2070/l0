@@ -312,12 +312,23 @@ describe("onEvent callback error handling", () => {
     };
 
     let errorCount = 0;
+    const streamingEventTypes = [
+      "token",
+      "message",
+      "data",
+      "progress",
+      "error",
+      "complete",
+    ];
     const result = await l0({
       stream: streamFn,
       retry: { attempts: 0 },
-      onEvent: () => {
-        errorCount++;
-        throw new Error(`Error #${errorCount}`);
+      onEvent: (event) => {
+        // Only count streaming events, not lifecycle events
+        if (streamingEventTypes.includes(event.type)) {
+          errorCount++;
+          throw new Error(`Error #${errorCount}`);
+        }
       },
     });
 
@@ -331,7 +342,7 @@ describe("onEvent callback error handling", () => {
     expect(events.some((e) => e.type === "message")).toBe(true);
     expect(events.some((e) => e.type === "data")).toBe(true);
     expect(events.some((e) => e.type === "complete")).toBe(true);
-    expect(errorCount).toBe(4); // Called for each event type
+    expect(errorCount).toBe(4); // Called for each streaming event type
   });
 });
 
@@ -345,12 +356,23 @@ describe("Deduplication buffer flush ordering", () => {
       yield { type: "complete", timestamp: Date.now() };
     };
 
+    const streamingEventTypes = [
+      "token",
+      "message",
+      "data",
+      "progress",
+      "error",
+      "complete",
+    ];
     const eventOrder: string[] = [];
     const result = await l0({
       stream: streamFn,
       retry: { attempts: 0 },
       onEvent: (event) => {
-        eventOrder.push(event.type);
+        // Only track streaming events, not lifecycle events
+        if (streamingEventTypes.includes(event.type)) {
+          eventOrder.push(event.type);
+        }
       },
     });
 
@@ -358,7 +380,7 @@ describe("Deduplication buffer flush ordering", () => {
       // Consume
     }
 
-    // Complete should be last
+    // Complete should be last among streaming events
     expect(eventOrder[eventOrder.length - 1]).toBe("complete");
 
     // All tokens should come before complete

@@ -817,7 +817,7 @@ Sentry.init({ dsn: "your-sentry-dsn" });
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  onObservabilityEvent: createSentryHandler({ sentry: Sentry }),
+  onEvent: createSentryHandler({ sentry: Sentry }),
 });
 ```
 
@@ -986,7 +986,7 @@ import { createOpenTelemetryHandler } from "@ai2070/l0/monitoring";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  onObservabilityEvent: createOpenTelemetryHandler({
+  onEvent: createOpenTelemetryHandler({
     tracer: trace.getTracer("my-app"),
     meter: metrics.getMeter("my-app"),
   }),
@@ -1140,7 +1140,7 @@ provider.register();
 // Use with L0
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  onObservabilityEvent: createOpenTelemetryHandler({
+  onEvent: createOpenTelemetryHandler({
     tracer: trace.getTracer("my-app"),
   }),
 });
@@ -1181,7 +1181,7 @@ async function handleRequest(req) {
     // L0 traces will be children of the extracted context
     const result = await l0({
       stream: () => streamText({ model, prompt }),
-      onObservabilityEvent: createOpenTelemetryHandler({
+      onEvent: createOpenTelemetryHandler({
         tracer: trace.getTracer("my-app"),
       }),
     });

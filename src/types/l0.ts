@@ -492,26 +492,23 @@ export interface L0Options<TOutput = unknown> {
   onError?: (error: Error, willRetry: boolean, willFallback: boolean) => void;
 
   /**
-   * Optional callback for each streaming event (token, message, data, etc.)
-   */
-  onEvent?: (event: L0Event) => void;
-
-  /**
-   * Optional callback for observability events (SESSION_START, COMPLETE, ERROR, etc.)
+   * Optional callback for all L0 events (streaming + lifecycle).
    *
-   * Use this to integrate with monitoring systems like Sentry or OpenTelemetry:
+   * Receives both streaming events (token, message, data, etc.) and
+   * lifecycle events (SESSION_START, COMPLETE, ERROR, etc.).
    *
    * @example
    * ```typescript
-   * import { createSentryHandler } from "@ai2070/l0";
+   * // Process tokens
+   * onEvent: (event) => {
+   *   if (event.type === "token") console.log(event.value);
+   * }
    *
-   * const result = await l0({
-   *   stream: () => streamText({ model, prompt }),
-   *   onObservabilityEvent: createSentryHandler({ sentry: Sentry }),
-   * });
+   * // Or use with monitoring handlers
+   * onEvent: createSentryHandler({ sentry: Sentry })
    * ```
    */
-  onObservabilityEvent?: (event: L0ObservabilityEvent) => void;
+  onEvent?: (event: L0Event | L0ObservabilityEvent) => void;
 
   /**
    * Optional callback for guardrail violations
