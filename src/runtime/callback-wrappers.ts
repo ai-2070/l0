@@ -13,15 +13,10 @@ import type {
   SessionStartEvent,
   ErrorEvent,
   GuardrailRuleResultEvent,
-  GuardrailPhaseEndEvent,
   RetryAttemptEvent,
-  RetryStartEvent,
-  RetryEndEvent,
   FallbackStartEvent,
   ResumeStartEvent,
   CheckpointSavedEvent,
-  DriftCheckStartEvent,
-  DriftCheckEndEvent,
   DriftCheckResultEvent,
   TimeoutTriggeredEvent,
   AbortCompletedEvent,
@@ -151,131 +146,6 @@ export function registerCallbackWrappers(
         if (e.detected) {
           callback(e.types, e.score);
         }
-      }
-    });
-  }
-}
-
-/**
- * Type for extended callback options that include new observability callbacks
- */
-export interface ObservabilityCallbacks {
-  /** Called for every observability event */
-  onObservabilityEvent?: (event: L0ObservabilityEvent) => void;
-
-  /** Called when guardrail evaluation starts */
-  onGuardrailStart?: (event: GuardrailPhaseEndEvent) => void;
-
-  /** Called for each guardrail rule result */
-  onGuardrail?: (event: GuardrailRuleResultEvent) => void;
-
-  /** Called when all guardrail rules complete */
-  onGuardrailEnd?: (event: GuardrailPhaseEndEvent) => void;
-
-  /** Called when drift check starts */
-  onDriftCheckStart?: (event: DriftCheckStartEvent) => void;
-
-  /** Called when drift check ends */
-  onDriftCheckEnd?: (event: DriftCheckEndEvent) => void;
-
-  /** Called when a checkpoint is saved */
-  onCheckpoint?: (event: CheckpointSavedEvent) => void;
-
-  /** Called when retry phase starts */
-  onRetryStart?: (event: RetryStartEvent) => void;
-
-  /** Called when retry phase ends */
-  onRetryEnd?: (event: RetryEndEvent) => void;
-
-  /** Called when fallback starts */
-  onFallbackStart?: (event: FallbackStartEvent) => void;
-}
-
-/**
- * Register extended observability callbacks
- */
-export function registerObservabilityCallbacks(
-  dispatcher: EventDispatcher,
-  callbacks: ObservabilityCallbacks,
-): void {
-  // Main event handler
-  if (callbacks.onObservabilityEvent) {
-    dispatcher.onEvent(callbacks.onObservabilityEvent);
-  }
-
-  // Guardrail callbacks
-  if (callbacks.onGuardrail) {
-    const callback = callbacks.onGuardrail;
-    dispatcher.onEvent((event: L0ObservabilityEvent) => {
-      if (event.type === EventType.GUARDRAIL_RULE_RESULT) {
-        callback(event as GuardrailRuleResultEvent);
-      }
-    });
-  }
-
-  if (callbacks.onGuardrailEnd) {
-    const callback = callbacks.onGuardrailEnd;
-    dispatcher.onEvent((event: L0ObservabilityEvent) => {
-      if (event.type === EventType.GUARDRAIL_PHASE_END) {
-        callback(event as GuardrailPhaseEndEvent);
-      }
-    });
-  }
-
-  // Drift callbacks
-  if (callbacks.onDriftCheckStart) {
-    const callback = callbacks.onDriftCheckStart;
-    dispatcher.onEvent((event: L0ObservabilityEvent) => {
-      if (event.type === EventType.DRIFT_CHECK_START) {
-        callback(event as DriftCheckStartEvent);
-      }
-    });
-  }
-
-  if (callbacks.onDriftCheckEnd) {
-    const callback = callbacks.onDriftCheckEnd;
-    dispatcher.onEvent((event: L0ObservabilityEvent) => {
-      if (event.type === EventType.DRIFT_CHECK_END) {
-        callback(event as DriftCheckEndEvent);
-      }
-    });
-  }
-
-  // Checkpoint callback
-  if (callbacks.onCheckpoint) {
-    const callback = callbacks.onCheckpoint;
-    dispatcher.onEvent((event: L0ObservabilityEvent) => {
-      if (event.type === EventType.CHECKPOINT_SAVED) {
-        callback(event as CheckpointSavedEvent);
-      }
-    });
-  }
-
-  // Retry callbacks
-  if (callbacks.onRetryStart) {
-    const callback = callbacks.onRetryStart;
-    dispatcher.onEvent((event: L0ObservabilityEvent) => {
-      if (event.type === EventType.RETRY_START) {
-        callback(event as RetryStartEvent);
-      }
-    });
-  }
-
-  if (callbacks.onRetryEnd) {
-    const callback = callbacks.onRetryEnd;
-    dispatcher.onEvent((event: L0ObservabilityEvent) => {
-      if (event.type === EventType.RETRY_END) {
-        callback(event as RetryEndEvent);
-      }
-    });
-  }
-
-  // Fallback callback
-  if (callbacks.onFallbackStart) {
-    const callback = callbacks.onFallbackStart;
-    dispatcher.onEvent((event: L0ObservabilityEvent) => {
-      if (event.type === EventType.FALLBACK_START) {
-        callback(event as FallbackStartEvent);
       }
     });
   }

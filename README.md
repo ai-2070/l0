@@ -1011,157 +1011,118 @@ L0 provides callbacks for every phase of stream execution, giving you full obser
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
+  fallbackStreams: [() => streamText({ model: fallbackModel, prompt })],
+  guardrails: recommendedGuardrails,
+  continueFromLastKnownGoodToken: true,
+  retry: { attempts: 3 },
 
-  monitoring: {
-    // Called when streaming begins
-    onStart: (context) => {
-      console.log("Stream started:", context.streamId);
-      console.log("Attempt:", context.attempt);
-    },
+  // Called when a new execution attempt begins
+  onStart: (attempt, isRetry, isFallback) => {
+    console.log(`Starting attempt ${attempt}`);
+    if (isRetry) console.log("  (retry)");
+    if (isFallback) console.log("  (fallback model)");
+  },
 
-    // Called for every token received
-    onToken: (token, context) => {
-      process.stdout.write(token);
-      // context includes: tokenIndex, timestamp, checkpoint
-    },
+  // Called when stream completes successfully
+  onComplete: (state) => {
+    console.log(`Completed with ${state.tokenCount} tokens`);
+    console.log(`Duration: ${state.duration}ms`);
+  },
 
-    // Called for every L0 event (token, error, complete, etc.)
-    onEvent: (event) => {
-      if (event.type === "progress") {
-        console.log("Progress:", event.progress?.percent);
-      }
-    },
+  // Called when an error occurs (before retry/fallback decision)
+  onError: (error, willRetry, willFallback) => {
+    console.error(`Error: ${error.message}`);
+    if (willRetry) console.log("  Will retry...");
+    if (willFallback) console.log("  Will try fallback...");
+  },
 
-    // Called once per guardrail rule evaluation
-    onGuardrail: (index, ruleId, result, rule) => {
-      console.log(`Rule ${index}: ${ruleId} ${result.passed ? "passed" : "failed"}`);
-      // result includes: passed, violations, durationMs
-      // rule is the guardrail callback itself (for inspection)
-    },
+  // Called for every L0 event
+  onEvent: (event) => {
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
+    }
+  },
 
-    // Called after all guardrails complete for this step
-    onGuardrailEnd: (index, summary) => {
-      console.log(`Guardrails batch ${index}: ${summary.passed}/${summary.total} passed`);
-      // summary includes: total, passed, failed, violations[], durationMs, rules[]
-    },
+  // Called when a guardrail violation is detected
+  onViolation: (violation) => {
+    console.warn(`Violation: ${violation.rule}`);
+    console.warn(`  ${violation.message}`);
+  },
 
-    // Called when a guardrail violation is detected
-    onViolation: (violation) => {
-      console.warn("Violation:", violation.rule, violation.message);
-      // violation.fatal indicates if stream will be aborted
-    },
+  // Called when a retry is triggered
+  onRetry: (attempt, reason) => {
+    console.log(`Retrying (attempt ${attempt}): ${reason}`);
+  },
 
-    // Called before drift detection starts
-    onDriftCheckStart: (context) => {
-      console.log("Checking drift at window:", context.windowStart);
-      // context includes: checkpoint, tokenCount, strategy
-    },
+  // Called when switching to a fallback model
+  onFallback: (index, reason) => {
+    console.log(`Switching to fallback ${index}: ${reason}`);
+  },
 
-    // Called after drift detection completes
-    onDriftCheckEnd: (result, context) => {
-      console.log("Drift:", result.detected, "score:", result.score);
-      // result includes: detected, score, metrics, threshold, durationMs
-    },
+  // Called when resuming from checkpoint
+  onResume: (checkpoint, tokenCount) => {
+    console.log(`Resuming from checkpoint (${tokenCount} tokens)`);
+  },
 
-    // Called when a checkpoint is created (for replay/resumability)
-    onCheckpoint: (checkpoint, stateHash) => {
-      console.log(`Checkpoint created: ${stateHash}`);
-      // checkpoint is replayable, stateHash enables deduplication
-    },
+  // Called when a checkpoint is saved
+  onCheckpoint: (checkpoint, tokenCount) => {
+    console.log(`Checkpoint saved (${tokenCount} tokens)`);
+  },
 
-    // Called before retry attempt starts
-    onRetryStart: (attempt, error, context) => {
-      console.log(`Retry ${attempt} starting...`);
-      // context includes: cause, previousAttempts, model
-    },
+  // Called when a timeout occurs
+  onTimeout: (type, elapsedMs) => {
+    console.log(`Timeout: ${type} after ${elapsedMs}ms`);
+  },
 
-    // Called after retry attempt completes
-    onRetryEnd: (attempt, success, context) => {
-      console.log(`Retry ${attempt}: ${success ? "solved" : "failed"}`);
-      // context includes: durationMs, modelSwitched, errorResolved
-    },
+  // Called when the stream is aborted
+  onAbort: (tokenCount, contentLength) => {
+    console.log(`Aborted after ${tokenCount} tokens (${contentLength} chars)`);
+  },
 
-    // Called before switching to fallback model
-    onFallbackStart: (from, to, reason) => {
-      console.log(`Fallback: model ${from} → ${to}`);
-      // reason includes: error, triggeredBy (guardrail|drift|timeout)
-    },
-
-    // Called after fallback model is selected
-    onFallback: (index, error, context) => {
-      console.log(`Now using fallback model ${index}`);
-      // context includes: previousModel, fallbackLevel, checkpoint
-    },
-
-    // Called when resuming from checkpoint
-    onResume: (checkpoint, tokenCount) => {
-      console.log(`Resuming from ${tokenCount} tokens`);
-      // checkpoint contains the content to resume from
-    },
-
-    // Called when stream completes successfully
-    onComplete: (content, context) => {
-      console.log("Completed:", content.length, "chars");
-      console.log("Tokens:", context.tokenCount);
-      console.log("Duration:", context.duration, "ms");
-    },
-
-    // Called when stream fails after all retries
-    onError: (error, context) => {
-      console.error("Failed:", error.code);
-      console.log("Checkpoint:", context.checkpoint);
-      // context includes: attempts, lastError, partial content
-    },
+  // Called when drift is detected
+  onDrift: (types, score) => {
+    console.log(`Drift detected: ${types.join(", ")} (score: ${score})`);
   },
 });
 ```
 
 ### Callback Reference
 
-| Callback            | When Called                              | Parameters                                                        |
-| ------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| `onStart`           | Stream begins (including retries)        | `(context: StartContext)`                                         |
-| `onToken`           | Each token received                      | `(token: string, context: TokenContext)`                          |
-| `onEvent`           | Every L0 event (token, progress, data)   | `(event: L0Event)`                                                |
-| `onGuardrail`       | Each guardrail rule evaluated            | `(index: number, ruleId: string, result: GuardrailResult, rule: GuardrailRule)` |
-| `onGuardrailEnd`    | All guardrails complete for step         | `(index: number, summary: { total, passed, failed, violations[], durationMs, rules[] })` |
-| `onViolation`       | Guardrail violation detected             | `(violation: Violation)`                                          |
-| `onDriftCheckStart` | Before drift detection                   | `(context: { checkpoint, tokenCount, strategy })`                 |
-| `onDriftCheckEnd`   | After drift detection                    | `(result: { detected, score, metrics, durationMs }, context)`     |
-| `onCheckpoint`      | Checkpoint created                       | `(checkpoint: string, stateHash: string)`                         |
-| `onRetryStart`      | Before retry attempt starts              | `(attempt: number, error: L0Error, context)`                      |
-| `onRetryEnd`        | After retry attempt completes            | `(attempt: number, success: boolean, context)`                    |
-| `onFallbackStart`   | Before switching to fallback             | `(from: number, to: number, reason: L0Error)`                     |
-| `onFallback`        | After fallback model selected            | `(index: number, error: L0Error, context)`                        |
-| `onResume`          | Continuing from checkpoint               | `(checkpoint: string, tokenCount: number)`                        |
-| `onComplete`        | Stream finished successfully             | `(content: string, context: CompleteContext)`                     |
-| `onError`           | Stream failed after all retries/fallback | `(error: L0Error, context: ErrorContext)`                         |
+| Callback       | When Called                            | Signature                                                          |
+| -------------- | -------------------------------------- | ------------------------------------------------------------------ |
+| `onStart`      | New execution attempt begins           | `(attempt: number, isRetry: boolean, isFallback: boolean) => void` |
+| `onComplete`   | Stream finished successfully           | `(state: L0State) => void`                                         |
+| `onError`      | Error occurred (before retry decision) | `(error: Error, willRetry: boolean, willFallback: boolean) => void`|
+| `onEvent`      | Any streaming event emitted            | `(event: L0Event) => void`                                         |
+| `onViolation`  | Guardrail violation detected           | `(violation: GuardrailViolation) => void`                          |
+| `onRetry`      | Retry triggered (same model)           | `(attempt: number, reason: string) => void`                        |
+| `onFallback`   | Switching to fallback model            | `(index: number, reason: string) => void`                          |
+| `onResume`     | Continuing from checkpoint             | `(checkpoint: string, tokenCount: number) => void`                 |
+| `onCheckpoint` | Checkpoint saved                       | `(checkpoint: string, tokenCount: number) => void`                 |
+| `onTimeout`    | Timeout occurred                       | `(type: "initial" \| "inter", elapsedMs: number) => void`          |
+| `onAbort`      | Stream aborted                         | `(tokenCount: number, contentLength: number) => void`              |
+| `onDrift`      | Drift detected                         | `(types: string[], score?: number) => void`                        |
 
 ### Use Cases
 
 ```typescript
 // Logging and debugging
-monitoring: {
-  onStart: (ctx) => logger.info("stream.start", { id: ctx.streamId }),
-  onComplete: (_, ctx) => logger.info("stream.complete", { tokens: ctx.tokenCount }),
-  onError: (err, ctx) => logger.error("stream.failed", { error: err.code }),
-}
+onStart: (attempt, isRetry) => logger.info("stream.start", { attempt, isRetry }),
+onComplete: (state) => logger.info("stream.complete", { tokens: state.tokenCount }),
+onError: (err) => logger.error("stream.failed", { error: err.message }),
 
 // Real-time UI updates
-monitoring: {
-  onToken: (token) => appendToChat(token),
-  onRetry: () => showRetryingIndicator(),
-  onFallback: () => showFallbackNotice(),
-}
+onEvent: (event) => event.type === "token" && appendToChat(event.value),
+onRetry: () => showRetryingIndicator(),
+onFallback: () => showFallbackNotice(),
 
 // Custom metrics collection
-monitoring: {
-  onComplete: (_, ctx) => {
-    metrics.recordHistogram("ttft", ctx.timeToFirstToken);
-    metrics.incrementCounter("tokens", ctx.tokenCount);
-  },
-  onViolation: (v) => metrics.incrementCounter("violations", { rule: v.rule }),
-}
+onComplete: (state) => {
+  metrics.recordHistogram("duration", state.duration);
+  metrics.incrementCounter("tokens", state.tokenCount);
+},
+onViolation: (v) => metrics.incrementCounter("violations", { rule: v.rule }),
+onTimeout: (type) => metrics.incrementCounter("timeouts", { type }),
 ```
 
 See [API.md#lifecycle-callbacks](./API.md#lifecycle-callbacks) for complete callback type definitions.
@@ -1254,9 +1215,7 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Checkpoint Events
 
 ```typescript
-{ type: "CHECKPOINT_START", ts, tokenCount }
-{ type: "CHECKPOINT_END", ts, stateHash, durationMs }
-{ type: "CHECKPOINT_SAVED", ts, stateHash }
+{ type: "CHECKPOINT_SAVED", ts, checkpoint, tokenCount }
 ```
 
 ### Resume Events
@@ -1349,7 +1308,7 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 | Phase       | Events                                                    | Purpose                           |
 | ----------- | --------------------------------------------------------- | --------------------------------- |
 | Session     | `SESSION_START` → `STREAM_INIT` → `STREAM_READY`          | Stream initialization             |
-| Adapter     | `ADAPTER_DETECTED` → `WRAP_START` → `WRAP_END`            | Provider detection, transforms    |
+| Adapter     | `ADAPTER_DETECTED` → `ADAPTER_WRAP_START` → `ADAPTER_WRAP_END` | Provider detection, transforms    |
 | Timeout     | `TIMEOUT_START` → `TIMEOUT_RESET` / `TIMEOUT_TRIGGERED`   | Timer lifecycle                   |
 | Network     | `NETWORK_ERROR` → `NETWORK_RECOVERY` / `CONNECTION_*`     | Connection lifecycle              |
 | Abort       | `ABORT_REQUESTED` → `ABORT_COMPLETED`                     | Cancellation lifecycle            |

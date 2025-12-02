@@ -95,6 +95,10 @@ const result = await l0({
   onRetry: (attempt, reason) => {},
   onFallback: (index, reason) => {},
   onResume: (checkpoint, tokenCount) => {},
+  onCheckpoint: (checkpoint, tokenCount) => {},
+  onTimeout: (type, elapsedMs) => {},
+  onAbort: (tokenCount, contentLength) => {},
+  onDrift: (types, score) => {},
 });
 
 // Consume stream
@@ -210,16 +214,20 @@ L0 provides a complete set of lifecycle callbacks for monitoring and responding 
 
 ### Callback Reference
 
-| Callback      | Signature                                                           | When Called                            |
-| ------------- | ------------------------------------------------------------------- | -------------------------------------- |
-| `onStart`     | `(attempt: number, isRetry: boolean, isFallback: boolean) => void`  | New execution attempt begins           |
-| `onComplete`  | `(state: L0State) => void`                                          | Stream finished successfully           |
-| `onError`     | `(error: Error, willRetry: boolean, willFallback: boolean) => void` | Error occurred (before retry decision) |
-| `onEvent`     | `(event: L0Event) => void`                                          | Any streaming event emitted            |
-| `onViolation` | `(violation: GuardrailViolation) => void`                           | Guardrail violation detected           |
-| `onRetry`     | `(attempt: number, reason: string) => void`                         | Retry triggered (same model)           |
-| `onFallback`  | `(index: number, reason: string) => void`                           | Switching to fallback model            |
-| `onResume`    | `(checkpoint: string, tokenCount: number) => void`                  | Continuing from checkpoint             |
+| Callback       | Signature                                                           | When Called                            |
+| -------------- | ------------------------------------------------------------------- | -------------------------------------- |
+| `onStart`      | `(attempt: number, isRetry: boolean, isFallback: boolean) => void`  | New execution attempt begins           |
+| `onComplete`   | `(state: L0State) => void`                                          | Stream finished successfully           |
+| `onError`      | `(error: Error, willRetry: boolean, willFallback: boolean) => void` | Error occurred (before retry decision) |
+| `onEvent`      | `(event: L0Event) => void`                                          | Any streaming event emitted            |
+| `onViolation`  | `(violation: GuardrailViolation) => void`                           | Guardrail violation detected           |
+| `onRetry`      | `(attempt: number, reason: string) => void`                         | Retry triggered (same model)           |
+| `onFallback`   | `(index: number, reason: string) => void`                           | Switching to fallback model            |
+| `onResume`     | `(checkpoint: string, tokenCount: number) => void`                  | Continuing from checkpoint             |
+| `onCheckpoint` | `(checkpoint: string, tokenCount: number) => void`                  | Checkpoint saved                       |
+| `onTimeout`    | `(type: "initial" \| "inter", elapsedMs: number) => void`           | Timeout occurred                       |
+| `onAbort`      | `(tokenCount: number, contentLength: number) => void`               | Stream aborted                         |
+| `onDrift`      | `(types: string[], score?: number) => void`                         | Drift detected                         |
 
 ### Usage Example
 
@@ -269,6 +277,22 @@ const result = await l0({
 
   onResume: (checkpoint, tokenCount) => {
     console.log(`Resuming from checkpoint (${tokenCount} tokens)`);
+  },
+
+  onCheckpoint: (checkpoint, tokenCount) => {
+    console.log(`Checkpoint saved (${tokenCount} tokens)`);
+  },
+
+  onTimeout: (type, elapsedMs) => {
+    console.log(`Timeout: ${type} after ${elapsedMs}ms`);
+  },
+
+  onAbort: (tokenCount, contentLength) => {
+    console.log(`Aborted after ${tokenCount} tokens (${contentLength} chars)`);
+  },
+
+  onDrift: (types, score) => {
+    console.log(`Drift detected: ${types.join(", ")} (score: ${score})`);
   },
 });
 ```
@@ -357,6 +381,50 @@ onResume: (checkpoint: string, tokenCount: number) => void
 
 - `checkpoint`: The checkpoint content being resumed from
 - `tokenCount`: Number of tokens in the checkpoint
+
+#### onCheckpoint
+
+Called when a checkpoint is saved (content has passed guardrails and can be safely resumed from).
+
+```typescript
+onCheckpoint: (checkpoint: string, tokenCount: number) => void
+```
+
+- `checkpoint`: The checkpoint content
+- `tokenCount`: Number of tokens in the checkpoint
+
+#### onTimeout
+
+Called when a timeout occurs (initial token or inter-token).
+
+```typescript
+onTimeout: (type: "initial" | "inter", elapsedMs: number) => void
+```
+
+- `type`: The timeout type - "initial" for first token timeout, "inter" for inter-token timeout
+- `elapsedMs`: Time elapsed before timeout triggered
+
+#### onAbort
+
+Called when the stream is aborted (user abort or external signal).
+
+```typescript
+onAbort: (tokenCount: number, contentLength: number) => void
+```
+
+- `tokenCount`: Number of tokens received before abort
+- `contentLength`: Length of content received before abort
+
+#### onDrift
+
+Called when drift is detected in the generated content.
+
+```typescript
+onDrift: (types: string[], score?: number) => void
+```
+
+- `types`: Array of drift types detected (e.g., "repetition", "topic_shift")
+- `score`: Optional drift confidence score
 
 ---
 

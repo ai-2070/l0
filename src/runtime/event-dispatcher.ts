@@ -60,7 +60,8 @@ export class EventDispatcher {
     };
 
     // Fire handlers asynchronously via microtasks
-    for (const handler of this.handlers) {
+    // Snapshot handlers to avoid issues if handlers modify the list during dispatch
+    for (const handler of [...this.handlers]) {
       queueMicrotask(() => {
         try {
           handler(event);
@@ -87,7 +88,8 @@ export class EventDispatcher {
       ...payload,
     };
 
-    for (const handler of this.handlers) {
+    // Snapshot handlers to avoid issues if handlers modify the list during dispatch
+    for (const handler of [...this.handlers]) {
       try {
         handler(event);
       } catch {

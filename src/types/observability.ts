@@ -98,8 +98,6 @@ export const DriftEvents = {
 
 /** Checkpoint events */
 export const CheckpointEvents = {
-  CHECKPOINT_START: "CHECKPOINT_START",
-  CHECKPOINT_END: "CHECKPOINT_END",
   CHECKPOINT_SAVED: "CHECKPOINT_SAVED",
 } as const;
 
@@ -471,23 +469,10 @@ export interface DriftCheckSkippedEvent extends L0ObservabilityEvent {
 // Checkpoint Events
 // ============================================================================
 
-export interface CheckpointStartEvent extends L0ObservabilityEvent {
-  type: "CHECKPOINT_START";
-  tokenCount: number;
-}
-
-export interface CheckpointEndEvent extends L0ObservabilityEvent {
-  type: "CHECKPOINT_END";
-  stateHash?: string;
-  durationMs: number;
-}
-
 export interface CheckpointSavedEvent extends L0ObservabilityEvent {
   type: "CHECKPOINT_SAVED";
   checkpoint: string;
-  stateHash?: string;
   tokenCount: number;
-  contentLength: number;
 }
 
 // ============================================================================
@@ -751,8 +736,6 @@ export type L0Event =
   | DriftCheckEndEvent
   | DriftCheckSkippedEvent
   // Checkpoint
-  | CheckpointStartEvent
-  | CheckpointEndEvent
   | CheckpointSavedEvent
   // Resume
   | ResumeStartEvent

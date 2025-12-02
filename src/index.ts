@@ -220,8 +220,6 @@ export type {
   DriftCheckEndEvent,
   DriftCheckSkippedEvent,
   // Checkpoint events
-  CheckpointStartEvent,
-  CheckpointEndEvent,
   CheckpointSavedEvent,
   // Resume events
   ResumeStartEvent,

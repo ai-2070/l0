@@ -239,7 +239,79 @@ async function resumeCallbacks() {
 }
 
 // -----------------------------------------------------------------------------
-// Example 6: Complete Callback Suite (All Callbacks)
+// Example 6: Checkpoint, Timeout, Abort, and Drift Callbacks
+// -----------------------------------------------------------------------------
+async function advancedCallbacks() {
+  console.log(
+    "\n=== Advanced Callbacks (Checkpoint, Timeout, Abort, Drift) ===\n",
+  );
+
+  const abortController = new AbortController();
+
+  const result = await l0({
+    stream: () =>
+      streamText({
+        model,
+        prompt:
+          "Write a detailed explanation of how async/await works in JavaScript.",
+      }),
+
+    continueFromLastKnownGoodToken: true,
+    checkIntervals: { checkpoint: 5 },
+    detectDrift: true,
+    timeout: {
+      initialToken: 10000,
+      interToken: 5000,
+    },
+    signal: abortController.signal,
+
+    onStart: (attempt) => {
+      console.log(`[onStart] Attempt ${attempt}`);
+    },
+
+    // Called when a checkpoint is saved
+    onCheckpoint: (checkpoint, tokenCount) => {
+      console.log(`[onCheckpoint] Saved at ${tokenCount} tokens`);
+      console.log(`  Preview: "${checkpoint.slice(-30)}..."`);
+    },
+
+    // Called when a timeout occurs
+    onTimeout: (type, elapsedMs) => {
+      console.log(`[onTimeout] ${type} timeout after ${elapsedMs}ms`);
+    },
+
+    // Called when the stream is aborted
+    onAbort: (tokenCount, contentLength) => {
+      console.log(
+        `[onAbort] Aborted after ${tokenCount} tokens (${contentLength} chars)`,
+      );
+    },
+
+    // Called when drift is detected
+    onDrift: (types, score) => {
+      console.log(`[onDrift] Detected: ${types.join(", ")} (score: ${score})`);
+    },
+
+    onComplete: (state) => {
+      console.log(`[onComplete] Finished with ${state.tokenCount} tokens`);
+    },
+
+    onEvent: (event) => {
+      if (event.type === "token") {
+        process.stdout.write(event.value || "");
+      }
+    },
+  });
+
+  for await (const event of result.stream) {
+    // Events handled by onEvent
+  }
+
+  console.log("\n");
+}
+
+// -----------------------------------------------------------------------------
+// Example 7: Complete Callback Suite (All Callbacks)
 // -----------------------------------------------------------------------------
 async function allCallbacks() {
   console.log("\n=== Complete Callback Suite ===\n");
@@ -254,7 +326,12 @@ async function allCallbacks() {
     guardrails: recommendedGuardrails,
     continueFromLastKnownGoodToken: true,
     checkIntervals: { checkpoint: 8 },
+    detectDrift: true,
     retry: { attempts: 2 },
+    timeout: {
+      initialToken: 10000,
+      interToken: 5000,
+    },
 
     // All lifecycle callbacks
     onStart: (attempt, isRetry, isFallback) => {
@@ -294,6 +371,24 @@ async function allCallbacks() {
     onResume: (checkpoint, tokenCount) => {
       console.log(`[RESUME] From ${tokenCount} tokens`);
     },
+
+    onCheckpoint: (checkpoint, tokenCount) => {
+      console.log(`[CHECKPOINT] Saved at ${tokenCount} tokens`);
+    },
+
+    onTimeout: (type, elapsedMs) => {
+      console.log(`[TIMEOUT] ${type} after ${elapsedMs}ms`);
+    },
+
+    onAbort: (tokenCount, contentLength) => {
+      console.log(
+        `[ABORT] After ${tokenCount} tokens (${contentLength} chars)`,
+      );
+    },
+
+    onDrift: (types, score) => {
+      console.log(`[DRIFT] ${types.join(", ")} (score: ${score})`);
+    },
   });
 
   for await (const event of result.stream) {
@@ -313,6 +408,7 @@ async function main() {
     await fallbackCallbacks();
     await violationCallbacks();
     await resumeCallbacks();
+    await advancedCallbacks();
     await allCallbacks();
 
     console.log("=== All examples completed ===");

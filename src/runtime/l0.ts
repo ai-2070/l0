@@ -735,7 +735,6 @@ export async function l0<TOutput = unknown>(
                 dispatcher.emit(EventType.CHECKPOINT_SAVED, {
                   checkpoint: state.checkpoint,
                   tokenCount: state.tokenCount,
-                  contentLength: state.content.length,
                 });
               }
 
@@ -1159,7 +1158,6 @@ export async function l0<TOutput = unknown>(
               dispatcher.emit(EventType.CHECKPOINT_SAVED, {
                 checkpoint: state.checkpoint,
                 tokenCount: state.tokenCount,
-                contentLength: state.content.length,
               });
             }
           }
