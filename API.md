@@ -2459,15 +2459,15 @@ L0 provides subpath exports for reduced bundle sizes. Most applications should u
 
 | Import                  | Size  | Gzipped | Description                                      |
 | ----------------------- | ----- | ------- | ------------------------------------------------ |
-| `@ai2070/l0` (full)     | 181KB | 52KB    | Everything                                       |
-| `@ai2070/l0/core`       | 52KB  | 15KB    | Runtime + retry + errors                         |
-| `@ai2070/l0/structured` | 43KB  | 12KB    | Structured output                                |
-| `@ai2070/l0/consensus`  | 54KB  | 16KB    | Multi-model consensus                            |
-| `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations                         |
-| `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking                                |
-| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules                                 |
-| `@ai2070/l0/monitoring` | 33KB  | 9KB     | OTel/Sentry                                      |
-| `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection                                  |
+| `@ai2070/l0` (full)     | 187KB | 55KB    | Everything                                       |
+| `@ai2070/l0/core`       | 68KB  | 20KB    | Runtime + retry + errors                         |
+| `@ai2070/l0/structured` | 59KB  | 18KB    | Structured output                                |
+| `@ai2070/l0/consensus`  | 70KB  | 21KB    | Multi-model consensus                            |
+| `@ai2070/l0/parallel`   | 56KB  | 17KB    | Parallel/race operations                         |
+| `@ai2070/l0/window`     | 60KB  | 18KB    | Document chunking                                |
+| `@ai2070/l0/guardrails` | 17KB  | 5KB     | Validation rules                                 |
+| `@ai2070/l0/monitoring` | 23KB  | 6KB     | OTel/Sentry                                      |
+| `@ai2070/l0/drift`      | 4KB   | 2KB     | Drift detection                                  |
 | `@ai2070/l0/openai`     | —     | —       | OpenAI SDK adapter                               |
 | `@ai2070/l0/mastra`     | —     | —       | Mastra adapter                                   |
 | `@ai2070/l0/anthropic`  | —     | —       | Anthropic SDK adapter (reference implementation) |
