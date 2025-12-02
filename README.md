@@ -1212,6 +1212,19 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 { type: "ABORT_COMPLETED", ts, resourcesFreed }
 ```
 
+### Tool Events
+
+```typescript
+// Model requests tool execution
+{ type: "TOOL_REQUESTED", ts, toolName, arguments, toolCallId, meta? }
+
+// L1 executes the tool
+{ type: "TOOL_START", ts, toolCallId, toolName }
+{ type: "TOOL_RESULT", ts, toolCallId, result, durationMs, meta? }
+{ type: "TOOL_ERROR", ts, toolCallId, error, durationMs, meta? }
+{ type: "TOOL_COMPLETED", ts, toolCallId, status }  // status: success|error
+```
+
 ### Guardrail Events
 
 ```typescript
@@ -1334,6 +1347,7 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 | Timeout     | `TIMEOUT_START` → `TIMEOUT_RESET` / `TIMEOUT_TRIGGERED`   | Timer lifecycle                   |
 | Network     | `NETWORK_ERROR` → `NETWORK_RECOVERY` / `CONNECTION_*`     | Connection lifecycle              |
 | Abort       | `ABORT_REQUESTED` → `ABORT_COMPLETED`                     | Cancellation lifecycle            |
+| Tool        | `TOOL_REQUESTED` → `TOOL_START` → `TOOL_RESULT/ERROR` → `TOOL_COMPLETED` | Tool execution lifecycle |
 | Guardrail   | `PHASE_START` → `RULE_START` → `RULE_RESULT` → `RULE_END` → `PHASE_END` | Per-rule timing, callbacks |
 | Drift       | `CHECK_START` → `CHECK_RESULT` → `CHECK_END`              | Drift analysis lifecycle          |
 | Checkpoint  | `START` → `END` → `SAVED` / `RESTORED`                    | State persistence, resumability   |
