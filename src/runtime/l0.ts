@@ -429,7 +429,6 @@ export async function l0<TOutput = unknown>(
                     rule: "drift",
                     severity: "warning",
                     message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
-                    
                   },
                 });
               }
@@ -520,7 +519,6 @@ export async function l0<TOutput = unknown>(
                     'Import and call: import { enableAdapterRegistry } from "@ai2070/l0"; enableAdapterRegistry();',
                   {
                     code: L0ErrorCodes.FEATURE_NOT_ENABLED,
-                    
                   },
                 );
               }
@@ -534,7 +532,6 @@ export async function l0<TOutput = unknown>(
                     modelRetryCount: state.modelRetryCount,
                     networkRetryCount: state.networkRetryCount,
                     fallbackIndex,
-                    
                   },
                 );
               }
@@ -578,7 +575,6 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-                
               },
             );
           }
@@ -626,7 +622,6 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-                
               });
             }
 
@@ -649,7 +644,7 @@ export async function l0<TOutput = unknown>(
                   modelRetryCount: state.modelRetryCount,
                   networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
-                  
+
                   metadata: { timeout: interTimeout, timeSinceLastToken },
                 });
               }
@@ -679,7 +674,7 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-                
+
                 metadata: {
                   timeout:
                     processedTimeout.initialToken ?? defaultInitialTokenTimeout,
@@ -855,7 +850,7 @@ export async function l0<TOutput = unknown>(
                       modelRetryCount: state.modelRetryCount,
                       networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
-                      
+
                       metadata: { violation: result.violations[0] },
                     },
                   );
@@ -1186,7 +1181,7 @@ export async function l0<TOutput = unknown>(
                       modelRetryCount: state.modelRetryCount,
                       networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
-                      
+
                       metadata: { violation: result.violations[0] },
                     },
                   );
@@ -1238,7 +1233,6 @@ export async function l0<TOutput = unknown>(
               modelRetryCount: state.modelRetryCount,
               networkRetryCount: state.networkRetryCount,
               fallbackIndex,
-              
             });
           }
 
@@ -1298,7 +1292,7 @@ export async function l0<TOutput = unknown>(
                   modelRetryCount: state.modelRetryCount,
                   networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
-                  
+
                   metadata: { violation: result.violations[0] },
                 },
               );
@@ -1449,7 +1443,6 @@ export async function l0<TOutput = unknown>(
                   rule: "drift",
                   severity: "warning",
                   message: `Drift detected in partial stream: ${partialDrift.types.join(", ")}`,
-                  
                 },
               });
             }
@@ -1644,7 +1637,6 @@ export async function l0<TOutput = unknown>(
                   rule: "drift",
                   severity: "warning",
                   message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
-                  
                 },
               });
             }
