@@ -398,7 +398,16 @@ describe("Event Sourcing", () => {
     it("should record ERROR events", async () => {
       await recorder.recordError(
         { name: "Error", message: "Something failed" },
-        true,
+        "network",
+        "retry",
+        {
+          retryEnabled: true,
+          fallbackEnabled: false,
+          maxRetries: 3,
+          maxFallbacks: 0,
+          attempt: 1,
+          fallbackIndex: 0,
+        },
       );
 
       const events = await store.getEvents(recorder.getStreamId());
@@ -507,7 +516,16 @@ describe("Event Sourcing", () => {
         type: "ERROR",
         ts: 1200,
         error: { name: "Error", message: "Network failed" },
-        recoverable: true,
+        failureType: "network",
+        recoveryStrategy: "retry",
+        policy: {
+          retryEnabled: true,
+          fallbackEnabled: false,
+          maxRetries: 3,
+          maxFallbacks: 0,
+          attempt: 1,
+          fallbackIndex: 0,
+        },
       });
 
       const state = await replayer.replayToState("error-stream");

@@ -95,6 +95,11 @@ const result = await l0({
   onRetry: (attempt, reason) => {},
   onFallback: (index, reason) => {},
   onResume: (checkpoint, tokenCount) => {},
+  onCheckpoint: (checkpoint, tokenCount) => {},
+  onTimeout: (type, elapsedMs) => {},
+  onAbort: (tokenCount, contentLength) => {},
+  onDrift: (types, confidence) => {},
+  onToolCall: (toolName, toolCallId, args) => {},
 });
 
 // Consume stream
@@ -133,93 +138,110 @@ L0 provides a complete set of lifecycle callbacks for monitoring and responding 
 ### Callback Flow Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          L0 LIFECYCLE FLOW                              │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            L0 LIFECYCLE FLOW                                │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-                              ┌──────────┐
-                              │  START   │
-                              └────┬─────┘
-                                   │
-                                   ▼
-                    ┌──────────────────────────────┐
-                    │  onStart(attempt, false, false)  │
-                    └──────────────┬───────────────┘
-                                   │
-                                   ▼
-                         ┌─────────────────┐
-                         │   STREAMING     │◄─────────────────────────┐
-                         │   onEvent()     │                          │
-                         └────────┬────────┘                          │
-                                  │                                   │
-                    ┌─────────────┼─────────────┐                     │
-                    │             │             │                     │
-                    ▼             ▼             ▼                     │
-              ┌─────────┐  ┌───────────┐  ┌──────────┐               │
-              │ SUCCESS │  │   ERROR   │  │VIOLATION │               │
-              └────┬────┘  └─────┬─────┘  └────┬─────┘               │
-                   │             │             │                      │
-                   │             │             ▼                      │
-                   │             │      ┌─────────────┐               │
-                   │             │      │ onViolation │               │
-                   │             │      └──────┬──────┘               │
-                   │             │             │                      │
-                   │             ▼             ▼                      │
-                   │      ┌────────────────────────────────┐          │
-                   │      │ onError(error, willRetry,       │          │
-                   │      │         willFallback)           │          │
-                   │      └──────────────┬─────────────────┘          │
-                   │                     │                            │
-                   │         ┌───────────┼───────────┐                │
-                   │         │           │           │                │
-                   │         ▼           ▼           ▼                │
-                   │   ┌──────────┐ ┌──────────┐ ┌──────────┐         │
-                   │   │  RETRY   │ │ FALLBACK │ │  FATAL   │         │
-                   │   └────┬─────┘ └────┬─────┘ └────┬─────┘         │
-                   │        │            │            │               │
-                   │        ▼            ▼            │               │
-                   │  ┌───────────┐ ┌───────────┐     │               │
-                   │  │ onRetry() │ │onFallback │     │               │
-                   │  └─────┬─────┘ └─────┬─────┘     │               │
-                   │        │             │           │               │
-                   │        │    ┌────────┘           │               │
-                   │        │    │                    │               │
-                   │        ▼    ▼                    │               │
-                   │  ┌─────────────────────┐         │               │
-                   │  │ Has checkpoint?     │         │               │
-                   │  └──────────┬──────────┘         │               │
-                   │        YES  │  NO                │               │
-                   │        ┌────┴────┐               │               │
-                   │        ▼         ▼               │               │
-                   │  ┌──────────┐    │               │               │
-                   │  │ onResume │    │               │               │
-                   │  └────┬─────┘    │               │               │
-                   │       │          │               │               │
-                   │       ▼          ▼               │               │
-                   │  ┌─────────────────────────┐     │               │
-                   │  │onStart(attempt, isRetry,│     │               │
-                   │  │        isFallback)      │─────┼───────────────┘
-                   │  └─────────────────────────┘     │
-                   │                                  │
-                   ▼                                  ▼
-            ┌─────────────┐                    ┌──────────┐
-            │ onComplete  │                    │  THROW   │
-            │   (state)   │                    │  ERROR   │
-            └─────────────┘                    └──────────┘
+                                ┌──────────┐
+                                │  START   │
+                                └────┬─────┘
+                                     │
+                                     ▼
+                      ┌──────────────────────────────┐
+                      │ onStart(attempt, false, false) │
+                      └──────────────┬───────────────┘
+                                     │
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                              STREAMING PHASE                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                         onEvent(event)                              │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                            │
+│  During streaming, these callbacks fire as conditions occur:               │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │ onCheckpoint │  │  onToolCall  │  │   onDrift    │  │  onTimeout   │   │
+│  │ (checkpoint, │  │ (toolName,   │  │ (types,      │  │ (type,       │   │
+│  │  tokenCount) │  │  id, args)   │  │  confidence) │  │  elapsedMs)  │   │
+│  └──────────────┘  └──────────────┘  └──────┬───────┘  └──────┬───────┘   │
+│                                             │                  │           │
+│                                             └────────┬─────────┘           │
+│                                                      │ triggers retry      │
+└──────────────────────────────────────────────────────┼─────────────────────┘
+                                                       │
+              ┌────────────────────────────────────────┼────────────────┐
+              │                    │                   │                │
+              ▼                    ▼                   ▼                ▼
+        ┌─────────┐          ┌───────────┐      ┌──────────┐      ┌─────────┐
+        │ SUCCESS │          │   ERROR   │      │VIOLATION │      │  ABORT  │
+        └────┬────┘          └─────┬─────┘      └────┬─────┘      └────┬────┘
+             │                     │                 │                 │
+             │                     │                 ▼                 ▼
+             │                     │          ┌─────────────┐   ┌───────────┐
+             │                     │          │ onViolation │   │  onAbort  │
+             │                     │          └──────┬──────┘   │(tokenCount│
+             │                     │                 │          │ contentLen)│
+             │                     ▼                 ▼          └───────────┘
+             │              ┌────────────────────────────────┐
+             │              │ onError(error, willRetry,      │
+             │              │         willFallback)          │
+             │              └──────────────┬─────────────────┘
+             │                             │
+             │                 ┌───────────┼───────────┐
+             │                 │           │           │
+             │                 ▼           ▼           ▼
+             │           ┌──────────┐ ┌──────────┐ ┌──────────┐
+             │           │  RETRY   │ │ FALLBACK │ │  FATAL   │
+             │           └────┬─────┘ └────┬─────┘ └────┬─────┘
+             │                │            │            │
+             │                ▼            ▼            │
+             │          ┌───────────┐ ┌───────────┐     │
+             │          │ onRetry() │ │onFallback │     │
+             │          └─────┬─────┘ └─────┬─────┘     │
+             │                │             │           │
+             │                │    ┌────────┘           │
+             │                │    │                    │
+             │                ▼    ▼                    │
+             │          ┌─────────────────────┐         │
+             │          │  Has checkpoint?    │         │
+             │          └──────────┬──────────┘         │
+             │                YES  │  NO                │
+             │                ┌────┴────┐               │
+             │                ▼         ▼               │
+             │          ┌──────────┐    │               │
+             │          │ onResume │    │               │
+             │          └────┬─────┘    │               │
+             │               │          │               │
+             │               ▼          ▼               │
+             │          ┌─────────────────────────┐     │
+             │          │onStart(attempt, isRetry,│     │
+             │          │        isFallback)      │─────┼──► Back to STREAMING
+             │          └─────────────────────────┘     │
+             │                                          │
+             ▼                                          ▼
+      ┌─────────────┐                            ┌──────────┐
+      │ onComplete  │                            │  THROW   │
+      │   (state)   │                            │  ERROR   │
+      └─────────────┘                            └──────────┘
 ```
 
 ### Callback Reference
 
-| Callback      | Signature                                                           | When Called                            |
-| ------------- | ------------------------------------------------------------------- | -------------------------------------- |
-| `onStart`     | `(attempt: number, isRetry: boolean, isFallback: boolean) => void`  | New execution attempt begins           |
-| `onComplete`  | `(state: L0State) => void`                                          | Stream finished successfully           |
-| `onError`     | `(error: Error, willRetry: boolean, willFallback: boolean) => void` | Error occurred (before retry decision) |
-| `onEvent`     | `(event: L0Event) => void`                                          | Any streaming event emitted            |
-| `onViolation` | `(violation: GuardrailViolation) => void`                           | Guardrail violation detected           |
-| `onRetry`     | `(attempt: number, reason: string) => void`                         | Retry triggered (same model)           |
-| `onFallback`  | `(index: number, reason: string) => void`                           | Switching to fallback model            |
-| `onResume`    | `(checkpoint: string, tokenCount: number) => void`                  | Continuing from checkpoint             |
+| Callback       | Signature                                                                       | When Called                            |
+| -------------- | ------------------------------------------------------------------------------- | -------------------------------------- |
+| `onStart`      | `(attempt: number, isRetry: boolean, isFallback: boolean) => void`              | New execution attempt begins           |
+| `onComplete`   | `(state: L0State) => void`                                                      | Stream finished successfully           |
+| `onError`      | `(error: Error, willRetry: boolean, willFallback: boolean) => void`             | Error occurred (before retry decision) |
+| `onEvent`      | `(event: L0Event) => void`                                                      | Any streaming event emitted            |
+| `onViolation`  | `(violation: GuardrailViolation) => void`                                       | Guardrail violation detected           |
+| `onRetry`      | `(attempt: number, reason: string) => void`                                     | Retry triggered (same model)           |
+| `onFallback`   | `(index: number, reason: string) => void`                                       | Switching to fallback model            |
+| `onResume`     | `(checkpoint: string, tokenCount: number) => void`                              | Continuing from checkpoint             |
+| `onCheckpoint` | `(checkpoint: string, tokenCount: number) => void`                              | Checkpoint saved                       |
+| `onTimeout`    | `(type: "initial" \| "inter", elapsedMs: number) => void`                       | Timeout occurred                       |
+| `onAbort`      | `(tokenCount: number, contentLength: number) => void`                           | Stream aborted                         |
+| `onDrift`      | `(types: string[], confidence?: number) => void`                                | Drift detected                         |
+| `onToolCall`   | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` | Tool call detected                     |
 
 ### Usage Example
 
@@ -269,6 +291,29 @@ const result = await l0({
 
   onResume: (checkpoint, tokenCount) => {
     console.log(`Resuming from checkpoint (${tokenCount} tokens)`);
+  },
+
+  onCheckpoint: (checkpoint, tokenCount) => {
+    console.log(`Checkpoint saved (${tokenCount} tokens)`);
+  },
+
+  onTimeout: (type, elapsedMs) => {
+    console.log(`Timeout: ${type} after ${elapsedMs}ms`);
+  },
+
+  onAbort: (tokenCount, contentLength) => {
+    console.log(`Aborted after ${tokenCount} tokens (${contentLength} chars)`);
+  },
+
+  onDrift: (types, confidence) => {
+    console.log(
+      `Drift detected: ${types.join(", ")} (confidence: ${confidence})`,
+    );
+  },
+
+  onToolCall: (toolName, toolCallId, args) => {
+    console.log(`Tool call: ${toolName} (${toolCallId})`);
+    console.log(`  Args: ${JSON.stringify(args)}`);
   },
 });
 ```
@@ -357,6 +402,62 @@ onResume: (checkpoint: string, tokenCount: number) => void
 
 - `checkpoint`: The checkpoint content being resumed from
 - `tokenCount`: Number of tokens in the checkpoint
+
+#### onCheckpoint
+
+Called when a checkpoint is saved (content has passed guardrails and can be safely resumed from).
+
+```typescript
+onCheckpoint: (checkpoint: string, tokenCount: number) => void
+```
+
+- `checkpoint`: The checkpoint content
+- `tokenCount`: Number of tokens in the checkpoint
+
+#### onTimeout
+
+Called when a timeout occurs (initial token or inter-token).
+
+```typescript
+onTimeout: (type: "initial" | "inter", elapsedMs: number) => void
+```
+
+- `type`: The timeout type - "initial" for first token timeout, "inter" for inter-token timeout
+- `elapsedMs`: Time elapsed before timeout triggered
+
+#### onAbort
+
+Called when the stream is aborted (user abort or external signal).
+
+```typescript
+onAbort: (tokenCount: number, contentLength: number) => void
+```
+
+- `tokenCount`: Number of tokens received before abort
+- `contentLength`: Length of content received before abort
+
+#### onDrift
+
+Called when drift is detected in the generated content.
+
+```typescript
+onDrift: (types: string[], confidence?: number) => void
+```
+
+- `types`: Array of drift types detected (e.g., "repetition", "topic_shift")
+- `confidence`: Optional drift confidence score (0-1)
+
+#### onToolCall
+
+Called when a tool call is detected in the stream. L0 does not execute tools - this is for observability only.
+
+```typescript
+onToolCall: (toolName: string, toolCallId: string, args: Record<string, unknown>) => void
+```
+
+- `toolName`: Name of the tool being called
+- `toolCallId`: Unique identifier for this tool call
+- `args`: Arguments passed to the tool
 
 ---
 
@@ -1082,10 +1183,9 @@ try {
 } catch (error) {
   if (isL0Error(error)) {
     console.log(error.code); // L0ErrorCode
-    console.log(error.context.checkpoint); // Last good content
     console.log(error.context.tokenCount);
-    console.log(error.isRecoverable());
-    console.log(error.getCheckpoint());
+    console.log(error.hasCheckpoint); // Has checkpoint for continuation?
+    console.log(error.getCheckpoint()); // Last good content
     console.log(error.toDetailedString());
   }
 }
@@ -2357,20 +2457,20 @@ L0 provides subpath exports for reduced bundle sizes. Most applications should u
 
 ### Bundle Sizes (minified)
 
-| Import                  | Size  | Gzipped | Description              |
-| ----------------------- | ----- | ------- | ------------------------ |
-| `@ai2070/l0` (full)     | 181KB | 52KB    | Everything               |
-| `@ai2070/l0/core`       | 52KB  | 15KB    | Runtime + retry + errors |
-| `@ai2070/l0/structured` | 43KB  | 12KB    | Structured output        |
-| `@ai2070/l0/consensus`  | 54KB  | 16KB    | Multi-model consensus    |
-| `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations |
-| `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking        |
-| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
-| `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
-| `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
-| `@ai2070/l0/openai`     | —     | —       | OpenAI SDK adapter       |
-| `@ai2070/l0/mastra`     | —     | —       | Mastra adapter           |
-| `@ai2070/l0/anthropic`  | —     | —       | Anthropic SDK adapter (reference implementation)    |
+| Import                  | Size  | Gzipped | Description                                      |
+| ----------------------- | ----- | ------- | ------------------------------------------------ |
+| `@ai2070/l0` (full)     | 187KB | 55KB    | Everything                                       |
+| `@ai2070/l0/core`       | 68KB  | 20KB    | Runtime + retry + errors                         |
+| `@ai2070/l0/structured` | 59KB  | 18KB    | Structured output                                |
+| `@ai2070/l0/consensus`  | 70KB  | 21KB    | Multi-model consensus                            |
+| `@ai2070/l0/parallel`   | 56KB  | 17KB    | Parallel/race operations                         |
+| `@ai2070/l0/window`     | 60KB  | 18KB    | Document chunking                                |
+| `@ai2070/l0/guardrails` | 17KB  | 5KB     | Validation rules                                 |
+| `@ai2070/l0/monitoring` | 23KB  | 6KB     | OTel/Sentry                                      |
+| `@ai2070/l0/drift`      | 4KB   | 2KB     | Drift detection                                  |
+| `@ai2070/l0/openai`     | —     | —       | OpenAI SDK adapter                               |
+| `@ai2070/l0/mastra`     | —     | —       | Mastra adapter                                   |
+| `@ai2070/l0/anthropic`  | —     | —       | Anthropic SDK adapter (reference implementation) |
 
 ### Usage
 
@@ -2385,7 +2485,7 @@ import { consensus } from "@ai2070/l0/consensus";
 import { parallel, race } from "@ai2070/l0/parallel";
 import { createWindow } from "@ai2070/l0/window";
 import { recommendedGuardrails } from "@ai2070/l0/guardrails";
-import { createPrometheusCollector } from "@ai2070/l0/monitoring";
+import { sentryInterceptor } from "@ai2070/l0/monitoring";
 import { DriftDetector } from "@ai2070/l0/drift";
 import { openaiAdapter } from "@ai2070/l0/openai";
 import { anthropicAdapter } from "@ai2070/l0/anthropic";

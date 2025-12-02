@@ -45,3 +45,9 @@ export {
   isAnthropicStream,
   isAnthropicStreamEvent,
 } from "./anthropic";
+
+export {
+  wrapVercelAIStream,
+  vercelAIAdapter,
+  isVercelAIStream,
+} from "./vercel-ai";

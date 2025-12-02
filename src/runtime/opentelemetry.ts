@@ -13,6 +13,17 @@ import type {
   MetricOptions,
 } from "@opentelemetry/api";
 import { SpanStatusCode, SpanKind } from "@opentelemetry/api";
+import { EventType } from "../types/observability";
+import type {
+  L0Event,
+  SessionStartEvent,
+  CompleteEvent,
+  ErrorEvent,
+  RetryAttemptEvent,
+  GuardrailRuleResultEvent,
+  DriftCheckResultEvent,
+} from "../types/observability";
+import type { EventHandler } from "./event-handlers";
 
 // Re-export useful types and enums
 export { SpanStatusCode, SpanKind };
@@ -602,52 +613,129 @@ function createNoOpSpan(): Span {
 }
 
 /**
- * L0 OpenTelemetry interceptor for automatic tracing
+ * Create an OpenTelemetry event handler for L0 observability.
+ *
+ * This is the recommended way to integrate OpenTelemetry with L0.
+ * The handler subscribes to L0 events and records traces/metrics.
  *
  * @example
  * ```typescript
- * import { trace } from '@opentelemetry/api';
- * import { l0, openTelemetryInterceptor } from 'l0';
+ * import { trace, metrics } from '@opentelemetry/api';
+ * import { l0, createOpenTelemetryHandler, combineEvents } from '@ai2070/l0';
  *
  * const result = await l0({
  *   stream: () => streamText({ model, prompt }),
- *   interceptors: [
- *     openTelemetryInterceptor({
- *       tracer: trace.getTracer('my-app'),
- *     }),
- *   ],
+ *   onEvent: createOpenTelemetryHandler({
+ *     tracer: trace.getTracer('my-app'),
+ *     meter: metrics.getMeter('my-app'),
+ *   }),
+ * });
+ *
+ * // Or combine with other handlers:
+ * const result = await l0({
+ *   stream: () => streamText({ model, prompt }),
+ *   onEvent: combineEvents(
+ *     createOpenTelemetryHandler({ tracer, meter }),
+ *     createSentryHandler({ sentry }),
+ *   ),
  * });
  * ```
  */
-export function openTelemetryInterceptor(config: OpenTelemetryConfig) {
+export function createOpenTelemetryHandler(
+  config: OpenTelemetryConfig,
+): EventHandler {
   const otel = new L0OpenTelemetry(config);
+  let currentSpan: Span | undefined;
 
+  return (event: L0Event) => {
+    switch (event.type) {
+      case EventType.SESSION_START: {
+        // Start a new span for the session
+        currentSpan = otel.createSpan("stream");
+        const e = event as SessionStartEvent;
+        currentSpan.setAttribute("l0.attempt", e.attempt);
+        currentSpan.setAttribute("l0.is_retry", e.isRetry);
+        currentSpan.setAttribute("l0.is_fallback", e.isFallback);
+        break;
+      }
+
+      case EventType.RETRY_ATTEMPT: {
+        const e = event as RetryAttemptEvent;
+        otel.recordRetry(e.reason, e.attempt, currentSpan);
+        break;
+      }
+
+      case EventType.ERROR: {
+        const e = event as ErrorEvent;
+        otel.recordNetworkError(
+          new Error(e.error),
+          e.failureType || "unknown",
+          currentSpan,
+        );
+        break;
+      }
+
+      case EventType.GUARDRAIL_RULE_RESULT: {
+        const e = event as GuardrailRuleResultEvent;
+        if (e.violation) {
+          otel.recordGuardrailViolation(e.violation, currentSpan);
+        }
+        break;
+      }
+
+      case EventType.DRIFT_CHECK_RESULT: {
+        const e = event as DriftCheckResultEvent;
+        if (e.detected && e.types.length > 0) {
+          otel.recordDrift(e.types.join(","), e.confidence ?? 0, currentSpan);
+        }
+        break;
+      }
+
+      case EventType.COMPLETE: {
+        const e = event as CompleteEvent;
+        // Record basic metrics from CompleteEvent
+        if (currentSpan) {
+          currentSpan.setAttribute("l0.token_count", e.tokenCount);
+          currentSpan.setAttribute("l0.content_length", e.contentLength);
+          currentSpan.setAttribute("l0.duration_ms", e.durationMs);
+          currentSpan.setStatus({ code: SpanStatusCode.OK });
+          currentSpan.end();
+          currentSpan = undefined;
+        }
+        break;
+      }
+
+      // Token events are handled if traceTokens is enabled
+      // The L0OpenTelemetry class handles the config check internally
+      default:
+        // Other events are not specifically handled but could be extended
+        break;
+    }
+  };
+}
+
+/**
+ * @deprecated Use `createOpenTelemetryHandler` with `onEvent` instead.
+ *
+ * The interceptor pattern is deprecated. Use the event handler pattern:
+ *
+ * ```typescript
+ * // Old (deprecated):
+ * interceptors: [openTelemetryInterceptor({ tracer })]
+ *
+ * // New (recommended):
+ * onEvent: createOpenTelemetryHandler({ tracer, meter })
+ * ```
+ */
+export function openTelemetryInterceptor(_config: OpenTelemetryConfig) {
+  console.warn(
+    "openTelemetryInterceptor is deprecated. Use createOpenTelemetryHandler with onEvent instead.",
+  );
+
+  // Return a minimal interceptor that logs the deprecation
   return {
-    name: "opentelemetry",
-
-    onStart: (context: { span?: Span }) => {
-      context.span = otel.createSpan("stream");
-    },
-
-    onToken: (token: string, context: { span?: Span }) => {
-      otel.recordToken(context.span, token);
-    },
-
-    onRetry: (reason: string, attempt: number, context: { span?: Span }) => {
-      otel.recordRetry(reason, attempt, context.span);
-    },
-
-    onError: (error: Error, errorType: string, context: { span?: Span }) => {
-      otel.recordNetworkError(error, errorType, context.span);
-    },
-
-    onViolation: (violation: GuardrailViolation, context: { span?: Span }) => {
-      otel.recordGuardrailViolation(violation, context.span);
-    },
-
-    onComplete: (telemetry: L0Telemetry, context: { span?: Span }) => {
-      otel.recordTelemetry(telemetry, context.span);
-      context.span?.end();
-    },
+    name: "opentelemetry-deprecated",
+    before: async (options: any) => options,
+    after: async (result: any) => result,
   };
 }

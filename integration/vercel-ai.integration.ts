@@ -1,7 +1,7 @@
 // Vercel AI SDK Integration Tests
 // Run: OPENAI_API_KEY=sk-... npm run test:integration
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   describeIf,
   hasOpenAI,
@@ -9,8 +9,11 @@ import {
   expectValidResponse,
 } from "./setup";
 import { l0, recommendedGuardrails, recommendedRetry } from "../src/index";
-import { streamText } from "ai";
+// Import to auto-register the vercelAIAdapter for tool call detection
+import "../src/adapters/vercel-ai";
+import { streamText, tool } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
 
 describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
   describe("Basic Streaming", () => {
@@ -203,6 +206,179 @@ describeIf(hasOpenAI)("Vercel AI SDK Integration", () => {
 
         // Should have received some tokens before abort
         expect(tokenCount).toBeGreaterThanOrEqual(5);
+      },
+      LLM_TIMEOUT,
+    );
+  });
+
+  describe("Tool Call Observability", () => {
+    it(
+      "should detect tool calls and fire onToolCall callback",
+      async () => {
+        const onToolCall = vi.fn();
+        const toolCalls: Array<{ name: string; id: string; args: unknown }> =
+          [];
+
+        const result = await l0({
+          stream: () =>
+            streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "What's the weather in San Francisco?",
+              tools: {
+                get_weather: tool({
+                  description: "Get the current weather for a location",
+                  inputSchema: z.object({
+                    location: z.string().describe("City name"),
+                    unit: z.enum(["celsius", "fahrenheit"]).optional(),
+                  }),
+                }),
+              },
+              toolChoice: { type: "tool", toolName: "get_weather" },
+            }),
+          onToolCall: (name, id, args) => {
+            onToolCall(name, id, args);
+            toolCalls.push({ name, id, args: args as unknown });
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        expect(onToolCall).toHaveBeenCalled();
+        expect(toolCalls.length).toBeGreaterThanOrEqual(1);
+
+        const weatherCall = toolCalls.find((t) => t.name === "get_weather");
+        expect(weatherCall).toBeDefined();
+        expect(weatherCall!.args).toHaveProperty("location");
+      },
+      LLM_TIMEOUT,
+    );
+
+    it(
+      "should handle multiple tool calls",
+      async () => {
+        const toolCalls: Array<{ name: string; id: string }> = [];
+
+        const result = await l0({
+          stream: () =>
+            streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "What's the weather in Tokyo AND what time is it there?",
+              tools: {
+                get_weather: tool({
+                  description: "Get the current weather for a location",
+                  inputSchema: z.object({
+                    location: z.string().describe("City name"),
+                  }),
+                }),
+                get_time: tool({
+                  description: "Get the current time for a timezone",
+                  inputSchema: z.object({
+                    timezone: z.string().describe("IANA timezone name"),
+                  }),
+                }),
+              },
+              toolChoice: "required",
+            }),
+          onToolCall: (name, id) => {
+            toolCalls.push({ name, id });
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        // Should have at least one tool call
+        expect(toolCalls.length).toBeGreaterThanOrEqual(1);
+
+        // Each tool call should have unique ID
+        const ids = toolCalls.map((t) => t.id);
+        const uniqueIds = new Set(ids);
+        expect(uniqueIds.size).toBe(ids.length);
+      },
+      LLM_TIMEOUT,
+    );
+
+    it(
+      "should parse complex nested tool arguments",
+      async () => {
+        const capturedArgs: unknown[] = [];
+
+        const result = await l0({
+          stream: () =>
+            streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "Search for laptops under $1000 in electronics, limit 5",
+              tools: {
+                search_products: tool({
+                  description: "Search for products with filters",
+                  inputSchema: z.object({
+                    query: z.string(),
+                    filters: z
+                      .object({
+                        minPrice: z.number().optional(),
+                        maxPrice: z.number().optional(),
+                        categories: z.array(z.string()).optional(),
+                      })
+                      .optional(),
+                    limit: z.number().optional(),
+                  }),
+                }),
+              },
+              toolChoice: { type: "tool", toolName: "search_products" },
+            }),
+          onToolCall: (_name, _id, args) => {
+            capturedArgs.push(args);
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        expect(capturedArgs.length).toBeGreaterThanOrEqual(1);
+        const args = capturedArgs[0] as Record<string, unknown>;
+        expect(args).toHaveProperty("query");
+      },
+      LLM_TIMEOUT,
+    );
+
+    it(
+      "should work with tool calls and monitoring enabled",
+      async () => {
+        const onToolCall = vi.fn();
+
+        const result = await l0({
+          stream: () =>
+            streamText({
+              model: openai("gpt-5-nano"),
+              prompt: "What's the weather in Paris?",
+              tools: {
+                get_weather: tool({
+                  description: "Get the current weather for a location",
+                  inputSchema: z.object({
+                    location: z.string().describe("City name"),
+                  }),
+                }),
+              },
+              toolChoice: { type: "tool", toolName: "get_weather" },
+            }),
+          onToolCall,
+          monitoring: { enabled: true },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        expect(onToolCall).toHaveBeenCalled();
+        expect(result.telemetry).toBeDefined();
       },
       LLM_TIMEOUT,
     );

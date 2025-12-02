@@ -79,7 +79,7 @@ export function validateZeroOutput(
       rule: "zero-output",
       message: "No meaningful output generated (empty or whitespace only)",
       severity: "error",
-      recoverable: false, // This is a transport/network issue
+      recoverable: true, // Transport/network issue - retry should help
       suggestion: "Retry - likely network or model initialization issue",
     });
     return violations;
@@ -91,19 +91,19 @@ export function validateZeroOutput(
       rule: "zero-output",
       message: "Output contains only noise or filler characters",
       severity: "error",
-      recoverable: false,
+      recoverable: true,
       suggestion: "Retry - output is not meaningful",
     });
     return violations;
   }
 
-  // Check if stream finished instantly with very little content
-  if (completed && content.trim().length < 10) {
+  // Check if stream finished with empty content
+  if (completed && content.trim().length < 1) {
     violations.push({
       rule: "zero-output",
-      message: `Output too short: ${content.trim().length} characters`,
+      message: "Output is empty",
       severity: "warning",
-      recoverable: false,
+      recoverable: true,
       suggestion: "Retry - output may be truncated",
     });
   }

@@ -1,7 +1,7 @@
 // Mastra AI Integration Tests
 // Run: OPENAI_API_KEY=sk-... npm run test:integration
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   describeIf,
   hasOpenAI,
@@ -234,6 +234,127 @@ describeIf(hasOpenAI)("Mastra AI Integration", () => {
 
         expect(result.state.fallbackIndex).toBe(1);
         expectValidResponse(result.state.content);
+      },
+      LLM_TIMEOUT,
+    );
+  });
+
+  describe("Tool Call Observability", () => {
+    it(
+      "should detect tool calls from Mastra agent and fire onToolCall",
+      async () => {
+        const onToolCall = vi.fn();
+        const toolCalls: Array<{ name: string; id: string; args: unknown }> =
+          [];
+
+        // Create agent with tools
+        const agentWithTools = new Agent({
+          name: "tool-agent",
+          instructions: "You are a helpful assistant with access to tools.",
+          model: openai("gpt-5-nano"),
+          tools: {
+            get_weather: {
+              description: "Get the current weather for a location",
+              parameters: {
+                type: "object",
+                properties: {
+                  location: { type: "string", description: "City name" },
+                },
+                required: ["location"],
+              },
+              execute: async ({ location }: { location: string }) => {
+                return { temperature: 72, condition: "sunny", location };
+              },
+            },
+          },
+        });
+
+        const result = await l0({
+          stream: mastraStream(
+            agentWithTools,
+            "What's the weather in Seattle? Use the get_weather tool.",
+          ),
+          onToolCall: (name, id, args) => {
+            onToolCall(name, id, args);
+            toolCalls.push({ name, id, args: args as unknown });
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        // Tool call should have been detected
+        expect(onToolCall).toHaveBeenCalled();
+        expect(toolCalls.length).toBeGreaterThanOrEqual(1);
+
+        const weatherCall = toolCalls.find((t) => t.name === "get_weather");
+        expect(weatherCall).toBeDefined();
+        expect(weatherCall!.args).toHaveProperty("location");
+      },
+      LLM_TIMEOUT,
+    );
+
+    it(
+      "should handle multiple tool calls from Mastra agent",
+      async () => {
+        const toolCalls: Array<{ name: string; id: string }> = [];
+
+        const agentWithTools = new Agent({
+          name: "multi-tool-agent",
+          instructions: "You are a helpful assistant with access to tools.",
+          model: openai("gpt-5-nano"),
+          tools: {
+            get_weather: {
+              description: "Get the current weather for a location",
+              parameters: {
+                type: "object",
+                properties: {
+                  location: { type: "string", description: "City name" },
+                },
+                required: ["location"],
+              },
+              execute: async ({ location }: { location: string }) => {
+                return { temperature: 72, condition: "sunny", location };
+              },
+            },
+            get_time: {
+              description: "Get the current time for a timezone",
+              parameters: {
+                type: "object",
+                properties: {
+                  timezone: { type: "string", description: "IANA timezone" },
+                },
+                required: ["timezone"],
+              },
+              execute: async ({ timezone }: { timezone: string }) => {
+                return { time: "10:30 AM", timezone };
+              },
+            },
+          },
+        });
+
+        const result = await l0({
+          stream: mastraStream(
+            agentWithTools,
+            "What's the weather AND time in Tokyo? Use both tools.",
+          ),
+          onToolCall: (name, id) => {
+            toolCalls.push({ name, id });
+          },
+          detectZeroTokens: false,
+        });
+
+        for await (const event of result.stream) {
+          // consume stream
+        }
+
+        // Should have both tool calls
+        expect(toolCalls.length).toBeGreaterThanOrEqual(2);
+        expect(toolCalls.map((t) => t.name)).toEqual(
+          expect.arrayContaining(["get_weather", "get_time"]),
+        );
       },
       LLM_TIMEOUT,
     );

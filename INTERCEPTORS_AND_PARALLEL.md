@@ -8,7 +8,9 @@
 
 ## Interceptors
 
-Interceptors provide hooks into the L0 execution pipeline for logging, auth, validation, and transforms.
+Interceptors provide hooks into the L0 execution pipeline for **request/response transformation**: auth injection, validation, rate limiting, and content transforms.
+
+> **Note:** For **observability** (tracing, metrics, error tracking), use the `onEvent` callback instead of interceptors. See the [Monitoring section in README.md](./README.md#monitoring) for OpenTelemetry and Sentry integration patterns.
 
 ### Interface
 

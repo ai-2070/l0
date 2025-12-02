@@ -781,3 +781,107 @@ describe("Combined callbacks", () => {
     expect(onResume).not.toHaveBeenCalled();
   });
 });
+
+describe("onCheckpoint callback", () => {
+  it("should call onCheckpoint when checkpoint is saved", async () => {
+    const onCheckpoint = vi.fn();
+
+    // Generate enough tokens to trigger checkpoint (default interval is 10)
+    const tokens = Array.from({ length: 25 }, (_, i) => `t${i}-`);
+
+    const result = await l0({
+      stream: createTokenStream(tokens),
+      continueFromLastKnownGoodToken: true,
+      checkIntervals: { checkpoint: 5 },
+      onCheckpoint,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    // Should have multiple checkpoints
+    expect(onCheckpoint).toHaveBeenCalled();
+    const [checkpoint, tokenCount] = onCheckpoint.mock.calls[0]!;
+    expect(typeof checkpoint).toBe("string");
+    expect(typeof tokenCount).toBe("number");
+    expect(tokenCount).toBeGreaterThan(0);
+  });
+
+  it("should NOT call onCheckpoint when continuation is disabled", async () => {
+    const onCheckpoint = vi.fn();
+
+    // Generate enough tokens to exceed checkpoint interval
+    const tokens = Array.from({ length: 25 }, (_, i) => `t${i}-`);
+
+    const result = await l0({
+      stream: createTokenStream(tokens),
+      continueFromLastKnownGoodToken: false,
+      checkIntervals: { checkpoint: 5 },
+      onCheckpoint,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    // Checkpoints are only saved when continuation is enabled
+    // (no point in saving checkpoints if we can't resume from them)
+    expect(onCheckpoint).not.toHaveBeenCalled();
+  });
+});
+
+describe("onAbort callback", () => {
+  it("should call onAbort when stream is aborted", async () => {
+    const onAbort = vi.fn();
+
+    const slowStream = async function* (): AsyncGenerator<L0Event> {
+      for (let i = 0; i < 100; i++) {
+        yield { type: "token", value: `t${i}`, timestamp: Date.now() };
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      yield { type: "complete", timestamp: Date.now() };
+    };
+
+    const result = await l0({
+      stream: () => slowStream(),
+      onAbort,
+    });
+
+    // Consume a few tokens then abort
+    let count = 0;
+    try {
+      for await (const event of result.stream) {
+        if (event.type === "token") {
+          count++;
+          if (count >= 5) {
+            result.abort();
+            // Continue consuming to let the abort be detected
+          }
+        }
+      }
+    } catch {
+      // Expected - stream will throw on abort
+    }
+
+    expect(onAbort).toHaveBeenCalledTimes(1);
+    const [tokenCount, contentLength] = onAbort.mock.calls[0]!;
+    expect(typeof tokenCount).toBe("number");
+    expect(typeof contentLength).toBe("number");
+  });
+
+  it("should not call onAbort when stream completes normally", async () => {
+    const onAbort = vi.fn();
+
+    const result = await l0({
+      stream: createTokenStream(["hello", "world"]),
+      onAbort,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(onAbort).not.toHaveBeenCalled();
+  });
+});

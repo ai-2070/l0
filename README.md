@@ -1,4 +1,6 @@
-# L0 - The Missing Reliability Substrate for AI
+# L0 - Deterministic Streaming Execution Substrate (DSES) for AI
+
+### The missing reliability and observability layer for all AI streams.
 
 ![L0: The Missing AI Reliability Substrate](img/l0-banner.jpg)
 
@@ -19,20 +21,17 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
 </p>
 
-**L0 is a tiny reliability, streaming-first substrate that wraps any LLM stream with retries, guardrails, fallbacks, drift detection, and deterministic playback.**
-
-> _LLMs are extraordinary minds wrapped in fragile interfaces._
-> _The reasoning is brilliant._
-> _The capability is vast._
-> _The potential is limitless._
+> LLMs produce high-value reasoning over a low-integrity transport layer.
+> Streams stall, drop tokens, reorder events, violate timing guarantees, and expose no deterministic contract.
 >
-> _Yet the surface - the streaming layer -_
-> _can flicker, stall, or fracture without warning._
+> This breaks retries. It breaks guardrails. It breaks supervision. It breaks reproducibility.
+> It makes reliable AI systems impossible to build on top of raw provider streams.
 >
-> _L0 is the missing foundation._
-> _A reliability layer that stabilizes the interface so the model's intelligence can actually reach you._
+> **L0 is the deterministic execution substrate that fixes the transport.**
 
-L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, and **Mastra AI** directly. Supports **custom adapters** (BYOA) and **multimodal AI streams**.
+L0 adds deterministic execution, fallbacks, retries, network protection, guardrails, drift detection, and tool tracking to any LLM stream - turning raw model output into production-grade behavior.
+
+It works with **OpenAI**, **Vercel AI SDK**, **Mastra AI**, and **custom adapters**. Supports **multimodal streams**, tool calls, and provides full deterministic replay.
 
 ```bash
 npm install @ai2070/l0
@@ -40,19 +39,20 @@ npm install @ai2070/l0
 
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
-L0 includes 2,000+ tests covering all major reliability features.
+L0 includes 2,600+ tests covering all major reliability features.
 
 ```
- AI SDK Stream                       L0 Layer                          Your App
- ─────────────       ┌────────────────────────────────────────┐        ─────────
-   Vercel AI/        │ Timeouts ──▶ Guardrails ──▶ Checkpoints│
-    OpenAI/  ──────▶ │     │            │              │      │ ──────▶ Output
-    Mastra/          │     └─────▶ Retry ◀──▶ Fallbacks ◀─────│
-    Custom           └────────────────────────────────────────┘
- (text/image/
-  video/audio)
- ─────────────
-                           L0 = token-level reliability
+   Any AI Stream                    L0 Layer                         Your App
+ ─────────────────    ┌──────────────────────────────────────┐    ─────────────
+                      │                                      │
+   Vercel AI SDK      │   Retry · Fallback · Resume          │      Reliable
+   OpenAI / Mastra ──▶│   Guardrails · Timeouts · Consensus  │─────▶ Output
+   Custom Streams     │   Full Observability                 │
+                      │                                      │
+                      └──────────────────────────────────────┘
+ ─────────────────                                                ─────────────
+  text / image /                 Token-Level Reliability
+  video / audio
 ```
 
 **Upcoming versions:**
@@ -63,15 +63,15 @@ L0 includes 2,000+ tests covering all major reliability features.
 
 | Import                  | Size  | Gzipped | Description              |
 | ----------------------- | ----- | ------- | ------------------------ |
-| `@ai2070/l0` (full)     | 181KB | 52KB    | Everything               |
-| `@ai2070/l0/core`       | 52KB  | 15KB    | Runtime + retry + errors |
-| `@ai2070/l0/structured` | 43KB  | 12KB    | Structured output        |
-| `@ai2070/l0/consensus`  | 54KB  | 16KB    | Multi-model consensus    |
-| `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations |
-| `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking        |
-| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
-| `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
-| `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
+| `@ai2070/l0` (full)     | 187KB | 55KB    | Everything               |
+| `@ai2070/l0/core`       | 68KB  | 20KB    | Runtime + retry + errors |
+| `@ai2070/l0/structured` | 59KB  | 18KB    | Structured output        |
+| `@ai2070/l0/consensus`  | 70KB  | 21KB    | Multi-model consensus    |
+| `@ai2070/l0/parallel`   | 56KB  | 17KB    | Parallel/race operations |
+| `@ai2070/l0/window`     | 60KB  | 18KB    | Document chunking        |
+| `@ai2070/l0/guardrails` | 17KB  | 5KB     | Validation rules         |
+| `@ai2070/l0/monitoring` | 23KB  | 6KB     | OTel/Sentry              |
+| `@ai2070/l0/drift`      | 4KB   | 2KB     | Drift detection          |
 
 Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 
@@ -97,16 +97,16 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 | **🧩 Consensus: Agreement Across Models**        | Combine multiple model outputs using unanimous, weighted, or best-match consensus. Guarantees high-confidence generation for safety-critical tasks.                                                   |
 | **📄 Document Windows**                          | Built-in chunking (token, paragraph, sentence, character). Ideal for long documents, transcripts, or multi-page processing.                                                                           |
 | **🎨 Formatting Helpers**                        | Extract JSON/code from markdown fences, strip thinking tags, normalize whitespace, and clean LLM output for downstream processing.                                                                    |
-| **📊 Monitoring**                                | Built-in integrations with Prometheus, OpenTelemetry, and Sentry for metrics, tracing, and error tracking.                                                                                            |
-| **🔔 Lifecycle Callbacks**                       | `onStart`, `onComplete`, `onError`, `onEvent`, `onToken`, `onViolation`, `onRetry`, `onFallback` - full observability into every stream phase.                                                        |
+| **📊 Monitoring**                                | Built-in integrations with OpenTelemetry and Sentry for metrics, tracing, and error tracking.                                                                                                         |
+| **🔔 Lifecycle Callbacks**                       | `onStart`, `onComplete`, `onError`, `onEvent`, `onViolation`, `onRetry`, `onFallback`, `onToolCall` - full observability into every stream phase.                                                     |
 | **📡 Streaming-First Runtime**                   | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `complete`) for easy UIs.                                                                                 |
 | **📼 Atomic Event Logs**                         | Record every token, retry, fallback, and guardrail check as immutable events. Full audit trail for debugging and compliance.                                                                          |
 | **🔄 Byte-for-Byte Replays**                     | Deterministically replay any recorded stream to reproduce exact output. Perfect for testing, and time-travel debugging.                                                                               |
 | **⛔ Safety-First Defaults**                     | Continuation off by default. Structured objects never resumed. No silent corruption. Integrity always preserved.                                                                                      |
-| **⚡ Tiny & Explicit**                           | 15KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
+| **⚡ Tiny & Explicit**                           | 20KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
-| **🧪 Battle-Tested**                             | 2,000+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
+| **🧪 Battle-Tested**                             | 2,600+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
 ## Quick Start
 
@@ -185,13 +185,17 @@ const result = await l0({
   // Optional: Abort signal
   signal: abortController.signal,
 
-  // Optional: Monitoring callbacks
-  monitoring: {
-    onToken: (token) => {},
-    onViolation: (violation) => {},
-    onRetry: (attempt, error) => {},
-    onFallback: (index) => {},
-  },
+  // Optional: Enable telemetry
+  monitoring: { enabled: true },
+
+  // Optional: Lifecycle callbacks (all are optional)
+  onStart: (attempt, isRetry, isFallback) => {},
+  onComplete: (state) => {},
+  onError: (error, willRetry, willFallback) => {},
+  onViolation: (violation) => {},
+  onRetry: (attempt, reason) => {},
+  onFallback: (index, reason) => {},
+  onToolCall: (toolName, toolCallId, args) => {},
 });
 
 // Read the stream
@@ -268,8 +272,8 @@ for await (const event of result.stream) {
 | [Lifecycle Callbacks](#lifecycle-callbacks)                           | Full observability into every stream phase                      |
 | [Event Sourcing](#event-sourcing)                                     | Record/replay streams for testing and audit trails              |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
-| [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
-| [Testing](#testing)                                                   | 2,000+ tests covering all features and SDK adapters             |
+| [Monitoring](#monitoring)                                             | Built-in OTel and Sentry integrations                           |
+| [Testing](#testing)                                                   | 2,600+ tests covering all features and SDK adapters             |
 
 ---
 
@@ -750,10 +754,10 @@ import {
 
 L0 uses a two-path strategy to avoid blocking the streaming loop:
 
-| Path | When | Behavior |
-|------|------|----------|
-| **Fast** | Delta < 1KB, total < 5KB | Synchronous check, immediate result |
-| **Slow** | Large content | Deferred via `setImmediate()`, non-blocking |
+| Path     | When                     | Behavior                                    |
+| -------- | ------------------------ | ------------------------------------------- |
+| **Fast** | Delta < 1KB, total < 5KB | Synchronous check, immediate result         |
+| **Slow** | Large content            | Deferred via `setImmediate()`, non-blocking |
 
 For long outputs, tune the check frequency:
 
@@ -1011,110 +1015,337 @@ L0 provides callbacks for every phase of stream execution, giving you full obser
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
+  fallbackStreams: [() => streamText({ model: fallbackModel, prompt })],
+  guardrails: recommendedGuardrails,
+  continueFromLastKnownGoodToken: true,
+  retry: { attempts: 3 },
 
-  monitoring: {
-    // Called when streaming begins
-    onStart: (context) => {
-      console.log("Stream started:", context.streamId);
-      console.log("Attempt:", context.attempt);
-    },
+  // Called when a new execution attempt begins
+  onStart: (attempt, isRetry, isFallback) => {
+    console.log(`Starting attempt ${attempt}`);
+    if (isRetry) console.log("  (retry)");
+    if (isFallback) console.log("  (fallback model)");
+  },
 
-    // Called for every token received
-    onToken: (token, context) => {
-      process.stdout.write(token);
-      // context includes: tokenIndex, timestamp, checkpoint
-    },
+  // Called when stream completes successfully
+  onComplete: (state) => {
+    console.log(`Completed with ${state.tokenCount} tokens`);
+    console.log(`Duration: ${state.duration}ms`);
+  },
 
-    // Called for every L0 event (token, error, complete, etc.)
-    onEvent: (event) => {
-      if (event.type === "progress") {
-        console.log("Progress:", event.progress?.percent);
-      }
-    },
+  // Called when an error occurs (before retry/fallback decision)
+  onError: (error, willRetry, willFallback) => {
+    console.error(`Error: ${error.message}`);
+    if (willRetry) console.log("  Will retry...");
+    if (willFallback) console.log("  Will try fallback...");
+  },
 
-    // Called when a guardrail violation is detected
-    onViolation: (violation) => {
-      console.warn("Violation:", violation.rule, violation.message);
-      // violation.fatal indicates if stream will be aborted
-    },
+  // Called for every L0 event
+  onEvent: (event) => {
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
+    }
+  },
 
-    // Called before each retry attempt
-    onRetry: (attempt, error, context) => {
-      console.log(`Retry ${attempt}/${context.maxRetries}:`, error.code);
-      // context includes: delay, errorType, checkpoint
-    },
+  // Called when a guardrail violation is detected
+  onViolation: (violation) => {
+    console.warn(`Violation: ${violation.rule}`);
+    console.warn(`  ${violation.message}`);
+  },
 
-    // Called when switching to a fallback model
-    onFallback: (index, error, context) => {
-      console.log(`Fallback to model ${index}:`, error.message);
-      // context includes: previousModel, checkpoint
-    },
+  // Called when a retry is triggered
+  onRetry: (attempt, reason) => {
+    console.log(`Retrying (attempt ${attempt}): ${reason}`);
+  },
 
-    // Called when resuming from checkpoint
-    onResume: (checkpoint, tokenCount) => {
-      console.log(`Resuming from ${tokenCount} tokens`);
-      // checkpoint contains the content to resume from
-    },
+  // Called when switching to a fallback model
+  onFallback: (index, reason) => {
+    console.log(`Switching to fallback ${index}: ${reason}`);
+  },
 
-    // Called when stream completes successfully
-    onComplete: (content, context) => {
-      console.log("Completed:", content.length, "chars");
-      console.log("Tokens:", context.tokenCount);
-      console.log("Duration:", context.duration, "ms");
-    },
+  // Called when resuming from checkpoint
+  onResume: (checkpoint, tokenCount) => {
+    console.log(`Resuming from checkpoint (${tokenCount} tokens)`);
+  },
 
-    // Called when stream fails after all retries
-    onError: (error, context) => {
-      console.error("Failed:", error.code);
-      console.log("Checkpoint:", context.checkpoint);
-      // context includes: attempts, lastError, partial content
-    },
+  // Called when a checkpoint is saved
+  onCheckpoint: (checkpoint, tokenCount) => {
+    console.log(`Checkpoint saved (${tokenCount} tokens)`);
+  },
+
+  // Called when a timeout occurs
+  onTimeout: (type, elapsedMs) => {
+    console.log(`Timeout: ${type} after ${elapsedMs}ms`);
+  },
+
+  // Called when the stream is aborted
+  onAbort: (tokenCount, contentLength) => {
+    console.log(`Aborted after ${tokenCount} tokens (${contentLength} chars)`);
+  },
+
+  // Called when drift is detected
+  onDrift: (types, confidence) => {
+    console.log(
+      `Drift detected: ${types.join(", ")} (confidence: ${confidence})`,
+    );
+  },
+
+  // Called when a tool call is detected
+  onToolCall: (toolName, toolCallId, args) => {
+    console.log(`Tool call: ${toolName} (${toolCallId})`);
+    console.log(`  Args: ${JSON.stringify(args)}`);
   },
 });
 ```
 
 ### Callback Reference
 
-| Callback      | When Called                              | Parameters                                       |
-| ------------- | ---------------------------------------- | ------------------------------------------------ |
-| `onStart`     | Stream begins (including retries)        | `(context: StartContext)`                        |
-| `onToken`     | Each token received                      | `(token: string, context: TokenContext)`         |
-| `onEvent`     | Every L0 event (token, progress, data)   | `(event: L0Event)`                               |
-| `onViolation` | Guardrail violation detected             | `(violation: Violation)`                         |
-| `onRetry`     | Before retry attempt                     | `(attempt: number, error: L0Error, context)`     |
-| `onFallback`  | Switching to fallback model              | `(index: number, error: L0Error, context)`       |
-| `onResume`    | Continuing from checkpoint               | `(checkpoint: string, tokenCount: number)`       |
-| `onComplete`  | Stream finished successfully             | `(content: string, context: CompleteContext)`    |
-| `onError`     | Stream failed after all retries/fallback | `(error: L0Error, context: ErrorContext)`        |
+| Callback       | When Called                            | Signature                                                                       |
+| -------------- | -------------------------------------- | ------------------------------------------------------------------------------- |
+| `onStart`      | New execution attempt begins           | `(attempt: number, isRetry: boolean, isFallback: boolean) => void`              |
+| `onComplete`   | Stream finished successfully           | `(state: L0State) => void`                                                      |
+| `onError`      | Error occurred (before retry decision) | `(error: Error, willRetry: boolean, willFallback: boolean) => void`             |
+| `onEvent`      | Any streaming event emitted            | `(event: L0Event) => void`                                                      |
+| `onViolation`  | Guardrail violation detected           | `(violation: GuardrailViolation) => void`                                       |
+| `onRetry`      | Retry triggered (same model)           | `(attempt: number, reason: string) => void`                                     |
+| `onFallback`   | Switching to fallback model            | `(index: number, reason: string) => void`                                       |
+| `onResume`     | Continuing from checkpoint             | `(checkpoint: string, tokenCount: number) => void`                              |
+| `onCheckpoint` | Checkpoint saved                       | `(checkpoint: string, tokenCount: number) => void`                              |
+| `onTimeout`    | Timeout occurred                       | `(type: "initial" \| "inter", elapsedMs: number) => void`                       |
+| `onAbort`      | Stream aborted                         | `(tokenCount: number, contentLength: number) => void`                           |
+| `onDrift`      | Drift detected                         | `(types: string[], confidence?: number) => void`                                |
+| `onToolCall`   | Tool call detected                     | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` |
 
 ### Use Cases
 
 ```typescript
-// Logging and debugging
-monitoring: {
-  onStart: (ctx) => logger.info("stream.start", { id: ctx.streamId }),
-  onComplete: (_, ctx) => logger.info("stream.complete", { tokens: ctx.tokenCount }),
-  onError: (err, ctx) => logger.error("stream.failed", { error: err.code }),
-}
+const callbacks = {
+  // Logging and debugging
+  onStart: (attempt, isRetry) =>
+    logger.info("stream.start", { attempt, isRetry }),
+  onComplete: (state) =>
+    logger.info("stream.complete", { tokens: state.tokenCount }),
+  onError: (err) => logger.error("stream.failed", { error: err.message }),
 
-// Real-time UI updates
-monitoring: {
-  onToken: (token) => appendToChat(token),
+  // Real-time UI updates
   onRetry: () => showRetryingIndicator(),
   onFallback: () => showFallbackNotice(),
-}
 
-// Custom metrics collection
-monitoring: {
-  onComplete: (_, ctx) => {
-    metrics.recordHistogram("ttft", ctx.timeToFirstToken);
-    metrics.incrementCounter("tokens", ctx.tokenCount);
-  },
+  // Custom metrics collection
   onViolation: (v) => metrics.incrementCounter("violations", { rule: v.rule }),
+  onTimeout: (type) => metrics.incrementCounter("timeouts", { type }),
+};
+
+// Use callbacks with l0
+const { stream } = await l0({
+  stream: () => streamText({ model, prompt }),
+  ...callbacks,
+});
+
+// For real-time UI updates, use onEvent
+for await (const event of stream) {
+  if (event.type === "token") {
+    appendToChat(event.value);
+  }
 }
 ```
 
 See [API.md#lifecycle-callbacks](./API.md#lifecycle-callbacks) for complete callback type definitions.
+
+---
+
+## Observability Events
+
+L0 emits structured lifecycle events for every phase of execution. These events enable replay, profiling, debugging, and supervision.
+
+### Stream Initialization Events
+
+```typescript
+{ type: "SESSION_START", ts, sessionId }  // anchor for entire session
+{ type: "STREAM_INIT", ts, model, provider }  // before contacting provider
+{ type: "STREAM_READY", ts }  // connection established, ready to emit
+```
+
+### Adapter Events
+
+```typescript
+{ type: "ADAPTER_DETECTED", ts, adapter, provider, version }
+{ type: "ADAPTER_WRAP_START", ts, adapter }
+{ type: "ADAPTER_WRAP_END", ts, adapter, durationMs }
+```
+
+### Timeout Events
+
+```typescript
+{ type: "TIMEOUT_START", ts, type, durationMs }  // type: initial|inter-token
+{ type: "TIMEOUT_RESET", ts, type, tokenIndex }  // timer reset on token
+{ type: "TIMEOUT_TRIGGERED", ts, type, elapsed }  // before error event
+```
+
+### Network Events
+
+```typescript
+{ type: "NETWORK_ERROR", ts, error, code, retryable }
+{ type: "NETWORK_RECOVERY", ts, attemptCount, durationMs }
+{ type: "CONNECTION_DROPPED", ts, reason }
+{ type: "CONNECTION_RESTORED", ts, durationMs }
+```
+
+### Abort Events
+
+```typescript
+{ type: "ABORT_REQUESTED", ts, source }  // source: user|timeout|error
+{ type: "ABORT_COMPLETED", ts, resourcesFreed }
+```
+
+### Tool Events
+
+```typescript
+// Model requests tool execution
+{ type: "TOOL_REQUESTED", ts, toolName, arguments, toolCallId, meta? }
+{ type: "TOOL_START", ts, toolCallId, toolName }
+{ type: "TOOL_RESULT", ts, toolCallId, result, durationMs, meta? }
+{ type: "TOOL_ERROR", ts, toolCallId, error, durationMs, meta? }
+{ type: "TOOL_COMPLETED", ts, toolCallId, status }  // status: success|error
+```
+
+### Guardrail Events
+
+```typescript
+// Phase boundary events
+{ type: "GUARDRAIL_PHASE_START", ts, callbackId, contextSize, ruleCount }
+{ type: "GUARDRAIL_PHASE_END", ts, callbackId, ruleCount, durationMs }
+
+// Per-rule lifecycle
+{ type: "GUARDRAIL_RULE_START", ts, index, ruleId, callbackId }
+{ type: "GUARDRAIL_RULE_RESULT", ts, index, ruleId, callbackId, result }
+{ type: "GUARDRAIL_RULE_END", ts, index, ruleId, callbackId, durationMs }
+
+// Callback lifecycle (for async/external guardrails)
+{ type: "GUARDRAIL_CALLBACK_START", ts, callbackId, index, ruleId }
+{ type: "GUARDRAIL_CALLBACK_END", ts, callbackId, index, ruleId, durationMs, success, error? }
+```
+
+### Drift Events
+
+```typescript
+{ type: "DRIFT_CHECK_START", ts, checkpoint, tokenCount, strategy }
+{ type: "DRIFT_CHECK_RESULT", ts, detected, score, metrics, threshold }
+{ type: "DRIFT_CHECK_END", ts, durationMs }
+{ type: "DRIFT_CHECK_SKIPPED", ts, reason }  // when drift disabled
+```
+
+### Checkpoint Events
+
+```typescript
+{ type: "CHECKPOINT_SAVED", ts, checkpoint, tokenCount }
+```
+
+### Resume Events
+
+```typescript
+{ type: "RESUME_START", ts, checkpoint, stateHash, tokenCount }
+{ type: "RESUME_END", ts, checkpoint, durationMs, success }
+```
+
+### Retry Events
+
+```typescript
+{ type: "RETRY_START", ts, attempt, maxAttempts }
+{ type: "RETRY_ATTEMPT", ts, index, reason, countsTowardLimit, isNetwork, isModelIssue }
+{ type: "RETRY_END", ts, attempt, success, durationMs }
+{ type: "RETRY_GIVE_UP", ts, attempts, lastError }  // exhausted
+```
+
+### Fallback Events
+
+```typescript
+{ type: "FALLBACK_START", ts, from, to, reason }
+{ type: "FALLBACK_MODEL_SELECTED", ts, index, model }
+{ type: "FALLBACK_END", ts, index, durationMs }
+```
+
+### Completion Events
+
+```typescript
+{ type: "FINALIZATION_START", ts }  // tokens done, closing session
+{ type: "FINALIZATION_END", ts, durationMs }  // all workers closed
+
+// Final session summary for replay
+{ type: "SESSION_SUMMARY", ts, tokenCount, startTs, endTs, driftDetected,
+  guardrailViolations, fallbackDepth, retryCount, checkpointsCreated }
+
+{ type: "SESSION_END", ts }  // hard end-of-stream marker
+```
+
+### Consensus Events
+
+```typescript
+{ type: "CONSENSUS_START", ts }
+
+// Per-stream lifecycle
+{ type: "CONSENSUS_STREAM_START", ts, streamIndex, model }
+{ type: "CONSENSUS_STREAM_END", ts, streamIndex, durationMs, status }
+{ type: "CONSENSUS_OUTPUT_COLLECTED", ts, streamIndex, length, hasErrors }
+
+// Analysis and resolution
+{ type: "CONSENSUS_ANALYSIS", ts, agreementRatio, disagreements, strategy,
+  similarityMatrix, averageSimilarity }
+{ type: "CONSENSUS_RESOLUTION", ts, method, finalSelection, confidence }  // method: vote|merge|best|fail
+
+{ type: "CONSENSUS_END", ts, status, confidence, durationMs }
+```
+
+### Structured Output Events
+
+```typescript
+// Parsing lifecycle
+{ type: "PARSE_START", ts, contentLength }
+{ type: "PARSE_END", ts, success, durationMs }
+{ type: "PARSE_ERROR", ts, error, position }
+
+// Schema validation
+{ type: "SCHEMA_VALIDATION_START", ts, schemaType }  // zod|effect|json-schema
+{ type: "SCHEMA_VALIDATION_END", ts, valid, errors?, durationMs }
+
+// Auto-correction
+{ type: "AUTO_CORRECT_START", ts, issues }
+{ type: "AUTO_CORRECT_END", ts, corrected, changes, durationMs }
+```
+
+### Continuation Events
+
+```typescript
+{ type: "CONTINUATION_START", ts, checkpoint, tokenCount }
+{ type: "CONTINUATION_END", ts, success, durationMs }
+
+// Deduplication (when resuming)
+{ type: "DEDUPLICATION_START", ts, overlapSize }
+{ type: "DEDUPLICATION_END", ts, removed, durationMs }
+```
+
+### Event Reference
+
+| Phase        | Events                                                                        | Purpose                        |
+| ------------ | ----------------------------------------------------------------------------- | ------------------------------ |
+| Session      | `SESSION_START` → `STREAM_INIT` → `STREAM_READY`                              | Stream initialization          |
+| Adapter      | `ADAPTER_DETECTED` → `ADAPTER_WRAP_START` → `ADAPTER_WRAP_END`                | Provider detection, transforms |
+| Timeout      | `TIMEOUT_START` → `TIMEOUT_RESET` / `TIMEOUT_TRIGGERED`                       | Timer lifecycle                |
+| Network      | `NETWORK_ERROR` → `NETWORK_RECOVERY` / `CONNECTION_*`                         | Connection lifecycle           |
+| Abort        | `ABORT_REQUESTED` → `ABORT_COMPLETED`                                         | Cancellation lifecycle         |
+| Tool         | `TOOL_REQUESTED` → `TOOL_START` → `TOOL_RESULT/ERROR` → `TOOL_COMPLETED`      | Tool execution lifecycle       |
+| Guardrail    | `PHASE_START` → `RULE_START` → `RULE_RESULT` → `RULE_END` → `PHASE_END`       | Per-rule timing, callbacks     |
+| Drift        | `CHECK_START` → `CHECK_RESULT` → `CHECK_END`                                  | Drift analysis lifecycle       |
+| Checkpoint   | `START` → `END` → `SAVED`                                                     | State persistence              |
+| Resume       | `RESUME_START` → `RESUME_END`                                                 | Resume from checkpoint         |
+| Retry        | `START` → `ATTEMPT` → `END` / `GIVE_UP`                                       | Retry loop observability       |
+| Fallback     | `START` → `MODEL_SELECTED` → `END`                                            | Model switching lifecycle      |
+| Structured   | `PARSE_*` → `SCHEMA_VALIDATION_*` → `AUTO_CORRECT_*`                          | Schema validation, repair      |
+| Continuation | `CONTINUATION_START` → `DEDUPLICATION_*` → `CONTINUATION_END`                 | Resume from checkpoint         |
+| Consensus    | `START` → `STREAM_*` → `ANALYSIS` → `RESOLUTION` → `END`                      | Multi-model coordination       |
+| Completion   | `FINALIZATION_START` → `FINALIZATION_END` → `SESSION_SUMMARY` → `SESSION_END` | Clean shutdown, replay         |
+
+See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for recording and replay.
 
 ---
 
@@ -1142,7 +1373,7 @@ await recorder.recordComplete("Hello World", 2);
 const result = await replay({
   streamId: "my-stream",
   eventStore: store,
-  fireCallbacks: true, // onToken still fires!
+  fireCallbacks: true, // Replay callbacks fire
 });
 
 for await (const event of result.stream) {
@@ -1176,63 +1407,77 @@ try {
 } catch (error) {
   if (isL0Error(error)) {
     console.log(error.code); // "GUARDRAIL_VIOLATION", "ZERO_OUTPUT", etc.
-    console.log(error.context.checkpoint); // Last good content
+    console.log(error.getCheckpoint()); // Last good content for continuation
     console.log(error.context.tokenCount); // Tokens before failure
-    console.log(error.isRecoverable); // Can retry?
+    console.log(error.hasCheckpoint); // Has checkpoint for continuation?
   }
 }
 ```
 
 Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `ZERO_OUTPUT`, `GUARDRAIL_VIOLATION`, `FATAL_GUARDRAIL_VIOLATION`, `INVALID_STREAM`, `ALL_STREAMS_EXHAUSTED`, `NETWORK_ERROR`, `DRIFT_DETECTED`
 
+### Error Events
+
+Error events include structured failure and recovery information:
+
+```typescript
+import { EventType, type ErrorEvent } from "@ai2070/l0";
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  onEvent: (event) => {
+    if (event.type === EventType.ERROR) {
+      const e = event as ErrorEvent;
+      console.log(e.failureType); // "network" | "model" | "timeout" | "abort" | "zero_output" | "tool" | "unknown"
+      console.log(e.recoveryStrategy); // "retry" | "fallback" | "halt"
+      console.log(e.policy); // { retryEnabled, fallbackEnabled, maxRetries, attempt, ... }
+    }
+  },
+});
+```
+
+See [ERROR_HANDLING.md](./ERROR_HANDLING.md) for complete error handling guide.
+
 ---
 
 ## Monitoring
 
-Built-in telemetry with Prometheus, OTel and Sentry integrations.
+Built-in observability via the unified `onEvent` pipeline. All monitoring integrations (OpenTelemetry, Sentry, custom loggers) subscribe to events - no interceptors needed.
 
-### Prometheus
+### Basic Usage
 
 ```typescript
+import * as Sentry from "@sentry/node";
+import { trace, metrics } from "@opentelemetry/api";
 import {
   l0,
-  createPrometheusCollector,
-  prometheusMiddleware,
+  combineEvents,
+  createOpenTelemetryHandler,
+  createSentryHandler,
 } from "@ai2070/l0";
-import express from "express";
 
-const collector = createPrometheusCollector();
-const app = express();
-
-app.get("/metrics", prometheusMiddleware(collector));
-
-app.post("/chat", async (req, res) => {
-  const result = await l0({
-    stream: () => streamText({ model, prompt: req.body.prompt }),
-    monitoring: { enabled: true },
-  });
-
-  for await (const event of result.stream) {
-    /* ... */
-  }
-
-  collector.record(result.telemetry, { model: "gpt-4" });
-  res.json({ response: result.state.content });
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  onEvent: combineEvents(
+    createOpenTelemetryHandler({
+      tracer: trace.getTracer("my-app"),
+      meter: metrics.getMeter("my-app"),
+    }),
+    createSentryHandler({ sentry: Sentry }),
+    (event) => console.log(event.type), // custom handler
+  ),
 });
 ```
-
-**Exported metrics:** `l0_requests_total`, `l0_request_duration_seconds`, `l0_tokens_total`, `l0_time_to_first_token_seconds`, `l0_network_errors_total`, `l0_guardrail_violations_total`
 
 ### Sentry
 
 ```typescript
 import * as Sentry from "@sentry/node";
-import { l0, sentryInterceptor } from "@ai2070/l0";
+import { l0, createSentryHandler } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true },
-  interceptors: [sentryInterceptor({ hub: Sentry })],
+  onEvent: createSentryHandler({ sentry: Sentry }),
 });
 ```
 
@@ -1242,43 +1487,35 @@ const result = await l0({
 
 ```typescript
 import { trace, metrics } from "@opentelemetry/api";
-import { l0, L0OpenTelemetry, openTelemetryInterceptor } from "@ai2070/l0";
+import { l0, createOpenTelemetryHandler } from "@ai2070/l0";
 
-const otel = new L0OpenTelemetry({
-  tracer: trace.getTracer("my-app"),
-  meter: metrics.getMeter("my-app"),
-});
-
-// Trace a stream operation
-const result = await otel.traceStream("chat-completion", async (span) => {
-  const res = await l0({
-    stream: () => streamText({ model, prompt }),
-    monitoring: { enabled: true },
-  });
-
-  for await (const event of res.stream) {
-    otel.recordToken(span);
-  }
-
-  otel.recordTelemetry(res.telemetry, span);
-  return res;
-});
-
-// Or use the interceptor for automatic tracing
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  interceptors: [
-    openTelemetryInterceptor({
-      tracer: trace.getTracer("my-app"),
-      meter: metrics.getMeter("my-app"),
-    }),
-  ],
+  onEvent: createOpenTelemetryHandler({
+    tracer: trace.getTracer("my-app"),
+    meter: metrics.getMeter("my-app"),
+  }),
 });
 ```
 
 **Metrics:** `l0.requests`, `l0.tokens`, `l0.retries`, `l0.errors`, `l0.duration`, `l0.time_to_first_token`, `l0.active_streams`
 
 **Span attributes:** Follows [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) with `gen_ai.*` and `l0.*` attributes.
+
+### Event Handler Utilities
+
+```typescript
+import { EventType, combineEvents, filterEvents, excludeEvents } from "@ai2070/l0";
+
+// Combine multiple handlers
+onEvent: combineEvents(handler1, handler2, handler3)
+
+// Filter to specific events
+onEvent: filterEvents([EventType.ERROR, EventType.RETRY_ATTEMPT], errorHandler)
+
+// Exclude noisy events
+onEvent: excludeEvents([EventType.TOKEN], logHandler)
+```
 
 See [MONITORING.md](./MONITORING.md) for complete integration guides.
 
@@ -1292,7 +1529,7 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 
 | Category          | Tests  | Description                      |
 | ----------------- | ------ | -------------------------------- |
-| Unit Tests        | 2,000+ | Fast, mocked, no API calls       |
+| Unit Tests        | 2,600+ | Fast, mocked, no API calls       |
 | Integration Tests | 250+   | Real API calls, all SDK adapters |
 
 ```bash
@@ -1330,7 +1567,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | **Consensus**         | ✓    | ✓           | Unanimous, weighted, best-match          |
 | **Document Windows**  | ✓    | ✓           | Token, paragraph, sentence chunking      |
 | **Continuation**      | ✓    | ✓           | Last-known-good token resumption         |
-| **Monitoring**        | ✓    | ✓           | Prometheus, metrics, tokens, retries     |
+| **Monitoring**        | ✓    | ✓           | OTel, Sentry, metrics, tokens, retries   |
 | **Sentry**            | ✓    | ✓           | Error tagging, breadcrumbs, performance  |
 | **OpenTelemetry**     | ✓    | ✓           | GenAI semantic conventions, spans, TTFT  |
 | **Event Sourcing**    | ✓    | ✓           | Record/replay, deterministic testing     |

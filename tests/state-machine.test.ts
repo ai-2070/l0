@@ -22,8 +22,8 @@ describe("RuntimeStates", () => {
     expect(RuntimeStates.ERROR).toBe("error");
   });
 
-  it("should have exactly 10 states", () => {
-    expect(Object.keys(RuntimeStates)).toHaveLength(10);
+  it("should have exactly 11 states", () => {
+    expect(Object.keys(RuntimeStates)).toHaveLength(11);
   });
 });
 

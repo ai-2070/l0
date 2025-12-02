@@ -37,7 +37,7 @@ All adapters must be maintained out-of-tree. The L0 core will remain small, depe
 
 - Database adapters (Redis, PostgreSQL, MongoDB, etc.)
 - Cloud service integrations (AWS, GCP, Azure)
-- Monitoring backends (custom Prometheus exporters, Datadog, etc.)
+- Monitoring backends (Datadog, custom exporters, etc.)
 - LLM provider-specific extensions
 
 ## Getting Started

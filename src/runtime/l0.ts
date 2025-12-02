@@ -19,6 +19,14 @@ import {
   ErrorCategory,
   L0ErrorCodes,
 } from "../utils/errors";
+import { EventDispatcher } from "./event-dispatcher";
+import { registerCallbackWrappers } from "./callback-wrappers";
+import {
+  EventType,
+  type FailureType,
+  type RecoveryStrategy,
+  type RecoveryPolicy,
+} from "../types/observability";
 
 // Type-only imports for optional modules (injected at runtime)
 import type { DriftDetector as DriftDetectorType } from "./drift";
@@ -110,6 +118,74 @@ export type { RuntimeState } from "./state-machine";
 export { Metrics } from "./metrics";
 
 /**
+ * Determine the failure type from an error.
+ * Maps errors to their root cause category.
+ */
+function getFailureType(error: Error, signal?: AbortSignal): FailureType {
+  // Check for abort first
+  if (signal?.aborted || error.name === "AbortError") {
+    return "abort";
+  }
+
+  // Check for L0-specific error codes
+  if (error instanceof L0Error) {
+    switch (error.code) {
+      case L0ErrorCodes.INITIAL_TOKEN_TIMEOUT:
+      case L0ErrorCodes.INTER_TOKEN_TIMEOUT:
+        return "timeout";
+      case L0ErrorCodes.ZERO_OUTPUT:
+        return "zero_output";
+      case L0ErrorCodes.NETWORK_ERROR:
+        return "network";
+      case L0ErrorCodes.GUARDRAIL_VIOLATION:
+      case L0ErrorCodes.FATAL_GUARDRAIL_VIOLATION:
+      case L0ErrorCodes.DRIFT_DETECTED:
+        return "model"; // Content issues are model-side
+      default:
+        break;
+    }
+  }
+
+  // Check for network errors
+  if (isNetworkError(error)) {
+    return "network";
+  }
+
+  // Check error message patterns for timeouts
+  const message = error.message.toLowerCase();
+  if (
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("deadline exceeded")
+  ) {
+    return "timeout";
+  }
+
+  // Check for tool errors
+  if (
+    message.includes("tool") ||
+    message.includes("function call") ||
+    (error as any).toolCallId
+  ) {
+    return "tool";
+  }
+
+  return "unknown";
+}
+
+/**
+ * Determine recovery strategy based on retry decision and fallback availability.
+ */
+function getRecoveryStrategy(
+  willRetry: boolean,
+  willFallback: boolean,
+): RecoveryStrategy {
+  if (willRetry) return "retry";
+  if (willFallback) return "fallback";
+  return "halt";
+}
+
+/**
  * Main L0 wrapper function
  * Provides streaming runtime with guardrails, drift detection, retry logic,
  * and network protections
@@ -144,7 +220,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Interceptors require enableInterceptors() to be called first. " +
           'Import and call: import { enableInterceptors } from "@ai2070/l0"; enableInterceptors();',
-        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, recoverable: false },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED },
       );
     }
     interceptorManager = _interceptorManagerFactory(interceptors);
@@ -173,19 +249,22 @@ export async function l0<TOutput = unknown>(
     detectDrift: processedDetectDrift = false,
     detectZeroTokens: processedDetectZeroTokens = true,
     checkIntervals: processedCheckIntervals = {},
-    onStart: processedOnStart,
-    onComplete: processedOnComplete,
-    onError: processedOnError,
+    // Note: onComplete is handled by registerCallbackWrappers via COMPLETE event
+    // Note: onError is handled by registerCallbackWrappers via ERROR event
+    // Note: onViolation is handled by registerCallbackWrappers via GUARDRAIL_RULE_RESULT event
     onEvent: processedOnEvent,
-    onViolation: processedOnViolation,
-    onRetry: processedOnRetry,
-    onFallback: processedOnFallback,
-    onResume: processedOnResume,
     continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
     buildContinuationPrompt: processedBuildContinuationPrompt,
     deduplicateContinuation: processedDeduplicateContinuation,
     deduplicationOptions: processedDeduplicationOptions = {},
+    meta: processedMeta = {},
   } = processedOptions;
+
+  // Initialize event dispatcher for observability
+  const dispatcher = new EventDispatcher(processedMeta);
+
+  // Register legacy callback wrappers
+  registerCallbackWrappers(dispatcher, processedOptions);
 
   // Deduplication is enabled by default when continuation is enabled
   const shouldDeduplicateContinuation =
@@ -211,7 +290,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Monitoring requires enableMonitoring() to be called first. " +
           'Import and call: import { enableMonitoring } from "@ai2070/l0"; enableMonitoring();',
-        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, recoverable: false },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED },
       );
     }
     monitor = _monitorFactory({
@@ -232,7 +311,6 @@ export async function l0<TOutput = unknown>(
           rules: processedGuardrails,
           stopOnFatal: true,
           enableStreaming: true,
-          onViolation: processedOnViolation,
         })
       : null;
 
@@ -261,7 +339,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Drift detection requires enableDriftDetection() to be called first. " +
           'Import and call: import { enableDriftDetection } from "@ai2070/l0"; enableDriftDetection();',
-        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, recoverable: false },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED },
       );
     }
     driftDetector = _driftDetectorFactory();
@@ -304,19 +382,14 @@ export async function l0<TOutput = unknown>(
         // Transition to init state at start of each attempt
         stateMachine.transition(RuntimeStates.INIT);
 
-        // Call onStart callback (wrapped to prevent user errors from crashing runtime)
-        if (processedOnStart) {
-          const isRetry = retryAttempt > 0 || isRetryAttempt;
-          const isFallback = fallbackIndex > 0;
-          try {
-            processedOnStart(retryAttempt + 1, isRetry, isFallback);
-          } catch (error) {
-            monitor?.logEvent({
-              type: "warning",
-              message: `onStart callback threw: ${error instanceof Error ? error.message : String(error)}`,
-            });
-          }
-        }
+        // Emit SESSION_START event (callback wrappers handle legacy onStart)
+        const isRetry = retryAttempt > 0 || isRetryAttempt;
+        const isFallback = fallbackIndex > 0;
+        dispatcher.emit(EventType.SESSION_START, {
+          attempt: retryAttempt + 1,
+          isRetry,
+          isFallback,
+        });
 
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
@@ -348,14 +421,16 @@ export async function l0<TOutput = unknown>(
               if (validation.driftDetected) {
                 state.driftDetected = true;
                 monitor?.recordDrift(true, validation.driftTypes);
-                if (processedOnViolation) {
-                  processedOnViolation({
+                dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                  index: 0,
+                  ruleId: "drift",
+                  passed: false,
+                  violation: {
                     rule: "drift",
                     severity: "warning",
                     message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
-                    recoverable: true,
-                  });
-                }
+                  },
+                });
               }
 
               if (validation.skipContinuation) {
@@ -373,10 +448,11 @@ export async function l0<TOutput = unknown>(
               overlapBuffer = "";
               overlapResolved = false;
 
-              // Call onResume callback
-              if (processedOnResume) {
-                processedOnResume(checkpointForContinuation, state.tokenCount);
-              }
+              // Emit RESUME_START event (callback wrappers handle legacy onResume)
+              dispatcher.emit(EventType.RESUME_START, {
+                checkpoint: checkpointForContinuation,
+                tokenCount: state.tokenCount,
+              });
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for retry)
               if (processedBuildContinuationPrompt) {
@@ -443,7 +519,6 @@ export async function l0<TOutput = unknown>(
                     'Import and call: import { enableAdapterRegistry } from "@ai2070/l0"; enableAdapterRegistry();',
                   {
                     code: L0ErrorCodes.FEATURE_NOT_ENABLED,
-                    recoverable: false,
                   },
                 );
               }
@@ -457,7 +532,6 @@ export async function l0<TOutput = unknown>(
                     modelRetryCount: state.modelRetryCount,
                     networkRetryCount: state.networkRetryCount,
                     fallbackIndex,
-                    recoverable: false,
                   },
                 );
               }
@@ -471,21 +545,21 @@ export async function l0<TOutput = unknown>(
               processedOptions.adapterOptions,
             );
           }
-          // 2. Native L0-compatible streams (Vercel AI SDK pattern)
-          else if (streamResult.textStream) {
-            sourceStream = streamResult.textStream;
-          } else if (streamResult.fullStream) {
-            sourceStream = streamResult.fullStream;
-          }
-          // 3. Auto-detection via registered adapters (if registry enabled)
-          // MUST come before generic Symbol.asyncIterator check!
-          // Provider streams are async iterables but need adapters to convert to L0Events
+          // 2. Auto-detection via registered adapters (if registry enabled)
+          // MUST come before textStream/fullStream fallback to allow adapters
+          // to provide enhanced handling (e.g., tool calls via fullStream)
           else if (_adapterRegistry?.hasMatchingAdapter(streamResult)) {
             const adapter = _adapterRegistry.detectAdapter(streamResult);
             sourceStream = adapter.wrap(
               streamResult,
               processedOptions.adapterOptions,
             );
+          }
+          // 3. Native L0-compatible streams (Vercel AI SDK pattern - simple text only)
+          else if (streamResult.textStream) {
+            sourceStream = streamResult.textStream;
+          } else if (streamResult.fullStream) {
+            sourceStream = streamResult.fullStream;
           }
           // 4. Generic async iterable (already L0Events or compatible)
           else if (Symbol.asyncIterator in streamResult) {
@@ -501,7 +575,6 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-                recoverable: true,
               },
             );
           }
@@ -537,6 +610,10 @@ export async function l0<TOutput = unknown>(
           for await (const chunk of sourceStream) {
             // Check abort signal
             if (signal?.aborted) {
+              dispatcher.emit(EventType.ABORT_COMPLETED, {
+                tokenCount: state.tokenCount,
+                contentLength: state.content.length,
+              });
               throw new L0Error("Stream aborted by signal", {
                 code: L0ErrorCodes.STREAM_ABORTED,
                 checkpoint: state.checkpoint,
@@ -545,7 +622,6 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-                recoverable: state.checkpoint.length > 0,
               });
             }
 
@@ -556,6 +632,10 @@ export async function l0<TOutput = unknown>(
               const timeSinceLastToken = Date.now() - lastTokenEmissionTime;
               if (timeSinceLastToken > interTimeout) {
                 metrics.timeouts++;
+                dispatcher.emit(EventType.TIMEOUT_TRIGGERED, {
+                  timeoutType: "inter",
+                  elapsedMs: timeSinceLastToken,
+                });
                 throw new L0Error("Inter-token timeout reached", {
                   code: L0ErrorCodes.INTER_TOKEN_TIMEOUT,
                   checkpoint: state.checkpoint,
@@ -564,7 +644,7 @@ export async function l0<TOutput = unknown>(
                   modelRetryCount: state.modelRetryCount,
                   networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
-                  recoverable: state.checkpoint.length > 0,
+
                   metadata: { timeout: interTimeout, timeSinceLastToken },
                 });
               }
@@ -580,6 +660,12 @@ export async function l0<TOutput = unknown>(
             // Check initial timeout
             if (initialTimeoutReached && !firstTokenReceived) {
               metrics.timeouts++;
+              const elapsedMs =
+                processedTimeout.initialToken ?? defaultInitialTokenTimeout;
+              dispatcher.emit(EventType.TIMEOUT_TRIGGERED, {
+                timeoutType: "initial",
+                elapsedMs,
+              });
               throw new L0Error("Initial token timeout reached", {
                 code: L0ErrorCodes.INITIAL_TOKEN_TIMEOUT,
                 checkpoint: state.checkpoint,
@@ -588,7 +674,7 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-                recoverable: true,
+
                 metadata: {
                   timeout:
                     processedTimeout.initialToken ?? defaultInitialTokenTimeout,
@@ -697,14 +783,17 @@ export async function l0<TOutput = unknown>(
               state.tokenCount++;
               state.lastTokenAt = Date.now();
 
-              // Build content string only when needed (for guardrails/drift checks)
+              // Build content string only when needed (for guardrails/drift checks/checkpoints)
               // This is O(n) total instead of O(n²) from repeated concatenation
+              const needsCheckpoint =
+                processedContinueFromCheckpoint &&
+                state.tokenCount % checkpointInterval === 0;
               const needsContent =
                 (guardrailEngine &&
                   state.tokenCount % guardrailCheckInterval === 0) ||
                 (driftDetector &&
                   state.tokenCount % driftCheckInterval === 0) ||
-                state.tokenCount % checkpointInterval === 0; // checkpoint
+                needsCheckpoint;
 
               if (needsContent) {
                 state.content = tokenBuffer.join("");
@@ -713,9 +802,13 @@ export async function l0<TOutput = unknown>(
               // Record token in monitoring
               monitor?.recordToken(state.lastTokenAt);
 
-              // Update checkpoint periodically
-              if (state.tokenCount % checkpointInterval === 0) {
+              // Update checkpoint periodically (only when continuation is enabled)
+              if (needsCheckpoint) {
                 state.checkpoint = state.content;
+                dispatcher.emit(EventType.CHECKPOINT_SAVED, {
+                  checkpoint: state.checkpoint,
+                  tokenCount: state.tokenCount,
+                });
               }
 
               // Run streaming guardrails
@@ -735,6 +828,17 @@ export async function l0<TOutput = unknown>(
                 if (result.violations.length > 0) {
                   state.violations.push(...result.violations);
                   monitor?.recordGuardrailViolations(result.violations);
+
+                  // Emit GUARDRAIL_RULE_RESULT events for each violation
+                  for (let i = 0; i < result.violations.length; i++) {
+                    const violation = result.violations[i];
+                    dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                      index: i,
+                      ruleId: violation!.rule,
+                      passed: false,
+                      violation,
+                    });
+                  }
                 }
 
                 // Check for fatal violations
@@ -749,7 +853,7 @@ export async function l0<TOutput = unknown>(
                       modelRetryCount: state.modelRetryCount,
                       networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
-                      recoverable: false,
+
                       metadata: { violation: result.violations[0] },
                     },
                   );
@@ -765,6 +869,11 @@ export async function l0<TOutput = unknown>(
                 if (drift.detected) {
                   state.driftDetected = true;
                   monitor?.recordDrift(true, drift.types);
+                  dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
+                    detected: true,
+                    types: drift.types,
+                    confidence: drift.confidence,
+                  });
                 }
               }
 
@@ -789,6 +898,163 @@ export async function l0<TOutput = unknown>(
                 role: event.role,
                 timestamp: Date.now(),
               };
+
+              // Detect tool calls/results and emit observability events
+              if (event.value) {
+                try {
+                  const parsed = JSON.parse(event.value);
+
+                  // Helper to emit tool call events
+                  const emitToolCall = (
+                    toolCallId: string,
+                    toolName: string,
+                    args: Record<string, unknown>,
+                  ) => {
+                    stateMachine.transition(RuntimeStates.TOOL_CALL_DETECTED);
+                    state.toolCallStartTimes =
+                      state.toolCallStartTimes || new Map();
+                    state.toolCallStartTimes.set(toolCallId, Date.now());
+                    state.toolCallNames = state.toolCallNames || new Map();
+                    state.toolCallNames.set(toolCallId, toolName);
+
+                    dispatcher.emit(EventType.TOOL_REQUESTED, {
+                      toolName,
+                      toolCallId,
+                      arguments: args,
+                    });
+                    dispatcher.emit(EventType.TOOL_START, {
+                      toolCallId,
+                      toolName,
+                    });
+                  };
+
+                  // Helper to parse arguments (may be string or object)
+                  const parseArgs = (
+                    args: unknown,
+                  ): Record<string, unknown> => {
+                    if (typeof args === "string") {
+                      try {
+                        return JSON.parse(args);
+                      } catch {
+                        return {};
+                      }
+                    }
+                    return (args as Record<string, unknown>) || {};
+                  };
+
+                  // Helper to emit tool result events
+                  const emitToolResult = (
+                    toolCallId: string,
+                    result: unknown,
+                    error?: string,
+                  ) => {
+                    const startTime = state.toolCallStartTimes?.get(toolCallId);
+                    const durationMs = startTime ? Date.now() - startTime : 0;
+
+                    if (error) {
+                      dispatcher.emit(EventType.TOOL_ERROR, {
+                        toolCallId,
+                        error,
+                        errorType: "EXECUTION_ERROR",
+                        durationMs,
+                      });
+                      dispatcher.emit(EventType.TOOL_COMPLETED, {
+                        toolCallId,
+                        status: "error",
+                      });
+                    } else {
+                      dispatcher.emit(EventType.TOOL_RESULT, {
+                        toolCallId,
+                        result,
+                        durationMs,
+                      });
+                      dispatcher.emit(EventType.TOOL_COMPLETED, {
+                        toolCallId,
+                        status: "success",
+                      });
+                    }
+
+                    // Clean up tracking
+                    state.toolCallStartTimes?.delete(toolCallId);
+                    state.toolCallNames?.delete(toolCallId);
+
+                    // Transition back to streaming if no more pending tool calls
+                    if (!state.toolCallStartTimes?.size) {
+                      stateMachine.transition(RuntimeStates.STREAMING);
+                    }
+                  };
+
+                  // === TOOL CALL FORMATS ===
+
+                  // L0 standard flat format (recommended for custom adapters)
+                  // { type: "tool_call", id, name, arguments }
+                  if (parsed.type === "tool_call" && parsed.id && parsed.name) {
+                    emitToolCall(
+                      parsed.id,
+                      parsed.name,
+                      parseArgs(parsed.arguments),
+                    );
+                  }
+                  // OpenAI format: { type: "tool_calls", tool_calls: [...] }
+                  else if (
+                    parsed.type === "tool_calls" &&
+                    Array.isArray(parsed.tool_calls)
+                  ) {
+                    for (const tc of parsed.tool_calls) {
+                      emitToolCall(tc.id, tc.name, parseArgs(tc.arguments));
+                    }
+                  }
+                  // Legacy OpenAI function_call format
+                  else if (
+                    parsed.type === "function_call" &&
+                    parsed.function_call
+                  ) {
+                    emitToolCall(
+                      `fn_${Date.now()}`,
+                      parsed.function_call.name,
+                      parseArgs(parsed.function_call.arguments),
+                    );
+                  }
+                  // Anthropic tool_use format
+                  else if (parsed.type === "tool_use" && parsed.tool_use) {
+                    emitToolCall(
+                      parsed.tool_use.id,
+                      parsed.tool_use.name,
+                      parseArgs(parsed.tool_use.input),
+                    );
+                  }
+                  // Nested tool_call format (Mastra/legacy)
+                  else if (parsed.type === "tool_call" && parsed.tool_call) {
+                    emitToolCall(
+                      parsed.tool_call.id,
+                      parsed.tool_call.name,
+                      parseArgs(parsed.tool_call.arguments),
+                    );
+                  }
+
+                  // === TOOL RESULT FORMATS ===
+
+                  // L0 standard flat format (recommended for custom adapters)
+                  // { type: "tool_result", id, result, error? }
+                  else if (parsed.type === "tool_result" && parsed.id) {
+                    emitToolResult(parsed.id, parsed.result, parsed.error);
+                  }
+                  // Nested tool_result format (Mastra/legacy)
+                  else if (
+                    parsed.type === "tool_result" &&
+                    parsed.tool_result
+                  ) {
+                    emitToolResult(
+                      parsed.tool_result.id,
+                      parsed.tool_result.result,
+                      parsed.tool_result.error,
+                    );
+                  }
+                } catch {
+                  // Not JSON or parsing failed - that's fine, not all messages are tool calls
+                }
+              }
+
               safeInvokeCallback(
                 processedOnEvent,
                 messageEvent,
@@ -893,6 +1159,17 @@ export async function l0<TOutput = unknown>(
                 if (result.violations.length > 0) {
                   state.violations.push(...result.violations);
                   monitor?.recordGuardrailViolations(result.violations);
+
+                  // Emit GUARDRAIL_RULE_RESULT events for each violation
+                  for (let i = 0; i < result.violations.length; i++) {
+                    const violation = result.violations[i];
+                    dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                      index: i,
+                      ruleId: violation!.rule,
+                      passed: false,
+                      violation,
+                    });
+                  }
                 }
 
                 // Check for fatal violations
@@ -907,7 +1184,7 @@ export async function l0<TOutput = unknown>(
                       modelRetryCount: state.modelRetryCount,
                       networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
-                      recoverable: false,
+
                       metadata: { violation: result.violations[0] },
                     },
                   );
@@ -920,6 +1197,11 @@ export async function l0<TOutput = unknown>(
                 if (drift.detected) {
                   state.driftDetected = true;
                   monitor?.recordDrift(true, drift.types);
+                  dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
+                    detected: true,
+                    types: drift.types,
+                    confidence: drift.confidence,
+                  });
                 }
               }
 
@@ -954,7 +1236,6 @@ export async function l0<TOutput = unknown>(
               modelRetryCount: state.modelRetryCount,
               networkRetryCount: state.networkRetryCount,
               fallbackIndex,
-              recoverable: true,
             });
           }
 
@@ -971,17 +1252,32 @@ export async function l0<TOutput = unknown>(
             if (result.violations.length > 0) {
               state.violations.push(...result.violations);
               monitor?.recordGuardrailViolations(result.violations);
+
+              // Emit GUARDRAIL_RULE_RESULT events for each violation
+              for (let i = 0; i < result.violations.length; i++) {
+                const violation = result.violations[i];
+                dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                  index: i,
+                  ruleId: violation!.rule,
+                  passed: false,
+                  violation,
+                });
+              }
             }
 
             // Check if should retry
             if (result.shouldRetry && retryAttempt < modelRetryLimit) {
               const violation = result.violations[0];
-              if (processedOnRetry) {
-                processedOnRetry(
-                  retryAttempt + 1,
-                  `Guardrail violation: ${violation?.message}`,
-                );
-              }
+              const reason = `Guardrail violation: ${violation?.message}`;
+              dispatcher.emit(EventType.RETRY_ATTEMPT, {
+                attempt: retryAttempt + 1,
+                maxAttempts: modelRetryLimit,
+                reason,
+                delayMs: 0,
+                countsTowardLimit: true,
+                isNetwork: false,
+                isModelIssue: true,
+              });
               retryAttempt++;
               state.modelRetryCount++;
               continue;
@@ -999,7 +1295,7 @@ export async function l0<TOutput = unknown>(
                   modelRetryCount: state.modelRetryCount,
                   networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
-                  recoverable: false,
+
                   metadata: { violation: result.violations[0] },
                 },
               );
@@ -1012,9 +1308,20 @@ export async function l0<TOutput = unknown>(
             if (finalDrift.detected && retryAttempt < modelRetryLimit) {
               state.driftDetected = true;
               monitor?.recordDrift(true, finalDrift.types);
-              if (processedOnRetry) {
-                processedOnRetry(retryAttempt + 1, "Drift detected");
-              }
+              dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
+                detected: true,
+                types: finalDrift.types,
+                confidence: finalDrift.confidence,
+              });
+              dispatcher.emit(EventType.RETRY_ATTEMPT, {
+                attempt: retryAttempt + 1,
+                maxAttempts: modelRetryLimit,
+                reason: "Drift detected",
+                delayMs: 0,
+                countsTowardLimit: true,
+                isNetwork: false,
+                isModelIssue: true,
+              });
               monitor?.recordRetry(false);
               retryAttempt++;
               state.modelRetryCount++;
@@ -1048,10 +1355,13 @@ export async function l0<TOutput = unknown>(
 
           stateMachine.transition(RuntimeStates.COMPLETE);
 
-          // Call onComplete callback
-          if (processedOnComplete) {
-            processedOnComplete(state);
-          }
+          // Emit COMPLETE event (includes full state for onComplete callback)
+          dispatcher.emit(EventType.COMPLETE, {
+            tokenCount: state.tokenCount,
+            contentLength: state.content.length,
+            durationMs: state.duration ?? 0,
+            state,
+          });
 
           break; // Exit retry loop on success
         } catch (error) {
@@ -1079,11 +1389,15 @@ export async function l0<TOutput = unknown>(
               state.violations.push(...partialResult.violations);
               monitor?.recordGuardrailViolations(partialResult.violations);
 
-              // Notify about violations
-              for (const violation of partialResult.violations) {
-                if (processedOnViolation) {
-                  processedOnViolation(violation);
-                }
+              // Notify about violations via GUARDRAIL_RULE_RESULT events
+              for (let i = 0; i < partialResult.violations.length; i++) {
+                const violation = partialResult.violations[i];
+                dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                  index: i,
+                  ruleId: violation!.rule,
+                  passed: false,
+                  violation,
+                });
               }
 
               // If fatal violation in partial content, clear checkpoint to prevent
@@ -1098,11 +1412,17 @@ export async function l0<TOutput = unknown>(
 
             // If no fatal violations and we have content, update checkpoint
             // so continuation can use the validated partial content
+            // (only when continuation is enabled)
             if (
+              processedContinueFromCheckpoint &&
               !partialResult.violations.some((v) => v.severity === "fatal") &&
               state.content.length > 0
             ) {
               state.checkpoint = state.content;
+              dispatcher.emit(EventType.CHECKPOINT_SAVED, {
+                checkpoint: state.checkpoint,
+                tokenCount: state.tokenCount,
+              });
             }
           }
 
@@ -1115,14 +1435,21 @@ export async function l0<TOutput = unknown>(
             if (partialDrift.detected) {
               state.driftDetected = true;
               monitor?.recordDrift(true, partialDrift.types);
-              if (processedOnViolation) {
-                processedOnViolation({
+              dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
+                detected: true,
+                types: partialDrift.types,
+                confidence: partialDrift.confidence,
+              });
+              dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                index: 0,
+                ruleId: "drift",
+                passed: false,
+                violation: {
                   rule: "drift",
                   severity: "warning",
                   message: `Drift detected in partial stream: ${partialDrift.types.join(", ")}`,
-                  recoverable: true,
-                });
-              }
+                },
+              });
             }
           }
 
@@ -1175,16 +1502,33 @@ export async function l0<TOutput = unknown>(
             );
           }
 
-          // Call onError callback before retry/fallback decision is acted upon
-          if (processedOnError) {
-            const willRetry = decision.shouldRetry;
-            const willFallback =
-              !decision.shouldRetry && fallbackIndex < allStreams.length - 1;
-            processedOnError(err, willRetry, willFallback);
-          }
+          // Emit ERROR event before retry/fallback decision is acted upon
+          const willRetry = decision.shouldRetry;
+          const willFallback =
+            !decision.shouldRetry && fallbackIndex < allStreams.length - 1;
 
-          // Check if should retry
-          if (decision.shouldRetry) {
+          // Build recovery policy
+          const policy: RecoveryPolicy = {
+            retryEnabled: modelRetryLimit > 0,
+            fallbackEnabled: allStreams.length > 1,
+            maxRetries: modelRetryLimit,
+            maxFallbacks: allStreams.length - 1,
+            attempt: retryAttempt + 1, // 1-based
+            fallbackIndex,
+          };
+
+          dispatcher.emit(EventType.ERROR, {
+            error: err.message,
+            errorCode: (err as any).code,
+            failureType: getFailureType(err, signal),
+            recoveryStrategy: getRecoveryStrategy(willRetry, willFallback),
+            policy,
+          });
+
+          // Note: onError callback is handled by registerCallbackWrappers via ERROR event
+
+          // Check if should retry (but not if aborted)
+          if (decision.shouldRetry && !signal?.aborted) {
             if (decision.countsTowardLimit) {
               retryAttempt++;
               state.modelRetryCount++;
@@ -1202,9 +1546,16 @@ export async function l0<TOutput = unknown>(
             // Record in monitoring
             monitor?.recordRetry(isNetError);
 
-            if (processedOnRetry) {
-              processedOnRetry(retryAttempt, decision.reason);
-            }
+            // Emit RETRY_ATTEMPT event
+            dispatcher.emit(EventType.RETRY_ATTEMPT, {
+              attempt: retryAttempt,
+              maxAttempts: modelRetryLimit,
+              reason: decision.reason,
+              delayMs: decision.delay ?? 0,
+              countsTowardLimit: decision.countsTowardLimit,
+              isNetwork: isNetError,
+              isModelIssue: !isNetError,
+            });
 
             // Record retry and wait
             await retryManager.recordRetry(categorized, decision);
@@ -1254,10 +1605,12 @@ export async function l0<TOutput = unknown>(
             toIndex: fallbackIndex,
           });
 
-          // Call onFallback callback
-          if (processedOnFallback) {
-            processedOnFallback(fallbackIndex - 1, fallbackMessage);
-          }
+          // Emit FALLBACK_START event
+          dispatcher.emit(EventType.FALLBACK_START, {
+            fromIndex: fallbackIndex - 1,
+            toIndex: fallbackIndex,
+            reason: fallbackMessage,
+          });
 
           // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
           if (processedContinueFromCheckpoint && state.checkpoint.length > 0) {
@@ -1281,14 +1634,16 @@ export async function l0<TOutput = unknown>(
             if (validation.driftDetected) {
               state.driftDetected = true;
               monitor?.recordDrift(true, validation.driftTypes);
-              if (processedOnViolation) {
-                processedOnViolation({
+              dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                index: 0,
+                ruleId: "drift",
+                passed: false,
+                violation: {
                   rule: "drift",
                   severity: "warning",
                   message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
-                  recoverable: true,
-                });
-              }
+                },
+              });
             }
 
             if (!validation.skipContinuation) {
@@ -1300,10 +1655,11 @@ export async function l0<TOutput = unknown>(
               overlapBuffer = "";
               overlapResolved = false;
 
-              // Call onResume callback
-              if (processedOnResume) {
-                processedOnResume(checkpointForContinuation, state.tokenCount);
-              }
+              // Emit RESUME_START event (callback wrappers handle legacy onResume)
+              dispatcher.emit(EventType.RESUME_START, {
+                checkpoint: checkpointForContinuation,
+                tokenCount: state.tokenCount,
+              });
 
               // Call buildContinuationPrompt if provided (allows user to update prompt for fallback)
               if (processedBuildContinuationPrompt) {
@@ -1387,13 +1743,19 @@ export async function l0<TOutput = unknown>(
     }
   };
 
+  // Create abort function that emits events
+  const abort = () => {
+    dispatcher.emit(EventType.ABORT_REQUESTED, { source: "user" });
+    abortController.abort();
+  };
+
   // Create initial result
   let result: L0Result<TOutput> = {
     stream: streamGenerator(),
     state,
     errors,
     telemetry: monitor?.export(),
-    abort: () => abortController.abort(),
+    abort,
   };
 
   // Execute "after" interceptors

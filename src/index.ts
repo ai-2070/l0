@@ -6,7 +6,7 @@
 //   - "@ai2070/l0/core" - Minimal runtime (~15KB)
 //   - "@ai2070/l0/guardrails" - Guardrail rules and engine
 //   - "@ai2070/l0/drift" - Drift detection
-//   - "@ai2070/l0/monitoring" - Prometheus, OTel, Sentry
+//   - "@ai2070/l0/monitoring" - OTel, Sentry
 //   - "@ai2070/l0/openai" - OpenAI adapter
 //   - "@ai2070/l0/anthropic" - Anthropic adapter
 //   - "@ai2070/l0/mastra" - Mastra adapter
@@ -147,6 +147,123 @@ export type {
   L0Progress,
 } from "./types";
 
+// Observability Event System
+export {
+  EventDispatcher,
+  createEventDispatcher,
+} from "./runtime/event-dispatcher";
+
+export {
+  EventType,
+  EventCategory,
+  EventTypesByCategory,
+  // Event category consts
+  SessionEvents,
+  StreamEvents,
+  AdapterEvents,
+  TimeoutEvents,
+  NetworkEvents,
+  AbortEvents,
+  GuardrailEvents,
+  DriftEvents,
+  CheckpointEvents,
+  ResumeEvents,
+  RetryEvents,
+  FallbackEvents,
+  StructuredEvents,
+  ContinuationEvents,
+  ToolEvents,
+  CompletionEvents,
+  // Serialization
+  serializeEvent,
+  deserializeEvent,
+} from "./types/observability";
+
+export type {
+  // Failure & Recovery types
+  FailureType,
+  RecoveryStrategy,
+  RecoveryPolicy,
+  // Base event types
+  L0ObservabilityEvent,
+  L0EventHandler,
+  L0Event as L0ObservabilityEventUnion,
+  // Session events
+  SessionStartEvent,
+  SessionEndEvent,
+  SessionSummaryEvent,
+  // Stream events
+  StreamInitEvent,
+  StreamReadyEvent,
+  // Adapter events
+  AdapterDetectedEvent,
+  AdapterWrapStartEvent,
+  AdapterWrapEndEvent,
+  // Timeout events
+  TimeoutStartEvent,
+  TimeoutResetEvent,
+  TimeoutTriggeredEvent,
+  // Network events
+  NetworkErrorEvent,
+  NetworkRecoveryEvent,
+  ConnectionDroppedEvent,
+  ConnectionRestoredEvent,
+  // Abort events
+  AbortRequestedEvent,
+  AbortCompletedEvent,
+  // Guardrail events
+  GuardrailPhaseStartEvent,
+  GuardrailRuleStartEvent,
+  GuardrailRuleResultEvent,
+  GuardrailRuleEndEvent,
+  GuardrailPhaseEndEvent,
+  GuardrailCallbackStartEvent,
+  GuardrailCallbackEndEvent,
+  // Drift events
+  DriftCheckStartEvent,
+  DriftCheckResultEvent,
+  DriftCheckEndEvent,
+  DriftCheckSkippedEvent,
+  // Checkpoint events
+  CheckpointSavedEvent,
+  // Resume events
+  ResumeStartEvent,
+  ResumeEndEvent,
+  // Retry events
+  RetryStartEvent,
+  RetryAttemptEvent,
+  RetryEndEvent,
+  RetryGiveUpEvent,
+  // Fallback events
+  FallbackStartEvent,
+  FallbackModelSelectedEvent,
+  FallbackEndEvent,
+  // Structured events
+  StructuredParseStartEvent,
+  StructuredParseEndEvent,
+  StructuredParseErrorEvent,
+  StructuredValidationStartEvent,
+  StructuredValidationEndEvent,
+  StructuredValidationErrorEvent,
+  StructuredAutoCorrectStartEvent,
+  StructuredAutoCorrectEndEvent,
+  // Continuation events
+  ContinuationStartEvent,
+  ContinuationEndEvent,
+  ContinuationDeduplicationStartEvent,
+  ContinuationDeduplicationEndEvent,
+  // Tool events
+  ToolRequestedEvent,
+  ToolStartEvent,
+  ToolResultEvent,
+  ToolErrorEvent,
+  ToolCompletedEvent,
+  ToolErrorType,
+  // Completion events
+  CompleteEvent,
+  ErrorEvent,
+} from "./types/observability";
+
 // Guardrails
 export {
   GuardrailEngine,
@@ -220,35 +337,23 @@ export {
 
 export type { MonitoringConfig } from "./runtime/monitoring";
 
-// Prometheus metrics
+// Event handler utilities
 export {
-  // prom-client based (recommended)
-  L0PrometheusCollector,
-  createL0PrometheusCollector,
-  l0PrometheusMiddleware,
-  // Standalone (no dependency)
-  PrometheusRegistry,
-  PrometheusCollector,
-  createPrometheusRegistry,
-  createPrometheusCollector,
-  prometheusMiddleware,
-  // Constants
-  DEFAULT_BUCKETS,
-  METRIC_NAMES,
-} from "./runtime/prometheus";
+  combineEvents,
+  filterEvents,
+  excludeEvents,
+  debounceEvents,
+  batchEvents,
+} from "./runtime/event-handlers";
 
-export type {
-  PromClient,
-  PrometheusConfig,
-  PrometheusMetricType,
-  PrometheusMetric,
-} from "./runtime/prometheus";
+export type { EventHandler } from "./runtime/event-handlers";
 
 // Sentry integration
 export {
   L0Sentry,
   createSentryIntegration,
-  sentryInterceptor,
+  createSentryHandler,
+  sentryInterceptor, // deprecated
   withSentry,
 } from "./runtime/sentry";
 
@@ -258,7 +363,8 @@ export type { SentryClient, SentryConfig } from "./runtime/sentry";
 export {
   L0OpenTelemetry,
   createOpenTelemetry,
-  openTelemetryInterceptor,
+  createOpenTelemetryHandler,
+  openTelemetryInterceptor, // deprecated
   SemanticAttributes,
   SpanStatusCode,
   SpanKind,
@@ -519,6 +625,7 @@ export type {
 export {
   registerAdapter,
   unregisterAdapter,
+  unregisterAllExcept,
   getAdapter,
   getRegisteredStreamAdapters,
   clearAdapters,

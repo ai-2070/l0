@@ -125,7 +125,8 @@ describe("Zero Output Guardrail", () => {
       expect(violations[0]!.message).toContain("noise or filler");
     });
 
-    it("should warn about very short output when completed", () => {
+    it("should not warn about short but non-empty output", () => {
+      // We only flag truly empty output, not short output
       const context: GuardrailContext = {
         content: "Hi",
         completed: true,
@@ -133,9 +134,7 @@ describe("Zero Output Guardrail", () => {
       };
 
       const violations = validateZeroOutput(context);
-      expect(violations).toHaveLength(1);
-      expect(violations[0]!.severity).toBe("warning");
-      expect(violations[0]!.message).toContain("Output too short");
+      expect(violations).toHaveLength(0);
     });
 
     it("should return empty array for meaningful content", () => {

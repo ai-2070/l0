@@ -5,6 +5,18 @@ import type { GuardrailViolation } from "../types/guardrails";
 import type { L0Monitor } from "./monitoring";
 import type * as Sentry from "@sentry/node";
 import type { SeverityLevel, Breadcrumb, Scope } from "@sentry/types";
+import { EventType } from "../types/observability";
+import type {
+  L0Event,
+  SessionStartEvent,
+  CompleteEvent,
+  ErrorEvent,
+  RetryAttemptEvent,
+  GuardrailRuleResultEvent,
+  DriftCheckResultEvent,
+  NetworkErrorEvent,
+} from "../types/observability";
+import type { EventHandler } from "./event-handlers";
 
 /**
  * Sentry client interface (compatible with @sentry/node)
@@ -408,50 +420,130 @@ export function createSentryIntegration(config: SentryConfig): L0Sentry {
 }
 
 /**
- * Sentry interceptor for automatic tracking
+ * Create a Sentry event handler for L0 observability.
+ *
+ * This is the recommended way to integrate Sentry with L0.
+ * The handler subscribes to L0 events and records errors, breadcrumbs, and traces.
  *
  * @example
  * ```typescript
  * import * as Sentry from '@sentry/node';
- * import { l0, sentryInterceptor } from 'l0';
+ * import { l0, createSentryHandler, combineEvents } from '@ai2070/l0';
  *
  * const result = await l0({
  *   stream: () => streamText({ model, prompt }),
- *   interceptors: [
- *     sentryInterceptor({ sentry: Sentry })
- *   ]
+ *   onEvent: createSentryHandler({ sentry: Sentry }),
+ * });
+ *
+ * // Or combine with other handlers:
+ * const result = await l0({
+ *   stream: () => streamText({ model, prompt }),
+ *   onEvent: combineEvents(
+ *     createOpenTelemetryHandler({ tracer, meter }),
+ *     createSentryHandler({ sentry: Sentry }),
+ *   ),
  * });
  * ```
  */
-export function sentryInterceptor(config: SentryConfig) {
+export function createSentryHandler(config: SentryConfig): EventHandler {
   const integration = createSentryIntegration(config);
   let finishSpan: (() => void) | undefined;
 
-  return {
-    name: "sentry",
-
-    before: async (options: any) => {
-      finishSpan = integration.startExecution(
-        "l0.execution",
-        options.monitoring?.metadata,
-      );
-      return options;
-    },
-
-    after: async (result: any) => {
-      if (result.telemetry) {
-        integration.completeExecution(result.telemetry);
+  return (event: L0Event) => {
+    switch (event.type) {
+      case EventType.SESSION_START: {
+        const e = event as SessionStartEvent;
+        finishSpan = integration.startExecution("l0.execution", {
+          attempt: e.attempt,
+          isRetry: e.isRetry,
+          isFallback: e.isFallback,
+        });
+        integration.startStream();
+        break;
       }
-      // End span if it was started
-      finishSpan?.();
-      return result;
-    },
 
-    onError: async (error: Error, _options: any) => {
-      integration.recordFailure(error);
-      // End span on error too
-      finishSpan?.();
-    },
+      case EventType.RETRY_ATTEMPT: {
+        const e = event as RetryAttemptEvent;
+        integration.recordRetry(e.attempt, e.reason, e.isNetwork ?? false);
+        break;
+      }
+
+      case EventType.NETWORK_ERROR: {
+        const e = event as NetworkErrorEvent;
+        integration.recordNetworkError(
+          new Error(e.error),
+          e.category || "unknown",
+          e.retryable ?? false,
+        );
+        break;
+      }
+
+      case EventType.ERROR: {
+        const e = event as ErrorEvent;
+        // Record as network error if it's network-related
+        integration.recordNetworkError(
+          new Error(e.error),
+          e.failureType || "unknown",
+          e.recoveryStrategy === "retry",
+        );
+        break;
+      }
+
+      case EventType.GUARDRAIL_RULE_RESULT: {
+        const e = event as GuardrailRuleResultEvent;
+        if (e.violation) {
+          integration.recordGuardrailViolations([e.violation]);
+        }
+        break;
+      }
+
+      case EventType.DRIFT_CHECK_RESULT: {
+        const e = event as DriftCheckResultEvent;
+        if (e.detected) {
+          integration.recordDrift(true, e.types);
+        }
+        break;
+      }
+
+      case EventType.COMPLETE: {
+        const e = event as CompleteEvent;
+        integration.completeStream(e.tokenCount);
+        // Note: Full telemetry is available via L0Monitor, not in CompleteEvent
+        finishSpan?.();
+        finishSpan = undefined;
+        break;
+      }
+
+      default:
+        // Other events are not specifically handled
+        break;
+    }
+  };
+}
+
+/**
+ * @deprecated Use `createSentryHandler` with `onEvent` instead.
+ *
+ * The interceptor pattern is deprecated. Use the event handler pattern:
+ *
+ * ```typescript
+ * // Old (deprecated):
+ * interceptors: [sentryInterceptor({ sentry: Sentry })]
+ *
+ * // New (recommended):
+ * onEvent: createSentryHandler({ sentry: Sentry })
+ * ```
+ */
+export function sentryInterceptor(_config: SentryConfig) {
+  console.warn(
+    "sentryInterceptor is deprecated. Use createSentryHandler with onEvent instead.",
+  );
+
+  // Return a minimal interceptor that logs the deprecation
+  return {
+    name: "sentry-deprecated",
+    before: async (options: any) => options,
+    after: async (result: any) => result,
   };
 }
 

@@ -361,13 +361,13 @@ if (result) {
 
 ### Rule Complexity
 
-| Rule | Complexity | When Checked |
-|------|------------|--------------|
-| `zeroOutputRule` | O(1) | Fast path |
-| `jsonRule` | O(n) | Scans full content |
-| `markdownRule` | O(n) | Scans full content |
-| `latexRule` | O(n) | Scans full content |
-| `patternRule` | O(n × p) | Scans full content × patterns |
+| Rule             | Complexity | When Checked                  |
+| ---------------- | ---------- | ----------------------------- |
+| `zeroOutputRule` | O(1)       | Fast path                     |
+| `jsonRule`       | O(n)       | Scans full content            |
+| `markdownRule`   | O(n)       | Scans full content            |
+| `latexRule`      | O(n)       | Scans full content            |
+| `patternRule`    | O(n × p)   | Scans full content × patterns |
 
 For long outputs, increase `checkIntervals.guardrails` to reduce frequency:
 

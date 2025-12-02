@@ -565,6 +565,14 @@ export const openaiAdapter: L0Adapter<OpenAIStream, OpenAIAdapterOptions> = {
   wrap: wrapOpenAIStream,
 };
 
+// Auto-register for detection when this module is imported
+import { registerAdapter } from "./registry";
+try {
+  registerAdapter(openaiAdapter, { silent: true });
+} catch {
+  // Already registered, ignore
+}
+
 // Re-export useful OpenAI types for convenience
 export type {
   ChatCompletionChunk,

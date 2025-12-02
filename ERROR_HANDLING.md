@@ -6,6 +6,7 @@ This guide covers error handling patterns and error codes in L0.
 
 - [Error Types](#error-types)
 - [L0Error Class](#l0error-class)
+- [Error Events](#error-events)
 - [Error Codes](#error-codes)
 - [Error Categories](#error-categories)
 - [Network Error Detection](#network-error-detection)
@@ -32,7 +33,7 @@ try {
     // L0-specific error with context
     console.log(error.code);
     console.log(error.context);
-    console.log(error.isRecoverable());
+    console.log(error.hasCheckpoint); // Has checkpoint for continuation?
   }
 }
 ```
@@ -81,7 +82,7 @@ class L0Error extends Error {
   readonly context: L0ErrorContext;
   readonly timestamp: number;
 
-  isRecoverable(): boolean;
+  hasCheckpoint: boolean; // Has checkpoint for continuation?
   getCheckpoint(): string | undefined;
   toDetailedString(): string;
 }
@@ -92,15 +93,90 @@ class L0Error extends Error {
 ```typescript
 interface L0ErrorContext {
   code: L0ErrorCode;
-  checkpoint?: string; // Last good content
+  checkpoint?: string; // Last good content for continuation
   tokenCount?: number; // Tokens before failure
   contentLength?: number; // Content length before failure
   modelRetryCount?: number; // Retry attempts made
   networkRetryCount?: number; // Network retries made
   fallbackIndex?: number; // Which fallback was tried
-  recoverable?: boolean; // Can be retried
   metadata?: Record<string, unknown>;
 }
+```
+
+---
+
+## Error Events
+
+When errors occur, L0 emits `ERROR` events with detailed failure and recovery information:
+
+### FailureType
+
+What actually went wrong - the root cause of the failure:
+
+```typescript
+type FailureType =
+  | "network" // Connection drops, DNS, SSL, fetch errors
+  | "model" // Model refused, content filter, guardrail violation
+  | "tool" // Tool execution failed
+  | "timeout" // Initial token or inter-token timeout
+  | "abort" // User or signal abort
+  | "zero_output" // Empty response from model
+  | "unknown"; // Unclassified error
+```
+
+### RecoveryStrategy
+
+What L0 decided to do next:
+
+```typescript
+type RecoveryStrategy =
+  | "retry" // Will retry the same stream
+  | "fallback" // Will try next fallback stream
+  | "continue" // Will continue despite error (non-fatal)
+  | "halt"; // Will stop, no recovery possible
+```
+
+### RecoveryPolicy
+
+Why L0 chose that recovery strategy:
+
+```typescript
+interface RecoveryPolicy {
+  retryEnabled: boolean; // Whether retry is enabled in config
+  fallbackEnabled: boolean; // Whether fallback streams are configured
+  maxRetries: number; // Maximum retry attempts configured
+  maxFallbacks: number; // Maximum fallback streams configured
+  attempt: number; // Current retry attempt (1-based)
+  fallbackIndex: number; // Current fallback index (0 = primary)
+}
+```
+
+### Handling Error Events
+
+```typescript
+import { EventType, type ErrorEvent } from "@ai2070/l0";
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  onEvent: (event) => {
+    if (event.type === EventType.ERROR) {
+      const e = event as ErrorEvent;
+
+      console.log("Failure type:", e.failureType); // "network", "timeout", etc.
+      console.log("Recovery:", e.recoveryStrategy); // "retry", "fallback", "halt"
+      console.log("Policy:", e.policy);
+
+      // Example: track failure types
+      metrics.increment(`l0.failure.${e.failureType}`);
+      metrics.increment(`l0.recovery.${e.recoveryStrategy}`);
+
+      // Example: alert on exhausted retries
+      if (e.recoveryStrategy === "halt") {
+        alerting.send(`L0 halted after ${e.policy.attempt} attempts`);
+      }
+    }
+  },
+});
 ```
 
 ### Usage Example
@@ -118,8 +194,8 @@ try {
     // Log detailed error info
     console.error(error.toDetailedString());
 
-    // Check if recovery is possible
-    if (error.isRecoverable()) {
+    // Check if we have a checkpoint for continuation
+    if (error.hasCheckpoint) {
       const checkpoint = error.getCheckpoint();
       // Retry with checkpoint context
     }
@@ -433,7 +509,7 @@ retry: {
 catch (error) {
   if (isL0Error(error)) {
     metrics.increment(`l0.error.${error.code}`);
-    metrics.increment(`l0.error.recoverable.${error.isRecoverable()}`);
+    metrics.increment(`l0.error.has_checkpoint.${error.hasCheckpoint}`);
   }
 }
 ```

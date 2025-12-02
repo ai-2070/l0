@@ -169,6 +169,28 @@ export interface L0Options<TOutput = unknown> {
   stream: () => Promise<any> | any;
 
   /**
+   * User metadata attached to all observability events.
+   * This metadata is immutable for the duration of the session
+   * and included in every event emitted via onEvent.
+   *
+   * Use this to attach request IDs, user IDs, or other context
+   * for tracing and debugging.
+   *
+   * @example
+   * ```typescript
+   * await l0({
+   *   stream: () => streamText({ model, prompt }),
+   *   meta: {
+   *     requestId: "req_123",
+   *     userId: "user_456",
+   *     environment: "production"
+   *   }
+   * });
+   * ```
+   */
+  meta?: Record<string, unknown>;
+
+  /**
    * Optional fallback stream functions to try if primary stream fails
    * after exhausting retries. Useful for falling back to cheaper models.
    *
@@ -523,6 +545,69 @@ export interface L0Options<TOutput = unknown> {
   onResume?: (checkpoint: string, tokenCount: number) => void;
 
   /**
+   * Optional callback when a checkpoint is saved.
+   *
+   * Called when content has been validated (passed guardrails, no drift)
+   * and can be safely resumed from if something goes wrong.
+   *
+   * @param checkpoint - The checkpoint content
+   * @param tokenCount - Number of tokens in the checkpoint
+   */
+  onCheckpoint?: (checkpoint: string, tokenCount: number) => void;
+
+  /**
+   * Optional callback when a timeout occurs.
+   *
+   * Called when:
+   * - Initial token timeout is triggered (no first token received in time)
+   * - Inter-token timeout is triggered (gap between tokens too long)
+   *
+   * @param type - The timeout type ("initial" or "inter")
+   * @param elapsedMs - Time elapsed before timeout triggered
+   */
+  onTimeout?: (type: "initial" | "inter", elapsedMs: number) => void;
+
+  /**
+   * Optional callback when the stream is aborted.
+   *
+   * Called when:
+   * - User calls abort()
+   * - External signal triggers abort
+   *
+   * @param tokenCount - Number of tokens received before abort
+   * @param contentLength - Length of content received before abort
+   */
+  onAbort?: (tokenCount: number, contentLength: number) => void;
+
+  /**
+   * Optional callback when drift is detected.
+   *
+   * Called when the drift detector identifies potential issues
+   * with the generated content.
+   *
+   * @param types - Array of drift types detected
+   * @param confidence - Drift confidence score (0-1)
+   */
+  onDrift?: (types: string[], confidence?: number) => void;
+
+  /**
+   * Optional callback when a tool call is detected.
+   *
+   * Called when the model requests a tool/function call.
+   * L0 does not execute tools - this is for observability only.
+   * Tool execution is the responsibility of the orchestrator.
+   *
+   * @param toolName - Name of the tool being called
+   * @param toolCallId - Unique identifier for this tool call
+   * @param args - Arguments passed to the tool
+   */
+  onToolCall?: (
+    toolName: string,
+    toolCallId: string,
+    args: Record<string, unknown>,
+  ) => void;
+
+  /**
    * Interceptors for preprocessing and postprocessing
    */
   interceptors?: L0Interceptor[];
@@ -810,6 +895,16 @@ export interface L0State {
    * Last progress update received (for long-running operations)
    */
   lastProgress?: L0Progress;
+
+  /**
+   * Tool call start times for duration tracking (internal use)
+   */
+  toolCallStartTimes?: Map<string, number>;
+
+  /**
+   * Tool call names for tracking (internal use)
+   */
+  toolCallNames?: Map<string, string>;
 }
 
 /**

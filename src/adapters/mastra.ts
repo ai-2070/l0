@@ -474,20 +474,25 @@ export async function* wrapMastraFullStream(
 
 /**
  * Type guard to check if an object is a Mastra stream result
+ *
+ * Mastra streams have unique properties like `runId`, `messageList`, and `tripwire`
+ * that distinguish them from vanilla Vercel AI SDK streams.
  */
 export function isMastraStream(obj: unknown): obj is MastraModelOutput<any> {
   if (!obj || typeof obj !== "object") {
     return false;
   }
   const stream = obj as MastraModelOutput<any>;
+  // Check for Mastra-specific properties that don't exist on vanilla Vercel AI SDK
+  // runId, messageList, and tripwire are unique to MastraModelOutput
   return (
     "textStream" in stream &&
     "text" in stream &&
     "usage" in stream &&
     "finishReason" in stream &&
-    typeof stream.textStream === "object" &&
-    stream.textStream !== null &&
-    "getReader" in stream.textStream
+    // Mastra-specific properties
+    "runId" in stream &&
+    "messageList" in stream
   );
 }
 
@@ -540,6 +545,14 @@ export const mastraAdapter: L0Adapter<
   detect: isMastraStream,
   wrap: wrapMastraStream,
 };
+
+// Auto-register for detection when this module is imported
+import { registerAdapter } from "./registry";
+try {
+  registerAdapter(mastraAdapter, { silent: true });
+} catch {
+  // Already registered, ignore
+}
 
 // Re-export Mastra types for convenience
 export type { Agent } from "@mastra/core/agent";

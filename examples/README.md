@@ -17,7 +17,7 @@ OPENAI_API_KEY=sk-... npx tsx examples/<filename>.ts
 | [05-guardrails.ts](./05-guardrails.ts)                           | Built-in and custom guardrails          |
 | [06-parallel-and-race.ts](./06-parallel-and-race.ts)             | Concurrent LLM operations               |
 | [07-consensus.ts](./07-consensus.ts)                             | Multi-generation agreement              |
-| [08-monitoring.ts](./08-monitoring.ts)                           | Prometheus and Sentry integration       |
+| [08-monitoring.ts](./08-monitoring.ts)                           | OpenTelemetry and Sentry integration    |
 | [09-document-windows.ts](./09-document-windows.ts)               | Chunking long documents                 |
 | [10-retry-and-errors.ts](./10-retry-and-errors.ts)               | Retry logic and error handling          |
 | [11-continuation-resumption.ts](./11-continuation-resumption.ts) | Checkpoint resumption and deduplication |

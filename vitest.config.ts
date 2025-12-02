@@ -12,6 +12,9 @@ export default defineConfig({
     // Setup files - run before all tests
     setupFiles: ["./tests/setup.ts"],
 
+    // Exclude integration tests from unit test runs
+    exclude: ["**/node_modules/**", "**/dist/**", "**/integration/**"],
+
     // Coverage configuration
     coverage: {
       provider: "v8",
@@ -30,7 +33,6 @@ export default defineConfig({
         "src/**/index.ts",
         "src/adapters/**",
         "src/runtime/opentelemetry.ts",
-        "src/runtime/prometheus.ts",
         "src/runtime/sentry.ts",
       ],
       include: ["src/**/*.ts"],
