@@ -1339,10 +1339,10 @@ describe("Structured Output - Auto-Correction Error Paths", () => {
     ).rejects.toThrow();
   });
 
-  it("should throw when JSON parses but extractJSON rescue fails", async () => {
+  it("should throw when content has no JSON structure to extract", async () => {
     const schema = z.object({ value: z.number() });
 
-    // Valid JSON structure but will fail schema validation, and no valid JSON to extract
+    // Content without any valid JSON structure - tests that error is thrown when nothing can be extracted
     const content = "some random text without any json structure whatsoever!!!";
 
     await expect(
