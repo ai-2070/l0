@@ -46,9 +46,9 @@ L0 includes 2,600+ tests covering all major reliability features.
  ─────────────────    ┌──────────────────────────────────────┐    ─────────────
                       │                                      │
    Vercel AI SDK      │   Retry · Fallback · Resume          │      Reliable
-   OpenAI / Azure ───▶│   Guardrails · Timeouts · Consensus  │─────▶ Output
-   Anthropic / AWS    │   Full Observability                 │
-   Mastra / Custom    │                                      │
+   OpenAI / Mastra ──▶│   Guardrails · Timeouts · Consensus  │─────▶ Output
+   Custom Streams     │   Full Observability                 │
+                      │                                      │
                       └──────────────────────────────────────┘
  ─────────────────                                                ─────────────
   text / image /                 Token-Level Reliability
