@@ -19,7 +19,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
 </p>
 
-**L0 adds deterministic execution, guardrails, retries, fallbacks, drift detection, tool tracking, and network protection to any LLM stream — turning raw model output into production-grade behavior. It works with OpenAI, Vercel AI SDK, Mastra AI, and custom adapters. Supports multimodal streams, tool calls, and full deterministic replay.**
+**L0 adds deterministic execution, fallbacks, retries, network protection, guardrails, drift detection, and tool tracking to any LLM stream - turning raw model output into production-grade behavior. It works with OpenAI, Vercel AI SDK, Mastra AI, and custom adapters. Supports multimodal streams, tool calls, and full deterministic replay.**
 
 > _LLMs are extraordinary minds wrapped in fragile interfaces._
 > _The reasoning is brilliant._
