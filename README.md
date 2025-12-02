@@ -1256,8 +1256,14 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ```typescript
 { type: "CHECKPOINT_START", ts, tokenCount }
 { type: "CHECKPOINT_END", ts, stateHash, durationMs }
-{ type: "CHECKPOINT_SAVED", ts, stateHash }      // persisted
-{ type: "CHECKPOINT_RESTORED", ts, stateHash }   // resumed from
+{ type: "CHECKPOINT_SAVED", ts, stateHash }
+```
+
+### Resume Events
+
+```typescript
+{ type: "RESUME_START", ts, checkpoint, stateHash, tokenCount }
+{ type: "RESUME_END", ts, checkpoint, durationMs, success }
 ```
 
 ### Retry Events
@@ -1350,7 +1356,8 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 | Tool        | `TOOL_REQUESTED` → `TOOL_START` → `TOOL_RESULT/ERROR` → `TOOL_COMPLETED` | Tool execution lifecycle |
 | Guardrail   | `PHASE_START` → `RULE_START` → `RULE_RESULT` → `RULE_END` → `PHASE_END` | Per-rule timing, callbacks |
 | Drift       | `CHECK_START` → `CHECK_RESULT` → `CHECK_END`              | Drift analysis lifecycle          |
-| Checkpoint  | `START` → `END` → `SAVED` / `RESTORED`                    | State persistence, resumability   |
+| Checkpoint  | `START` → `END` → `SAVED`                                 | State persistence                 |
+| Resume      | `RESUME_START` → `RESUME_END`                             | Resume from checkpoint            |
 | Retry       | `START` → `ATTEMPT` → `END` / `GIVE_UP`                   | Retry loop observability          |
 | Fallback    | `START` → `MODEL_SELECTED` → `END`                        | Model switching lifecycle         |
 | Structured  | `PARSE_*` → `SCHEMA_VALIDATION_*` → `AUTO_CORRECT_*`      | Schema validation, repair         |
