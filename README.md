@@ -1,4 +1,5 @@
 # L0 - Deterministic Streaming Execution Substrate (DSES) for AI
+
 ### The missing reliability and observability layer for all AI streams.
 
 ![L0: The Missing AI Reliability Substrate](img/l0-banner.jpg)
@@ -22,10 +23,10 @@
 
 > LLMs produce high-value reasoning over a low-integrity transport layer.
 > Streams stall, drop tokens, reorder events, violate timing guarantees, and expose no deterministic contract.
-> 
+>
 > This breaks retries. It breaks guardrails. It breaks supervision. It breaks reproducibility.
 > It makes reliable AI systems impossible to build on top of raw provider streams.
-> 
+>
 > **L0 is the deterministic execution substrate that fixes the transport.**
 
 L0 adds deterministic execution, fallbacks, retries, network protection, guardrails, drift detection, and tool tracking to any LLM stream - turning raw model output into production-grade behavior.
@@ -752,10 +753,10 @@ import {
 
 L0 uses a two-path strategy to avoid blocking the streaming loop:
 
-| Path | When | Behavior |
-|------|------|----------|
-| **Fast** | Delta < 1KB, total < 5KB | Synchronous check, immediate result |
-| **Slow** | Large content | Deferred via `setImmediate()`, non-blocking |
+| Path     | When                     | Behavior                                    |
+| -------- | ------------------------ | ------------------------------------------- |
+| **Fast** | Delta < 1KB, total < 5KB | Synchronous check, immediate result         |
+| **Slow** | Large content            | Deferred via `setImmediate()`, non-blocking |
 
 For long outputs, tune the check frequency:
 
@@ -1083,7 +1084,9 @@ const result = await l0({
 
   // Called when drift is detected
   onDrift: (types, confidence) => {
-    console.log(`Drift detected: ${types.join(", ")} (confidence: ${confidence})`);
+    console.log(
+      `Drift detected: ${types.join(", ")} (confidence: ${confidence})`,
+    );
   },
 
   // Called when a tool call is detected
@@ -1096,20 +1099,20 @@ const result = await l0({
 
 ### Callback Reference
 
-| Callback       | When Called                            | Signature                                                          |
-| -------------- | -------------------------------------- | ------------------------------------------------------------------ |
-| `onStart`      | New execution attempt begins           | `(attempt: number, isRetry: boolean, isFallback: boolean) => void` |
-| `onComplete`   | Stream finished successfully           | `(state: L0State) => void`                                         |
-| `onError`      | Error occurred (before retry decision) | `(error: Error, willRetry: boolean, willFallback: boolean) => void`|
-| `onEvent`      | Any streaming event emitted            | `(event: L0Event) => void`                                         |
-| `onViolation`  | Guardrail violation detected           | `(violation: GuardrailViolation) => void`                          |
-| `onRetry`      | Retry triggered (same model)           | `(attempt: number, reason: string) => void`                        |
-| `onFallback`   | Switching to fallback model            | `(index: number, reason: string) => void`                          |
-| `onResume`     | Continuing from checkpoint             | `(checkpoint: string, tokenCount: number) => void`                 |
-| `onCheckpoint` | Checkpoint saved                       | `(checkpoint: string, tokenCount: number) => void`                 |
-| `onTimeout`    | Timeout occurred                       | `(type: "initial" \| "inter", elapsedMs: number) => void`          |
-| `onAbort`      | Stream aborted                         | `(tokenCount: number, contentLength: number) => void`              |
-| `onDrift`      | Drift detected                         | `(types: string[], confidence?: number) => void`                   |
+| Callback       | When Called                            | Signature                                                                       |
+| -------------- | -------------------------------------- | ------------------------------------------------------------------------------- |
+| `onStart`      | New execution attempt begins           | `(attempt: number, isRetry: boolean, isFallback: boolean) => void`              |
+| `onComplete`   | Stream finished successfully           | `(state: L0State) => void`                                                      |
+| `onError`      | Error occurred (before retry decision) | `(error: Error, willRetry: boolean, willFallback: boolean) => void`             |
+| `onEvent`      | Any streaming event emitted            | `(event: L0Event) => void`                                                      |
+| `onViolation`  | Guardrail violation detected           | `(violation: GuardrailViolation) => void`                                       |
+| `onRetry`      | Retry triggered (same model)           | `(attempt: number, reason: string) => void`                                     |
+| `onFallback`   | Switching to fallback model            | `(index: number, reason: string) => void`                                       |
+| `onResume`     | Continuing from checkpoint             | `(checkpoint: string, tokenCount: number) => void`                              |
+| `onCheckpoint` | Checkpoint saved                       | `(checkpoint: string, tokenCount: number) => void`                              |
+| `onTimeout`    | Timeout occurred                       | `(type: "initial" \| "inter", elapsedMs: number) => void`                       |
+| `onAbort`      | Stream aborted                         | `(tokenCount: number, contentLength: number) => void`                           |
+| `onDrift`      | Drift detected                         | `(types: string[], confidence?: number) => void`                                |
 | `onToolCall`   | Tool call detected                     | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` |
 
 ### Use Cases
@@ -1117,8 +1120,10 @@ const result = await l0({
 ```typescript
 const callbacks = {
   // Logging and debugging
-  onStart: (attempt, isRetry) => logger.info("stream.start", { attempt, isRetry }),
-  onComplete: (state) => logger.info("stream.complete", { tokens: state.tokenCount }),
+  onStart: (attempt, isRetry) =>
+    logger.info("stream.start", { attempt, isRetry }),
+  onComplete: (state) =>
+    logger.info("stream.complete", { tokens: state.tokenCount }),
   onError: (err) => logger.error("stream.failed", { error: err.message }),
 
   // Real-time UI updates
@@ -1155,41 +1160,71 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Stream Initialization Events
 
 ```typescript
-{ type: "SESSION_START", ts, sessionId }  // anchor for entire session
-{ type: "STREAM_INIT", ts, model, provider }  // before contacting provider
-{ type: "STREAM_READY", ts }  // connection established, ready to emit
+{
+  type: ("SESSION_START", ts, sessionId);
+} // anchor for entire session
+{
+  type: ("STREAM_INIT", ts, model, provider);
+} // before contacting provider
+{
+  type: ("STREAM_READY", ts);
+} // connection established, ready to emit
 ```
 
 ### Adapter Events
 
 ```typescript
-{ type: "ADAPTER_DETECTED", ts, adapter, provider, version }
-{ type: "ADAPTER_WRAP_START", ts, adapter }
-{ type: "ADAPTER_WRAP_END", ts, adapter, durationMs }
+{
+  type: ("ADAPTER_DETECTED", ts, adapter, provider, version);
+}
+{
+  type: ("ADAPTER_WRAP_START", ts, adapter);
+}
+{
+  type: ("ADAPTER_WRAP_END", ts, adapter, durationMs);
+}
 ```
 
 ### Timeout Events
 
 ```typescript
-{ type: "TIMEOUT_START", ts, type, durationMs }  // type: initial|inter-token
-{ type: "TIMEOUT_RESET", ts, type, tokenIndex }  // timer reset on token
-{ type: "TIMEOUT_TRIGGERED", ts, type, elapsed }  // before error event
+{
+  type: ("TIMEOUT_START", ts, type, durationMs);
+} // type: initial|inter-token
+{
+  type: ("TIMEOUT_RESET", ts, type, tokenIndex);
+} // timer reset on token
+{
+  type: ("TIMEOUT_TRIGGERED", ts, type, elapsed);
+} // before error event
 ```
 
 ### Network Events
 
 ```typescript
-{ type: "NETWORK_ERROR", ts, error, code, retryable }
-{ type: "NETWORK_RECOVERY", ts, attemptCount, durationMs }
-{ type: "CONNECTION_DROPPED", ts, reason }
-{ type: "CONNECTION_RESTORED", ts, durationMs }
+{
+  type: ("NETWORK_ERROR", ts, error, code, retryable);
+}
+{
+  type: ("NETWORK_RECOVERY", ts, attemptCount, durationMs);
+}
+{
+  type: ("CONNECTION_DROPPED", ts, reason);
+}
+{
+  type: ("CONNECTION_RESTORED", ts, durationMs);
+}
 ```
 
 ### Abort Events
 
 ```typescript
-{ type: "ABORT_REQUESTED", ts, source }  // source: user|timeout|error
-{ type: "ABORT_COMPLETED", ts, resourcesFreed }
+{
+  type: ("ABORT_REQUESTED", ts, source);
+} // source: user|timeout|error
+{
+  type: ("ABORT_COMPLETED", ts, resourcesFreed);
+}
 ```
 
 ### Tool Events
@@ -1223,73 +1258,140 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Drift Events
 
 ```typescript
-{ type: "DRIFT_CHECK_START", ts, checkpoint, tokenCount, strategy }
-{ type: "DRIFT_CHECK_RESULT", ts, detected, score, metrics, threshold }
-{ type: "DRIFT_CHECK_END", ts, durationMs }
-{ type: "DRIFT_CHECK_SKIPPED", ts, reason }  // when drift disabled
+{
+  type: ("DRIFT_CHECK_START", ts, checkpoint, tokenCount, strategy);
+}
+{
+  type: ("DRIFT_CHECK_RESULT", ts, detected, score, metrics, threshold);
+}
+{
+  type: ("DRIFT_CHECK_END", ts, durationMs);
+}
+{
+  type: ("DRIFT_CHECK_SKIPPED", ts, reason);
+} // when drift disabled
 ```
 
 ### Checkpoint Events
 
 ```typescript
-{ type: "CHECKPOINT_SAVED", ts, checkpoint, tokenCount }
+{
+  type: ("CHECKPOINT_SAVED", ts, checkpoint, tokenCount);
+}
 ```
 
 ### Resume Events
 
 ```typescript
-{ type: "RESUME_START", ts, checkpoint, stateHash, tokenCount }
-{ type: "RESUME_END", ts, checkpoint, durationMs, success }
+{
+  type: ("RESUME_START", ts, checkpoint, stateHash, tokenCount);
+}
+{
+  type: ("RESUME_END", ts, checkpoint, durationMs, success);
+}
 ```
 
 ### Retry Events
 
 ```typescript
-{ type: "RETRY_START", ts, attempt, maxAttempts }
-{ type: "RETRY_ATTEMPT", ts, index, reason, countsTowardLimit, isNetwork, isModelIssue }
-{ type: "RETRY_END", ts, attempt, success, durationMs }
-{ type: "RETRY_GIVE_UP", ts, attempts, lastError }  // exhausted
+{
+  type: ("RETRY_START", ts, attempt, maxAttempts);
+}
+{
+  type: ("RETRY_ATTEMPT",
+    ts,
+    index,
+    reason,
+    countsTowardLimit,
+    isNetwork,
+    isModelIssue);
+}
+{
+  type: ("RETRY_END", ts, attempt, success, durationMs);
+}
+{
+  type: ("RETRY_GIVE_UP", ts, attempts, lastError);
+} // exhausted
 ```
 
 ### Fallback Events
 
 ```typescript
-{ type: "FALLBACK_START", ts, from, to, reason }
-{ type: "FALLBACK_MODEL_SELECTED", ts, index, model }
-{ type: "FALLBACK_END", ts, index, durationMs }
+{
+  type: ("FALLBACK_START", ts, from, to, reason);
+}
+{
+  type: ("FALLBACK_MODEL_SELECTED", ts, index, model);
+}
+{
+  type: ("FALLBACK_END", ts, index, durationMs);
+}
 ```
 
 ### Completion Events
 
 ```typescript
-{ type: "FINALIZATION_START", ts }  // tokens done, closing session
-{ type: "FINALIZATION_END", ts, durationMs }  // all workers closed
+{
+  type: ("FINALIZATION_START", ts);
+} // tokens done, closing session
+{
+  type: ("FINALIZATION_END", ts, durationMs);
+} // all workers closed
 
 // Final session summary for replay
-{ type: "SESSION_SUMMARY", ts, 
-  tokenCount, startTs, endTs, driftDetected, 
-  guardrailViolations, fallbackDepth, retryCount, checkpointsCreated }
+{
+  type: ("SESSION_SUMMARY",
+    ts,
+    tokenCount,
+    startTs,
+    endTs,
+    driftDetected,
+    guardrailViolations,
+    fallbackDepth,
+    retryCount,
+    checkpointsCreated);
+}
 
-{ type: "SESSION_END", ts }  // hard end-of-stream marker
+{
+  type: ("SESSION_END", ts);
+} // hard end-of-stream marker
 ```
 
 ### Consensus Events
 
 ```typescript
-{ type: "CONSENSUS_START", ts }
+{
+  type: ("CONSENSUS_START", ts);
+}
 
 // Per-stream lifecycle
-{ type: "CONSENSUS_STREAM_START", ts, streamIndex, model }
-{ type: "CONSENSUS_STREAM_END", ts, streamIndex, durationMs, status }
-{ type: "CONSENSUS_OUTPUT_COLLECTED", ts, streamIndex, length, hasErrors }
+{
+  type: ("CONSENSUS_STREAM_START", ts, streamIndex, model);
+}
+{
+  type: ("CONSENSUS_STREAM_END", ts, streamIndex, durationMs, status);
+}
+{
+  type: ("CONSENSUS_OUTPUT_COLLECTED", ts, streamIndex, length, hasErrors);
+}
 
 // Analysis and resolution
-{ type: "CONSENSUS_ANALYSIS", ts, 
-  agreementRatio, disagreements, strategy, similarityMatrix, averageSimilarity }
-{ type: "CONSENSUS_RESOLUTION", ts, 
-  method, finalSelection, confidence }  // method: vote|merge|best|fail
+{
+  type: ("CONSENSUS_ANALYSIS",
+    ts,
+    agreementRatio,
+    disagreements,
+    strategy,
+    similarityMatrix,
+    averageSimilarity);
+}
+{
+  type: ("CONSENSUS_RESOLUTION", ts, method, finalSelection, confidence);
+} // method: vote|merge|best|fail
 
-{ type: "CONSENSUS_END", ts, status, confidence, durationMs }
+{
+  type: ("CONSENSUS_END", ts, status, confidence, durationMs);
+}
 ```
 
 ### Structured Output Events
@@ -1312,34 +1414,42 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Continuation Events
 
 ```typescript
-{ type: "CONTINUATION_START", ts, checkpoint, tokenCount }
-{ type: "CONTINUATION_END", ts, success, durationMs }
+{
+  type: ("CONTINUATION_START", ts, checkpoint, tokenCount);
+}
+{
+  type: ("CONTINUATION_END", ts, success, durationMs);
+}
 
 // Deduplication (when resuming)
-{ type: "DEDUPLICATION_START", ts, overlapSize }
-{ type: "DEDUPLICATION_END", ts, removed, durationMs }
+{
+  type: ("DEDUPLICATION_START", ts, overlapSize);
+}
+{
+  type: ("DEDUPLICATION_END", ts, removed, durationMs);
+}
 ```
 
 ### Event Reference
 
-| Phase       | Events                                                    | Purpose                           |
-| ----------- | --------------------------------------------------------- | --------------------------------- |
-| Session     | `SESSION_START` → `STREAM_INIT` → `STREAM_READY`          | Stream initialization             |
-| Adapter     | `ADAPTER_DETECTED` → `ADAPTER_WRAP_START` → `ADAPTER_WRAP_END` | Provider detection, transforms    |
-| Timeout     | `TIMEOUT_START` → `TIMEOUT_RESET` / `TIMEOUT_TRIGGERED`   | Timer lifecycle                   |
-| Network     | `NETWORK_ERROR` → `NETWORK_RECOVERY` / `CONNECTION_*`     | Connection lifecycle              |
-| Abort       | `ABORT_REQUESTED` → `ABORT_COMPLETED`                     | Cancellation lifecycle            |
-| Tool        | `TOOL_REQUESTED` → `TOOL_START` → `TOOL_RESULT/ERROR` → `TOOL_COMPLETED` | Tool execution lifecycle |
-| Guardrail   | `PHASE_START` → `RULE_START` → `RULE_RESULT` → `RULE_END` → `PHASE_END` | Per-rule timing, callbacks |
-| Drift       | `CHECK_START` → `CHECK_RESULT` → `CHECK_END`              | Drift analysis lifecycle          |
-| Checkpoint  | `START` → `END` → `SAVED`                                 | State persistence                 |
-| Resume      | `RESUME_START` → `RESUME_END`                             | Resume from checkpoint            |
-| Retry       | `START` → `ATTEMPT` → `END` / `GIVE_UP`                   | Retry loop observability          |
-| Fallback    | `START` → `MODEL_SELECTED` → `END`                        | Model switching lifecycle         |
-| Structured  | `PARSE_*` → `SCHEMA_VALIDATION_*` → `AUTO_CORRECT_*`      | Schema validation, repair         |
-| Continuation| `CONTINUATION_START` → `DEDUPLICATION_*` → `CONTINUATION_END` | Resume from checkpoint         |
-| Consensus   | `START` → `STREAM_*` → `ANALYSIS` → `RESOLUTION` → `END`  | Multi-model coordination          |
-| Completion  | `FINALIZATION_START` → `FINALIZATION_END` → `SESSION_SUMMARY` → `SESSION_END` | Clean shutdown, replay |
+| Phase        | Events                                                                        | Purpose                        |
+| ------------ | ----------------------------------------------------------------------------- | ------------------------------ |
+| Session      | `SESSION_START` → `STREAM_INIT` → `STREAM_READY`                              | Stream initialization          |
+| Adapter      | `ADAPTER_DETECTED` → `ADAPTER_WRAP_START` → `ADAPTER_WRAP_END`                | Provider detection, transforms |
+| Timeout      | `TIMEOUT_START` → `TIMEOUT_RESET` / `TIMEOUT_TRIGGERED`                       | Timer lifecycle                |
+| Network      | `NETWORK_ERROR` → `NETWORK_RECOVERY` / `CONNECTION_*`                         | Connection lifecycle           |
+| Abort        | `ABORT_REQUESTED` → `ABORT_COMPLETED`                                         | Cancellation lifecycle         |
+| Tool         | `TOOL_REQUESTED` → `TOOL_START` → `TOOL_RESULT/ERROR` → `TOOL_COMPLETED`      | Tool execution lifecycle       |
+| Guardrail    | `PHASE_START` → `RULE_START` → `RULE_RESULT` → `RULE_END` → `PHASE_END`       | Per-rule timing, callbacks     |
+| Drift        | `CHECK_START` → `CHECK_RESULT` → `CHECK_END`                                  | Drift analysis lifecycle       |
+| Checkpoint   | `START` → `END` → `SAVED`                                                     | State persistence              |
+| Resume       | `RESUME_START` → `RESUME_END`                                                 | Resume from checkpoint         |
+| Retry        | `START` → `ATTEMPT` → `END` / `GIVE_UP`                                       | Retry loop observability       |
+| Fallback     | `START` → `MODEL_SELECTED` → `END`                                            | Model switching lifecycle      |
+| Structured   | `PARSE_*` → `SCHEMA_VALIDATION_*` → `AUTO_CORRECT_*`                          | Schema validation, repair      |
+| Continuation | `CONTINUATION_START` → `DEDUPLICATION_*` → `CONTINUATION_END`                 | Resume from checkpoint         |
+| Consensus    | `START` → `STREAM_*` → `ANALYSIS` → `RESOLUTION` → `END`                      | Multi-model coordination       |
+| Completion   | `FINALIZATION_START` → `FINALIZATION_END` → `SESSION_SUMMARY` → `SESSION_END` | Clean shutdown, replay         |
 
 See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for recording and replay.
 
@@ -1424,9 +1534,9 @@ const result = await l0({
   onEvent: (event) => {
     if (event.type === EventType.ERROR) {
       const e = event as ErrorEvent;
-      console.log(e.failureType);      // "network" | "model" | "timeout" | "abort" | "zero_output" | "tool" | "unknown"
+      console.log(e.failureType); // "network" | "model" | "timeout" | "abort" | "zero_output" | "tool" | "unknown"
       console.log(e.recoveryStrategy); // "retry" | "fallback" | "halt"
-      console.log(e.policy);           // { retryEnabled, fallbackEnabled, maxRetries, attempt, ... }
+      console.log(e.policy); // { retryEnabled, fallbackEnabled, maxRetries, attempt, ... }
     }
   },
 });

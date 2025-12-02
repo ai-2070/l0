@@ -427,16 +427,16 @@ clearAdapters();
 
 ### Registry Functions
 
-| Function                             | Description                                      |
-| ------------------------------------ | ------------------------------------------------ |
-| `registerAdapter(adapter, options?)` | Register for auto-detection                      |
-| `unregisterAdapter(name)`            | Remove by name                                   |
-| `unregisterAllExcept(names?)`        | Remove all adapters except those in the array    |
-| `getAdapter(name)`                   | Get adapter by name                              |
-| `getRegisteredStreamAdapters()`      | List all registered names                        |
-| `clearAdapters()`                    | Remove all adapters                              |
-| `detectAdapter(input)`               | Auto-detect adapter for stream                   |
-| `hasMatchingAdapter(input)`          | Check if exactly one adapter matches             |
+| Function                             | Description                                   |
+| ------------------------------------ | --------------------------------------------- |
+| `registerAdapter(adapter, options?)` | Register for auto-detection                   |
+| `unregisterAdapter(name)`            | Remove by name                                |
+| `unregisterAllExcept(names?)`        | Remove all adapters except those in the array |
+| `getAdapter(name)`                   | Get adapter by name                           |
+| `getRegisteredStreamAdapters()`      | List all registered names                     |
+| `clearAdapters()`                    | Remove all adapters                           |
+| `detectAdapter(input)`               | Auto-detect adapter for stream                |
+| `hasMatchingAdapter(input)`          | Check if exactly one adapter matches          |
 
 ### DX Warning
 
@@ -632,15 +632,16 @@ L0 detects and tracks tool calls/results for observability. Custom adapters **MU
 
 L0 emits observability events when it detects tool calls:
 
-| Event | Description |
-|-------|-------------|
+| Event            | Description                                          |
+| ---------------- | ---------------------------------------------------- |
 | `TOOL_REQUESTED` | Tool call detected, contains name, id, and arguments |
-| `TOOL_START` | Tool execution began |
-| `TOOL_RESULT` | Tool completed successfully, includes duration |
-| `TOOL_ERROR` | Tool execution failed |
-| `TOOL_COMPLETED` | Tool lifecycle finished (success or error) |
+| `TOOL_START`     | Tool execution began                                 |
+| `TOOL_RESULT`    | Tool completed successfully, includes duration       |
+| `TOOL_ERROR`     | Tool execution failed                                |
+| `TOOL_COMPLETED` | Tool lifecycle finished (success or error)           |
 
 These events enable:
+
 - Duration tracking between tool call and result
 - Error monitoring for tool executions
 - Tool usage analytics via `onToolCall` callback

@@ -115,13 +115,13 @@ What actually went wrong - the root cause of the failure:
 
 ```typescript
 type FailureType =
-  | "network"      // Connection drops, DNS, SSL, fetch errors
-  | "model"        // Model refused, content filter, guardrail violation
-  | "tool"         // Tool execution failed
-  | "timeout"      // Initial token or inter-token timeout
-  | "abort"        // User or signal abort
-  | "zero_output"  // Empty response from model
-  | "unknown";     // Unclassified error
+  | "network" // Connection drops, DNS, SSL, fetch errors
+  | "model" // Model refused, content filter, guardrail violation
+  | "tool" // Tool execution failed
+  | "timeout" // Initial token or inter-token timeout
+  | "abort" // User or signal abort
+  | "zero_output" // Empty response from model
+  | "unknown"; // Unclassified error
 ```
 
 ### RecoveryStrategy
@@ -130,10 +130,10 @@ What L0 decided to do next:
 
 ```typescript
 type RecoveryStrategy =
-  | "retry"     // Will retry the same stream
-  | "fallback"  // Will try next fallback stream
-  | "continue"  // Will continue despite error (non-fatal)
-  | "halt";     // Will stop, no recovery possible
+  | "retry" // Will retry the same stream
+  | "fallback" // Will try next fallback stream
+  | "continue" // Will continue despite error (non-fatal)
+  | "halt"; // Will stop, no recovery possible
 ```
 
 ### RecoveryPolicy
@@ -142,12 +142,12 @@ Why L0 chose that recovery strategy:
 
 ```typescript
 interface RecoveryPolicy {
-  retryEnabled: boolean;    // Whether retry is enabled in config
+  retryEnabled: boolean; // Whether retry is enabled in config
   fallbackEnabled: boolean; // Whether fallback streams are configured
-  maxRetries: number;       // Maximum retry attempts configured
-  maxFallbacks: number;     // Maximum fallback streams configured
-  attempt: number;          // Current retry attempt (1-based)
-  fallbackIndex: number;    // Current fallback index (0 = primary)
+  maxRetries: number; // Maximum retry attempts configured
+  maxFallbacks: number; // Maximum fallback streams configured
+  attempt: number; // Current retry attempt (1-based)
+  fallbackIndex: number; // Current fallback index (0 = primary)
 }
 ```
 
@@ -161,15 +161,15 @@ const result = await l0({
   onEvent: (event) => {
     if (event.type === EventType.ERROR) {
       const e = event as ErrorEvent;
-      
-      console.log("Failure type:", e.failureType);    // "network", "timeout", etc.
-      console.log("Recovery:", e.recoveryStrategy);   // "retry", "fallback", "halt"
+
+      console.log("Failure type:", e.failureType); // "network", "timeout", etc.
+      console.log("Recovery:", e.recoveryStrategy); // "retry", "fallback", "halt"
       console.log("Policy:", e.policy);
-      
+
       // Example: track failure types
       metrics.increment(`l0.failure.${e.failureType}`);
       metrics.increment(`l0.recovery.${e.recoveryStrategy}`);
-      
+
       // Example: alert on exhausted retries
       if (e.recoveryStrategy === "halt") {
         alerting.send(`L0 halted after ${e.policy.attempt} attempts`);

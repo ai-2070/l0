@@ -215,20 +215,20 @@ L0 provides a complete set of lifecycle callbacks for monitoring and responding 
 
 ### Callback Reference
 
-| Callback       | Signature                                                           | When Called                            |
-| -------------- | ------------------------------------------------------------------- | -------------------------------------- |
-| `onStart`      | `(attempt: number, isRetry: boolean, isFallback: boolean) => void`  | New execution attempt begins           |
-| `onComplete`   | `(state: L0State) => void`                                          | Stream finished successfully           |
-| `onError`      | `(error: Error, willRetry: boolean, willFallback: boolean) => void` | Error occurred (before retry decision) |
-| `onEvent`      | `(event: L0Event) => void`                                          | Any streaming event emitted            |
-| `onViolation`  | `(violation: GuardrailViolation) => void`                           | Guardrail violation detected           |
-| `onRetry`      | `(attempt: number, reason: string) => void`                         | Retry triggered (same model)           |
-| `onFallback`   | `(index: number, reason: string) => void`                           | Switching to fallback model            |
-| `onResume`     | `(checkpoint: string, tokenCount: number) => void`                  | Continuing from checkpoint             |
-| `onCheckpoint` | `(checkpoint: string, tokenCount: number) => void`                  | Checkpoint saved                       |
-| `onTimeout`    | `(type: "initial" \| "inter", elapsedMs: number) => void`           | Timeout occurred                       |
-| `onAbort`      | `(tokenCount: number, contentLength: number) => void`               | Stream aborted                         |
-| `onDrift`      | `(types: string[], confidence?: number) => void`                    | Drift detected                         |
+| Callback       | Signature                                                                       | When Called                            |
+| -------------- | ------------------------------------------------------------------------------- | -------------------------------------- |
+| `onStart`      | `(attempt: number, isRetry: boolean, isFallback: boolean) => void`              | New execution attempt begins           |
+| `onComplete`   | `(state: L0State) => void`                                                      | Stream finished successfully           |
+| `onError`      | `(error: Error, willRetry: boolean, willFallback: boolean) => void`             | Error occurred (before retry decision) |
+| `onEvent`      | `(event: L0Event) => void`                                                      | Any streaming event emitted            |
+| `onViolation`  | `(violation: GuardrailViolation) => void`                                       | Guardrail violation detected           |
+| `onRetry`      | `(attempt: number, reason: string) => void`                                     | Retry triggered (same model)           |
+| `onFallback`   | `(index: number, reason: string) => void`                                       | Switching to fallback model            |
+| `onResume`     | `(checkpoint: string, tokenCount: number) => void`                              | Continuing from checkpoint             |
+| `onCheckpoint` | `(checkpoint: string, tokenCount: number) => void`                              | Checkpoint saved                       |
+| `onTimeout`    | `(type: "initial" \| "inter", elapsedMs: number) => void`                       | Timeout occurred                       |
+| `onAbort`      | `(tokenCount: number, contentLength: number) => void`                           | Stream aborted                         |
+| `onDrift`      | `(types: string[], confidence?: number) => void`                                | Drift detected                         |
 | `onToolCall`   | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` | Tool call detected                     |
 
 ### Usage Example
@@ -294,7 +294,9 @@ const result = await l0({
   },
 
   onDrift: (types, confidence) => {
-    console.log(`Drift detected: ${types.join(", ")} (confidence: ${confidence})`);
+    console.log(
+      `Drift detected: ${types.join(", ")} (confidence: ${confidence})`,
+    );
   },
 
   onToolCall: (toolName, toolCallId, args) => {
@@ -2443,20 +2445,20 @@ L0 provides subpath exports for reduced bundle sizes. Most applications should u
 
 ### Bundle Sizes (minified)
 
-| Import                  | Size  | Gzipped | Description              |
-| ----------------------- | ----- | ------- | ------------------------ |
-| `@ai2070/l0` (full)     | 181KB | 52KB    | Everything               |
-| `@ai2070/l0/core`       | 52KB  | 15KB    | Runtime + retry + errors |
-| `@ai2070/l0/structured` | 43KB  | 12KB    | Structured output        |
-| `@ai2070/l0/consensus`  | 54KB  | 16KB    | Multi-model consensus    |
-| `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations |
-| `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking        |
-| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
-| `@ai2070/l0/monitoring` | 33KB  | 9KB     | OTel/Sentry              |
-| `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
-| `@ai2070/l0/openai`     | —     | —       | OpenAI SDK adapter       |
-| `@ai2070/l0/mastra`     | —     | —       | Mastra adapter           |
-| `@ai2070/l0/anthropic`  | —     | —       | Anthropic SDK adapter (reference implementation)    |
+| Import                  | Size  | Gzipped | Description                                      |
+| ----------------------- | ----- | ------- | ------------------------------------------------ |
+| `@ai2070/l0` (full)     | 181KB | 52KB    | Everything                                       |
+| `@ai2070/l0/core`       | 52KB  | 15KB    | Runtime + retry + errors                         |
+| `@ai2070/l0/structured` | 43KB  | 12KB    | Structured output                                |
+| `@ai2070/l0/consensus`  | 54KB  | 16KB    | Multi-model consensus                            |
+| `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations                         |
+| `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking                                |
+| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules                                 |
+| `@ai2070/l0/monitoring` | 33KB  | 9KB     | OTel/Sentry                                      |
+| `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection                                  |
+| `@ai2070/l0/openai`     | —     | —       | OpenAI SDK adapter                               |
+| `@ai2070/l0/mastra`     | —     | —       | Mastra adapter                                   |
+| `@ai2070/l0/anthropic`  | —     | —       | Anthropic SDK adapter (reference implementation) |
 
 ### Usage
 
