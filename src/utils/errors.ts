@@ -95,11 +95,6 @@ export interface L0ErrorContext {
   fallbackIndex?: number;
 
   /**
-   * Whether the error is recoverable
-   */
-  recoverable?: boolean;
-
-  /**
    * Additional context data
    */
   metadata?: Record<string, unknown>;
@@ -143,14 +138,21 @@ export class L0Error extends Error {
   }
 
   /**
-   * Check if error is recoverable based on checkpoint
+   * Check if error has a checkpoint that can be used for continuation.
+   * This indicates whether there's valid checkpoint content to resume from.
    */
-  get isRecoverable(): boolean {
+  get hasCheckpoint(): boolean {
     return (
-      this.context.recoverable === true &&
       this.context.checkpoint !== undefined &&
       this.context.checkpoint.length > 0
     );
+  }
+
+  /**
+   * @deprecated Use hasCheckpoint instead. Will be removed in v2.0.
+   */
+  get isRecoverable(): boolean {
+    return this.hasCheckpoint;
   }
 
   /**
@@ -195,7 +197,7 @@ export class L0Error extends Error {
       category: this.category,
       message: this.message,
       timestamp: this.timestamp,
-      recoverable: this.isRecoverable,
+      hasCheckpoint: this.hasCheckpoint,
       checkpoint: this.context.checkpoint
         ? this.context.checkpoint.length
         : undefined,

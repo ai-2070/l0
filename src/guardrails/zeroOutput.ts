@@ -79,7 +79,7 @@ export function validateZeroOutput(
       rule: "zero-output",
       message: "No meaningful output generated (empty or whitespace only)",
       severity: "error",
-      recoverable: false, // This is a transport/network issue
+      recoverable: true, // Transport/network issue - retry should help
       suggestion: "Retry - likely network or model initialization issue",
     });
     return violations;
@@ -91,7 +91,7 @@ export function validateZeroOutput(
       rule: "zero-output",
       message: "Output contains only noise or filler characters",
       severity: "error",
-      recoverable: false,
+      recoverable: true,
       suggestion: "Retry - output is not meaningful",
     });
     return violations;
@@ -103,7 +103,7 @@ export function validateZeroOutput(
       rule: "zero-output",
       message: "Output is empty",
       severity: "warning",
-      recoverable: false,
+      recoverable: true,
       suggestion: "Retry - output may be truncated",
     });
   }

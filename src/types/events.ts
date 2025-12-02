@@ -9,6 +9,11 @@
 
 import type { GuardrailViolation } from "./guardrails";
 import type { BackoffStrategy } from "./retry";
+import type {
+  FailureType,
+  RecoveryStrategy,
+  RecoveryPolicy,
+} from "./observability";
 
 /**
  * Recorded event types for L0 event sourcing
@@ -245,8 +250,12 @@ export interface L0ErrorEvent {
   ts: number;
   /** Serialized error */
   error: SerializedError;
-  /** Whether error was recoverable */
-  recoverable: boolean;
+  /** What went wrong - the root cause */
+  failureType: FailureType;
+  /** What L0 decided to do next */
+  recoveryStrategy: RecoveryStrategy;
+  /** Policy that determined the recovery strategy */
+  policy: RecoveryPolicy;
 }
 
 /**

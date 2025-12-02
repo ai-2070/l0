@@ -9,6 +9,51 @@ import type { GuardrailViolation } from "./guardrails";
 import type { L0State } from "./l0";
 
 // ============================================================================
+// Failure & Recovery Types
+// ============================================================================
+
+/**
+ * What actually went wrong - the root cause of the failure.
+ * L0 classifies errors into these categories based on error analysis.
+ */
+export type FailureType =
+  | "network" // Connection drops, DNS, SSL, fetch errors
+  | "model" // Model refused, content filter, bad response
+  | "tool" // Tool execution failed
+  | "timeout" // Initial token or inter-token timeout
+  | "abort" // User or signal abort
+  | "zero_output" // Empty response from model
+  | "unknown"; // Unclassified error
+
+/**
+ * What L0 decided to do next after a failure.
+ */
+export type RecoveryStrategy =
+  | "retry" // Will retry the same stream
+  | "fallback" // Will try next fallback stream
+  | "continue" // Will continue despite error (non-fatal)
+  | "halt"; // Will stop, no recovery possible
+
+/**
+ * Policy configuration that determined the recovery strategy.
+ * Explains WHY L0 chose the recovery strategy it did.
+ */
+export interface RecoveryPolicy {
+  /** Whether retry is enabled in config */
+  retryEnabled: boolean;
+  /** Whether fallback streams are configured */
+  fallbackEnabled: boolean;
+  /** Maximum retry attempts configured */
+  maxRetries: number;
+  /** Maximum fallback streams configured */
+  maxFallbacks: number;
+  /** Current retry attempt (1-based) */
+  attempt: number;
+  /** Current fallback index (0 = primary) */
+  fallbackIndex: number;
+}
+
+// ============================================================================
 // Event Categories
 // ============================================================================
 
@@ -691,9 +736,12 @@ export interface ErrorEvent extends L0ObservabilityEvent {
   type: "ERROR";
   error: string;
   errorCode?: string;
-  recoverable: boolean;
-  willRetry: boolean;
-  willFallback: boolean;
+  /** What went wrong - the root cause */
+  failureType: FailureType;
+  /** What L0 will do next */
+  recoveryStrategy: RecoveryStrategy;
+  /** Policy that determined the recovery strategy */
+  policy: RecoveryPolicy;
 }
 
 // ============================================================================

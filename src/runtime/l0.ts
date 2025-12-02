@@ -21,7 +21,12 @@ import {
 } from "../utils/errors";
 import { EventDispatcher } from "./event-dispatcher";
 import { registerCallbackWrappers } from "./callback-wrappers";
-import { EventType } from "../types/observability";
+import {
+  EventType,
+  type FailureType,
+  type RecoveryStrategy,
+  type RecoveryPolicy,
+} from "../types/observability";
 
 // Type-only imports for optional modules (injected at runtime)
 import type { DriftDetector as DriftDetectorType } from "./drift";
@@ -113,6 +118,74 @@ export type { RuntimeState } from "./state-machine";
 export { Metrics } from "./metrics";
 
 /**
+ * Determine the failure type from an error.
+ * Maps errors to their root cause category.
+ */
+function getFailureType(error: Error, signal?: AbortSignal): FailureType {
+  // Check for abort first
+  if (signal?.aborted || error.name === "AbortError") {
+    return "abort";
+  }
+
+  // Check for L0-specific error codes
+  if (error instanceof L0Error) {
+    switch (error.code) {
+      case L0ErrorCodes.INITIAL_TOKEN_TIMEOUT:
+      case L0ErrorCodes.INTER_TOKEN_TIMEOUT:
+        return "timeout";
+      case L0ErrorCodes.ZERO_OUTPUT:
+        return "zero_output";
+      case L0ErrorCodes.NETWORK_ERROR:
+        return "network";
+      case L0ErrorCodes.GUARDRAIL_VIOLATION:
+      case L0ErrorCodes.FATAL_GUARDRAIL_VIOLATION:
+      case L0ErrorCodes.DRIFT_DETECTED:
+        return "model"; // Content issues are model-side
+      default:
+        break;
+    }
+  }
+
+  // Check for network errors
+  if (isNetworkError(error)) {
+    return "network";
+  }
+
+  // Check error message patterns for timeouts
+  const message = error.message.toLowerCase();
+  if (
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("deadline exceeded")
+  ) {
+    return "timeout";
+  }
+
+  // Check for tool errors
+  if (
+    message.includes("tool") ||
+    message.includes("function call") ||
+    (error as any).toolCallId
+  ) {
+    return "tool";
+  }
+
+  return "unknown";
+}
+
+/**
+ * Determine recovery strategy based on retry decision and fallback availability.
+ */
+function getRecoveryStrategy(
+  willRetry: boolean,
+  willFallback: boolean,
+): RecoveryStrategy {
+  if (willRetry) return "retry";
+  if (willFallback) return "fallback";
+  return "halt";
+}
+
+/**
  * Main L0 wrapper function
  * Provides streaming runtime with guardrails, drift detection, retry logic,
  * and network protections
@@ -147,7 +220,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Interceptors require enableInterceptors() to be called first. " +
           'Import and call: import { enableInterceptors } from "@ai2070/l0"; enableInterceptors();',
-        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, recoverable: false },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED },
       );
     }
     interceptorManager = _interceptorManagerFactory(interceptors);
@@ -217,7 +290,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Monitoring requires enableMonitoring() to be called first. " +
           'Import and call: import { enableMonitoring } from "@ai2070/l0"; enableMonitoring();',
-        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, recoverable: false },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED },
       );
     }
     monitor = _monitorFactory({
@@ -266,7 +339,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Drift detection requires enableDriftDetection() to be called first. " +
           'Import and call: import { enableDriftDetection } from "@ai2070/l0"; enableDriftDetection();',
-        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, recoverable: false },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED },
       );
     }
     driftDetector = _driftDetectorFactory();
@@ -356,7 +429,7 @@ export async function l0<TOutput = unknown>(
                     rule: "drift",
                     severity: "warning",
                     message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
-                    recoverable: true,
+                    
                   },
                 });
               }
@@ -447,7 +520,7 @@ export async function l0<TOutput = unknown>(
                     'Import and call: import { enableAdapterRegistry } from "@ai2070/l0"; enableAdapterRegistry();',
                   {
                     code: L0ErrorCodes.FEATURE_NOT_ENABLED,
-                    recoverable: false,
+                    
                   },
                 );
               }
@@ -461,7 +534,7 @@ export async function l0<TOutput = unknown>(
                     modelRetryCount: state.modelRetryCount,
                     networkRetryCount: state.networkRetryCount,
                     fallbackIndex,
-                    recoverable: false,
+                    
                   },
                 );
               }
@@ -505,7 +578,7 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-                recoverable: true,
+                
               },
             );
           }
@@ -553,7 +626,7 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-                recoverable: state.checkpoint.length > 0,
+                
               });
             }
 
@@ -576,7 +649,7 @@ export async function l0<TOutput = unknown>(
                   modelRetryCount: state.modelRetryCount,
                   networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
-                  recoverable: state.checkpoint.length > 0,
+                  
                   metadata: { timeout: interTimeout, timeSinceLastToken },
                 });
               }
@@ -606,7 +679,7 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-                recoverable: true,
+                
                 metadata: {
                   timeout:
                     processedTimeout.initialToken ?? defaultInitialTokenTimeout,
@@ -782,7 +855,7 @@ export async function l0<TOutput = unknown>(
                       modelRetryCount: state.modelRetryCount,
                       networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
-                      recoverable: false,
+                      
                       metadata: { violation: result.violations[0] },
                     },
                   );
@@ -1113,7 +1186,7 @@ export async function l0<TOutput = unknown>(
                       modelRetryCount: state.modelRetryCount,
                       networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
-                      recoverable: false,
+                      
                       metadata: { violation: result.violations[0] },
                     },
                   );
@@ -1165,7 +1238,7 @@ export async function l0<TOutput = unknown>(
               modelRetryCount: state.modelRetryCount,
               networkRetryCount: state.networkRetryCount,
               fallbackIndex,
-              recoverable: true,
+              
             });
           }
 
@@ -1225,7 +1298,7 @@ export async function l0<TOutput = unknown>(
                   modelRetryCount: state.modelRetryCount,
                   networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
-                  recoverable: false,
+                  
                   metadata: { violation: result.violations[0] },
                 },
               );
@@ -1376,7 +1449,7 @@ export async function l0<TOutput = unknown>(
                   rule: "drift",
                   severity: "warning",
                   message: `Drift detected in partial stream: ${partialDrift.types.join(", ")}`,
-                  recoverable: true,
+                  
                 },
               });
             }
@@ -1435,12 +1508,23 @@ export async function l0<TOutput = unknown>(
           const willRetry = decision.shouldRetry;
           const willFallback =
             !decision.shouldRetry && fallbackIndex < allStreams.length - 1;
+
+          // Build recovery policy
+          const policy: RecoveryPolicy = {
+            retryEnabled: modelRetryLimit > 0,
+            fallbackEnabled: allStreams.length > 1,
+            maxRetries: modelRetryLimit,
+            maxFallbacks: allStreams.length - 1,
+            attempt: retryAttempt + 1, // 1-based
+            fallbackIndex,
+          };
+
           dispatcher.emit(EventType.ERROR, {
             error: err.message,
             errorCode: (err as any).code,
-            recoverable: willRetry || willFallback,
-            willRetry,
-            willFallback,
+            failureType: getFailureType(err, signal),
+            recoveryStrategy: getRecoveryStrategy(willRetry, willFallback),
+            policy,
           });
 
           // Note: onError callback is handled by registerCallbackWrappers via ERROR event
@@ -1560,7 +1644,7 @@ export async function l0<TOutput = unknown>(
                   rule: "drift",
                   severity: "warning",
                   message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
-                  recoverable: true,
+                  
                 },
               });
             }

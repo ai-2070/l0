@@ -60,12 +60,16 @@ export function registerCallbackWrappers(
   }
 
   // onError -> ERROR
+  // Legacy callback signature: (error, willRetry, willFallback)
+  // Derived from new recoveryStrategy field
   if (options.onError) {
     const callback = options.onError;
     dispatcher.onEvent((event: L0ObservabilityEvent) => {
       if (event.type === EventType.ERROR) {
         const e = event as ErrorEvent;
-        callback(new Error(e.error), e.willRetry, e.willFallback);
+        const willRetry = e.recoveryStrategy === "retry";
+        const willFallback = e.recoveryStrategy === "fallback";
+        callback(new Error(e.error), willRetry, willFallback);
       }
     });
   }

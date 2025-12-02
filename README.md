@@ -1389,14 +1389,36 @@ try {
 } catch (error) {
   if (isL0Error(error)) {
     console.log(error.code); // "GUARDRAIL_VIOLATION", "ZERO_OUTPUT", etc.
-    console.log(error.context.checkpoint); // Last good content
+    console.log(error.getCheckpoint()); // Last good content for continuation
     console.log(error.context.tokenCount); // Tokens before failure
-    console.log(error.isRecoverable); // Can retry?
+    console.log(error.hasCheckpoint); // Has checkpoint for continuation?
   }
 }
 ```
 
 Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `ZERO_OUTPUT`, `GUARDRAIL_VIOLATION`, `FATAL_GUARDRAIL_VIOLATION`, `INVALID_STREAM`, `ALL_STREAMS_EXHAUSTED`, `NETWORK_ERROR`, `DRIFT_DETECTED`
+
+### Error Events
+
+Error events include structured failure and recovery information:
+
+```typescript
+import { EventType, type ErrorEvent } from "@ai2070/l0";
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  onEvent: (event) => {
+    if (event.type === EventType.ERROR) {
+      const e = event as ErrorEvent;
+      console.log(e.failureType);      // "network" | "model" | "timeout" | "abort" | "zero_output" | "tool" | "unknown"
+      console.log(e.recoveryStrategy); // "retry" | "fallback" | "halt"
+      console.log(e.policy);           // { retryEnabled, fallbackEnabled, maxRetries, attempt, ... }
+    }
+  },
+});
+```
+
+See [ERROR_HANDLING.md](./ERROR_HANDLING.md) for complete error handling guide.
 
 ---
 

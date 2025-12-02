@@ -261,13 +261,20 @@ export class L0EventRecorder {
 
   async recordError(
     error: Extract<L0RecordedEvent, { type: "ERROR" }>["error"],
-    recoverable: boolean,
+    failureType: Extract<L0RecordedEvent, { type: "ERROR" }>["failureType"],
+    recoveryStrategy: Extract<
+      L0RecordedEvent,
+      { type: "ERROR" }
+    >["recoveryStrategy"],
+    policy: Extract<L0RecordedEvent, { type: "ERROR" }>["policy"],
   ): Promise<void> {
     await this.record({
       type: L0RecordedEventTypes.ERROR,
       ts: Date.now(),
       error,
-      recoverable,
+      failureType,
+      recoveryStrategy,
+      policy,
     });
   }
 }

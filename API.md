@@ -1169,10 +1169,9 @@ try {
 } catch (error) {
   if (isL0Error(error)) {
     console.log(error.code); // L0ErrorCode
-    console.log(error.context.checkpoint); // Last good content
     console.log(error.context.tokenCount);
-    console.log(error.isRecoverable());
-    console.log(error.getCheckpoint());
+    console.log(error.hasCheckpoint); // Has checkpoint for continuation?
+    console.log(error.getCheckpoint()); // Last good content
     console.log(error.toDetailedString());
   }
 }

@@ -54,26 +54,23 @@ describe("Error Utilities", () => {
       expect(contentError.category).toBe(ErrorCategory.CONTENT);
     });
 
-    it("should check if recoverable", () => {
-      const recoverable = new L0Error("Error", {
+    it("should check if has checkpoint for continuation", () => {
+      const withCheckpoint = new L0Error("Error", {
         code: L0ErrorCodes.NETWORK_ERROR,
-        recoverable: true,
         checkpoint: "content",
       });
-      expect(recoverable.isRecoverable).toBe(true);
-
-      const notRecoverable = new L0Error("Error", {
-        code: L0ErrorCodes.NETWORK_ERROR,
-        recoverable: false,
-      });
-      expect(notRecoverable.isRecoverable).toBe(false);
+      expect(withCheckpoint.hasCheckpoint).toBe(true);
 
       const noCheckpoint = new L0Error("Error", {
         code: L0ErrorCodes.NETWORK_ERROR,
-        recoverable: true,
+      });
+      expect(noCheckpoint.hasCheckpoint).toBe(false);
+
+      const emptyCheckpoint = new L0Error("Error", {
+        code: L0ErrorCodes.NETWORK_ERROR,
         checkpoint: "",
       });
-      expect(noCheckpoint.isRecoverable).toBe(false);
+      expect(emptyCheckpoint.hasCheckpoint).toBe(false);
     });
 
     it("should get checkpoint", () => {

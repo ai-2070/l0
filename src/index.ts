@@ -180,6 +180,11 @@ export {
 } from "./types/observability";
 
 export type {
+  // Failure & Recovery types
+  FailureType,
+  RecoveryStrategy,
+  RecoveryPolicy,
+  // Base event types
   L0ObservabilityEvent,
   L0EventHandler,
   L0Event as L0ObservabilityEventUnion,

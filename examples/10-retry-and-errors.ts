@@ -103,8 +103,8 @@ async function errorHandling() {
       console.log("L0 Error:");
       console.log("  Code:", error.code);
       console.log("  Message:", error.message);
-      console.log("  Recoverable:", error.isRecoverable);
-      console.log("  Checkpoint:", error.context?.checkpoint);
+      console.log("  Has checkpoint:", error.hasCheckpoint);
+      console.log("  Checkpoint:", error.getCheckpoint());
     } else if (error instanceof Error && isNetworkError(error)) {
       const analysis = analyzeNetworkError(error);
       console.log("Network Error:");
