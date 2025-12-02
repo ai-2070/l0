@@ -52,7 +52,7 @@ L0 includes 2,600+ tests covering all major reliability features.
                       │                                      │
                       └──────────────────────────────────────┘
  ─────────────────                                                ─────────────
-  text / image /            L0 = Token-Level Reliability
+  text / image /           L0 = Token-Level Reliability
   video / audio
 ```
 
