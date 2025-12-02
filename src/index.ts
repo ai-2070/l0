@@ -6,7 +6,7 @@
 //   - "@ai2070/l0/core" - Minimal runtime (~15KB)
 //   - "@ai2070/l0/guardrails" - Guardrail rules and engine
 //   - "@ai2070/l0/drift" - Drift detection
-//   - "@ai2070/l0/monitoring" - Prometheus, OTel, Sentry
+//   - "@ai2070/l0/monitoring" - OTel, Sentry
 //   - "@ai2070/l0/openai" - OpenAI adapter
 //   - "@ai2070/l0/anthropic" - Anthropic adapter
 //   - "@ai2070/l0/mastra" - Mastra adapter
@@ -219,30 +219,6 @@ export {
 } from "./runtime/monitoring";
 
 export type { MonitoringConfig } from "./runtime/monitoring";
-
-// Prometheus metrics
-export {
-  // prom-client based (recommended)
-  L0PrometheusCollector,
-  createL0PrometheusCollector,
-  l0PrometheusMiddleware,
-  // Standalone (no dependency)
-  PrometheusRegistry,
-  PrometheusCollector,
-  createPrometheusRegistry,
-  createPrometheusCollector,
-  prometheusMiddleware,
-  // Constants
-  DEFAULT_BUCKETS,
-  METRIC_NAMES,
-} from "./runtime/prometheus";
-
-export type {
-  PromClient,
-  PrometheusConfig,
-  PrometheusMetricType,
-  PrometheusMetric,
-} from "./runtime/prometheus";
 
 // Sentry integration
 export {

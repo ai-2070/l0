@@ -2366,7 +2366,7 @@ L0 provides subpath exports for reduced bundle sizes. Most applications should u
 | `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations |
 | `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking        |
 | `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
-| `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
+| `@ai2070/l0/monitoring` | 33KB  | 9KB     | OTel/Sentry              |
 | `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
 | `@ai2070/l0/openai`     | —     | —       | OpenAI SDK adapter       |
 | `@ai2070/l0/mastra`     | —     | —       | Mastra adapter           |
@@ -2385,7 +2385,7 @@ import { consensus } from "@ai2070/l0/consensus";
 import { parallel, race } from "@ai2070/l0/parallel";
 import { createWindow } from "@ai2070/l0/window";
 import { recommendedGuardrails } from "@ai2070/l0/guardrails";
-import { createPrometheusCollector } from "@ai2070/l0/monitoring";
+import { sentryInterceptor } from "@ai2070/l0/monitoring";
 import { DriftDetector } from "@ai2070/l0/drift";
 import { openaiAdapter } from "@ai2070/l0/openai";
 import { anthropicAdapter } from "@ai2070/l0/anthropic";

@@ -70,7 +70,7 @@ L0 includes 2,000+ tests covering all major reliability features.
 | `@ai2070/l0/parallel`   | 39KB  | 11KB    | Parallel/race operations |
 | `@ai2070/l0/window`     | 44KB  | 13KB    | Document chunking        |
 | `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
-| `@ai2070/l0/monitoring` | 33KB  | 9KB     | Prometheus/OTel/Sentry   |
+| `@ai2070/l0/monitoring` | 33KB  | 9KB     | OTel/Sentry              |
 | `@ai2070/l0/drift`      | 5KB   | 2KB     | Drift detection          |
 
 Dependency-free. Tree-shakeable subpath exports for minimal bundles.
@@ -97,7 +97,7 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 | **🧩 Consensus: Agreement Across Models**        | Combine multiple model outputs using unanimous, weighted, or best-match consensus. Guarantees high-confidence generation for safety-critical tasks.                                                   |
 | **📄 Document Windows**                          | Built-in chunking (token, paragraph, sentence, character). Ideal for long documents, transcripts, or multi-page processing.                                                                           |
 | **🎨 Formatting Helpers**                        | Extract JSON/code from markdown fences, strip thinking tags, normalize whitespace, and clean LLM output for downstream processing.                                                                    |
-| **📊 Monitoring**                                | Built-in integrations with Prometheus, OpenTelemetry, and Sentry for metrics, tracing, and error tracking.                                                                                            |
+| **📊 Monitoring**                                | Built-in integrations with OpenTelemetry and Sentry for metrics, tracing, and error tracking.                                                                                                         |
 | **🔔 Lifecycle Callbacks**                       | `onStart`, `onComplete`, `onError`, `onEvent`, `onToken`, `onViolation`, `onRetry`, `onFallback` - full observability into every stream phase.                                                        |
 | **📡 Streaming-First Runtime**                   | Thin, deterministic wrapper over `streamText()` with unified event types (`token`, `error`, `complete`) for easy UIs.                                                                                 |
 | **📼 Atomic Event Logs**                         | Record every token, retry, fallback, and guardrail check as immutable events. Full audit trail for debugging and compliance.                                                                          |
@@ -268,7 +268,7 @@ for await (const event of result.stream) {
 | [Lifecycle Callbacks](#lifecycle-callbacks)                           | Full observability into every stream phase                      |
 | [Event Sourcing](#event-sourcing)                                     | Record/replay streams for testing and audit trails              |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
-| [Monitoring](#monitoring)                                             | Built-in Prometheus, OTel and Sentry integrations               |
+| [Monitoring](#monitoring)                                             | Built-in OTel and Sentry integrations                           |
 | [Testing](#testing)                                                   | 2,000+ tests covering all features and SDK adapters             |
 
 ---
@@ -1433,39 +1433,7 @@ Error codes: `STREAM_ABORTED`, `INITIAL_TOKEN_TIMEOUT`, `INTER_TOKEN_TIMEOUT`, `
 
 ## Monitoring
 
-Built-in telemetry with Prometheus, OTel and Sentry integrations.
-
-### Prometheus
-
-```typescript
-import {
-  l0,
-  createPrometheusCollector,
-  prometheusMiddleware,
-} from "@ai2070/l0";
-import express from "express";
-
-const collector = createPrometheusCollector();
-const app = express();
-
-app.get("/metrics", prometheusMiddleware(collector));
-
-app.post("/chat", async (req, res) => {
-  const result = await l0({
-    stream: () => streamText({ model, prompt: req.body.prompt }),
-    monitoring: { enabled: true },
-  });
-
-  for await (const event of result.stream) {
-    /* ... */
-  }
-
-  collector.record(result.telemetry, { model: "gpt-4" });
-  res.json({ response: result.state.content });
-});
-```
-
-**Exported metrics:** `l0_requests_total`, `l0_request_duration_seconds`, `l0_tokens_total`, `l0_time_to_first_token_seconds`, `l0_network_errors_total`, `l0_guardrail_violations_total`
+Built-in telemetry with OpenTelemetry and Sentry integrations.
 
 ### Sentry
 
@@ -1574,7 +1542,7 @@ Every major reliability feature in L0 has dedicated test suites:
 | **Consensus**         | ✓    | ✓           | Unanimous, weighted, best-match          |
 | **Document Windows**  | ✓    | ✓           | Token, paragraph, sentence chunking      |
 | **Continuation**      | ✓    | ✓           | Last-known-good token resumption         |
-| **Monitoring**        | ✓    | ✓           | Prometheus, metrics, tokens, retries     |
+| **Monitoring**        | ✓    | ✓           | OTel, Sentry, metrics, tokens, retries   |
 | **Sentry**            | ✓    | ✓           | Error tagging, breadcrumbs, performance  |
 | **OpenTelemetry**     | ✓    | ✓           | GenAI semantic conventions, spans, TTFT  |
 | **Event Sourcing**    | ✓    | ✓           | Record/replay, deterministic testing     |

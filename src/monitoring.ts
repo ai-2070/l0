@@ -1,12 +1,12 @@
 /**
- * L0 Monitoring - Prometheus, OpenTelemetry, and Sentry integrations
+ * L0 Monitoring - OpenTelemetry and Sentry integrations
  *
  * Import from "@ai2070/l0/monitoring" to get monitoring features
  * without bundling them in your main application.
  *
  * @example
  * ```typescript
- * import { createPrometheusCollector, sentryInterceptor } from "@ai2070/l0/monitoring";
+ * import { sentryInterceptor, openTelemetryInterceptor } from "@ai2070/l0/monitoring";
  * ```
  */
 
@@ -18,30 +18,6 @@ export {
 } from "./runtime/monitoring.js";
 
 export type { MonitoringConfig } from "./runtime/monitoring.js";
-
-// Prometheus metrics
-export {
-  // prom-client based (recommended)
-  L0PrometheusCollector,
-  createL0PrometheusCollector,
-  l0PrometheusMiddleware,
-  // Standalone (no dependency)
-  PrometheusRegistry,
-  PrometheusCollector,
-  createPrometheusRegistry,
-  createPrometheusCollector,
-  prometheusMiddleware,
-  // Constants
-  DEFAULT_BUCKETS,
-  METRIC_NAMES,
-} from "./runtime/prometheus.js";
-
-export type {
-  PromClient,
-  PrometheusConfig,
-  PrometheusMetricType,
-  PrometheusMetric,
-} from "./runtime/prometheus.js";
 
 // Sentry integration
 export {
