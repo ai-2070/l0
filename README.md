@@ -1117,6 +1117,8 @@ const result = await l0({
 | `onDrift`      | Drift detected                         | `(types: string[], confidence?: number) => void`                                |
 | `onToolCall`   | Tool call detected                     | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` |
 
+> **Note:** All callbacks are fire-and-forget. They execute via microtasks and never block the stream. Errors in callbacks are silently caught and do not affect stream processing.
+
 ### Use Cases
 
 ```typescript
