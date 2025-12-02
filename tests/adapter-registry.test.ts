@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   registerAdapter,
   unregisterAdapter,
+  unregisterAllExcept,
   getAdapter,
   getRegisteredStreamAdapters,
   clearAdapters,
@@ -233,6 +234,80 @@ describe("Adapter Registry", () => {
 
       clearAdapters();
 
+      expect(getRegisteredStreamAdapters()).toEqual([]);
+    });
+  });
+
+  describe("unregisterAllExcept", () => {
+    it("should unregister all adapters except those specified", () => {
+      registerAdapter(createAdapterA());
+      registerAdapter(createAdapterB());
+      registerAdapter(createAdapterWithoutDetect(), { silent: true });
+
+      const removed = unregisterAllExcept(["adapter-a"]);
+
+      expect(removed).toContain("adapter-b");
+      expect(removed).toContain("adapter-no-detect");
+      expect(removed).not.toContain("adapter-a");
+      expect(getRegisteredStreamAdapters()).toEqual(["adapter-a"]);
+    });
+
+    it("should unregister all adapters when except array is empty", () => {
+      registerAdapter(createAdapterA());
+      registerAdapter(createAdapterB());
+
+      const removed = unregisterAllExcept([]);
+
+      expect(removed).toContain("adapter-a");
+      expect(removed).toContain("adapter-b");
+      expect(getRegisteredStreamAdapters()).toEqual([]);
+    });
+
+    it("should unregister all adapters when except is not provided", () => {
+      registerAdapter(createAdapterA());
+      registerAdapter(createAdapterB());
+
+      const removed = unregisterAllExcept();
+
+      expect(removed).toHaveLength(2);
+      expect(getRegisteredStreamAdapters()).toEqual([]);
+    });
+
+    it("should keep multiple specified adapters", () => {
+      registerAdapter(createAdapterA());
+      registerAdapter(createAdapterB());
+      registerAdapter(createAdapterWithoutDetect(), { silent: true });
+
+      const removed = unregisterAllExcept(["adapter-a", "adapter-b"]);
+
+      expect(removed).toEqual(["adapter-no-detect"]);
+      expect(getRegisteredStreamAdapters()).toEqual(["adapter-a", "adapter-b"]);
+    });
+
+    it("should return empty array when all adapters are excepted", () => {
+      registerAdapter(createAdapterA());
+      registerAdapter(createAdapterB());
+
+      const removed = unregisterAllExcept(["adapter-a", "adapter-b"]);
+
+      expect(removed).toEqual([]);
+      expect(getRegisteredStreamAdapters()).toEqual(["adapter-a", "adapter-b"]);
+    });
+
+    it("should handle non-existent adapter names in except array gracefully", () => {
+      registerAdapter(createAdapterA());
+      registerAdapter(createAdapterB());
+
+      const removed = unregisterAllExcept(["adapter-a", "non-existent"]);
+
+      expect(removed).toEqual(["adapter-b"]);
+      expect(getRegisteredStreamAdapters()).toEqual(["adapter-a"]);
+    });
+
+    it("should return empty array when no adapters are registered", () => {
+      const removed = unregisterAllExcept(["adapter-a"]);
+
+      expect(removed).toEqual([]);
       expect(getRegisteredStreamAdapters()).toEqual([]);
     });
   });

@@ -106,6 +106,35 @@ export function clearAdapters(): void {
 }
 
 /**
+ * Unregister all adapters except those specified.
+ *
+ * Useful for testing when you want to isolate a specific adapter
+ * without interference from others.
+ *
+ * @param except - Array of adapter names to keep registered
+ * @returns Array of adapter names that were unregistered
+ *
+ * @example
+ * ```typescript
+ * // Keep only vercel-ai adapter, unregister all others
+ * const removed = unregisterAllExcept(["vercel-ai"]);
+ * console.log(removed); // ["openai", "anthropic", "mastra"]
+ * ```
+ */
+export function unregisterAllExcept(except: string[] = []): string[] {
+  const exceptSet = new Set(except);
+  const toRemove = registeredAdapters
+    .filter((a) => !exceptSet.has(a.name))
+    .map((a) => a.name);
+
+  for (const name of toRemove) {
+    unregisterAdapter(name);
+  }
+
+  return toRemove;
+}
+
+/**
  * Auto-detect the appropriate adapter for a stream.
  *
  * Iterates through registered adapters in registration order.

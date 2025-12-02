@@ -612,6 +612,7 @@ export type {
 export {
   registerAdapter,
   unregisterAdapter,
+  unregisterAllExcept,
   getAdapter,
   getRegisteredStreamAdapters,
   clearAdapters,

@@ -401,7 +401,12 @@ async function* manualAdapter(stream: MyStream): AsyncGenerator<L0Event> {
 ### Registering Adapters
 
 ```typescript
-import { registerAdapter, unregisterAdapter, clearAdapters } from "@ai2070/l0";
+import {
+  registerAdapter,
+  unregisterAdapter,
+  unregisterAllExcept,
+  clearAdapters,
+} from "@ai2070/l0";
 
 // Register for auto-detection
 registerAdapter(myAdapter);
@@ -412,21 +417,26 @@ registerAdapter(adapterWithoutDetect, { silent: true });
 // Unregister by name
 unregisterAdapter("myai");
 
+// Unregister all adapters except specified ones (useful for testing)
+const removed = unregisterAllExcept(["vercel-ai"]);
+console.log(removed); // ["openai", "anthropic", "mastra"]
+
 // Clear all (useful in tests)
 clearAdapters();
 ```
 
 ### Registry Functions
 
-| Function                             | Description                          |
-| ------------------------------------ | ------------------------------------ |
-| `registerAdapter(adapter, options?)` | Register for auto-detection          |
-| `unregisterAdapter(name)`            | Remove by name                       |
-| `getAdapter(name)`                   | Get adapter by name                  |
-| `getRegisteredStreamAdapters()`      | List all registered names            |
-| `clearAdapters()`                    | Remove all adapters                  |
-| `detectAdapter(input)`               | Auto-detect adapter for stream       |
-| `hasMatchingAdapter(input)`          | Check if exactly one adapter matches |
+| Function                             | Description                                      |
+| ------------------------------------ | ------------------------------------------------ |
+| `registerAdapter(adapter, options?)` | Register for auto-detection                      |
+| `unregisterAdapter(name)`            | Remove by name                                   |
+| `unregisterAllExcept(names?)`        | Remove all adapters except those in the array    |
+| `getAdapter(name)`                   | Get adapter by name                              |
+| `getRegisteredStreamAdapters()`      | List all registered names                        |
+| `clearAdapters()`                    | Remove all adapters                              |
+| `detectAdapter(input)`               | Auto-detect adapter for stream                   |
+| `hasMatchingAdapter(input)`          | Check if exactly one adapter matches             |
 
 ### DX Warning
 
