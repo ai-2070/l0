@@ -11,6 +11,7 @@ import type { L0Options } from "../types/l0";
 import { EventType } from "../types/observability";
 import type {
   SessionStartEvent,
+  CompleteEvent,
   ErrorEvent,
   GuardrailRuleResultEvent,
   RetryAttemptEvent,
@@ -45,7 +46,18 @@ export function registerCallbackWrappers(
     });
   }
 
-  // Note: onComplete is handled directly in l0.ts because it needs the full L0State object
+  // onComplete -> COMPLETE (with full L0State)
+  if (options.onComplete) {
+    const callback = options.onComplete;
+    dispatcher.onEvent((event: L0ObservabilityEvent) => {
+      if (event.type === EventType.COMPLETE) {
+        const e = event as CompleteEvent;
+        if (e.state) {
+          callback(e.state);
+        }
+      }
+    });
+  }
 
   // onError -> ERROR
   if (options.onError) {

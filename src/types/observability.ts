@@ -6,6 +6,7 @@
  */
 
 import type { GuardrailViolation } from "./guardrails";
+import type { L0State } from "./l0";
 
 // ============================================================================
 // Event Categories
@@ -683,6 +684,8 @@ export interface CompleteEvent extends L0ObservabilityEvent {
   tokenCount: number;
   contentLength: number;
   durationMs: number;
+  /** Full L0State for onComplete callback */
+  state?: L0State;
 }
 
 export interface ErrorEvent extends L0ObservabilityEvent {

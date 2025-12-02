@@ -176,10 +176,10 @@ export async function l0<TOutput = unknown>(
     detectDrift: processedDetectDrift = false,
     detectZeroTokens: processedDetectZeroTokens = true,
     checkIntervals: processedCheckIntervals = {},
-    onComplete: processedOnComplete,
-    onError: processedOnError,
+    // Note: onComplete is handled by registerCallbackWrappers via COMPLETE event
+    // Note: onError is handled by registerCallbackWrappers via ERROR event
+    // Note: onViolation is handled by registerCallbackWrappers via GUARDRAIL_RULE_RESULT event
     onEvent: processedOnEvent,
-    onViolation: processedOnViolation,
     continueFromLastKnownGoodToken: processedContinueFromCheckpoint = false,
     buildContinuationPrompt: processedBuildContinuationPrompt,
     deduplicateContinuation: processedDeduplicateContinuation,
@@ -238,7 +238,6 @@ export async function l0<TOutput = unknown>(
           rules: processedGuardrails,
           stopOnFatal: true,
           enableStreaming: true,
-          onViolation: processedOnViolation,
         })
       : null;
 
@@ -349,14 +348,17 @@ export async function l0<TOutput = unknown>(
               if (validation.driftDetected) {
                 state.driftDetected = true;
                 monitor?.recordDrift(true, validation.driftTypes);
-                if (processedOnViolation) {
-                  processedOnViolation({
+                dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                  index: 0,
+                  ruleId: "drift",
+                  passed: false,
+                  violation: {
                     rule: "drift",
                     severity: "warning",
                     message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
                     recoverable: true,
-                  });
-                }
+                  },
+                });
               }
 
               if (validation.skipContinuation) {
@@ -755,6 +757,17 @@ export async function l0<TOutput = unknown>(
                 if (result.violations.length > 0) {
                   state.violations.push(...result.violations);
                   monitor?.recordGuardrailViolations(result.violations);
+
+                  // Emit GUARDRAIL_RULE_RESULT events for each violation
+                  for (let i = 0; i < result.violations.length; i++) {
+                    const violation = result.violations[i];
+                    dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                      index: i,
+                      ruleId: violation.rule,
+                      passed: false,
+                      violation,
+                    });
+                  }
                 }
 
                 // Check for fatal violations
@@ -1075,6 +1088,17 @@ export async function l0<TOutput = unknown>(
                 if (result.violations.length > 0) {
                   state.violations.push(...result.violations);
                   monitor?.recordGuardrailViolations(result.violations);
+
+                  // Emit GUARDRAIL_RULE_RESULT events for each violation
+                  for (let i = 0; i < result.violations.length; i++) {
+                    const violation = result.violations[i];
+                    dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                      index: i,
+                      ruleId: violation.rule,
+                      passed: false,
+                      violation,
+                    });
+                  }
                 }
 
                 // Check for fatal violations
@@ -1158,6 +1182,17 @@ export async function l0<TOutput = unknown>(
             if (result.violations.length > 0) {
               state.violations.push(...result.violations);
               monitor?.recordGuardrailViolations(result.violations);
+
+              // Emit GUARDRAIL_RULE_RESULT events for each violation
+              for (let i = 0; i < result.violations.length; i++) {
+                const violation = result.violations[i];
+                dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                  index: i,
+                  ruleId: violation.rule,
+                  passed: false,
+                  violation,
+                });
+              }
             }
 
             // Check if should retry
@@ -1250,17 +1285,13 @@ export async function l0<TOutput = unknown>(
 
           stateMachine.transition(RuntimeStates.COMPLETE);
 
-          // Emit COMPLETE event
+          // Emit COMPLETE event (includes full state for onComplete callback)
           dispatcher.emit(EventType.COMPLETE, {
             tokenCount: state.tokenCount,
             contentLength: state.content.length,
             durationMs: state.duration ?? 0,
+            state,
           });
-
-          // Call onComplete callback directly (needs full L0State)
-          if (processedOnComplete) {
-            processedOnComplete(state);
-          }
 
           break; // Exit retry loop on success
         } catch (error) {
@@ -1288,11 +1319,15 @@ export async function l0<TOutput = unknown>(
               state.violations.push(...partialResult.violations);
               monitor?.recordGuardrailViolations(partialResult.violations);
 
-              // Notify about violations
-              for (const violation of partialResult.violations) {
-                if (processedOnViolation) {
-                  processedOnViolation(violation);
-                }
+              // Notify about violations via GUARDRAIL_RULE_RESULT events
+              for (let i = 0; i < partialResult.violations.length; i++) {
+                const violation = partialResult.violations[i];
+                dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                  index: i,
+                  ruleId: violation.rule,
+                  passed: false,
+                  violation,
+                });
               }
 
               // If fatal violation in partial content, clear checkpoint to prevent
@@ -1333,14 +1368,17 @@ export async function l0<TOutput = unknown>(
                 types: partialDrift.types,
                 score: partialDrift.score,
               });
-              if (processedOnViolation) {
-                processedOnViolation({
+              dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                index: 0,
+                ruleId: "drift",
+                passed: false,
+                violation: {
                   rule: "drift",
                   severity: "warning",
                   message: `Drift detected in partial stream: ${partialDrift.types.join(", ")}`,
                   recoverable: true,
-                });
-              }
+                },
+              });
             }
           }
 
@@ -1405,10 +1443,7 @@ export async function l0<TOutput = unknown>(
             willFallback,
           });
 
-          // Call onError callback directly (needs full Error object)
-          if (processedOnError) {
-            processedOnError(err, willRetry, willFallback);
-          }
+          // Note: onError callback is handled by registerCallbackWrappers via ERROR event
 
           // Check if should retry (but not if aborted)
           if (decision.shouldRetry && !signal?.aborted) {
@@ -1517,14 +1552,17 @@ export async function l0<TOutput = unknown>(
             if (validation.driftDetected) {
               state.driftDetected = true;
               monitor?.recordDrift(true, validation.driftTypes);
-              if (processedOnViolation) {
-                processedOnViolation({
+              dispatcher.emit(EventType.GUARDRAIL_RULE_RESULT, {
+                index: 0,
+                ruleId: "drift",
+                passed: false,
+                violation: {
                   rule: "drift",
                   severity: "warning",
                   message: `Drift detected in checkpoint: ${validation.driftTypes.join(", ")}`,
                   recoverable: true,
-                });
-              }
+                },
+              });
             }
 
             if (!validation.skipContinuation) {
