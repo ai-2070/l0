@@ -1322,6 +1322,122 @@ describe("Structured Output Edge Cases", () => {
   });
 });
 
+describe("Structured Output - Auto-Correction Error Paths", () => {
+  it("should throw when auto-correction fails and extractJSON also fails", async () => {
+    const schema = z.object({ value: z.string() });
+
+    // Content that can't be corrected or extracted - completely invalid
+    const invalidContent = "{{{{not json at all}}}}";
+
+    await expect(
+      structured({
+        schema,
+        stream: createMockStreamFactory(invalidContent),
+        autoCorrect: true,
+        retry: { attempts: 0 },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("should throw when JSON parses but extractJSON rescue fails", async () => {
+    const schema = z.object({ value: z.number() });
+
+    // Valid JSON structure but will fail schema validation, and no valid JSON to extract
+    const content = "some random text without any json structure whatsoever!!!";
+
+    await expect(
+      structured({
+        schema,
+        stream: createMockStreamFactory(content),
+        autoCorrect: true,
+        retry: { attempts: 0 },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("should handle case where autoCorrect is enabled but content is unfixable", async () => {
+    const schema = z.object({ name: z.string() });
+
+    // Malformed beyond repair
+    const badContent = ":::not:json:::";
+
+    await expect(
+      structured({
+        schema,
+        stream: createMockStreamFactory(badContent),
+        autoCorrect: true,
+        retry: { attempts: 0 },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("should attempt extractJSON when initial parse fails with autoCorrect", async () => {
+    const schema = z.object({ value: z.string() });
+
+    // Text with embedded valid JSON - extractJSON should find it
+    const content = 'Here is your answer: {"value": "found"} hope this helps!';
+
+    const result = await structured({
+      schema,
+      stream: createMockStreamFactory(content),
+      autoCorrect: true,
+    });
+
+    expect(result.data.value).toBe("found");
+  });
+
+  it("should call onAutoCorrect when corrections are applied", async () => {
+    const schema = z.object({ value: z.string() });
+    const onAutoCorrect = vi.fn();
+
+    // JSON with markdown fences - requires correction
+    const content = '```json\n{"value": "test"}\n```';
+
+    const result = await structured({
+      schema,
+      stream: createMockStreamFactory(content),
+      autoCorrect: true,
+      onAutoCorrect,
+    });
+
+    expect(result.data.value).toBe("test");
+    expect(result.corrected).toBe(true);
+    expect(onAutoCorrect).toHaveBeenCalled();
+  });
+
+  it("should track correction types when multiple corrections needed", async () => {
+    const schema = z.object({ name: z.string() });
+
+    // Needs multiple corrections: markdown fence + trailing comma
+    const content = '```json\n{"name": "John",}\n```';
+
+    const result = await structured({
+      schema,
+      stream: createMockStreamFactory(content),
+      autoCorrect: true,
+    });
+
+    expect(result.data.name).toBe("John");
+    expect(result.corrected).toBe(true);
+    expect(result.corrections.length).toBeGreaterThan(0);
+  });
+
+  it("should use extractJSON as fallback when autoCorrect partially fails", async () => {
+    const schema = z.object({ id: z.number() });
+
+    // Has valid JSON embedded in prose that autoCorrect might not handle directly
+    const content = 'The result is {"id": 42} as expected.';
+
+    const result = await structured({
+      schema,
+      stream: createMockStreamFactory(content),
+      autoCorrect: true,
+    });
+
+    expect(result.data.id).toBe(42);
+  });
+});
+
 describe("Structured Output Performance", () => {
   it("should handle rapid validation", async () => {
     const schema = z.object({ value: z.string() });
