@@ -1505,7 +1505,7 @@ const result = await l0({
 ### Event Handler Utilities
 
 ```typescript
-import { combineEvents, filterEvents, excludeEvents } from "@ai2070/l0";
+import { EventType, combineEvents, filterEvents, excludeEvents } from "@ai2070/l0";
 
 // Combine multiple handlers
 onEvent: combineEvents(handler1, handler2, handler3)
