@@ -243,6 +243,8 @@ L0 provides a complete set of lifecycle callbacks for monitoring and responding 
 | `onDrift`      | `(types: string[], confidence?: number) => void`                                | Drift detected                         |
 | `onToolCall`   | `(toolName: string, toolCallId: string, args: Record<string, unknown>) => void` | Tool call detected                     |
 
+> **Note:** All callbacks are fire-and-forget. They execute via microtasks and never block the stream. Errors in callbacks are silently caught and do not affect stream processing.
+
 ### Usage Example
 
 ```typescript
