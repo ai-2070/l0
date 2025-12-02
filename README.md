@@ -1131,7 +1131,7 @@ See [API.md#lifecycle-callbacks](./API.md#lifecycle-callbacks) for complete call
 
 ## Observability Events
 
-L0 emits structured lifecycle events for every phase of execution. These events enable replay, profiling, debugging, and L1/L2 supervision.
+L0 emits structured lifecycle events for every phase of execution. These events enable replay, profiling, debugging, and supervision.
 
 ### Stream Initialization Events
 
@@ -1178,8 +1178,6 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ```typescript
 // Model requests tool execution
 { type: "TOOL_REQUESTED", ts, toolName, arguments, toolCallId, meta? }
-
-// L1 executes the tool
 { type: "TOOL_START", ts, toolCallId, toolName }
 { type: "TOOL_RESULT", ts, toolCallId, result, durationMs, meta? }
 { type: "TOOL_ERROR", ts, toolCallId, error, durationMs, meta? }

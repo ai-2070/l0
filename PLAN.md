@@ -581,7 +581,7 @@ dispatcher.emit(EventType.TOOL_REQUESTED, {
   toolCallId: toolCall.id,
 });
 
-// When L1 starts executing
+// Starts executing
 dispatcher.emit(EventType.TOOL_START, {
   toolCallId: toolCall.id,
   toolName: toolCall.name,
