@@ -155,7 +155,7 @@ L0 provides a complete set of lifecycle callbacks for monitoring and responding 
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                              STREAMING PHASE                               │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                         onEvent() (per token)                       │   │
+│  │                         onEvent(event)                              │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                            │
 │  During streaming, these callbacks fire as conditions occur:               │
