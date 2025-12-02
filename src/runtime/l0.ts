@@ -988,6 +988,9 @@ export async function l0<TOutput = unknown>(
                 maxAttempts: modelRetryLimit,
                 reason,
                 delayMs: 0,
+                countsTowardLimit: true,
+                isNetwork: false,
+                isModelIssue: true,
               });
               retryAttempt++;
               state.modelRetryCount++;
@@ -1024,6 +1027,9 @@ export async function l0<TOutput = unknown>(
                 maxAttempts: modelRetryLimit,
                 reason: "Drift detected",
                 delayMs: 0,
+                countsTowardLimit: true,
+                isNetwork: false,
+                isModelIssue: true,
               });
               monitor?.recordRetry(false);
               retryAttempt++;
@@ -1234,6 +1240,9 @@ export async function l0<TOutput = unknown>(
               maxAttempts: modelRetryLimit,
               reason: decision.reason,
               delayMs: decision.delay ?? 0,
+              countsTowardLimit: decision.countsTowardLimit,
+              isNetwork: isNetError,
+              isModelIssue: !isNetError,
             });
 
             // Record retry and wait
@@ -1422,7 +1431,7 @@ export async function l0<TOutput = unknown>(
 
   // Create abort function that emits events
   const abort = () => {
-    dispatcher.emit(EventType.ABORT_REQUESTED);
+    dispatcher.emit(EventType.ABORT_REQUESTED, { source: "user" });
     abortController.abort();
   };
 
