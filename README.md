@@ -1441,18 +1441,42 @@ See [ERROR_HANDLING.md](./ERROR_HANDLING.md) for complete error handling guide.
 
 ## Monitoring
 
-Built-in telemetry with OpenTelemetry and Sentry integrations.
+Built-in observability via the unified `onEvent` pipeline. All monitoring integrations (OpenTelemetry, Sentry, custom loggers) subscribe to events - no interceptors needed.
+
+### Basic Usage
+
+```typescript
+import * as Sentry from "@sentry/node";
+import { trace, metrics } from "@opentelemetry/api";
+import {
+  l0,
+  combineEvents,
+  createOpenTelemetryHandler,
+  createSentryHandler,
+} from "@ai2070/l0";
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  onEvent: combineEvents(
+    createOpenTelemetryHandler({
+      tracer: trace.getTracer("my-app"),
+      meter: metrics.getMeter("my-app"),
+    }),
+    createSentryHandler({ sentry: Sentry }),
+    (event) => console.log(event.type), // custom handler
+  ),
+});
+```
 
 ### Sentry
 
 ```typescript
 import * as Sentry from "@sentry/node";
-import { l0, sentryInterceptor } from "@ai2070/l0";
+import { l0, createSentryHandler } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  monitoring: { enabled: true },
-  interceptors: [sentryInterceptor({ hub: Sentry })],
+  onEvent: createSentryHandler({ sentry: Sentry }),
 });
 ```
 
@@ -1462,43 +1486,35 @@ const result = await l0({
 
 ```typescript
 import { trace, metrics } from "@opentelemetry/api";
-import { l0, L0OpenTelemetry, openTelemetryInterceptor } from "@ai2070/l0";
+import { l0, createOpenTelemetryHandler } from "@ai2070/l0";
 
-const otel = new L0OpenTelemetry({
-  tracer: trace.getTracer("my-app"),
-  meter: metrics.getMeter("my-app"),
-});
-
-// Trace a stream operation
-const result = await otel.traceStream("chat-completion", async (span) => {
-  const res = await l0({
-    stream: () => streamText({ model, prompt }),
-    monitoring: { enabled: true },
-  });
-
-  for await (const event of res.stream) {
-    otel.recordToken(span);
-  }
-
-  otel.recordTelemetry(res.telemetry, span);
-  return res;
-});
-
-// Or use the interceptor for automatic tracing
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  interceptors: [
-    openTelemetryInterceptor({
-      tracer: trace.getTracer("my-app"),
-      meter: metrics.getMeter("my-app"),
-    }),
-  ],
+  onEvent: createOpenTelemetryHandler({
+    tracer: trace.getTracer("my-app"),
+    meter: metrics.getMeter("my-app"),
+  }),
 });
 ```
 
 **Metrics:** `l0.requests`, `l0.tokens`, `l0.retries`, `l0.errors`, `l0.duration`, `l0.time_to_first_token`, `l0.active_streams`
 
 **Span attributes:** Follows [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) with `gen_ai.*` and `l0.*` attributes.
+
+### Event Handler Utilities
+
+```typescript
+import { combineEvents, filterEvents, excludeEvents } from "@ai2070/l0";
+
+// Combine multiple handlers
+onEvent: combineEvents(handler1, handler2, handler3)
+
+// Filter to specific events
+onEvent: filterEvents([EventType.ERROR, EventType.RETRY_ATTEMPT], errorHandler)
+
+// Exclude noisy events
+onEvent: excludeEvents([EventType.TOKEN], logHandler)
+```
 
 See [MONITORING.md](./MONITORING.md) for complete integration guides.
 
