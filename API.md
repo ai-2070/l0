@@ -2071,6 +2071,67 @@ interface L0Event {
 }
 ```
 
+### Observability Event Types
+
+L0 observability events (via `onEvent`) include structured metadata for error handling and recovery decisions.
+
+#### FailureType
+
+Classifies what went wrong when an error occurs.
+
+| Value | Description |
+|-------|-------------|
+| `network` | Connection drops, DNS errors, SSL failures, fetch errors |
+| `model` | Model refused, content filter triggered, malformed response |
+| `tool` | Tool execution failed |
+| `timeout` | Initial token or inter-token timeout exceeded |
+| `abort` | User-initiated or signal-triggered abort |
+| `zero_output` | Empty response from model |
+| `unknown` | Unclassified error |
+
+#### RecoveryStrategy
+
+What L0 decided to do after a failure.
+
+| Value | Description |
+|-------|-------------|
+| `retry` | Will retry the same stream |
+| `fallback` | Will try the next fallback stream |
+| `continue` | Will continue despite error (non-fatal) |
+| `halt` | Will stop, no recovery possible |
+
+#### RecoveryPolicy
+
+Policy configuration that determined the recovery strategy.
+
+```typescript
+interface RecoveryPolicy {
+  retryEnabled: boolean;    // Whether retry is enabled in config
+  fallbackEnabled: boolean; // Whether fallback streams are configured
+  maxRetries: number;       // Maximum retry attempts configured
+  maxFallbacks: number;     // Maximum fallback streams configured
+  attempt: number;          // Current retry attempt (1-based)
+  fallbackIndex: number;    // Current fallback index (0-based)
+  retriesRemaining: number; // Retries left before fallback/halt
+  fallbacksRemaining: number; // Fallbacks left before halt
+}
+```
+
+#### Example: Using Observability Events
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  onEvent: (event) => {
+    if (event.type === "ERROR") {
+      console.log(`Failure: ${event.failureType}`);        // "network" | "model" | ...
+      console.log(`Recovery: ${event.recoveryStrategy}`);  // "retry" | "fallback" | ...
+      console.log(`Policy:`, event.policy);                // { retryEnabled, attempt, ... }
+    }
+  },
+});
+```
+
 ### L0Telemetry
 
 Telemetry data collected during L0 execution.
