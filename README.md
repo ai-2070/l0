@@ -1,4 +1,4 @@
-# L0 - The Missing Reliability Substrate for AI
+# L0 - Deterministic Streaming Execution Substrate (DSES) for AI
 
 ![L0: The Missing AI Reliability Substrate](img/l0-banner.jpg)
 
@@ -19,7 +19,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
 </p>
 
-**L0 is a tiny reliability, streaming-first substrate that wraps any LLM stream with retries, guardrails, fallbacks, drift detection, and deterministic playback.**
+**L0 adds deterministic execution, guardrails, retries, fallbacks, drift detection, tool tracking, and network protection to any LLM stream — turning raw model output into production-grade behavior. It works with OpenAI, Vercel AI SDK, Mastra AI, and custom adapters. Supports multimodal streams, tool calls, and full deterministic replay.**
 
 > _LLMs are extraordinary minds wrapped in fragile interfaces._
 > _The reasoning is brilliant._
@@ -31,8 +31,6 @@
 >
 > _L0 is the missing foundation._
 > _A reliability layer that stabilizes the interface so the model's intelligence can actually reach you._
-
-L0 adds guardrails, retry logic, and network protection to LLM streams, turning raw outputs into production-grade results. Works with **Vercel AI SDK**, **OpenAI SDK**, and **Mastra AI** directly. Supports **custom adapters** (BYOA) and **multimodal AI streams**.
 
 ```bash
 npm install @ai2070/l0
