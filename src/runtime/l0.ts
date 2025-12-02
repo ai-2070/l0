@@ -258,6 +258,7 @@ export async function l0<TOutput = unknown>(
     deduplicateContinuation: processedDeduplicateContinuation,
     deduplicationOptions: processedDeduplicationOptions = {},
     meta: processedMeta = {},
+    toolSchemas: processedToolSchemas,
   } = processedOptions;
 
   // Initialize event dispatcher for observability
@@ -917,10 +918,20 @@ export async function l0<TOutput = unknown>(
                     state.toolCallNames = state.toolCallNames || new Map();
                     state.toolCallNames.set(toolCallId, toolName);
 
+                    // Extract schema if toolSchemas provided
+                    const toolSchema = processedToolSchemas?.[toolName];
+                    const schema = toolSchema
+                      ? {
+                          description: (toolSchema as any).description,
+                          parameters: (toolSchema as any).parameters,
+                        }
+                      : undefined;
+
                     dispatcher.emit(EventType.TOOL_REQUESTED, {
                       toolName,
                       toolCallId,
                       arguments: args,
+                      ...(schema && { schema }),
                     });
                     dispatcher.emit(EventType.TOOL_START, {
                       toolCallId,

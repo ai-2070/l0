@@ -684,6 +684,11 @@ export interface ToolRequestedEvent extends L0ObservabilityEvent {
   toolName: string;
   toolCallId: string;
   arguments: Record<string, unknown>;
+  /** Tool schema if provided via toolSchemas option */
+  schema?: {
+    description?: string;
+    parameters?: unknown;
+  };
 }
 
 export interface ToolStartEvent extends L0ObservabilityEvent {

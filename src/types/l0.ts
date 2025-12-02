@@ -608,6 +608,33 @@ export interface L0Options<TOutput = unknown> {
   ) => void;
 
   /**
+   * Optional tool schemas for enhanced observability.
+   *
+   * When provided, tool schemas are included in TOOL_REQUESTED events,
+   * allowing observability tools to understand the expected structure
+   * of tool arguments and outputs.
+   *
+   * Pass the same tools object you use with streamText().
+   *
+   * @example
+   * ```typescript
+   * const tools = {
+   *   getWeather: tool({
+   *     description: 'Get weather for a location',
+   *     parameters: z.object({ location: z.string() }),
+   *     execute: async ({ location }) => ({ temp: 72 }),
+   *   }),
+   * };
+   *
+   * const result = await l0({
+   *   stream: () => streamText({ model, prompt, tools }),
+   *   toolSchemas: tools, // Include for observability
+   * });
+   * ```
+   */
+  toolSchemas?: Record<string, unknown>;
+
+  /**
    * Interceptors for preprocessing and postprocessing
    */
   interceptors?: L0Interceptor[];
