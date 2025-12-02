@@ -337,11 +337,23 @@ export {
 
 export type { MonitoringConfig } from "./runtime/monitoring";
 
+// Event handler utilities
+export {
+  combineEvents,
+  filterEvents,
+  excludeEvents,
+  debounceEvents,
+  batchEvents,
+} from "./runtime/event-handlers";
+
+export type { EventHandler } from "./runtime/event-handlers";
+
 // Sentry integration
 export {
   L0Sentry,
   createSentryIntegration,
-  sentryInterceptor,
+  createSentryHandler,
+  sentryInterceptor, // deprecated
   withSentry,
 } from "./runtime/sentry";
 
@@ -351,7 +363,8 @@ export type { SentryClient, SentryConfig } from "./runtime/sentry";
 export {
   L0OpenTelemetry,
   createOpenTelemetry,
-  openTelemetryInterceptor,
+  createOpenTelemetryHandler,
+  openTelemetryInterceptor, // deprecated
   SemanticAttributes,
   SpanStatusCode,
   SpanKind,

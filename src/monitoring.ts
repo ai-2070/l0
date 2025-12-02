@@ -6,9 +6,32 @@
  *
  * @example
  * ```typescript
- * import { sentryInterceptor, openTelemetryInterceptor } from "@ai2070/l0/monitoring";
+ * import {
+ *   createOpenTelemetryHandler,
+ *   createSentryHandler,
+ *   combineEvents,
+ * } from "@ai2070/l0/monitoring";
+ *
+ * const result = await l0({
+ *   stream: () => streamText({ model, prompt }),
+ *   onEvent: combineEvents(
+ *     createOpenTelemetryHandler({ tracer, meter }),
+ *     createSentryHandler({ sentry: Sentry }),
+ *   ),
+ * });
  * ```
  */
+
+// Event handler utilities
+export {
+  combineEvents,
+  filterEvents,
+  excludeEvents,
+  debounceEvents,
+  batchEvents,
+} from "./runtime/event-handlers.js";
+
+export type { EventHandler } from "./runtime/event-handlers.js";
 
 // Core monitoring
 export {
@@ -23,7 +46,8 @@ export type { MonitoringConfig } from "./runtime/monitoring.js";
 export {
   L0Sentry,
   createSentryIntegration,
-  sentryInterceptor,
+  createSentryHandler,
+  sentryInterceptor, // deprecated
   withSentry,
 } from "./runtime/sentry.js";
 
@@ -33,7 +57,8 @@ export type { SentryClient, SentryConfig } from "./runtime/sentry.js";
 export {
   L0OpenTelemetry,
   createOpenTelemetry,
-  openTelemetryInterceptor,
+  createOpenTelemetryHandler,
+  openTelemetryInterceptor, // deprecated
   SemanticAttributes,
   SpanStatusCode,
   SpanKind,
