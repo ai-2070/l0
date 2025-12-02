@@ -181,7 +181,7 @@
     "@sentry/node": "^10.27.0",
     "@sentry/types": "^10.27.0",
     "@types/node": "^20.0.0",
-    "@types/uuid": "^10.0.0",
+    "@types/uuid": "^11.0.0",
     "@vitest/coverage-v8": "^4.0.0",
     "@vitest/ui": "^4.0.0",
     "ai": "^5.0.0",
