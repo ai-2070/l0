@@ -155,7 +155,6 @@ export const ToolEvents = {
 
 /** Completion events */
 export const CompletionEvents = {
-  TOKEN: "TOKEN",
   COMPLETE: "COMPLETE",
   ERROR: "ERROR",
 } as const;
@@ -694,12 +693,6 @@ export interface ToolCompletedEvent extends L0ObservabilityEvent {
 // Completion Events
 // ============================================================================
 
-export interface TokenEvent extends L0ObservabilityEvent {
-  type: "TOKEN";
-  value: string;
-  index: number;
-}
-
 export interface CompleteEvent extends L0ObservabilityEvent {
   type: "COMPLETE";
   tokenCount: number;
@@ -794,7 +787,6 @@ export type L0Event =
   | ToolErrorEvent
   | ToolCompletedEvent
   // Completion
-  | TokenEvent
   | CompleteEvent
   | ErrorEvent;
 

@@ -545,6 +545,52 @@ export interface L0Options<TOutput = unknown> {
   onResume?: (checkpoint: string, tokenCount: number) => void;
 
   /**
+   * Optional callback when a checkpoint is saved.
+   *
+   * Called when content has been validated (passed guardrails, no drift)
+   * and can be safely resumed from if something goes wrong.
+   *
+   * @param checkpoint - The checkpoint content
+   * @param tokenCount - Number of tokens in the checkpoint
+   */
+  onCheckpoint?: (checkpoint: string, tokenCount: number) => void;
+
+  /**
+   * Optional callback when a timeout occurs.
+   *
+   * Called when:
+   * - Initial token timeout is triggered (no first token received in time)
+   * - Inter-token timeout is triggered (gap between tokens too long)
+   *
+   * @param type - The timeout type ("initial" or "inter")
+   * @param elapsedMs - Time elapsed before timeout triggered
+   */
+  onTimeout?: (type: "initial" | "inter", elapsedMs: number) => void;
+
+  /**
+   * Optional callback when the stream is aborted.
+   *
+   * Called when:
+   * - User calls abort()
+   * - External signal triggers abort
+   *
+   * @param tokenCount - Number of tokens received before abort
+   * @param contentLength - Length of content received before abort
+   */
+  onAbort?: (tokenCount: number, contentLength: number) => void;
+
+  /**
+   * Optional callback when drift is detected.
+   *
+   * Called when the drift detector identifies potential issues
+   * with the generated content.
+   *
+   * @param types - Array of drift types detected
+   * @param score - Drift confidence score
+   */
+  onDrift?: (types: string[], score?: number) => void;
+
+  /**
    * Interceptors for preprocessing and postprocessing
    */
   interceptors?: L0Interceptor[];

@@ -257,7 +257,6 @@ export type {
   ToolCompletedEvent,
   ToolErrorType,
   // Completion events
-  TokenEvent,
   CompleteEvent,
   ErrorEvent,
 } from "./types/observability";

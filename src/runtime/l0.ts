@@ -562,6 +562,10 @@ export async function l0<TOutput = unknown>(
               const timeSinceLastToken = Date.now() - lastTokenEmissionTime;
               if (timeSinceLastToken > interTimeout) {
                 metrics.timeouts++;
+                dispatcher.emit(EventType.TIMEOUT_TRIGGERED, {
+                  timeoutType: "inter",
+                  elapsedMs: timeSinceLastToken,
+                });
                 throw new L0Error("Inter-token timeout reached", {
                   code: L0ErrorCodes.INTER_TOKEN_TIMEOUT,
                   checkpoint: state.checkpoint,
@@ -586,6 +590,12 @@ export async function l0<TOutput = unknown>(
             // Check initial timeout
             if (initialTimeoutReached && !firstTokenReceived) {
               metrics.timeouts++;
+              const elapsedMs =
+                processedTimeout.initialToken ?? defaultInitialTokenTimeout;
+              dispatcher.emit(EventType.TIMEOUT_TRIGGERED, {
+                timeoutType: "initial",
+                elapsedMs,
+              });
               throw new L0Error("Initial token timeout reached", {
                 code: L0ErrorCodes.INITIAL_TOKEN_TIMEOUT,
                 checkpoint: state.checkpoint,
@@ -722,6 +732,11 @@ export async function l0<TOutput = unknown>(
               // Update checkpoint periodically
               if (state.tokenCount % checkpointInterval === 0) {
                 state.checkpoint = state.content;
+                dispatcher.emit(EventType.CHECKPOINT_SAVED, {
+                  checkpoint: state.checkpoint,
+                  tokenCount: state.tokenCount,
+                  contentLength: state.content.length,
+                });
               }
 
               // Run streaming guardrails
@@ -771,6 +786,11 @@ export async function l0<TOutput = unknown>(
                 if (drift.detected) {
                   state.driftDetected = true;
                   monitor?.recordDrift(true, drift.types);
+                  dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
+                    detected: true,
+                    types: drift.types,
+                    score: drift.score,
+                  });
                 }
               }
 
@@ -926,6 +946,11 @@ export async function l0<TOutput = unknown>(
                 if (drift.detected) {
                   state.driftDetected = true;
                   monitor?.recordDrift(true, drift.types);
+                  dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
+                    detected: true,
+                    types: drift.types,
+                    score: drift.score,
+                  });
                 }
               }
 
@@ -1022,6 +1047,11 @@ export async function l0<TOutput = unknown>(
             if (finalDrift.detected && retryAttempt < modelRetryLimit) {
               state.driftDetected = true;
               monitor?.recordDrift(true, finalDrift.types);
+              dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
+                detected: true,
+                types: finalDrift.types,
+                score: finalDrift.score,
+              });
               dispatcher.emit(EventType.RETRY_ATTEMPT, {
                 attempt: retryAttempt + 1,
                 maxAttempts: modelRetryLimit,
@@ -1126,6 +1156,11 @@ export async function l0<TOutput = unknown>(
               state.content.length > 0
             ) {
               state.checkpoint = state.content;
+              dispatcher.emit(EventType.CHECKPOINT_SAVED, {
+                checkpoint: state.checkpoint,
+                tokenCount: state.tokenCount,
+                contentLength: state.content.length,
+              });
             }
           }
 
@@ -1138,6 +1173,11 @@ export async function l0<TOutput = unknown>(
             if (partialDrift.detected) {
               state.driftDetected = true;
               monitor?.recordDrift(true, partialDrift.types);
+              dispatcher.emit(EventType.DRIFT_CHECK_RESULT, {
+                detected: true,
+                types: partialDrift.types,
+                score: partialDrift.score,
+              });
               if (processedOnViolation) {
                 processedOnViolation({
                   rule: "drift",
@@ -1215,8 +1255,8 @@ export async function l0<TOutput = unknown>(
             processedOnError(err, willRetry, willFallback);
           }
 
-          // Check if should retry
-          if (decision.shouldRetry) {
+          // Check if should retry (but not if aborted)
+          if (decision.shouldRetry && !signal?.aborted) {
             if (decision.countsTowardLimit) {
               retryAttempt++;
               state.modelRetryCount++;

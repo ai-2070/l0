@@ -22,6 +22,9 @@ import type {
   CheckpointSavedEvent,
   DriftCheckStartEvent,
   DriftCheckEndEvent,
+  DriftCheckResultEvent,
+  TimeoutTriggeredEvent,
+  AbortCompletedEvent,
   L0ObservabilityEvent,
 } from "../types/observability";
 
@@ -84,12 +87,13 @@ export function registerCallbackWrappers(
   }
 
   // onFallback -> FALLBACK_START
+  // Note: toIndex is 1-based (index in allStreams), but callback expects 0-based fallback index
   if (options.onFallback) {
     const callback = options.onFallback;
     dispatcher.onEvent((event: L0ObservabilityEvent) => {
       if (event.type === EventType.FALLBACK_START) {
         const e = event as FallbackStartEvent;
-        callback(e.toIndex, e.reason);
+        callback(e.toIndex - 1, e.reason); // Convert to 0-based fallback index
       }
     });
   }
@@ -101,6 +105,52 @@ export function registerCallbackWrappers(
       if (event.type === EventType.RESUME_START) {
         const e = event as ResumeStartEvent;
         callback(e.checkpoint, e.tokenCount);
+      }
+    });
+  }
+
+  // onCheckpoint -> CHECKPOINT_SAVED
+  if (options.onCheckpoint) {
+    const callback = options.onCheckpoint;
+    dispatcher.onEvent((event: L0ObservabilityEvent) => {
+      if (event.type === EventType.CHECKPOINT_SAVED) {
+        const e = event as CheckpointSavedEvent;
+        callback(e.checkpoint, e.tokenCount);
+      }
+    });
+  }
+
+  // onTimeout -> TIMEOUT_TRIGGERED
+  if (options.onTimeout) {
+    const callback = options.onTimeout;
+    dispatcher.onEvent((event: L0ObservabilityEvent) => {
+      if (event.type === EventType.TIMEOUT_TRIGGERED) {
+        const e = event as TimeoutTriggeredEvent;
+        callback(e.timeoutType, e.elapsedMs);
+      }
+    });
+  }
+
+  // onAbort -> ABORT_COMPLETED
+  if (options.onAbort) {
+    const callback = options.onAbort;
+    dispatcher.onEvent((event: L0ObservabilityEvent) => {
+      if (event.type === EventType.ABORT_COMPLETED) {
+        const e = event as AbortCompletedEvent;
+        callback(e.tokenCount, e.contentLength);
+      }
+    });
+  }
+
+  // onDrift -> DRIFT_CHECK_RESULT (when detected)
+  if (options.onDrift) {
+    const callback = options.onDrift;
+    dispatcher.onEvent((event: L0ObservabilityEvent) => {
+      if (event.type === EventType.DRIFT_CHECK_RESULT) {
+        const e = event as DriftCheckResultEvent;
+        if (e.detected) {
+          callback(e.types, e.score);
+        }
       }
     });
   }
