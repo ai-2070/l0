@@ -18,7 +18,7 @@
   <a href="https://github.com/ai-2070/l0/actions">
     <img src="https://img.shields.io/github/actions/workflow/status/ai-2070/l0/ci.yml?label=tests" alt="CI status">
   </a>
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
+  <img src="https://img.shields.io/badge/license-Apache_2.0-green" alt="MIT License">
 </p>
 
 > LLMs produce high-value reasoning over a low-integrity transport layer.
