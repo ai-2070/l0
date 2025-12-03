@@ -52,7 +52,7 @@ for await (const event of result.stream) {
 
 // After completion, access telemetry
 const telemetry = result.telemetry;
-console.log("Session ID:", telemetry.streamId);
+console.log("Stream ID:", telemetry.streamId);
 console.log("Duration:", telemetry.duration, "ms");
 console.log("Tokens:", telemetry.metrics.totalTokens);
 console.log("Tokens/sec:", telemetry.metrics.tokensPerSecond);
