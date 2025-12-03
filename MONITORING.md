@@ -329,7 +329,7 @@ logger.info("L0 execution completed", logEntry);
 
 // Example output:
 // {
-//   session_id: "l0_1234567890_abc123",
+//   stream_id: "l0_1234567890_abc123",
 //   timestamp: 1234567890,
 //   duration_ms: 1500,
 //   metrics: {
@@ -465,7 +465,7 @@ class L0Analytics {
 
     this.events.push({
       event: "l0_execution",
-      session_id: telemetry.sessionId,
+      stream_id: telemetry.sessionId,
       duration: telemetry.duration,
       tokens: telemetry.metrics.totalTokens,
       tokens_per_second: telemetry.metrics.tokensPerSecond,
@@ -944,7 +944,7 @@ L0 automatically sets Sentry context with telemetry data:
 ```typescript
 // Automatically set on completion:
 Sentry.setContext("l0_telemetry", {
-  session_id: "l0_123...",
+  stream_id: "l0_123...",
   duration_ms: 1500,
   tokens: 250,
   tokens_per_second: 166,
@@ -1051,7 +1051,7 @@ SemanticAttributes.LLM_USAGE_INPUT_TOKENS; // "gen_ai.usage.input_tokens"
 SemanticAttributes.LLM_USAGE_OUTPUT_TOKENS; // "gen_ai.usage.output_tokens"
 
 // L0-specific attributes
-SemanticAttributes.L0_SESSION_ID; // "l0.session_id"
+SemanticAttributes.L0_STREAM_ID; // "l0.session_id"
 SemanticAttributes.L0_RETRY_COUNT; // "l0.retry.count"
 SemanticAttributes.L0_NETWORK_ERROR_COUNT; // "l0.network.error_count"
 SemanticAttributes.L0_TIME_TO_FIRST_TOKEN; // "l0.time_to_first_token_ms"
@@ -1151,7 +1151,7 @@ const result = await l0({
 ```
 Trace: l0.execution (1.5s)
 ├── Attributes:
-│   ├── l0.session_id: "l0_abc123..."
+│   ├── l0.stream_id: "l0_abc123..."
 │   ├── gen_ai.request.model: "gpt-5-micro"
 │   ├── l0.retry.count: 1
 │   └── l0.tokens_per_second: 166

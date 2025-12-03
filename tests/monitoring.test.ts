@@ -688,7 +688,7 @@ describe("TelemetryExporter", () => {
     it("should export to structured log format", () => {
       const telemetry = createTestTelemetry();
       const log = TelemetryExporter.toLogFormat(telemetry);
-      expect(log.session_id).toBe("l0_123_abc");
+      expect(log.stream_id).toBe("l0_123_abc");
       expect(log.duration_ms).toBe(1000);
       expect(log.metrics.tokens).toBe(100);
       expect(log.network.error_count).toBe(1);

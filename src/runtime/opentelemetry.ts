@@ -103,7 +103,7 @@ export const SemanticAttributes = {
   LLM_USAGE_OUTPUT_TOKENS: "gen_ai.usage.output_tokens",
 
   // L0-specific attributes
-  L0_SESSION_ID: "l0.session_id",
+  L0_STREAM_ID: "l0.stream_id",
   L0_STREAM_COMPLETED: "l0.stream.completed",
   L0_FALLBACK_INDEX: "l0.fallback.index",
   L0_RETRY_COUNT: "l0.retry.count",
@@ -276,7 +276,7 @@ export class L0OpenTelemetry {
    */
   recordTelemetry(telemetry: L0Telemetry, span?: Span): void {
     const attributes: Attributes = {
-      [SemanticAttributes.L0_SESSION_ID]: telemetry.sessionId,
+      [SemanticAttributes.L0_STREAM_ID]: telemetry.sessionId,
     };
 
     // Record metrics from aggregated telemetry (single source of truth)
@@ -384,7 +384,7 @@ export class L0OpenTelemetry {
     // Add span attributes
     if (span?.isRecording()) {
       span.setAttributes({
-        [SemanticAttributes.L0_SESSION_ID]: telemetry.sessionId,
+        [SemanticAttributes.L0_STREAM_ID]: telemetry.sessionId,
         [SemanticAttributes.LLM_USAGE_OUTPUT_TOKENS]:
           telemetry.metrics.totalTokens,
         [SemanticAttributes.L0_RETRY_COUNT]: telemetry.metrics.totalRetries,

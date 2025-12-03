@@ -456,7 +456,7 @@ export class TelemetryExporter {
    */
   static toLogFormat(telemetry: L0Telemetry): Record<string, any> {
     return {
-      session_id: telemetry.sessionId,
+      stream_id: telemetry.sessionId,
       timestamp: telemetry.startTime,
       duration_ms: telemetry.duration,
       metrics: {

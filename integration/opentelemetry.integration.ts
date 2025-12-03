@@ -233,7 +233,7 @@ describe("OpenTelemetry Integration", () => {
       );
 
       const createdSpan = mockTracer._spans[0]!;
-      expect(createdSpan._attributes[SemanticAttributes.L0_SESSION_ID]).toBe(
+      expect(createdSpan._attributes[SemanticAttributes.L0_STREAM_ID]).toBe(
         "test-session",
       );
     });
@@ -277,7 +277,7 @@ describe("OpenTelemetry Integration", () => {
     });
 
     it("should export L0-specific attributes", () => {
-      expect(SemanticAttributes.L0_SESSION_ID).toBe("l0.session_id");
+      expect(SemanticAttributes.L0_STREAM_ID).toBe("l0.session_id");
       expect(SemanticAttributes.L0_RETRY_COUNT).toBe("l0.retry.count");
       expect(SemanticAttributes.L0_NETWORK_ERROR_COUNT).toBe(
         "l0.network.error_count",
@@ -442,7 +442,7 @@ describe("OpenTelemetry Integration", () => {
 
         // Should have session ID from telemetry
         if (result.telemetry) {
-          expect(span._attributes[SemanticAttributes.L0_SESSION_ID]).toBe(
+          expect(span._attributes[SemanticAttributes.L0_STREAM_ID]).toBe(
             result.telemetry.sessionId,
           );
         }
