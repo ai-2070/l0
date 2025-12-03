@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to L0. This Contributor License Agreement ("Agreement") documents the rights granted by contributors to this project.
 
-This project is licensed under the [MIT License](LICENSE). By contributing, you agree that your contributions will be licensed under the same terms.
+This project is licensed under the [Apache License 2.0](LICENSE). By contributing, you agree that your contributions will be licensed under the same terms.
 
 By submitting a contribution to this project, you agree to the following terms:
 

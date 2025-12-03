@@ -1621,4 +1621,4 @@ L0 is developed and maintained independently. If your company depends on L0 or w
 
 ## License
 
-MIT
+Apache-2.0
