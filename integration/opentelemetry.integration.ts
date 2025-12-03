@@ -277,7 +277,7 @@ describe("OpenTelemetry Integration", () => {
     });
 
     it("should export L0-specific attributes", () => {
-      expect(SemanticAttributes.L0_STREAM_ID).toBe("l0.session_id");
+      expect(SemanticAttributes.L0_STREAM_ID).toBe("l0.stream_id");
       expect(SemanticAttributes.L0_RETRY_COUNT).toBe("l0.retry.count");
       expect(SemanticAttributes.L0_NETWORK_ERROR_COUNT).toBe(
         "l0.network.error_count",

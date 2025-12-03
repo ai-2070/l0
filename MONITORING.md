@@ -1051,7 +1051,7 @@ SemanticAttributes.LLM_USAGE_INPUT_TOKENS; // "gen_ai.usage.input_tokens"
 SemanticAttributes.LLM_USAGE_OUTPUT_TOKENS; // "gen_ai.usage.output_tokens"
 
 // L0-specific attributes
-SemanticAttributes.L0_STREAM_ID; // "l0.session_id"
+SemanticAttributes.L0_STREAM_ID; // "l0.stream_id"
 SemanticAttributes.L0_RETRY_COUNT; // "l0.retry.count"
 SemanticAttributes.L0_NETWORK_ERROR_COUNT; // "l0.network.error_count"
 SemanticAttributes.L0_TIME_TO_FIRST_TOKEN; // "l0.time_to_first_token_ms"
