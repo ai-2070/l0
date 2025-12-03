@@ -93,6 +93,7 @@ export const SessionEvents = {
 export const StreamEvents = {
   STREAM_INIT: "STREAM_INIT",
   STREAM_READY: "STREAM_READY",
+  TOKEN: "TOKEN",
 } as const;
 
 /** Adapter events */
