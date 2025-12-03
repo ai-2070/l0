@@ -190,7 +190,7 @@ describe("Sentry Integration", () => {
 
     it("should complete execution with telemetry", () => {
       l0Sentry.completeExecution({
-        sessionId: "test-session",
+        streamId: "test-session",
         startTime: Date.now() - 1000,
         endTime: Date.now(),
         duration: 1000,

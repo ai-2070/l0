@@ -276,7 +276,7 @@ export class L0OpenTelemetry {
    */
   recordTelemetry(telemetry: L0Telemetry, span?: Span): void {
     const attributes: Attributes = {
-      [SemanticAttributes.L0_STREAM_ID]: telemetry.sessionId,
+      [SemanticAttributes.L0_STREAM_ID]: telemetry.streamId,
     };
 
     // Record metrics from aggregated telemetry (single source of truth)
@@ -384,7 +384,7 @@ export class L0OpenTelemetry {
     // Add span attributes
     if (span?.isRecording()) {
       span.setAttributes({
-        [SemanticAttributes.L0_STREAM_ID]: telemetry.sessionId,
+        [SemanticAttributes.L0_STREAM_ID]: telemetry.streamId,
         [SemanticAttributes.LLM_USAGE_OUTPUT_TOKENS]:
           telemetry.metrics.totalTokens,
         [SemanticAttributes.L0_RETRY_COUNT]: telemetry.metrics.totalRetries,

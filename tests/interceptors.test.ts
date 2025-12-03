@@ -911,7 +911,7 @@ describe("timingInterceptor()", () => {
 
     const result = await interceptor.before!(createMockL0Options());
 
-    expect(result.monitoring?.metadata?.sessionId).toMatch(/^session_\d+$/);
+    expect(result.monitoring?.metadata?.streamId).toMatch(/^session_\d+$/);
   });
 
   it("should have after hook for cleanup", async () => {

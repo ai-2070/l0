@@ -2164,7 +2164,7 @@ Telemetry data collected during L0 execution.
 
 ```typescript
 interface L0Telemetry {
-  sessionId: string;
+  streamId: string;
   startTime: number;
   endTime?: number;
   duration?: number;

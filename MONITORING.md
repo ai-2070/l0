@@ -52,7 +52,7 @@ for await (const event of result.stream) {
 
 // After completion, access telemetry
 const telemetry = result.telemetry;
-console.log("Session ID:", telemetry.sessionId);
+console.log("Session ID:", telemetry.streamId);
 console.log("Duration:", telemetry.duration, "ms");
 console.log("Tokens:", telemetry.metrics.totalTokens);
 console.log("Tokens/sec:", telemetry.metrics.tokensPerSecond);
@@ -132,7 +132,7 @@ monitoring: {
 ```typescript
 interface L0Telemetry {
   // Session identification
-  sessionId: string;
+  streamId: string;
   startTime: number;
   endTime?: number;
   duration?: number;
@@ -218,7 +218,7 @@ console.log(telemetry);
 ```typescript
 // Get high-level summary
 console.log("Summary:", {
-  sessionId: telemetry.sessionId,
+  streamId: telemetry.streamId,
   duration: telemetry.duration,
   tokens: telemetry.metrics.totalTokens,
   tokensPerSecond: telemetry.metrics.tokensPerSecond,
@@ -465,7 +465,7 @@ class L0Analytics {
 
     this.events.push({
       event: "l0_execution",
-      stream_id: telemetry.sessionId,
+      stream_id: telemetry.streamId,
       duration: telemetry.duration,
       tokens: telemetry.metrics.totalTokens,
       tokens_per_second: telemetry.metrics.tokensPerSecond,

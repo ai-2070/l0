@@ -48,7 +48,7 @@ export class L0Monitor {
    */
   private createInitialTelemetry(): L0Telemetry {
     return {
-      sessionId: this.generateSessionId(),
+      streamId: this.generateStreamId(),
       startTime: Date.now(),
       metrics: {
         totalTokens: 0,
@@ -68,7 +68,7 @@ export class L0Monitor {
   /**
    * Generate unique session ID
    */
-  private generateSessionId(): string {
+  private generateStreamId(): string {
     return `l0_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
@@ -329,7 +329,7 @@ export class L0Monitor {
    */
   getSummary():
     | {
-        sessionId: string;
+        streamId: string;
         duration: number;
         tokens: number;
         tokensPerSecond: number;
@@ -341,7 +341,7 @@ export class L0Monitor {
     if (!this.isEnabled()) return undefined;
 
     return {
-      sessionId: this.telemetry.sessionId,
+      streamId: this.telemetry.streamId,
       duration: this.telemetry.duration ?? 0,
       tokens: this.telemetry.metrics.totalTokens,
       tokensPerSecond: this.telemetry.metrics.tokensPerSecond ?? 0,
@@ -433,7 +433,7 @@ export class TelemetryExporter {
 
     // Header
     lines.push(
-      "sessionId,duration,tokens,tokensPerSecond,retries,networkErrors,violations",
+      "streamId,duration,tokens,tokensPerSecond,retries,networkErrors,violations",
     );
 
     // Data
@@ -445,7 +445,7 @@ export class TelemetryExporter {
     const violations = telemetry.guardrails?.violationCount ?? 0;
 
     lines.push(
-      `${telemetry.sessionId},${duration},${tokens},${tokensPerSecond.toFixed(2)},${retries},${networkErrors},${violations}`,
+      `${telemetry.streamId},${duration},${tokens},${tokensPerSecond.toFixed(2)},${retries},${networkErrors},${violations}`,
     );
 
     return lines.join("\n");
@@ -456,7 +456,7 @@ export class TelemetryExporter {
    */
   static toLogFormat(telemetry: L0Telemetry): Record<string, any> {
     return {
-      stream_id: telemetry.sessionId,
+      stream_id: telemetry.streamId,
       timestamp: telemetry.startTime,
       duration_ms: telemetry.duration,
       metrics: {

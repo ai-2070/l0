@@ -248,8 +248,8 @@ export function timingInterceptor(): L0Interceptor {
   return {
     name: "timing",
     before: async (options) => {
-      const sessionId = `session_${Date.now()}`;
-      startTimes.set(sessionId, Date.now());
+      const streamId = `session_${Date.now()}`;
+      startTimes.set(streamId, Date.now());
       return {
         ...options,
         monitoring: {
@@ -258,16 +258,16 @@ export function timingInterceptor(): L0Interceptor {
           includeTimings: true,
           metadata: {
             ...options.monitoring?.metadata,
-            sessionId,
+            streamId,
           },
         },
       };
     },
     after: async (result) => {
-      const sessionId = result.telemetry?.sessionId;
-      if (sessionId && startTimes.has(sessionId)) {
+      const streamId = result.telemetry?.streamId;
+      if (streamId && startTimes.has(streamId)) {
         // Duration tracked for potential future use
-        startTimes.delete(sessionId);
+        startTimes.delete(streamId);
       }
       return result;
     },

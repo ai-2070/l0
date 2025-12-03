@@ -929,7 +929,7 @@ export interface L0Telemetry {
   /**
    * Session ID for this execution
    */
-  sessionId: string;
+  streamId: string;
 
   /**
    * Timestamp when execution started

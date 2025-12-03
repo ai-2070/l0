@@ -860,7 +860,7 @@ compareReplays(a: L0State, b: L0State): ReplayComparison
 
 ```typescript
 // Good - includes context
-const streamId = `user_${userId}_chat_${sessionId}_${Date.now()}`;
+const streamId = `user_${userId}_chat_${streamId}_${Date.now()}`;
 
 // Bad - opaque
 const streamId = generateStreamId(); // Only for anonymous streams

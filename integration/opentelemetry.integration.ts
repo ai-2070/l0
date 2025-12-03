@@ -206,7 +206,7 @@ describe("OpenTelemetry Integration", () => {
       const span = otel.createSpan("execution");
       otel.recordTelemetry(
         {
-          sessionId: "test-session",
+          streamId: "test-session",
           startTime: Date.now() - 1000,
           endTime: Date.now(),
           duration: 1000,
@@ -443,7 +443,7 @@ describe("OpenTelemetry Integration", () => {
         // Should have session ID from telemetry
         if (result.telemetry) {
           expect(span._attributes[SemanticAttributes.L0_STREAM_ID]).toBe(
-            result.telemetry.sessionId,
+            result.telemetry.streamId,
           );
         }
       },

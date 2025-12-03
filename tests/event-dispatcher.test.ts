@@ -24,7 +24,7 @@ describe("EventDispatcher", () => {
     });
 
     it("should create dispatcher with provided meta", () => {
-      const meta = { userId: "123", sessionId: "abc" };
+      const meta = { userId: "123", streamId: "abc" };
       const dispatcher = new EventDispatcher(meta);
       expect(dispatcher.getMeta()).toEqual(meta);
     });

@@ -37,7 +37,7 @@ describe("L0Monitor", () => {
       const monitor = new L0Monitor({ enabled: true });
       const telemetry = monitor.getTelemetry();
       expect(telemetry).toBeDefined();
-      expect(telemetry?.sessionId).toMatch(/^l0_\d+_[a-z0-9]+$/);
+      expect(telemetry?.streamId).toMatch(/^l0_\d+_[a-z0-9]+$/);
     });
 
     it("should accept custom metadata", () => {
@@ -457,7 +457,7 @@ describe("L0Monitor", () => {
       const monitor = new L0Monitor({ enabled: true });
       const json = monitor.toJSON();
       const parsed = JSON.parse(json);
-      expect(parsed.sessionId).toBeDefined();
+      expect(parsed.streamId).toBeDefined();
     });
   });
 
@@ -466,7 +466,7 @@ describe("L0Monitor", () => {
       const monitor = new L0Monitor({ enabled: true });
       const exported = monitor.export();
       expect(exported).toBeDefined();
-      expect(exported?.sessionId).toBeDefined();
+      expect(exported?.streamId).toBeDefined();
     });
 
     it("should return undefined export when disabled", () => {
@@ -589,10 +589,10 @@ describe("L0Monitor", () => {
 
     it("should generate new session ID on reset", () => {
       const monitor = new L0Monitor({ enabled: true });
-      const originalSessionId = monitor.getTelemetry()?.sessionId;
+      const originalStreamId = monitor.getTelemetry()?.streamId;
       monitor.reset();
-      const newSessionId = monitor.getTelemetry()?.sessionId;
-      expect(newSessionId).not.toBe(originalSessionId);
+      const newStreamId = monitor.getTelemetry()?.streamId;
+      expect(newStreamId).not.toBe(originalStreamId);
     });
   });
 });
@@ -612,7 +612,7 @@ describe("createMonitor", () => {
 
 describe("TelemetryExporter", () => {
   const createTestTelemetry = () => ({
-    sessionId: "l0_123_abc",
+    streamId: "l0_123_abc",
     startTime: 1000,
     endTime: 2000,
     duration: 1000,
@@ -646,7 +646,7 @@ describe("TelemetryExporter", () => {
       const telemetry = createTestTelemetry();
       const json = TelemetryExporter.toJSON(telemetry);
       const parsed = JSON.parse(json);
-      expect(parsed.sessionId).toBe("l0_123_abc");
+      expect(parsed.streamId).toBe("l0_123_abc");
       expect(parsed.metrics.totalTokens).toBe(100);
     });
   });
@@ -657,7 +657,7 @@ describe("TelemetryExporter", () => {
       const csv = TelemetryExporter.toCSV(telemetry);
       const lines = csv.split("\n");
       expect(lines[0]).toBe(
-        "sessionId,duration,tokens,tokensPerSecond,retries,networkErrors,violations",
+        "streamId,duration,tokens,tokensPerSecond,retries,networkErrors,violations",
       );
       expect(lines[1]).toContain("l0_123_abc");
       expect(lines[1]).toContain("1000");
@@ -666,7 +666,7 @@ describe("TelemetryExporter", () => {
 
     it("should handle missing optional fields", () => {
       const telemetry = {
-        sessionId: "l0_test",
+        streamId: "l0_test",
         startTime: 1000,
         metrics: {
           totalTokens: 50,
@@ -697,7 +697,7 @@ describe("TelemetryExporter", () => {
 
     it("should handle null guardrails", () => {
       const telemetry = {
-        sessionId: "l0_test",
+        streamId: "l0_test",
         startTime: 1000,
         metrics: {
           totalTokens: 0,
@@ -744,7 +744,7 @@ describe("TelemetryExporter", () => {
 
     it("should handle missing optional metrics", () => {
       const telemetry = {
-        sessionId: "l0_test",
+        streamId: "l0_test",
         startTime: 1000,
         metrics: {
           totalTokens: 10,
@@ -770,7 +770,7 @@ describe("TelemetryExporter", () => {
 
     it("should use startTime when endTime is undefined", () => {
       const telemetry = {
-        sessionId: "l0_test",
+        streamId: "l0_test",
         startTime: 1000,
         metrics: {
           totalTokens: 10,
@@ -786,7 +786,7 @@ describe("TelemetryExporter", () => {
 
     it("should not include guardrails metrics when guardrails is undefined", () => {
       const telemetry = {
-        sessionId: "l0_test",
+        streamId: "l0_test",
         startTime: 1000,
         metrics: {
           totalTokens: 10,

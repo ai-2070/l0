@@ -1164,7 +1164,7 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Stream Initialization Events
 
 ```typescript
-{ type: "SESSION_START", ts, sessionId }  // anchor for entire session
+{ type: "SESSION_START", ts, streamId }  // anchor for entire session
 { type: "STREAM_INIT", ts, model, provider }  // before contacting provider
 { type: "STREAM_READY", ts }  // connection established, ready to emit
 ```

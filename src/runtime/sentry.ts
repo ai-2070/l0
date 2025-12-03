@@ -318,7 +318,7 @@ export class L0Sentry {
   completeExecution(telemetry: L0Telemetry): void {
     // Set context with telemetry data
     this.sentry.setContext("l0_telemetry", {
-      stream_id: telemetry.sessionId,
+      stream_id: telemetry.streamId,
       duration_ms: telemetry.duration,
       tokens: telemetry.metrics.totalTokens,
       tokens_per_second: telemetry.metrics.tokensPerSecond,
@@ -350,7 +350,7 @@ export class L0Sentry {
     // Set context if telemetry available
     if (telemetry) {
       this.sentry.setContext("l0_telemetry", {
-        stream_id: telemetry.sessionId,
+        stream_id: telemetry.streamId,
         duration_ms: telemetry.duration,
         tokens: telemetry.metrics.totalTokens,
         retries: telemetry.metrics.totalRetries,
@@ -366,7 +366,7 @@ export class L0Sentry {
       extra: {
         telemetry: telemetry
           ? {
-              stream_id: telemetry.sessionId,
+              stream_id: telemetry.streamId,
               duration_ms: telemetry.duration,
               tokens: telemetry.metrics.totalTokens,
             }
