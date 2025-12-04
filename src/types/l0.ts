@@ -1292,6 +1292,81 @@ export interface RetryOptions {
     /** Default delay that would be used */
     defaultDelay: number;
   }) => number | undefined;
+
+  /**
+   * Async callback to narrow (veto) retry decisions.
+   *
+   * This function is called AFTER L0's built-in retry logic makes its default decision.
+   * It can only VETO a retry (return false to prevent retry), never FORCE one.
+   *
+   * **Behavior:**
+   * - `shouldRetry = defaultDecision && onShouldRetry(...)` (if provided)
+   * - Fatal errors always override: if category is "fatal", retry is never allowed
+   * - If onShouldRetry throws an exception, it's treated as a veto (false)
+   * - If onShouldRetry returns true, the default decision is preserved
+   * - If onShouldRetry returns false, retry is vetoed regardless of default
+   *
+   * **Error Categories:**
+   * - `network`: Connection drops, DNS, fetch errors - infinite retries by default
+   * - `transient`: Rate limits (429), 5xx, timeouts - infinite retries by default
+   * - `model`: Bad response, content issues - counts toward `attempts` limit
+   * - `content`: Guardrails, drift - counts toward `attempts` limit
+   * - `fatal`: Auth failures (401/403), client errors (4xx) - never retried
+   *
+   * **Events emitted:**
+   * - `RETRY_FN_START`: Before calling onShouldRetry
+   * - `RETRY_FN_RESULT`: After onShouldRetry returns (includes result)
+   * - `RETRY_FN_ERROR`: If onShouldRetry throws (treated as veto)
+   *
+   * @param error - The error that occurred
+   * @param state - Current L0 state (content, tokenCount, etc.)
+   * @param attempt - Current attempt (0-based index for internal logic)
+   * @param category - Error category (network, transient, model, content, fatal)
+   * @returns Promise<boolean> - true to allow retry (if default allows), false to veto
+   *
+   * @example
+   * ```typescript
+   * l0({
+   *   stream: () => streamText({ model, prompt }),
+   *   retry: {
+   *     attempts: 3,
+   *     onShouldRetry: async (error, state, attempt, category) => {
+   *       // Veto retry if we already have substantial content
+   *       if (state.tokenCount > 100) return false;
+   *
+   *       // Veto retry for specific error messages
+   *       if (error.message.includes('context_length_exceeded')) return false;
+   *
+   *       // Allow default behavior for everything else
+   *       return true;
+   *     }
+   *   }
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Log all retry decisions for debugging
+   * l0({
+   *   stream: () => streamText({ model, prompt }),
+   *   retry: {
+   *     attempts: 3,
+   *     onShouldRetry: async (error, state, attempt, category) => {
+   *       console.log(`Retry decision: attempt=${attempt}, category=${category}`);
+   *       console.log(`  tokenCount=${state.tokenCount}, error=${error.message}`);
+   *       // Always allow default behavior
+   *       return true;
+   *     }
+   *   }
+   * });
+   * ```
+   */
+  onShouldRetry?: (
+    error: Error,
+    state: L0State,
+    attempt: number,
+    category: ErrorCategory,
+  ) => Promise<boolean>;
 }
 
 /**

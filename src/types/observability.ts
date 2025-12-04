@@ -160,6 +160,9 @@ export const RetryEvents = {
   RETRY_ATTEMPT: "RETRY_ATTEMPT",
   RETRY_END: "RETRY_END",
   RETRY_GIVE_UP: "RETRY_GIVE_UP",
+  RETRY_FN_START: "RETRY_FN_START",
+  RETRY_FN_RESULT: "RETRY_FN_RESULT",
+  RETRY_FN_ERROR: "RETRY_FN_ERROR",
 } as const;
 
 /** Fallback events */
@@ -578,6 +581,44 @@ export interface RetryGiveUpEvent extends L0ObservabilityEvent {
   lastError?: string;
 }
 
+export interface RetryFnStartEvent extends L0ObservabilityEvent {
+  type: "RETRY_FN_START";
+  /** Current attempt (0-based) */
+  attempt: number;
+  /** Error category */
+  category: string;
+  /** Default retry decision before user function */
+  defaultShouldRetry: boolean;
+}
+
+export interface RetryFnResultEvent extends L0ObservabilityEvent {
+  type: "RETRY_FN_RESULT";
+  /** Current attempt (0-based) */
+  attempt: number;
+  /** Error category */
+  category: string;
+  /** Result returned by user function */
+  userResult: boolean;
+  /** Final retry decision after applying user function */
+  finalShouldRetry: boolean;
+  /** Duration of onShouldRetry call in ms */
+  durationMs: number;
+}
+
+export interface RetryFnErrorEvent extends L0ObservabilityEvent {
+  type: "RETRY_FN_ERROR";
+  /** Current attempt (0-based) */
+  attempt: number;
+  /** Error category */
+  category: string;
+  /** Error message from user function */
+  error: string;
+  /** Final retry decision (always false when error occurs) */
+  finalShouldRetry: boolean;
+  /** Duration before error in ms */
+  durationMs: number;
+}
+
 // ============================================================================
 // Fallback Events
 // ============================================================================
@@ -796,6 +837,9 @@ export type L0Event =
   | RetryAttemptEvent
   | RetryEndEvent
   | RetryGiveUpEvent
+  | RetryFnStartEvent
+  | RetryFnResultEvent
+  | RetryFnErrorEvent
   // Fallback
   | FallbackStartEvent
   | FallbackModelSelectedEvent
