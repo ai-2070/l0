@@ -99,7 +99,7 @@ src/
 
 ### 1. Choose what to work on
 
-- Check [GitHub Issues](https://github.com/yourusername/l0/issues)
+- Check [GitHub Issues](https://github.com/ai-2070/l0/issues)
 - Look for issues labeled `good first issue` or `help wanted`
 - Discuss major changes in an issue first
 
@@ -413,8 +413,8 @@ export function check(content: string): boolean {
 
 ## Questions?
 
-- Open a [GitHub Issue](https://github.com/yourusername/l0/issues)
-- Start a [Discussion](https://github.com/yourusername/l0/discussions)
+- Open a [GitHub Issue](https://github.com/ai-2070/l0/issues)
+- Start a [Discussion](https://github.com/ai-2070/l0/discussions)
 - Check existing issues and discussions
 
 ## Recognition
