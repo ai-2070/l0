@@ -13,6 +13,7 @@ const result = await l0({
 });
 
 console.log("Network retries:", result.state.networkRetryCount);
+console.log("Model retries:", result.state.modelRetryCount);
 ```
 
 ---
@@ -33,8 +34,29 @@ console.log("Network retries:", result.state.networkRetryCount);
 | DNS Error           | Host not found             | Yes     | 3000ms     |
 | SSL Error           | Certificate/TLS error      | **No**  | -          |
 | Timeout             | Request timed out          | Yes     | 1000ms     |
+| Unknown             | Unknown network error      | Yes     | 1000ms     |
 
-**Key:** Network errors do NOT count toward the retry limit.
+**Key:** Network errors do NOT count toward the model retry limit.
+
+---
+
+## Error Categories
+
+L0 classifies errors into categories that determine retry behavior:
+
+```typescript
+import { ErrorCategory } from "@ai2070/l0";
+
+enum ErrorCategory {
+  NETWORK = "network", // Retry forever, doesn't count toward limit
+  TRANSIENT = "transient", // Retry forever (429, 503, timeouts), doesn't count
+  MODEL = "model", // Model errors, counts toward retry limit
+  CONTENT = "content", // Guardrails/drift, counts toward limit
+  PROVIDER = "provider", // Provider/API errors
+  FATAL = "fatal", // Don't retry (auth, SSL, config)
+  INTERNAL = "internal", // Internal bugs, don't retry
+}
+```
 
 ---
 
@@ -54,8 +76,44 @@ try {
     const analysis = analyzeNetworkError(error);
     console.log("Type:", analysis.type); // NetworkErrorType
     console.log("Retryable:", analysis.retryable);
+    console.log("Counts toward limit:", analysis.countsTowardLimit);
     console.log("Suggestion:", analysis.suggestion);
+    console.log("Context:", analysis.context);
   }
+}
+```
+
+### NetworkErrorType Enum
+
+```typescript
+import { NetworkErrorType } from "@ai2070/l0";
+
+enum NetworkErrorType {
+  CONNECTION_DROPPED = "connection_dropped",
+  FETCH_ERROR = "fetch_error",
+  ECONNRESET = "econnreset",
+  ECONNREFUSED = "econnrefused",
+  SSE_ABORTED = "sse_aborted",
+  NO_BYTES = "no_bytes",
+  PARTIAL_CHUNKS = "partial_chunks",
+  RUNTIME_KILLED = "runtime_killed",
+  BACKGROUND_THROTTLE = "background_throttle",
+  DNS_ERROR = "dns_error",
+  SSL_ERROR = "ssl_error",
+  TIMEOUT = "timeout",
+  UNKNOWN = "unknown",
+}
+```
+
+### NetworkErrorAnalysis Interface
+
+```typescript
+interface NetworkErrorAnalysis {
+  type: NetworkErrorType;
+  retryable: boolean;
+  countsTowardLimit: boolean;
+  suggestion: string;
+  context?: Record<string, any>;
 }
 ```
 
@@ -79,11 +137,75 @@ if (isConnectionDropped(error)) {
 if (isTimeoutError(error)) {
   // Request timed out
 }
+
+if (isSSLError(error)) {
+  // SSL/TLS error - NOT retryable
+}
 ```
 
 ---
 
-## Custom Delay Configuration
+## Retry Configuration
+
+### Retry Presets
+
+```typescript
+import {
+  minimalRetry,
+  recommendedRetry,
+  strictRetry,
+  exponentialRetry,
+} from "@ai2070/l0";
+
+// minimalRetry: 2 attempts, 4 max, linear backoff
+// recommendedRetry: 3 attempts, 6 max, fixed-jitter backoff (default)
+// strictRetry: 3 attempts, 6 max, full-jitter backoff
+// exponentialRetry: 4 attempts, 8 max, exponential backoff
+```
+
+### Retry Defaults
+
+```typescript
+import { RETRY_DEFAULTS, ERROR_TYPE_DELAY_DEFAULTS } from "@ai2070/l0";
+
+// RETRY_DEFAULTS
+{
+  attempts: 3,           // Max model failure retries
+  maxRetries: 6,         // Absolute max across ALL error types
+  baseDelay: 1000,       // Base delay in ms
+  maxDelay: 10000,       // Max delay cap in ms
+  networkMaxDelay: 30000, // Max delay for network errors
+  backoff: "fixed-jitter",
+  retryOn: [
+    "zero_output",
+    "guardrail_violation",
+    "drift",
+    "incomplete",
+    "network_error",
+    "timeout",
+    "rate_limit",
+    "server_error"
+  ]
+}
+
+// ERROR_TYPE_DELAY_DEFAULTS
+{
+  connectionDropped: 1000,
+  fetchError: 500,
+  econnreset: 1000,
+  econnrefused: 2000,
+  sseAborted: 500,
+  noBytes: 500,
+  partialChunks: 500,
+  runtimeKilled: 2000,
+  backgroundThrottle: 5000,
+  dnsError: 3000,
+  timeout: 1000,
+  unknown: 1000
+}
+```
+
+### Custom Delay Configuration
 
 Configure different delays for each error type:
 
@@ -92,6 +214,7 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
     attempts: 3,
+    maxRetries: 6, // Absolute cap across ALL error types
     backoff: "fixed-jitter",
     errorTypeDelays: {
       connectionDropped: 2000, // 2s for connection drops
@@ -105,9 +228,21 @@ const result = await l0({
       backgroundThrottle: 10000, // 10s for background throttle
       dnsError: 4000, // 4s for DNS errors
       timeout: 2000, // 2s for timeouts
+      unknown: 1000, // 1s for unknown errors
     },
   },
 });
+```
+
+### Backoff Strategies
+
+```typescript
+type BackoffStrategy =
+  | "exponential" // 2^n * baseDelay
+  | "linear" // n * baseDelay
+  | "fixed" // baseDelay (constant)
+  | "full-jitter" // random(0, 2^n * baseDelay)
+  | "fixed-jitter"; // random(baseDelay/2, baseDelay * 1.5) - AWS-style
 ```
 
 ---
@@ -121,6 +256,7 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
     attempts: 3,
+    maxRetries: 8, // Allow more retries on mobile
     backoff: "full-jitter",
     errorTypeDelays: {
       backgroundThrottle: 15000, // Wait longer for mobile
@@ -137,8 +273,6 @@ const result = await l0({
 });
 ```
 
-⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
-
 ### Edge Runtime
 
 ```typescript
@@ -146,6 +280,7 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
     attempts: 3,
+    maxRetries: 4, // Keep total retries low
     backoff: "fixed-jitter",
     maxDelay: 5000, // Keep delays short
     errorTypeDelays: {
@@ -162,7 +297,72 @@ const result = await l0({
 });
 ```
 
-⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
+---
+
+## Retry Manager
+
+For advanced use cases, use the RetryManager directly:
+
+```typescript
+import { createRetryManager, ErrorCategory } from "@ai2070/l0";
+
+const manager = createRetryManager({
+  attempts: 3,
+  maxRetries: 6,
+  backoff: "fixed-jitter",
+});
+
+// Categorize an error
+const categorized = manager.categorizeError(error);
+console.log("Category:", categorized.category);
+console.log("Retryable:", categorized.retryable);
+console.log("Counts toward limit:", categorized.countsTowardLimit);
+console.log("Reason:", categorized.reason);
+
+// Check if should retry
+const decision = manager.shouldRetry(error);
+console.log("Should retry:", decision.shouldRetry);
+console.log("Delay:", decision.delay);
+console.log("Reason:", decision.reason);
+
+// Execute with automatic retry
+const result = await manager.execute(
+  async () => {
+    // Your async operation
+  },
+  (context) => {
+    // onRetry callback
+    console.log("Retrying...", context.state.attempt);
+  },
+);
+
+// Get state
+const state = manager.getState();
+console.log("Model retries:", state.attempt);
+console.log("Network retries:", state.networkRetryCount);
+console.log("Transient retries:", state.transientRetries);
+console.log("Total delay:", state.totalDelay);
+
+// Reset state
+manager.reset();
+```
+
+### Helper Functions
+
+```typescript
+import { isRetryableError, getErrorCategory } from "@ai2070/l0";
+
+// Quick check if error is retryable
+if (isRetryableError(error)) {
+  // Can retry this error
+}
+
+// Get error category
+const category = getErrorCategory(error);
+if (category === ErrorCategory.NETWORK) {
+  // Network error
+}
+```
 
 ---
 
@@ -200,8 +400,19 @@ import {
   isStreamInterrupted, // Check if stream was interrupted
 } from "@ai2070/l0";
 
-// Get suggested delay
+// Get suggested delay with exponential backoff
 const delay = suggestRetryDelay(error, attemptNumber);
+
+// With custom delays
+const customDelay = suggestRetryDelay(
+  error,
+  attemptNumber,
+  {
+    [NetworkErrorType.CONNECTION_DROPPED]: 2000,
+    [NetworkErrorType.TIMEOUT]: 1500,
+  },
+  30000, // maxDelay
+);
 
 // Get description
 const description = describeNetworkError(error);
@@ -215,13 +426,73 @@ if (isStreamInterrupted(error, tokenCount)) {
 
 ---
 
+## L0Error Class
+
+L0 provides an enhanced error class with recovery context:
+
+```typescript
+import { L0Error, isL0Error, L0ErrorCodes } from "@ai2070/l0";
+
+try {
+  await l0({ stream, retry: recommendedRetry });
+} catch (error) {
+  if (isL0Error(error)) {
+    console.log("Code:", error.code);
+    console.log("Category:", error.category);
+    console.log("Has checkpoint:", error.hasCheckpoint);
+    console.log("Checkpoint:", error.getCheckpoint());
+    console.log("Timestamp:", error.timestamp);
+    console.log("Details:", error.toDetailedString());
+    console.log("JSON:", error.toJSON());
+  }
+}
+```
+
+### L0 Error Codes
+
+```typescript
+const L0ErrorCodes = {
+  STREAM_ABORTED: "STREAM_ABORTED",
+  INITIAL_TOKEN_TIMEOUT: "INITIAL_TOKEN_TIMEOUT",
+  INTER_TOKEN_TIMEOUT: "INTER_TOKEN_TIMEOUT",
+  ZERO_OUTPUT: "ZERO_OUTPUT",
+  GUARDRAIL_VIOLATION: "GUARDRAIL_VIOLATION",
+  FATAL_GUARDRAIL_VIOLATION: "FATAL_GUARDRAIL_VIOLATION",
+  INVALID_STREAM: "INVALID_STREAM",
+  ALL_STREAMS_EXHAUSTED: "ALL_STREAMS_EXHAUSTED",
+  NETWORK_ERROR: "NETWORK_ERROR",
+  DRIFT_DETECTED: "DRIFT_DETECTED",
+  ADAPTER_NOT_FOUND: "ADAPTER_NOT_FOUND",
+  FEATURE_NOT_ENABLED: "FEATURE_NOT_ENABLED",
+};
+```
+
+### L0ErrorContext Interface
+
+```typescript
+interface L0ErrorContext {
+  code: L0ErrorCode;
+  checkpoint?: string;
+  tokenCount?: number;
+  contentLength?: number;
+  modelRetryCount?: number;
+  networkRetryCount?: number;
+  fallbackIndex?: number;
+  metadata?: Record<string, unknown>;
+}
+```
+
+---
+
 ## Best Practices
 
-1. **Use `recommendedRetry`** - Handles all network errors automatically
-2. **Set appropriate timeouts** - Higher for mobile/edge, lower for fast models
-3. **Customize delays per error type** - Tune for your infrastructure
-4. **Monitor network retries** - Alert if consistently high
-5. **Handle checkpoints** - Partial content preserved in `result.state.checkpoint`
+1. **Use `recommendedRetry`** - Handles all network errors automatically with sensible defaults
+2. **Set `maxRetries`** - Prevent infinite loops with an absolute cap across all error types
+3. **Set appropriate timeouts** - Higher for mobile/edge, lower for fast models
+4. **Customize delays per error type** - Tune for your infrastructure
+5. **Monitor network retries** - Alert if consistently high
+6. **Handle checkpoints** - Partial content preserved in `result.state.checkpoint`
+7. **Use `maxErrorHistory`** - Prevent memory leaks in long-running processes
 
 ```typescript
 // Production configuration
@@ -229,8 +500,10 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   retry: {
     attempts: 3,
+    maxRetries: 6, // Absolute cap
     backoff: "full-jitter",
     maxDelay: 10000,
+    maxErrorHistory: 100, // Prevent memory leaks
     errorTypeDelays: {
       connectionDropped: 1000,
       runtimeKilled: 3000,
@@ -238,15 +511,18 @@ const result = await l0({
     },
   },
 
-  // Optional: Timeouts (ms), default as follows
+  // Optional: Timeouts (ms)
   timeout: {
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens
   },
 });
-```
 
-⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
+// Check results
+if (result.state.networkRetryCount > 0) {
+  logger.warn(`Experienced ${result.state.networkRetryCount} network retries`);
+}
+```
 
 ---
 
