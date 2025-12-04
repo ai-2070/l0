@@ -15,33 +15,76 @@ L0 extends the standard event system with multimodal-specific events:
 | `error`    | Error event                                            |
 | `complete` | Stream completion                                      |
 
+## Content Types
+
+L0 defines a type for multimodal content:
+
+```typescript
+type L0ContentType =
+  | "text"
+  | "image"
+  | "audio"
+  | "video"
+  | "file"
+  | "json"
+  | "binary";
+```
+
 ## Data Payload
 
 The `data` event carries an `L0DataPayload`:
 
 ```typescript
 interface L0DataPayload {
-  contentType:
-    | "text"
-    | "image"
-    | "audio"
-    | "video"
-    | "file"
-    | "json"
-    | "binary";
-  mimeType?: string; // e.g., "image/png", "audio/mp3"
-  base64?: string; // Base64-encoded data
-  url?: string; // URL to content
-  bytes?: Uint8Array; // Raw bytes
-  json?: unknown; // Structured data
+  /**
+   * Content type of the data
+   */
+  contentType: L0ContentType;
+
+  /**
+   * MIME type (e.g., "image/png", "audio/mp3")
+   */
+  mimeType?: string;
+
+  /**
+   * Data as base64 string (for binary content)
+   */
+  base64?: string;
+
+  /**
+   * Data as URL (for remote content)
+   */
+  url?: string;
+
+  /**
+   * Data as raw bytes (for binary content in Node.js)
+   */
+  bytes?: Uint8Array;
+
+  /**
+   * Structured data (for JSON content type)
+   */
+  json?: unknown;
+
+  /**
+   * Optional metadata about the content
+   */
   metadata?: {
-    width?: number; // Image/video dimensions
+    /** Width in pixels (for images/video) */
+    width?: number;
+    /** Height in pixels (for images/video) */
     height?: number;
-    duration?: number; // Audio/video duration in seconds
-    size?: number; // File size in bytes
+    /** Duration in seconds (for audio/video) */
+    duration?: number;
+    /** File size in bytes */
+    size?: number;
+    /** Original filename */
     filename?: string;
-    seed?: number; // Generation seed for reproducibility
-    model?: string; // Model used
+    /** Generation seed (for reproducibility) */
+    seed?: number;
+    /** Model used for generation */
+    model?: string;
+    /** Additional provider-specific metadata */
     [key: string]: unknown;
   };
 }
@@ -53,11 +96,16 @@ The `progress` event carries an `L0Progress`:
 
 ```typescript
 interface L0Progress {
-  percent?: number; // 0-100
-  step?: number; // Current step
-  totalSteps?: number; // Total steps
-  message?: string; // Status message
-  eta?: number; // Estimated time remaining (ms)
+  /** Progress percentage (0-100) */
+  percent?: number;
+  /** Current step number */
+  step?: number;
+  /** Total steps */
+  totalSteps?: number;
+  /** Status message */
+  message?: string;
+  /** Estimated time remaining in ms */
+  eta?: number;
 }
 ```
 
@@ -118,6 +166,25 @@ const fluxAdapter: L0Adapter<FluxStream> = {
 };
 ```
 
+### toMultimodalL0Events Handlers
+
+The `toMultimodalL0Events` function accepts the following handlers:
+
+```typescript
+toMultimodalL0Events(stream, {
+  /** Extract text from chunk (for token events) */
+  extractText?: (chunk: T) => string | null | undefined;
+  /** Extract multimodal data from chunk */
+  extractData?: (chunk: T) => L0DataPayload | null | undefined;
+  /** Extract progress from chunk */
+  extractProgress?: (chunk: T) => L0Progress | null | undefined;
+  /** Extract message from chunk */
+  extractMessage?: (chunk: T) => { value: string; role?: string } | null | undefined;
+});
+```
+
+Handlers are tried in order: text → data → progress → message. The first handler that returns a non-null value creates the event, then processing continues to the next chunk.
+
 ### Using Helper Functions
 
 For more control, use the individual helper functions:
@@ -162,14 +229,60 @@ const fluxAdapter: L0Adapter<FluxStream> = {
 
 ## Helper Functions
 
+### Stream Conversion Helpers
+
+| Function                                 | Description                                      |
+| ---------------------------------------- | ------------------------------------------------ |
+| `toL0Events(stream, extractText)`        | Convert text-only stream to L0Events             |
+| `toL0EventsWithMessages(stream, handlers)` | Convert stream with text and messages          |
+| `toMultimodalL0Events(stream, handlers)` | Convert multimodal stream with all extractors    |
+
+### Event Creation Helpers
+
 | Function                                 | Description                               |
 | ---------------------------------------- | ----------------------------------------- |
-| `toMultimodalL0Events(stream, handlers)` | Convert multimodal stream with extractors |
+| `createAdapterTokenEvent(value)`         | Create token event with text              |
+| `createAdapterMessageEvent(value, role?)` | Create message event                     |
 | `createAdapterDataEvent(payload)`        | Create data event with full payload       |
 | `createAdapterProgressEvent(progress)`   | Create progress event                     |
-| `createImageEvent(options)`              | Convenience for image data                |
-| `createAudioEvent(options)`              | Convenience for audio data                |
-| `createJsonDataEvent(data, metadata?)`   | Convenience for JSON data                 |
+| `createAdapterDoneEvent()`               | Create complete event                     |
+| `createAdapterErrorEvent(err)`           | Create error event (wraps non-Error)      |
+
+### Convenience Helpers
+
+| Function                                 | Description                               |
+| ---------------------------------------- | ----------------------------------------- |
+| `createImageEvent(options)`              | Create image data event                   |
+| `createAudioEvent(options)`              | Create audio data event                   |
+| `createJsonDataEvent(data, metadata?)`   | Create JSON data event                    |
+
+### createImageEvent Options
+
+```typescript
+createImageEvent({
+  url?: string;        // URL to image
+  base64?: string;     // Base64-encoded image data
+  bytes?: Uint8Array;  // Raw bytes
+  mimeType?: string;   // Default: "image/png"
+  width?: number;      // Width in pixels
+  height?: number;     // Height in pixels
+  seed?: number;       // Generation seed
+  model?: string;      // Model used
+});
+```
+
+### createAudioEvent Options
+
+```typescript
+createAudioEvent({
+  url?: string;        // URL to audio
+  base64?: string;     // Base64-encoded audio data
+  bytes?: Uint8Array;  // Raw bytes
+  mimeType?: string;   // Default: "audio/mp3"
+  duration?: number;   // Duration in seconds
+  model?: string;      // Model used
+});
+```
 
 ## Consuming Multimodal Streams
 
@@ -212,10 +325,15 @@ L0 automatically tracks multimodal outputs in the state:
 interface L0State {
   // ... existing fields ...
 
-  /** All data payloads received */
+  /**
+   * Multimodal data outputs collected during streaming.
+   * Each entry corresponds to a "data" event received.
+   */
   dataOutputs: L0DataPayload[];
 
-  /** Last progress update */
+  /**
+   * Last progress update received (for long-running operations)
+   */
   lastProgress?: L0Progress;
 }
 ```
@@ -233,6 +351,8 @@ const result = await l0({
   detectZeroTokens: false, // Required for non-text streams
 });
 ```
+
+By default, `detectZeroTokens` is `true`, which will throw an error if no tokens are received. Set it to `false` for multimodal-only streams.
 
 ### Checkpoint Continuation
 
@@ -293,6 +413,7 @@ async function generateImage(prompt: string) {
   const result = await l0({
     stream: () => fluxAPI.generate({ prompt }),
     adapter: fluxAdapter,
+    detectZeroTokens: false, // Required for image-only streams
     timeout: {
       initialToken: 30000, // 30s for queue
       interToken: 60000, // 60s between updates
@@ -308,6 +429,54 @@ async function generateImage(prompt: string) {
 
   return result.state.dataOutputs[0]; // First generated image
 }
+```
+
+## Text Stream Helpers
+
+For simpler text-only adapters, use the basic helpers:
+
+### toL0Events
+
+Convert a simple text stream:
+
+```typescript
+import { toL0Events } from "@ai2070/l0/adapters/helpers";
+
+const myAdapter: L0Adapter<MyStream> = {
+  name: "myai",
+  detect(input): input is MyStream {
+    return input?.type === "myai-stream";
+  },
+  wrap(stream) {
+    return toL0Events(stream, (chunk) => chunk.text);
+  },
+};
+```
+
+### toL0EventsWithMessages
+
+Convert a stream with both text and messages:
+
+```typescript
+import { toL0EventsWithMessages } from "@ai2070/l0/adapters/helpers";
+
+const toolAdapter: L0Adapter<ToolStream> = {
+  name: "tool-ai",
+  wrap(stream) {
+    return toL0EventsWithMessages(stream, {
+      extractText: (chunk) => (chunk.type === "text" ? chunk.content : null),
+      extractMessage: (chunk) => {
+        if (chunk.type === "tool_call") {
+          return {
+            value: JSON.stringify(chunk.toolCall),
+            role: "assistant",
+          };
+        }
+        return null;
+      },
+    });
+  },
+};
 ```
 
 ## See Also
