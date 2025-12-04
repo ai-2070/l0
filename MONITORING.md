@@ -68,7 +68,7 @@ interface MonitoringConfig {
   /**
    * Enable telemetry collection (default: false)
    */
-  enabled: boolean;
+  enabled?: boolean;
 
   /**
    * Sample rate for telemetry (0-1, default: 1.0)

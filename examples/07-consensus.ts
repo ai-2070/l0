@@ -112,7 +112,7 @@ async function quickHelpers() {
   const outputs = ["Paris", "Paris", "London"];
 
   // Quick check if outputs agree
-  const hasConsensus = quickConsensus(outputs, 0.6); // 66% threshold
+  const hasConsensus = quickConsensus(outputs, 0.66); // 66% threshold
   console.log("Has consensus (66%):", hasConsensus);
 
   // Get most common value

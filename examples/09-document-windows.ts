@@ -51,11 +51,11 @@ Machine learning has numerous applications across industries:
 async function processChunks() {
   console.log("=== Process Document in Chunks ===\n");
 
-  // Using paragraph preset
+  // Using paragraph strategy with custom size
   const window = createWindow(longDocument, {
-    ...paragraphWindow,
     size: 500,
     overlap: 50,
+    strategy: "paragraph",
   });
 
   // Get window statistics
@@ -96,11 +96,11 @@ async function processChunks() {
 async function navigateChunks() {
   console.log("\n=== Navigate Chunks Manually ===\n");
 
-  // Using sentence window preset
+  // Using sentence strategy
   const window = createWindow(longDocument, {
-    ...sentenceWindow,
     size: 400,
     overlap: 0,
+    strategy: "sentence",
   });
 
   console.log("First chunk:");
@@ -141,11 +141,11 @@ async function navigateChunks() {
 async function processAllWithL0() {
   console.log("\n=== Process All Chunks with L0 (Parallel) ===\n");
 
-  // Using medium window preset
+  // Using medium window preset values
   const window = createWindow(longDocument, {
-    ...mediumWindow,
     size: 600,
     overlap: 100,
+    strategy: "token",
   });
 
   const results = await window.processParallel(
@@ -185,7 +185,11 @@ async function processAllWithL0() {
 async function processSequential() {
   console.log("\n=== Process Chunks Sequentially ===\n");
 
-  const window = createWindow(longDocument, smallWindow);
+  const window = createWindow(longDocument, {
+    size: 1000,
+    overlap: 100,
+    strategy: "token",
+  });
 
   const results = await window.processSequential((chunk: DocumentChunk) => ({
     stream: () =>
@@ -228,7 +232,17 @@ async function processWithWindowHelper() {
 async function l0WithWindowExample() {
   console.log("\n=== L0 with Window and Context Restoration ===\n");
 
-  const window = createWindow(longDocument, mediumWindow);
+  const window = createWindow(longDocument, {
+    size: 2000,
+    overlap: 200,
+    strategy: "token",
+  });
+
+  const chunk = window.get(1);
+  if (!chunk) {
+    console.log("No chunk at index 1");
+    return;
+  }
 
   const result = await l0WithWindow({
     window,
@@ -236,7 +250,7 @@ async function l0WithWindowExample() {
     stream: () =>
       streamText({
         model: openai("gpt-4o-mini"),
-        prompt: `Summarize the second section of this document:\n\n${window.get(1)?.content}`,
+        prompt: `Summarize the second section of this document:\n\n${chunk.content}`,
       }),
     contextRestoration: {
       enabled: true,
@@ -249,61 +263,72 @@ async function l0WithWindowExample() {
   });
 
   for await (const event of result.stream) {
-    if (event.type === "text") {
-      process.stdout.write(event.text);
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
     }
   }
   console.log("\n");
 }
 
-// Example 7: Finding and filtering chunks
-async function findAndFilterChunks() {
-  console.log("\n=== Finding and Filtering Chunks ===\n");
+// Example 7: Working with chunks directly
+async function workingWithChunks() {
+  console.log("\n=== Working with Chunks Directly ===\n");
 
-  const window = createWindow(longDocument, paragraphWindow);
-
-  // Find chunks containing specific text
-  const mlChunks = window.findChunks("Machine learning", false);
-  console.log(`Chunks containing "Machine learning": ${mlChunks.length}`);
-  mlChunks.forEach((chunk: DocumentChunk) => {
-    console.log(`  - Chunk ${chunk.index}: ${chunk.content.slice(0, 50)}...`);
+  const window = createWindow(longDocument, {
+    size: 500,
+    overlap: 50,
+    strategy: "paragraph",
   });
 
-  // Get chunks in a character range
-  const rangeChunks = window.getChunksInRange(100, 500);
-  console.log(`\nChunks in char range 100-500: ${rangeChunks.length}`);
+  // Get all chunks
+  const allChunks = window.getAllChunks();
+  console.log(`Total chunks: ${allChunks.length}`);
 
-  // Get a range of chunks
+  // Get a range of chunks (e.g., first 2)
   const firstTwo = window.getRange(0, 2);
-  console.log(`\nFirst two chunks: ${firstTwo.length}`);
+  console.log(`First two chunks: ${firstTwo.length}`);
 
-  // Get context around a chunk (with surrounding chunks)
-  const context = window.getContext(1, { before: 1, after: 1 });
-  console.log(
-    `\nContext around chunk 1 (with neighbors): ${context.length} chars`,
-  );
+  // Iterate through chunks
+  console.log("\nChunk details:");
+  allChunks.forEach((chunk: DocumentChunk) => {
+    console.log(
+      `  Chunk ${chunk.index}: ${chunk.charCount} chars, ${chunk.tokenCount} tokens`,
+    );
+  });
 }
 
-// Example 8: Window presets comparison
+// Example 8: Window presets reference
 function showPresets() {
   console.log("\n=== Window Presets ===\n");
-
-  const presets = [
-    { name: "smallWindow", ...smallWindow },
-    { name: "mediumWindow", ...mediumWindow },
-    { name: "largeWindow", ...largeWindow },
-    { name: "paragraphWindow", ...paragraphWindow },
-    { name: "sentenceWindow", ...sentenceWindow },
-  ];
 
   console.log("Available presets:");
   console.log("| Preset          | Size  | Overlap | Strategy  |");
   console.log("|-----------------|-------|---------|-----------|");
-  presets.forEach((p) => {
-    console.log(
-      `| ${p.name.padEnd(15)} | ${String(p.size).padEnd(5)} | ${String(p.overlap).padEnd(7)} | ${p.strategy.padEnd(9)} |`,
-    );
+  console.log(
+    `| smallWindow     | ${smallWindow.size}  | ${smallWindow.overlap}     | ${smallWindow.strategy}     |`,
+  );
+  console.log(
+    `| mediumWindow    | ${mediumWindow.size}  | ${mediumWindow.overlap}     | ${mediumWindow.strategy}     |`,
+  );
+  console.log(
+    `| largeWindow     | ${largeWindow.size}  | ${largeWindow.overlap}     | ${largeWindow.strategy}     |`,
+  );
+  console.log(
+    `| paragraphWindow | ${paragraphWindow.size}  | ${paragraphWindow.overlap}     | ${paragraphWindow.strategy} |`,
+  );
+  console.log(
+    `| sentenceWindow  | ${sentenceWindow.size}  | ${sentenceWindow.overlap}     | ${sentenceWindow.strategy}  |`,
+  );
+
+  console.log("\nUsage:");
+  console.log(`
+  // Use preset values directly
+  const window = createWindow(document, {
+    size: mediumWindow.size,
+    overlap: mediumWindow.overlap,
+    strategy: mediumWindow.strategy,
   });
+  `);
 }
 
 async function main() {
@@ -314,7 +339,7 @@ async function main() {
   await processSequential();
   await processWithWindowHelper();
   await l0WithWindowExample();
-  await findAndFilterChunks();
+  await workingWithChunks();
 }
 
 main().catch(console.error);
