@@ -6,6 +6,7 @@ Automatic chunking and navigation for long documents.
 >
 > ```typescript
 > import { createWindow } from "@ai2070/l0/window";
+> import { chunkDocument } from "@ai2070/l0/utils/chunking";
 > ```
 
 ## Quick Start
@@ -59,6 +60,55 @@ createWindow(doc, { size: 1500, strategy: "sentence" });
 
 ---
 
+## Window Options
+
+```typescript
+interface WindowOptions {
+  /**
+   * Size of each chunk (in tokens or characters)
+   * @default 2000
+   */
+  size?: number;
+
+  /**
+   * Overlap between chunks (in tokens or characters)
+   * @default 200
+   */
+  overlap?: number;
+
+  /**
+   * Chunking strategy
+   * @default 'token'
+   */
+  strategy?: "token" | "char" | "paragraph" | "sentence";
+
+  /**
+   * Custom token estimator function
+   * If not provided, uses rough estimate (1 token ≈ 4 chars)
+   */
+  estimateTokens?: (text: string) => number;
+
+  /**
+   * Preserve paragraph boundaries when chunking
+   * @default true
+   */
+  preserveParagraphs?: boolean;
+
+  /**
+   * Preserve sentence boundaries when chunking
+   * @default false
+   */
+  preserveSentences?: boolean;
+
+  /**
+   * Custom metadata to attach to each chunk
+   */
+  metadata?: Record<string, any>;
+}
+```
+
+---
+
 ## Navigation
 
 ```typescript
@@ -68,6 +118,7 @@ const window = createWindow(document, { size: 2000 });
 window.current(); // Current chunk
 window.get(0); // Specific chunk
 window.getAllChunks(); // All chunks
+window.getRange(0, 5); // Range of chunks
 
 // Navigate
 window.next(); // Move to next
@@ -80,6 +131,15 @@ window.hasNext(); // Has more chunks?
 window.hasPrev(); // Has previous?
 window.totalChunks; // Total count
 window.currentIndex; // Current position
+
+// Search and context
+window.findChunks("search term"); // Find chunks containing text
+window.findChunks("term", true); // Case-sensitive search
+window.getContext(3, { before: 1, after: 1 }); // Get surrounding context
+window.getChunksInRange(0, 500); // Get chunks within character range
+
+// Statistics
+window.getStats(); // Get window statistics
 ```
 
 ---
@@ -89,7 +149,15 @@ window.currentIndex; // Current position
 ### Parallel (Default)
 
 ```typescript
-const results = await window.processAll(
+const results = await window.processAll((chunk) => ({
+  stream: () => streamText({ model, prompt: chunk.content }),
+}));
+```
+
+### Parallel with Concurrency
+
+```typescript
+const results = await window.processParallel(
   (chunk) => ({
     stream: () => streamText({ model, prompt: chunk.content }),
   }),
@@ -132,7 +200,30 @@ interface DocumentChunk {
   isFirst: boolean;
   isLast: boolean;
   totalChunks: number;
+  metadata?: Record<string, any>; // Custom metadata
 }
+```
+
+---
+
+## Window Statistics
+
+```typescript
+interface WindowStats {
+  totalChunks: number; // Total chunks
+  totalChars: number; // Total document length (characters)
+  totalTokens: number; // Estimated total tokens
+  avgChunkSize: number; // Average chunk size (characters)
+  avgChunkTokens: number; // Average chunk tokens
+  overlapSize: number; // Overlap size (characters)
+  strategy: ChunkStrategy; // Chunking strategy used
+}
+
+// Get statistics
+const stats = window.getStats();
+console.log(`Total chunks: ${stats.totalChunks}`);
+console.log(`Total tokens: ${stats.totalTokens}`);
+console.log(`Avg chunk size: ${stats.avgChunkSize} chars`);
 ```
 
 ---
@@ -169,10 +260,122 @@ const result = await l0WithWindow({
   stream: () => streamText({ model, prompt: window.get(0)?.content }),
   contextRestoration: {
     enabled: true,
-    strategy: "adjacent", // Try adjacent chunks
+    strategy: "adjacent", // "adjacent" | "overlap" | "full"
     maxAttempts: 2,
+    onRestore: (from, to) => console.log(`Restored from chunk ${from} to ${to}`),
   },
 });
+```
+
+---
+
+## Helper Functions
+
+### processWithWindow
+
+Process a document directly without creating a window instance:
+
+```typescript
+import { processWithWindow } from "@ai2070/l0";
+
+const results = await processWithWindow(
+  document,
+  (chunk) => ({
+    stream: () =>
+      streamText({
+        model,
+        prompt: `Summarize: ${chunk.content}`,
+      }),
+  }),
+  { size: 2000, overlap: 200 },
+);
+```
+
+### mergeResults
+
+Merge results from multiple chunk processing into a single text:
+
+```typescript
+import { mergeResults } from "@ai2070/l0";
+
+const results = await window.processAll((chunk) => ({
+  stream: () => streamText({ model, prompt: chunk.content }),
+}));
+
+const merged = mergeResults(results); // Default separator: "\n\n"
+const customMerged = mergeResults(results, "\n---\n"); // Custom separator
+```
+
+### getProcessingStats
+
+Get processing statistics from results:
+
+```typescript
+import { getProcessingStats } from "@ai2070/l0";
+
+const results = await window.processAll((chunk) => ({
+  stream: () => streamText({ model, prompt: chunk.content }),
+}));
+
+const stats = getProcessingStats(results);
+// {
+//   total: 10,
+//   successful: 9,
+//   failed: 1,
+//   successRate: 90,
+//   avgDuration: 1500,
+//   totalDuration: 15000
+// }
+```
+
+---
+
+## Chunking Utilities
+
+Low-level chunking functions available from `@ai2070/l0/utils/chunking`:
+
+```typescript
+import {
+  chunkDocument,
+  chunkByTokens,
+  chunkByChars,
+  chunkByParagraphs,
+  chunkBySentences,
+  splitIntoSentences,
+  estimateTokenCount,
+  getChunkOverlap,
+  mergeChunks,
+} from "@ai2070/l0/utils/chunking";
+
+// Chunk document with options
+const chunks = chunkDocument(document, {
+  size: 2000,
+  overlap: 200,
+  strategy: "token",
+  estimateTokens: (text) => Math.ceil(text.length / 4),
+  preserveParagraphs: true,
+  preserveSentences: false,
+  metadata: {},
+});
+
+// Individual chunking strategies
+const tokenChunks = chunkByTokens(document, options);
+const charChunks = chunkByChars(document, options);
+const paragraphChunks = chunkByParagraphs(document, options);
+const sentenceChunks = chunkBySentences(document, options);
+
+// Sentence splitting
+const sentences = splitIntoSentences(text);
+
+// Token estimation (1 token ≈ 4 chars, averaged with word count)
+const tokens = estimateTokenCount(text);
+
+// Get overlap between chunks
+const overlap = getChunkOverlap(chunk1, chunk2);
+
+// Merge chunks back together
+const merged = mergeChunks(chunks); // Removes overlap
+const withOverlap = mergeChunks(chunks, true); // Preserves overlap
 ```
 
 ---
@@ -230,17 +433,46 @@ const docs = await window.processAll((chunk) => ({
 }));
 ```
 
+### Custom Token Estimation
+
+```typescript
+import { encoding_for_model } from "tiktoken";
+
+const enc = encoding_for_model("gpt-4");
+
+const window = createWindow(document, {
+  size: 2000,
+  overlap: 200,
+  estimateTokens: (text) => enc.encode(text).length,
+});
+```
+
+### Searching and Context
+
+```typescript
+const window = createWindow(document, { size: 2000 });
+
+// Find all chunks containing a term
+const relevantChunks = window.findChunks("important keyword");
+
+// Get context around a specific chunk
+const context = window.getContext(5, { before: 2, after: 2 });
+
+// Get chunks within a specific position range
+const rangeChunks = window.getChunksInRange(1000, 5000);
+```
+
 ---
 
 ## Presets
 
 ```typescript
 import {
-  smallWindow, // 1000 tokens, 100 overlap
-  mediumWindow, // 2000 tokens, 200 overlap
-  largeWindow, // 4000 tokens, 400 overlap
-  paragraphWindow, // Paragraph-based
-  sentenceWindow, // Sentence-based
+  smallWindow, // 1000 tokens, 100 overlap, token strategy
+  mediumWindow, // 2000 tokens, 200 overlap, token strategy
+  largeWindow, // 4000 tokens, 400 overlap, token strategy
+  paragraphWindow, // 2000 tokens, 200 overlap, paragraph strategy
+  sentenceWindow, // 1500 tokens, 150 overlap, sentence strategy
 } from "@ai2070/l0";
 
 const window = createWindow(document, largeWindow);
@@ -255,6 +487,7 @@ const window = createWindow(document, largeWindow);
 3. **Strategy** - Match to content type (paragraph for docs, sentence for transcripts)
 4. **Concurrency** - Limit for rate-limited APIs
 5. **Error handling** - Check `result.status === "error"` for failures
+6. **Custom token estimation** - Use tiktoken for accurate counts with OpenAI models
 
 ```typescript
 // Recommended setup
@@ -269,14 +502,16 @@ const results = await window.processAll(
     stream: () => streamText({ model, prompt: chunk.content }),
     retry: { attempts: 3 },
   }),
-  { concurrency: 3 },
 );
 
 // Handle failures
-const failed = results.filter((r) => r.status === "error");
-if (failed.length > 0) {
-  console.warn(`${failed.length} chunks failed`);
+const stats = getProcessingStats(results);
+if (stats.failed > 0) {
+  console.warn(`${stats.failed} chunks failed (${stats.successRate}% success rate)`);
 }
+
+// Get merged output
+const output = mergeResults(results);
 ```
 
 ---
