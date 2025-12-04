@@ -1672,6 +1672,7 @@ describe("L0 Runtime", () => {
 
       // shouldRetry should still be called even when default is false
       // but the retry should NOT happen because: false && true = false
+      expect(shouldRetryCalls).toBeGreaterThan(0);
       expect(attempts).toBe(1); // Only one attempt
       expect(errorThrown).toBe(true);
     });
