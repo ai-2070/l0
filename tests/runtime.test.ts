@@ -1756,7 +1756,7 @@ describe("L0 Runtime", () => {
 
       // For fatal errors, shouldRetry should not be called
       // (the implementation skips it when category === FATAL)
-      // Note: This depends on the error being categorized as FATAL
+      expect(shouldRetryCalled).toBe(false);
     });
 
     it("should emit RETRY_FN_START and RETRY_FN_RESULT events", async () => {
