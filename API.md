@@ -334,7 +334,7 @@ Called at the beginning of each execution attempt.
 onStart: (attempt: number, isRetry: boolean, isFallback: boolean) => void
 ```
 
-- `attempt`: 0-based attempt number
+- `attempt`: 1-based attempt number (first attempt is 1)
 - `isRetry`: true if this is a retry of the same stream
 - `isFallback`: true if using a fallback stream
 
@@ -395,7 +395,7 @@ Called when switching to a fallback stream.
 onFallback: (index: number, reason: string) => void
 ```
 
-- `index`: 1-based index of the fallback stream being used
+- `index`: 0-based index of the fallback stream being used (0 = first fallback)
 - `reason`: Why the fallback was triggered
 
 #### onResume
