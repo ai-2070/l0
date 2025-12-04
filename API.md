@@ -1153,6 +1153,139 @@ const result = await l0({
 | `error`         | Error  | The error that occurred              |
 | `defaultDelay`  | number | Default delay that would be used     |
 
+### Async Retry Callback (onShouldRetry)
+
+The `onShouldRetry` callback provides async control over retry decisions. Unlike `shouldRetry` (sync), this callback can only **veto** retries, never force them.
+
+```typescript
+const result = await l0({
+  stream,
+  retry: {
+    attempts: 3,
+    onShouldRetry: async (error, state, attempt, category) => {
+      // Veto retry if we already have substantial content
+      if (state.tokenCount > 100) return false;
+
+      // Veto retry for context length errors
+      if (error.message.includes("context_length_exceeded")) return false;
+
+      // Check external service before retrying
+      const canRetry = await checkRateLimitService();
+      if (!canRetry) return false;
+
+      // Return true to allow default retry behavior
+      return true;
+    },
+  },
+});
+```
+
+#### Key Behavior
+
+The final retry decision follows this formula:
+
+```
+shouldRetry = defaultDecision && onShouldRetry(...)
+```
+
+**What this means:**
+
+| Default Decision | onShouldRetry Returns | Final Result | Explanation                  |
+| ---------------- | --------------------- | ------------ | ---------------------------- |
+| `true`           | `true`                | **Retry**    | Both agree to retry          |
+| `true`           | `false`               | **No retry** | User vetoed the retry        |
+| `false`          | `true`                | **No retry** | User cannot force retry      |
+| `false`          | `false`               | **No retry** | Both agree not to retry      |
+
+#### Permitted vs Forbidden
+
+**✓ Permitted:**
+
+- User can veto any retry by returning `false`
+- User can set high `attempts` limit for many retries
+- User function can return `true` forever (preserves default behavior)
+
+**✗ Forbidden (user cannot force retry when):**
+
+- Fatal errors (401, 403) - always skipped
+- `attempts` limit exhausted for model errors
+- `maxRetries` absolute cap reached
+- Exception thrown in `onShouldRetry` (treated as veto)
+
+#### onShouldRetry Parameters
+
+| Parameter  | Type            | Description                                    |
+| ---------- | --------------- | ---------------------------------------------- |
+| `error`    | `Error`         | The error that occurred                        |
+| `state`    | `L0State`       | Current state (content, tokenCount, etc.)      |
+| `attempt`  | `number`        | Current attempt (0-based)                      |
+| `category` | `ErrorCategory` | Error category (network/transient/model/fatal) |
+
+#### Error Categories
+
+| Category    | Default Behavior             | Counts Toward `attempts` |
+| ----------- | ---------------------------- | ------------------------ |
+| `network`   | Retry forever with backoff   | No                       |
+| `transient` | Retry forever (429, 5xx)     | No                       |
+| `model`     | Retry up to `attempts` limit | Yes                      |
+| `content`   | Retry up to `attempts` limit | Yes                      |
+| `fatal`     | Never retry (401, 403)       | N/A                      |
+
+#### Events Emitted
+
+| Event             | When                         | Key Fields                                      |
+| ----------------- | ---------------------------- | ----------------------------------------------- |
+| `RETRY_FN_START`  | Before calling onShouldRetry | `attempt`, `category`, `defaultShouldRetry`     |
+| `RETRY_FN_RESULT` | After callback returns       | `userResult`, `finalShouldRetry`, `durationMs`  |
+| `RETRY_FN_ERROR`  | If callback throws           | `error`, `finalShouldRetry` (always false)      |
+
+#### Example: Conditional Veto Based on Content
+
+```typescript
+const result = await l0({
+  stream,
+  retry: {
+    attempts: 5,
+    onShouldRetry: async (error, state, attempt, category) => {
+      // Don't retry if we have usable partial content
+      if (state.tokenCount > 50 && state.content.includes("conclusion")) {
+        console.log("Keeping partial content, skipping retry");
+        return false;
+      }
+
+      // Log retry decision for debugging
+      console.log(`Retry decision: attempt=${attempt}, category=${category}`);
+
+      // Allow default behavior
+      return true;
+    },
+  },
+});
+```
+
+#### Combining shouldRetry and onShouldRetry
+
+Both can be used together. `shouldRetry` (sync) runs first and can widen or narrow. `onShouldRetry` (async) runs after and can only narrow:
+
+```typescript
+const result = await l0({
+  stream,
+  retry: {
+    attempts: 3,
+    // Sync: can widen or narrow
+    shouldRetry: (error, context) => {
+      if (context.reason === "rate_limit") return true; // Force retry
+      return undefined; // Use default
+    },
+    // Async: can only narrow (veto)
+    onShouldRetry: async (error, state, attempt, category) => {
+      // Final check - can veto but not force
+      return state.tokenCount < 100;
+    },
+  },
+});
+```
+
 ### Error Type Delays
 
 Custom delays for specific network error types. Overrides `baseDelay` for fine-grained control.

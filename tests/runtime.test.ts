@@ -2355,21 +2355,22 @@ describe("L0 Runtime", () => {
       });
     });
 
-    describe("Permitted: User can set infinite model retries", () => {
-      it("should allow many retries when user sets high attempts limit for network errors", async () => {
+    describe("Permitted: User can allow retries via onShouldRetry returning true", () => {
+      it("should retry when onShouldRetry returns true and default allows it", async () => {
+        // This test verifies that onShouldRetry returning true preserves retry behavior
+        // (it doesn't veto). The actual retry is controlled by default logic.
         let attempts = 0;
-        const maxTestAttempts = 10; // We'll stop the test after 10 to avoid infinite loop
+        let onShouldRetryCalls = 0;
 
         const streamFactory = () => {
           attempts++;
-          if (attempts >= maxTestAttempts) {
-            // Eventually succeed to end the test
+          if (attempts >= 3) {
             return { textStream: createMockStream(["success"]) };
           }
           return {
             textStream: {
               async *[Symbol.asyncIterator]() {
-                // Network errors retry forever by default (don't count toward attempts)
+                // Network error - retried by default
                 const err = new Error("ECONNRESET");
                 (err as any).code = "ECONNRESET";
                 throw err;
@@ -2381,9 +2382,12 @@ describe("L0 Runtime", () => {
         const result = await l0({
           stream: streamFactory,
           retry: {
-            attempts: 1000, // User explicitly sets very high limit
+            attempts: 10,
             baseDelay: 1,
-            onShouldRetry: async () => true, // Always allow
+            onShouldRetry: async () => {
+              onShouldRetryCalls++;
+              return true; // Allow retry (don't veto)
+            },
           },
           detectZeroTokens: false,
         });
@@ -2391,7 +2395,9 @@ describe("L0 Runtime", () => {
         for await (const _ of result.stream) {
         }
 
-        expect(attempts).toBe(maxTestAttempts); // Should have retried many times
+        // Should have retried and onShouldRetry was called each time
+        expect(attempts).toBe(3);
+        expect(onShouldRetryCalls).toBe(2); // Called for each retry decision
       });
     });
 
