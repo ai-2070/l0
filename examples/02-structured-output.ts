@@ -96,9 +96,13 @@ async function nestedSchema() {
   console.log("Company:", result.data.company);
   console.log("Founded:", result.data.founded);
   console.log("Employees:");
-  result.data.employees.forEach((emp) => {
-    console.log(`  - ${emp.name}: ${emp.role} (${emp.yearsExperience} years)`);
-  });
+  result.data.employees.forEach(
+    (emp: { name: string; role: string; yearsExperience: number }) => {
+      console.log(
+        `  - ${emp.name}: ${emp.role} (${emp.yearsExperience} years)`,
+      );
+    },
+  );
 }
 
 // Example 4: Array of items
