@@ -7,7 +7,13 @@
  * Run: OPENAI_API_KEY=sk-... npx tsx examples/12-lifecycle-callbacks.ts
  */
 
-import { l0, recommendedGuardrails } from "@ai2070/l0";
+import {
+  l0,
+  recommendedGuardrails,
+  recommendedRetry,
+  type L0State,
+  type GuardrailViolation,
+} from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -26,6 +32,7 @@ async function basicCallbacks() {
         model,
         prompt: "Write a haiku about TypeScript.",
       }),
+    meta: { example: "basic-callbacks", userId: "demo" },
 
     // Called when execution starts
     onStart: (attempt, isRetry, isFallback) => {
@@ -35,9 +42,11 @@ async function basicCallbacks() {
     },
 
     // Called when stream completes successfully
-    onComplete: (state) => {
+    onComplete: (state: L0State) => {
       console.log(`[onComplete] Finished with ${state.tokenCount} tokens`);
       console.log(`  Duration: ${state.duration}ms`);
+      console.log(`  Model retries: ${state.modelRetryCount}`);
+      console.log(`  Network retries: ${state.networkRetryCount}`);
     },
 
     // Called for every streaming event
@@ -68,9 +77,10 @@ async function errorAndRetryCallbacks() {
         model,
         prompt: "Generate a valid JSON object with name and age.",
       }),
+    meta: { example: "error-retry" },
 
     guardrails: recommendedGuardrails,
-    retry: { attempts: 3 },
+    retry: { ...recommendedRetry, attempts: 3 },
 
     onStart: (attempt, isRetry) => {
       console.log(`[onStart] Attempt ${attempt}${isRetry ? " (retry)" : ""}`);
@@ -89,9 +99,9 @@ async function errorAndRetryCallbacks() {
       console.log(`[onRetry] Attempt ${attempt}, reason: ${reason}`);
     },
 
-    onComplete: (state) => {
+    onComplete: (state: L0State) => {
       console.log(
-        `[onComplete] Success after ${state.modelRetryCount} retries`,
+        `[onComplete] Success after ${state.modelRetryCount} model retries`,
       );
     },
   });
@@ -115,6 +125,7 @@ async function fallbackCallbacks() {
 
   const result = await l0({
     stream: () => streamText({ model, prompt }),
+    meta: { example: "fallback" },
 
     fallbackStreams: [() => streamText({ model: fallbackModel, prompt })],
 
@@ -135,7 +146,7 @@ async function fallbackCallbacks() {
       console.log(`  willRetry: ${willRetry}, willFallback: ${willFallback}`);
     },
 
-    onComplete: (state) => {
+    onComplete: (state: L0State) => {
       console.log(`[onComplete] Used fallback index: ${state.fallbackIndex}`);
     },
   });
@@ -161,23 +172,27 @@ async function violationCallbacks() {
         model,
         prompt: "Write a short greeting message.",
       }),
+    meta: { example: "violation" },
 
     guardrails: recommendedGuardrails,
     retry: { attempts: 2 },
 
     // Called when a guardrail violation is detected
-    onViolation: (violation) => {
+    onViolation: (violation: GuardrailViolation) => {
       console.log(`[onViolation] Rule: ${violation.rule}`);
       console.log(`  Message: ${violation.message}`);
       console.log(`  Severity: ${violation.severity}`);
       console.log(`  Recoverable: ${violation.recoverable}`);
+      if (violation.position) {
+        console.log(`  Position: ${violation.position}`);
+      }
     },
 
     onRetry: (attempt, reason) => {
       console.log(`[onRetry] Retrying due to: ${reason}`);
     },
 
-    onComplete: (state) => {
+    onComplete: (state: L0State) => {
       console.log(
         `[onComplete] Violations encountered: ${state.violations.length}`,
       );
@@ -194,10 +209,10 @@ async function violationCallbacks() {
 }
 
 // -----------------------------------------------------------------------------
-// Example 5: Checkpoint Resume Callbacks
+// Example 5: Checkpoint and Resume Callbacks
 // -----------------------------------------------------------------------------
-async function resumeCallbacks() {
-  console.log("\n=== Checkpoint Resume Callbacks ===\n");
+async function checkpointResumeCallbacks() {
+  console.log("\n=== Checkpoint and Resume Callbacks ===\n");
 
   const result = await l0({
     stream: () =>
@@ -205,6 +220,7 @@ async function resumeCallbacks() {
         model,
         prompt: "Write a paragraph about functional programming.",
       }),
+    meta: { example: "checkpoint-resume" },
 
     continueFromLastKnownGoodToken: true,
     checkIntervals: { checkpoint: 10 },
@@ -214,6 +230,12 @@ async function resumeCallbacks() {
       console.log(`[onStart] Attempt ${attempt}`);
     },
 
+    // Called when a checkpoint is saved
+    onCheckpoint: (checkpoint, tokenCount) => {
+      console.log(`[onCheckpoint] Saved at ${tokenCount} tokens`);
+      console.log(`  Preview: "...${checkpoint.slice(-30)}"`);
+    },
+
     // Called when resuming from a checkpoint
     onResume: (checkpoint, tokenCount) => {
       console.log(`[onResume] Resuming from checkpoint`);
@@ -221,10 +243,11 @@ async function resumeCallbacks() {
       console.log(`  Checkpoint preview: "${checkpoint.slice(0, 40)}..."`);
     },
 
-    onComplete: (state) => {
+    onComplete: (state: L0State) => {
       console.log(`[onComplete] Resumed: ${state.resumed}`);
       if (state.resumePoint) {
         console.log(`  Resume point length: ${state.resumePoint.length}`);
+        console.log(`  Resume offset: ${state.resumeFrom}`);
       }
     },
   });
@@ -239,14 +262,15 @@ async function resumeCallbacks() {
 }
 
 // -----------------------------------------------------------------------------
-// Example 6: Checkpoint, Timeout, Abort, and Drift Callbacks
+// Example 6: Timeout, Abort, and Drift Callbacks
 // -----------------------------------------------------------------------------
 async function advancedCallbacks() {
-  console.log(
-    "\n=== Advanced Callbacks (Checkpoint, Timeout, Abort, Drift) ===\n",
-  );
+  console.log("\n=== Advanced Callbacks (Timeout, Abort, Drift) ===\n");
 
   const abortController = new AbortController();
+
+  // Example: abort after 5 seconds (comment out for full run)
+  // setTimeout(() => abortController.abort(), 5000);
 
   const result = await l0({
     stream: () =>
@@ -255,6 +279,7 @@ async function advancedCallbacks() {
         prompt:
           "Write a detailed explanation of how async/await works in JavaScript.",
       }),
+    meta: { example: "advanced" },
 
     continueFromLastKnownGoodToken: true,
     checkIntervals: { checkpoint: 5 },
@@ -267,12 +292,6 @@ async function advancedCallbacks() {
 
     onStart: (attempt) => {
       console.log(`[onStart] Attempt ${attempt}`);
-    },
-
-    // Called when a checkpoint is saved
-    onCheckpoint: (checkpoint, tokenCount) => {
-      console.log(`[onCheckpoint] Saved at ${tokenCount} tokens`);
-      console.log(`  Preview: "${checkpoint.slice(-30)}..."`);
     },
 
     // Called when a timeout occurs
@@ -290,12 +309,13 @@ async function advancedCallbacks() {
     // Called when drift is detected
     onDrift: (types, confidence) => {
       console.log(
-        `[onDrift] Detected: ${types.join(", ")} (confidence: ${confidence})`,
+        `[onDrift] Detected: ${types.join(", ")} (confidence: ${confidence ?? "N/A"})`,
       );
     },
 
-    onComplete: (state) => {
+    onComplete: (state: L0State) => {
       console.log(`[onComplete] Finished with ${state.tokenCount} tokens`);
+      console.log(`  Drift detected: ${state.driftDetected}`);
     },
 
     onEvent: (event) => {
@@ -313,7 +333,45 @@ async function advancedCallbacks() {
 }
 
 // -----------------------------------------------------------------------------
-// Example 7: Complete Callback Suite (All Callbacks)
+// Example 7: Tool Call Callback
+// -----------------------------------------------------------------------------
+async function toolCallCallback() {
+  console.log("\n=== Tool Call Callback ===\n");
+
+  const result = await l0({
+    stream: () =>
+      streamText({
+        model,
+        prompt: "What is the weather in San Francisco?",
+        // Note: Tool definitions would be passed to the model here
+        // tools: { getWeather: { ... } }
+      }),
+    meta: { example: "tool-call" },
+
+    // Called when the model requests a tool call
+    // L0 does NOT execute tools - this is for observability only
+    onToolCall: (toolName, toolCallId, args) => {
+      console.log(`[onToolCall] Tool: ${toolName}`);
+      console.log(`  Call ID: ${toolCallId}`);
+      console.log(`  Arguments:`, args);
+    },
+
+    onComplete: (state: L0State) => {
+      console.log(`[onComplete] Finished with ${state.tokenCount} tokens`);
+    },
+  });
+
+  for await (const event of result.stream) {
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
+    }
+  }
+
+  console.log("\n");
+}
+
+// -----------------------------------------------------------------------------
+// Example 8: Complete Callback Suite (All Callbacks)
 // -----------------------------------------------------------------------------
 async function allCallbacks() {
   console.log("\n=== Complete Callback Suite ===\n");
@@ -322,6 +380,11 @@ async function allCallbacks() {
 
   const result = await l0({
     stream: () => streamText({ model, prompt }),
+    meta: {
+      example: "all-callbacks",
+      requestId: `req_${Date.now()}`,
+      environment: "development",
+    },
 
     fallbackStreams: [() => streamText({ model: fallbackModel, prompt })],
 
@@ -329,7 +392,7 @@ async function allCallbacks() {
     continueFromLastKnownGoodToken: true,
     checkIntervals: { checkpoint: 8 },
     detectDrift: true,
-    retry: { attempts: 2 },
+    retry: { ...recommendedRetry, attempts: 2 },
     timeout: {
       initialToken: 10000,
       interToken: 5000,
@@ -343,8 +406,10 @@ async function allCallbacks() {
       console.log(`[START] Attempt ${attempt}${flags ? ` (${flags})` : ""}`);
     },
 
-    onComplete: (state) => {
+    onComplete: (state: L0State) => {
       console.log(`[COMPLETE] ${state.tokenCount} tokens, ${state.duration}ms`);
+      console.log(`  Model retries: ${state.modelRetryCount}`);
+      console.log(`  Network retries: ${state.networkRetryCount}`);
     },
 
     onError: (error, willRetry, willFallback) => {
@@ -358,7 +423,7 @@ async function allCallbacks() {
       }
     },
 
-    onViolation: (violation) => {
+    onViolation: (violation: GuardrailViolation) => {
       console.log(`[VIOLATION] ${violation.rule}: ${violation.message}`);
     },
 
@@ -389,7 +454,13 @@ async function allCallbacks() {
     },
 
     onDrift: (types, confidence) => {
-      console.log(`[DRIFT] ${types.join(", ")} (confidence: ${confidence})`);
+      console.log(
+        `[DRIFT] ${types.join(", ")} (confidence: ${confidence ?? "N/A"})`,
+      );
+    },
+
+    onToolCall: (toolName, toolCallId, args) => {
+      console.log(`[TOOL] ${toolName} (${toolCallId}):`, args);
     },
   });
 
@@ -401,6 +472,59 @@ async function allCallbacks() {
 }
 
 // -----------------------------------------------------------------------------
+// Callback Reference
+// -----------------------------------------------------------------------------
+function showCallbackReference() {
+  console.log("\n=== Callback Reference ===\n");
+
+  console.log(
+    "| Callback      | When Called                           | Parameters                           |",
+  );
+  console.log(
+    "|---------------|---------------------------------------|--------------------------------------|",
+  );
+  console.log(
+    "| onStart       | Stream execution starts               | attempt, isRetry, isFallback         |",
+  );
+  console.log(
+    "| onComplete    | Stream completes successfully         | state: L0State                       |",
+  );
+  console.log(
+    "| onError       | Error occurs (before retry decision)  | error, willRetry, willFallback       |",
+  );
+  console.log(
+    "| onEvent       | Any streaming/lifecycle event         | event: L0Event                       |",
+  );
+  console.log(
+    "| onViolation   | Guardrail violation detected          | violation: GuardrailViolation        |",
+  );
+  console.log(
+    "| onRetry       | Retry is triggered                    | attempt, reason                      |",
+  );
+  console.log(
+    "| onFallback    | Switching to fallback model           | index, reason                        |",
+  );
+  console.log(
+    "| onResume      | Resuming from checkpoint              | checkpoint, tokenCount               |",
+  );
+  console.log(
+    "| onCheckpoint  | Checkpoint is saved                   | checkpoint, tokenCount               |",
+  );
+  console.log(
+    "| onTimeout     | Timeout occurs                        | type, elapsedMs                      |",
+  );
+  console.log(
+    "| onAbort       | Stream is aborted                     | tokenCount, contentLength            |",
+  );
+  console.log(
+    "| onDrift       | Drift is detected                     | types[], confidence                  |",
+  );
+  console.log(
+    "| onToolCall    | Tool call detected (observability)    | toolName, toolCallId, args           |",
+  );
+}
+
+// -----------------------------------------------------------------------------
 // Run examples
 // -----------------------------------------------------------------------------
 async function main() {
@@ -409,11 +533,13 @@ async function main() {
     await errorAndRetryCallbacks();
     await fallbackCallbacks();
     await violationCallbacks();
-    await resumeCallbacks();
+    await checkpointResumeCallbacks();
     await advancedCallbacks();
+    await toolCallCallback();
     await allCallbacks();
+    showCallbackReference();
 
-    console.log("=== All examples completed ===");
+    console.log("\n=== All examples completed ===");
   } catch (error) {
     console.error("Error:", error);
     process.exit(1);

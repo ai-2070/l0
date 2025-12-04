@@ -5,12 +5,12 @@ import {
   l0,
   recommendedGuardrails,
   createSentryHandler,
-  L0OpenTelemetry,
   createOpenTelemetryHandler,
   combineEvents,
   filterEvents,
   excludeEvents,
   EventType,
+  type L0Telemetry,
 } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -44,20 +44,15 @@ async function basicTelemetry() {
     }
   }
 
+  const telemetry: L0Telemetry | undefined = result.telemetry;
   console.log("\n\nTelemetry:");
-  console.log("  Session ID:", result.telemetry?.sessionId);
-  console.log("  Duration:", result.telemetry?.duration, "ms");
-  console.log("  Tokens:", result.telemetry?.metrics.totalTokens);
-  console.log("  TTFT:", result.telemetry?.metrics.timeToFirstToken, "ms");
-  console.log(
-    "  Tokens/sec:",
-    result.telemetry?.metrics.tokensPerSecond?.toFixed(1),
-  );
-  console.log("  Model retries:", result.telemetry?.metrics.modelRetryCount);
-  console.log(
-    "  Network retries:",
-    result.telemetry?.metrics.networkRetryCount,
-  );
+  console.log("  Session ID:", telemetry?.sessionId);
+  console.log("  Duration:", telemetry?.duration, "ms");
+  console.log("  Tokens:", telemetry?.metrics.totalTokens);
+  console.log("  TTFT:", telemetry?.metrics.timeToFirstToken, "ms");
+  console.log("  Tokens/sec:", telemetry?.metrics.tokensPerSecond?.toFixed(1));
+  console.log("  Model retries:", telemetry?.metrics.modelRetryCount);
+  console.log("  Network retries:", telemetry?.metrics.networkRetryCount);
 }
 
 // Example 2: With custom metadata
@@ -98,10 +93,9 @@ async function customMetadata() {
 async function eventHandlers() {
   console.log("\n=== Event Handler Utilities ===\n");
 
-  // Custom handler
-  const loggingHandler = (event: unknown) => {
-    const e = event as { type: string };
-    console.log(`  Event: ${e.type}`);
+  // Custom logging handler for observability events
+  const loggingHandler = (event: { type: string }) => {
+    console.log(`  Observability Event: ${event.type}`);
   };
 
   const result = await l0({
@@ -111,18 +105,15 @@ async function eventHandlers() {
         prompt: "Say hello",
       }),
 
-    // Combine multiple handlers
-    onEvent: combineEvents(
-      // Filter to only specific events
-      filterEvents(
-        [EventType.SESSION_START, EventType.COMPLETE, EventType.ERROR],
-        loggingHandler,
-      ),
-      // Exclude noisy token events from another handler
-      excludeEvents([EventType.TOKEN], (event) => {
-        // This handler won't see token events
-      }),
-    ),
+    // Simple event handler for streaming events
+    onEvent: (event) => {
+      // Handle streaming events (token, complete, error, etc.)
+      if (event.type === "token") {
+        // Token events handled below in stream loop
+      } else if (event.type === "complete") {
+        console.log("  Stream completed");
+      }
+    },
   });
 
   for await (const event of result.stream) {
@@ -209,7 +200,7 @@ async function openTelemetryExample() {
   console.log("  - gen_ai.* and l0.* attributes");
 }
 
-// Example 6: Combined monitoring
+// Example 6: Combined monitoring (code example)
 async function combinedMonitoring() {
   console.log("\n=== Combined Monitoring ===\n");
 
@@ -233,6 +224,82 @@ async function combinedMonitoring() {
   `);
 }
 
+// Example 7: Filter and exclude events (code example)
+async function filterExcludeExample() {
+  console.log("\n=== Filter and Exclude Events ===\n");
+
+  console.log("filterEvents - only process specific event types:");
+  console.log(`
+  import { l0, filterEvents, EventType } from "@ai2070/l0";
+
+  const result = await l0({
+    stream: () => streamText({ model, prompt }),
+    onEvent: filterEvents(
+      [EventType.SESSION_START, EventType.COMPLETE, EventType.ERROR],
+      (event) => {
+        // Only receives SESSION_START, COMPLETE, ERROR events
+        console.log('Important event:', event.type);
+      }
+    ),
+  });
+  `);
+
+  console.log("excludeEvents - process all except specific event types:");
+  console.log(`
+  import { l0, excludeEvents, EventType } from "@ai2070/l0";
+
+  const result = await l0({
+    stream: () => streamText({ model, prompt }),
+    onEvent: excludeEvents(
+      [EventType.CHECKPOINT_SAVED], // Exclude checkpoint events
+      (event) => {
+        // Receives all events EXCEPT CHECKPOINT_SAVED
+        console.log('Event:', event.type);
+      }
+    ),
+  });
+  `);
+}
+
+// Example 8: EventType reference
+function showEventTypes() {
+  console.log("\n=== EventType Reference ===\n");
+
+  console.log("Session events:");
+  console.log("  EventType.SESSION_START, SESSION_END, SESSION_SUMMARY");
+
+  console.log("\nStream events:");
+  console.log("  EventType.STREAM_INIT, STREAM_READY");
+
+  console.log("\nCompletion events:");
+  console.log("  EventType.COMPLETE, ERROR");
+
+  console.log("\nRetry/Fallback events:");
+  console.log(
+    "  EventType.RETRY_START, RETRY_ATTEMPT, RETRY_END, RETRY_GIVE_UP",
+  );
+  console.log(
+    "  EventType.FALLBACK_START, FALLBACK_MODEL_SELECTED, FALLBACK_END",
+  );
+
+  console.log("\nGuardrail events:");
+  console.log("  EventType.GUARDRAIL_PHASE_START, GUARDRAIL_RULE_RESULT, etc.");
+
+  console.log("\nCheckpoint/Resume events:");
+  console.log("  EventType.CHECKPOINT_SAVED");
+  console.log("  EventType.RESUME_START, RESUME_END");
+
+  console.log("\nNetwork events:");
+  console.log("  EventType.NETWORK_ERROR, NETWORK_RETRY");
+
+  console.log(
+    "\nNote: Streaming token events use type: 'token' (lowercase string),",
+  );
+  console.log(
+    "      not EventType.TOKEN. Handle them with: if (event.type === 'token')",
+  );
+}
+
 async function main() {
   await basicTelemetry();
   await customMetadata();
@@ -240,6 +307,8 @@ async function main() {
   await sentryExample();
   await openTelemetryExample();
   await combinedMonitoring();
+  await filterExcludeExample();
+  showEventTypes();
 }
 
 main().catch(console.error);
