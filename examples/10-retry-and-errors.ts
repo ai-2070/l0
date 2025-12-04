@@ -71,16 +71,14 @@ async function basicRetry() {
         timeout: 1000,
       },
     },
-    onRetry: (attempt, reason, context) => {
+    onRetry: (attempt, reason) => {
       console.log(`Retry ${attempt}: ${reason}`);
-      console.log(`  Category: ${context.category}`);
-      console.log(`  Content so far: ${context.content.length} chars`);
     },
   });
 
   for await (const event of result.stream) {
-    if (event.type === "text") {
-      process.stdout.write(event.text);
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
     }
   }
   console.log("\n");
@@ -119,8 +117,8 @@ async function retryPresets() {
   });
 
   for await (const event of result.stream) {
-    if (event.type === "text") {
-      process.stdout.write(event.text);
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
     }
   }
   console.log("\n");
@@ -188,8 +186,8 @@ async function customRetryLogic() {
   });
 
   for await (const event of result.stream) {
-    if (event.type === "text") {
-      process.stdout.write(event.text);
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
     }
   }
   console.log("\n");
@@ -211,8 +209,8 @@ async function errorHandling() {
     });
 
     for await (const event of result.stream) {
-      if (event.type === "text") {
-        process.stdout.write(event.text);
+      if (event.type === "token") {
+        process.stdout.write(event.value || "");
       }
     }
     console.log("\n✓ Success");
@@ -293,15 +291,15 @@ async function timeouts() {
       interToken: 10000, // 10s between tokens
     },
     onEvent: (event) => {
-      if (event.type === "text") {
+      if (event.type === "token") {
         // Track timing between tokens
       }
     },
   });
 
   for await (const event of result.stream) {
-    if (event.type === "text") {
-      process.stdout.write(event.text);
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
     }
   }
   console.log("\n\n✓ Completed within timeouts");
@@ -330,8 +328,8 @@ async function abortHandling() {
     });
 
     for await (const event of result.stream) {
-      if (event.type === "text") {
-        process.stdout.write(event.text);
+      if (event.type === "token") {
+        process.stdout.write(event.value || "");
       }
     }
   } catch (error) {

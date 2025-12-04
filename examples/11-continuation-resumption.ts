@@ -152,7 +152,10 @@ async function continuationWithFallback() {
   if (telemetry?.continuation?.used) {
     console.log("Continuation was used!");
     console.log("Checkpoint length:", telemetry.continuation.checkpointLength);
-    console.log("Times applied:", telemetry.continuation.timesApplied);
+    console.log(
+      "Continuation count:",
+      telemetry.continuation.continuationCount,
+    );
   }
 }
 
@@ -197,14 +200,11 @@ async function deduplicationOptions() {
 
   console.log("\n");
 
-  // Check if deduplication was applied
+  // Check continuation telemetry
   const telemetry = result.telemetry;
-  if (telemetry?.continuation?.deduplicationApplied) {
-    console.log("Deduplication was applied!");
-    console.log(
-      "Characters deduplicated:",
-      telemetry.continuation.deduplicatedChars,
-    );
+  if (telemetry?.continuation?.used) {
+    console.log("Continuation was used!");
+    console.log("Checkpoint length:", telemetry.continuation.checkpointLength);
   }
 }
 
@@ -298,21 +298,14 @@ async function continuationTelemetry() {
       console.log("\nContinuation telemetry:");
       console.log("  Enabled:", telemetry.continuation.enabled);
       console.log("  Used:", telemetry.continuation.used);
-      console.log("  Times applied:", telemetry.continuation.timesApplied);
+      console.log(
+        "  Continuation count:",
+        telemetry.continuation.continuationCount,
+      );
       if (telemetry.continuation.checkpointLength) {
         console.log(
           "  Checkpoint length:",
           telemetry.continuation.checkpointLength,
-        );
-      }
-      if (telemetry.continuation.deduplicationApplied) {
-        console.log(
-          "  Deduplication applied:",
-          telemetry.continuation.deduplicationApplied,
-        );
-        console.log(
-          "  Chars deduplicated:",
-          telemetry.continuation.deduplicatedChars,
         );
       }
     }
