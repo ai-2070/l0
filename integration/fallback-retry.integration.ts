@@ -270,7 +270,6 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
       "should use custom shouldRetry function with real LLM",
       async () => {
         let shouldRetryCalled = false;
-        let capturedContext: any = null;
 
         const result = await l0({
           stream: () =>
@@ -280,10 +279,9 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             }),
           retry: {
             attempts: 3,
-            shouldRetry: (error, context) => {
+            shouldRetry: async (error, state, attempt, category) => {
               shouldRetryCalled = true;
-              capturedContext = context;
-              // Don't actually retry - just capture context
+              // Veto retry
               return false;
             },
           },
@@ -301,44 +299,41 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
     );
 
     it(
-      "should use custom shouldRetry to control retry on failure",
+      "should use custom shouldRetry to veto retry on failure",
       async () => {
         let attempts = 0;
         let shouldRetryCalls = 0;
 
-        const result = await l0({
-          stream: () => {
-            attempts++;
-            if (attempts === 1) {
-              throw new Error("Simulated first attempt failure");
-            }
-            return streamText({
-              model: openai("gpt-5-nano"),
-              prompt: "Say 'retry success'",
-            });
-          },
-          retry: {
-            attempts: 3,
-            baseDelay: 100,
-            retryOn: ["unknown"], // Enable retry for simulated errors
-            shouldRetry: (error, context) => {
-              shouldRetryCalls++;
-              expect(error.message).toContain("Simulated");
-              expect(context.attempt).toBeGreaterThanOrEqual(0);
-              expect(context.category).toBeDefined();
-              return true; // Force retry
+        try {
+          const result = await l0({
+            stream: () => {
+              attempts++;
+              throw new Error("Simulated failure");
             },
-          },
-          detectZeroTokens: false,
-        });
+            retry: {
+              attempts: 3,
+              baseDelay: 100,
+              retryOn: ["unknown"], // Enable retry for simulated errors
+              shouldRetry: async (error, state, attempt, category) => {
+                shouldRetryCalls++;
+                expect(error.message).toContain("Simulated");
+                expect(attempt).toBeGreaterThanOrEqual(0);
+                expect(category).toBeDefined();
+                return false; // Veto retry
+              },
+            },
+            detectZeroTokens: false,
+          });
 
-        for await (const event of result.stream) {
-          // consume stream
+          for await (const event of result.stream) {
+            // consume stream
+          }
+        } catch {
+          // Expected to throw since we veto all retries
         }
 
-        expect(shouldRetryCalls).toBeGreaterThan(0);
-        expect(attempts).toBe(2);
-        expectValidResponse(result.state.content);
+        expect(shouldRetryCalls).toBe(1); // Called once, then vetoed
+        expect(attempts).toBe(1); // Only one attempt due to veto
       },
       LLM_TIMEOUT,
     );
@@ -414,10 +409,10 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             attempts: 5,
             baseDelay: 1000,
             retryOn: ["unknown"], // Enable retry for simulated errors
-            shouldRetry: (error, context) => {
+            shouldRetry: async (error, state, attempt, category) => {
               shouldRetryCalls++;
-              // Only retry if we haven't exceeded 3 total attempts
-              return context.totalAttempts < 3;
+              // Allow default retry behavior (don't veto)
+              return true;
             },
             calculateDelay: (context) => {
               calculateDelayCalls++;
@@ -441,9 +436,14 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
     );
 
     it(
-      "should provide accurate context in shouldRetry",
+      "should provide accurate parameters to shouldRetry",
       async () => {
-        let capturedContexts: any[] = [];
+        let capturedParams: Array<{
+          attempt: number;
+          category: string;
+          contentLength: number;
+          tokenCount: number;
+        }> = [];
 
         const result = await l0({
           stream: () => {
@@ -460,9 +460,14 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
             attempts: 2,
             baseDelay: 50,
             retryOn: ["unknown"], // Enable retry for simulated errors
-            shouldRetry: (error, context) => {
-              capturedContexts.push({ ...context });
-              return true; // Keep retrying until limit
+            shouldRetry: async (error, state, attempt, category) => {
+              capturedParams.push({
+                attempt,
+                category,
+                contentLength: state.content.length,
+                tokenCount: state.tokenCount,
+              });
+              return true; // Allow retries until limit
             },
           },
           detectZeroTokens: false,
@@ -472,17 +477,15 @@ describeIf(hasOpenAI)("Fallback and Retry Integration", () => {
           // consume stream
         }
 
-        // Should have captured contexts from retry attempts
-        expect(capturedContexts.length).toBeGreaterThan(0);
+        // Should have captured params from retry attempts
+        expect(capturedParams.length).toBeGreaterThan(0);
 
-        // Verify context structure
-        capturedContexts.forEach((ctx) => {
-          expect(typeof ctx.attempt).toBe("number");
-          expect(typeof ctx.totalAttempts).toBe("number");
-          expect(typeof ctx.category).toBe("string");
-          expect(typeof ctx.reason).toBe("string");
-          expect(typeof ctx.content).toBe("string");
-          expect(typeof ctx.tokenCount).toBe("number");
+        // Verify parameter types
+        capturedParams.forEach((params) => {
+          expect(typeof params.attempt).toBe("number");
+          expect(typeof params.category).toBe("string");
+          expect(typeof params.contentLength).toBe("number");
+          expect(typeof params.tokenCount).toBe("number");
         });
 
         expectValidResponse(result.state.content);
