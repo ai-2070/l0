@@ -75,15 +75,37 @@ interface L0Adapter<StreamType = unknown, Options = unknown> {
 ### L0Event Types
 
 ```typescript
-type L0Event =
-  | { type: "token"; value: string; timestamp: number }
-  | { type: "message"; value: string; role?: string; timestamp: number }
-  | {
-      type: "complete";
-      timestamp: number;
-      usage?: { input_tokens?: number; output_tokens?: number };
-    }
-  | { type: "error"; error: Error; timestamp: number };
+interface L0Event {
+  type: "token" | "message" | "data" | "progress" | "error" | "complete";
+  value?: string; // Text value (token/message)
+  role?: string; // Role (message events)
+  data?: L0DataPayload; // Multimodal data (data events)
+  progress?: L0Progress; // Progress info (progress events)
+  error?: Error; // Error (error events)
+  timestamp: number; // Required on all events
+  usage?: { input_tokens?: number; output_tokens?: number }; // On complete
+}
+```
+
+### Multimodal Data Types
+
+```typescript
+interface L0DataPayload {
+  contentType: "image" | "audio" | "video" | "file" | "json";
+  mimeType: string;
+  url?: string;
+  base64?: string;
+  bytes?: Uint8Array;
+  json?: unknown;
+  metadata?: Record<string, unknown>;
+}
+
+interface L0Progress {
+  percent?: number;
+  step?: number;
+  totalSteps?: number;
+  message?: string;
+}
 ```
 
 ## Usage Modes
@@ -168,7 +190,7 @@ When L0 receives a stream, it resolves the adapter in this order:
 ### Minimal Adapter
 
 ```typescript
-import type { L0Adapter, L0Event } from "@ai2070/l0/core";
+import type { L0Adapter, L0Event } from "@ai2070/l0";
 
 interface MyChunk {
   text?: string;
@@ -319,8 +341,8 @@ L0 provides helpers to make building correct adapters easier.
 The simplest way to build an adapter:
 
 ```typescript
-import { toL0Events } from "@ai2070/l0/adapters/helpers";
-import type { L0Adapter } from "@ai2070/l0/core";
+import { toL0Events } from "@ai2070/l0";
+import type { L0Adapter } from "@ai2070/l0";
 
 const myAdapter: L0Adapter<MyStream> = {
   name: "myai",
@@ -342,8 +364,8 @@ const myAdapter: L0Adapter<MyStream> = {
 For streams with both text and structured messages (tool calls, etc.):
 
 ```typescript
-import { toL0EventsWithMessages } from "@ai2070/l0/adapters/helpers";
-import type { L0Adapter } from "@ai2070/l0/core";
+import { toL0EventsWithMessages } from "@ai2070/l0";
+import type { L0Adapter } from "@ai2070/l0";
 
 const toolAdapter: L0Adapter<ToolStream> = {
   name: "tool-ai",
@@ -364,6 +386,41 @@ const toolAdapter: L0Adapter<ToolStream> = {
 };
 ```
 
+### toMultimodalL0Events
+
+For streams with multimodal content (images, audio, etc.):
+
+```typescript
+import { toMultimodalL0Events } from "@ai2070/l0";
+import type { L0Adapter } from "@ai2070/l0";
+
+const imageAdapter: L0Adapter<ImageStream> = {
+  name: "image-ai",
+  wrap(stream) {
+    return toMultimodalL0Events(stream, {
+      extractText: (chunk) => (chunk.type === "text" ? chunk.text : null),
+      extractData: (chunk) => {
+        if (chunk.type === "image") {
+          return {
+            contentType: "image",
+            mimeType: "image/png",
+            base64: chunk.image,
+            metadata: { width: chunk.width, height: chunk.height },
+          };
+        }
+        return null;
+      },
+      extractProgress: (chunk) => {
+        if (chunk.type === "progress") {
+          return { percent: chunk.percent, message: chunk.status };
+        }
+        return null;
+      },
+    });
+  },
+};
+```
+
 ### Event Creation Helpers
 
 For manual adapter implementations:
@@ -374,7 +431,12 @@ import {
   createAdapterDoneEvent,
   createAdapterErrorEvent,
   createAdapterMessageEvent,
-} from "@ai2070/l0/adapters/helpers";
+  createAdapterDataEvent,
+  createAdapterProgressEvent,
+  createImageEvent,
+  createAudioEvent,
+  createJsonDataEvent,
+} from "@ai2070/l0";
 
 async function* manualAdapter(stream: MyStream): AsyncGenerator<L0Event> {
   try {
@@ -387,6 +449,14 @@ async function* manualAdapter(stream: MyStream): AsyncGenerator<L0Event> {
           JSON.stringify(chunk.toolCall),
           "assistant",
         );
+      }
+      if (chunk.image) {
+        yield createImageEvent({
+          base64: chunk.image,
+          mimeType: "image/png",
+          width: chunk.width,
+          height: chunk.height,
+        });
       }
     }
     yield createAdapterDoneEvent();
@@ -456,7 +526,14 @@ Suppress with `{ silent: true }` or in production (`NODE_ENV=production`).
 
 ```typescript
 import { l0 } from "@ai2070/l0/core";
-import { openaiAdapter, wrapOpenAIStream } from "@ai2070/l0/openai";
+import {
+  openaiAdapter,
+  wrapOpenAIStream,
+  openaiStream,
+  openaiText,
+  openaiJSON,
+  openaiWithTools,
+} from "@ai2070/l0/openai";
 import OpenAI from "openai";
 
 const openai = new OpenAI();
@@ -465,7 +542,7 @@ const openai = new OpenAI();
 const result = await l0({
   stream: () =>
     openai.chat.completions.create({
-      model: "gpt-5-micro",
+      model: "gpt-4o",
       messages: [{ role: "user", content: "Hello!" }],
       stream: true,
     }),
@@ -476,13 +553,47 @@ const result = await l0({
 const result = await l0({
   stream: async () => {
     const stream = await openai.chat.completions.create({
-      model: "gpt-5-micro",
+      model: "gpt-4o",
       messages: [{ role: "user", content: "Hello!" }],
       stream: true,
     });
     return wrapOpenAIStream(stream);
   },
 });
+
+// Option 3: Use helper factories
+const result = await l0({
+  stream: openaiStream(openai, {
+    model: "gpt-4o",
+    messages: [{ role: "user", content: "Hello!" }],
+  }),
+});
+
+// Simple text
+const result = await l0({
+  stream: openaiText(openai, "gpt-4o", "Write a haiku"),
+});
+
+// JSON output
+const result = await l0({
+  stream: openaiJSON(openai, "gpt-4o", "Generate user data"),
+});
+
+// With tools
+const result = await l0({
+  stream: openaiWithTools(openai, "gpt-4o", messages, tools),
+});
+```
+
+#### OpenAI Adapter Options
+
+```typescript
+interface OpenAIAdapterOptions {
+  includeUsage?: boolean; // Include usage in complete event (default: true)
+  includeToolCalls?: boolean; // Include tool calls as events (default: true)
+  emitFunctionCallsAsTokens?: boolean; // Emit function args as tokens (default: false)
+  choiceIndex?: number | "all"; // Which choice to use when n > 1 (default: 0)
+}
 ```
 
 ### Anthropic Adapter Reference Implementation
@@ -493,6 +604,7 @@ import {
   anthropicAdapter,
   wrapAnthropicStream,
   anthropicStream,
+  anthropicText,
 } from "@ai2070/l0/anthropic";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -529,13 +641,36 @@ const result = await l0({
     messages: [{ role: "user", content: "Hello!" }],
   }),
 });
+
+// Simple text
+const result = await l0({
+  stream: anthropicText(anthropic, "claude-sonnet-4-20250514", "Write a haiku"),
+});
+```
+
+#### Anthropic Adapter Options
+
+```typescript
+interface AnthropicAdapterOptions {
+  includeUsage?: boolean; // Include usage in complete event (default: true)
+  includeToolUse?: boolean; // Include tool use blocks as events (default: true)
+}
 ```
 
 ### Mastra Adapter
 
 ```typescript
 import { l0 } from "@ai2070/l0/core";
-import { mastraAdapter, wrapMastraStream } from "@ai2070/l0/mastra";
+import {
+  mastraAdapter,
+  wrapMastraStream,
+  wrapMastraFullStream,
+  mastraStream,
+  mastraText,
+  mastraStructured,
+  extractMastraText,
+  extractMastraObject,
+} from "@ai2070/l0/mastra";
 import { Agent } from "@mastra/core";
 
 const agent = new Agent({
@@ -555,6 +690,39 @@ const result = await l0({
     return wrapMastraStream(stream);
   },
 });
+
+// Option 3: Use helper factories
+const result = await l0({
+  stream: mastraStream(agent, "Hello!"),
+});
+
+// Simple text
+const result = await l0({
+  stream: mastraText(agent, "Write a haiku"),
+});
+
+// Structured output
+const result = await l0({
+  stream: mastraStructured(agent, "Generate user data", userSchema),
+});
+
+// Full stream (all chunk types)
+const result = await l0({
+  stream: async () => {
+    const stream = await agent.stream("Hello!");
+    return wrapMastraFullStream(stream);
+  },
+});
+```
+
+#### Mastra Adapter Options
+
+```typescript
+interface MastraAdapterOptions {
+  includeUsage?: boolean; // Include usage in complete event (default: true)
+  includeToolCalls?: boolean; // Include tool calls as events (default: true)
+  includeReasoning?: boolean; // Include reasoning content as tokens (default: false)
+}
 ```
 
 ## Complete Examples
@@ -562,8 +730,8 @@ const result = await l0({
 ### Custom Provider Adapter
 
 ```typescript
-import type { L0Adapter, L0Event } from "@ai2070/l0/core";
-import { toL0Events } from "@ai2070/l0/adapters/helpers";
+import type { L0Adapter, L0Event } from "@ai2070/l0";
+import { toL0Events } from "@ai2070/l0";
 
 // Define the provider's stream types
 interface CustomProviderChunk {
@@ -649,7 +817,7 @@ These events enable:
 #### Complete Example
 
 ```typescript
-import type { L0Adapter, L0Event } from "@ai2070/l0/core";
+import type { L0Adapter, L0Event } from "@ai2070/l0";
 
 interface ToolProviderChunk {
   type: "text" | "tool_call" | "tool_result" | "complete";
@@ -733,7 +901,7 @@ export const toolProviderAdapter: L0Adapter<ToolProviderStream> = {
 ### Wrapping a REST API
 
 ```typescript
-import type { L0Adapter, L0Event } from "@ai2070/l0/core";
+import type { L0Adapter, L0Event } from "@ai2070/l0";
 
 interface SSEMessage {
   data: string;
@@ -806,6 +974,55 @@ const result = await l0({
   },
   adapter: restApiAdapter,
 });
+```
+
+### Multimodal Adapter (Image Generation)
+
+```typescript
+import type { L0Adapter, L0Event } from "@ai2070/l0";
+import { toMultimodalL0Events } from "@ai2070/l0";
+
+interface ImageGenChunk {
+  type: "progress" | "image" | "complete";
+  percent?: number;
+  message?: string;
+  image?: string; // base64
+  width?: number;
+  height?: number;
+  seed?: number;
+}
+
+type ImageGenStream = AsyncIterable<ImageGenChunk>;
+
+export const imageGenAdapter: L0Adapter<ImageGenStream> = {
+  name: "image-gen",
+
+  wrap(stream) {
+    return toMultimodalL0Events(stream, {
+      extractProgress: (chunk) => {
+        if (chunk.type === "progress") {
+          return { percent: chunk.percent, message: chunk.message };
+        }
+        return null;
+      },
+      extractData: (chunk) => {
+        if (chunk.type === "image" && chunk.image) {
+          return {
+            contentType: "image",
+            mimeType: "image/png",
+            base64: chunk.image,
+            metadata: {
+              width: chunk.width,
+              height: chunk.height,
+              seed: chunk.seed,
+            },
+          };
+        }
+        return null;
+      },
+    });
+  },
+};
 ```
 
 ## Testing Adapters
@@ -911,7 +1128,7 @@ describe("myAdapter", () => {
 
 ### DO
 
-- Use `toL0Events` helper when possible
+- Use `toL0Events` or `toMultimodalL0Events` helper when possible
 - Test with various chunk shapes from your provider
 - Handle all edge cases (empty text, missing fields)
 - Keep `detect()` fast and synchronous
