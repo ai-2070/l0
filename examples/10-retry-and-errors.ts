@@ -3,11 +3,26 @@
 
 import {
   l0,
+  // Guardrail presets
   recommendedGuardrails,
-  recommendedRetry,
+  // Retry presets
+  minimalRetry, // attempts: 2, maxRetries: 4, backoff: linear
+  recommendedRetry, // attempts: 3, maxRetries: 6, backoff: fixed-jitter
+  strictRetry, // attempts: 3, maxRetries: 6, backoff: full-jitter
+  exponentialRetry, // attempts: 4, maxRetries: 8, backoff: exponential
+  // Error utilities
   isL0Error,
   isNetworkError,
   analyzeNetworkError,
+  describeNetworkError,
+  suggestRetryDelay,
+  L0Error,
+  L0ErrorCodes,
+  // Error types
+  ErrorCategory,
+  NetworkErrorType,
+  type NetworkErrorAnalysis,
+  type RetryOptions,
 } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -19,16 +34,18 @@ async function basicRetry() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-5-nano"),
+        model: openai("gpt-4o-mini"),
         prompt: "Say hello",
       }),
+    meta: { example: "basic-retry" },
     retry: {
-      attempts: 3,
+      attempts: 3, // Model failures (counts toward limit)
+      maxRetries: 6, // Hard cap on ALL retries including network
       baseDelay: 1000,
       maxDelay: 10000,
-      backoff: "fixed-jitter",
+      backoff: "fixed-jitter", // AWS-style predictable jitter
 
-      // Optional: specify which error types to retry on, defaults to all recoverable errors
+      // Specify which error types to retry on
       retryOn: [
         "zero_output",
         "guardrail_violation",
@@ -38,31 +55,63 @@ async function basicRetry() {
         "timeout",
         "rate_limit",
         "server_error",
+        // Note: "unknown" is NOT included by default (opt-in)
       ],
+
+      // Custom delays for specific network error types
+      errorTypeDelays: {
+        connectionDropped: 1000,
+        fetchError: 500,
+        econnreset: 1000,
+        econnrefused: 2000,
+        sseAborted: 500,
+        runtimeKilled: 2000,
+        backgroundThrottle: 5000,
+        dnsError: 3000,
+        timeout: 1000,
+      },
     },
-    onRetry: (attempt, reason) => {
-      console.log(`Retry attempt ${attempt}: ${reason}`);
+    onRetry: (attempt, reason, context) => {
+      console.log(`Retry ${attempt}: ${reason}`);
+      console.log(`  Category: ${context.category}`);
+      console.log(`  Content so far: ${context.content.length} chars`);
     },
   });
 
   for await (const event of result.stream) {
-    if (event.type === "token") {
-      process.stdout.write(event.value || "");
+    if (event.type === "text") {
+      process.stdout.write(event.text);
     }
   }
-  console.log("\n\nRetries used:", result.state.modelRetryCount);
+  console.log("\n");
+  console.log("Model retries:", result.state.modelRetryCount);
+  console.log("Network retries:", result.state.networkRetryCount);
 }
 
-// Example 2: Using recommended retry preset
-async function recommendedRetryExample() {
-  console.log("\n=== Recommended Retry Preset ===\n");
+// Example 2: Retry presets comparison
+async function retryPresets() {
+  console.log("\n=== Retry Presets ===\n");
 
-  console.log("recommendedRetry config:", recommendedRetry);
+  const presets = [
+    { name: "minimalRetry", config: minimalRetry },
+    { name: "recommendedRetry", config: recommendedRetry },
+    { name: "strictRetry", config: strictRetry },
+    { name: "exponentialRetry", config: exponentialRetry },
+  ];
 
+  console.log("| Preset            | Attempts | MaxRetries | Backoff      |");
+  console.log("|-------------------|----------|------------|--------------|");
+  presets.forEach(({ name, config }) => {
+    console.log(
+      `| ${name.padEnd(17)} | ${String(config.attempts).padEnd(8)} | ${String(config.maxRetries).padEnd(10)} | ${(config.backoff || "").padEnd(12)} |`,
+    );
+  });
+
+  console.log("\nUsing recommendedRetry:");
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-5-nano"),
+        model: openai("gpt-4o-mini"),
         prompt: "Generate a random number between 1 and 100",
       }),
     retry: recommendedRetry,
@@ -70,14 +119,83 @@ async function recommendedRetryExample() {
   });
 
   for await (const event of result.stream) {
-    if (event.type === "token") {
-      process.stdout.write(event.value || "");
+    if (event.type === "text") {
+      process.stdout.write(event.text);
     }
   }
   console.log("\n");
 }
 
-// Example 3: Error handling
+// Example 3: Custom retry logic
+async function customRetryLogic() {
+  console.log("\n=== Custom Retry Logic ===\n");
+
+  const customRetry: RetryOptions = {
+    attempts: 3,
+    maxRetries: 10,
+    backoff: "exponential",
+    baseDelay: 1000,
+
+    // Custom shouldRetry function
+    shouldRetry: (error, context) => {
+      console.log(
+        `  shouldRetry called: attempt=${context.attempt}, category=${context.category}`,
+      );
+
+      // Never retry after 5 total attempts
+      if (context.totalAttempts >= 5) {
+        console.log("    -> stopping: too many total attempts");
+        return false;
+      }
+
+      // Always retry rate limits
+      if (error.message.includes("rate limit")) {
+        console.log("    -> retrying: rate limit error");
+        return true;
+      }
+
+      // Don't retry if we have substantial content
+      if (context.content.length > 100) {
+        console.log("    -> stopping: have enough content");
+        return false;
+      }
+
+      // Use default behavior
+      return undefined;
+    },
+
+    // Custom delay calculation
+    calculateDelay: (context) => {
+      // Different delays based on error type
+      if (context.category === ErrorCategory.NETWORK) {
+        return 500; // Fast retry for network errors
+      }
+      if (context.reason === "rate_limit") {
+        return 5000; // Longer delay for rate limits
+      }
+      // Use default for everything else
+      return undefined;
+    },
+  };
+
+  const result = await l0({
+    stream: () =>
+      streamText({
+        model: openai("gpt-4o-mini"),
+        prompt: "Write a haiku about clouds",
+      }),
+    retry: customRetry,
+  });
+
+  for await (const event of result.stream) {
+    if (event.type === "text") {
+      process.stdout.write(event.text);
+    }
+  }
+  console.log("\n");
+}
+
+// Example 4: Error handling with L0Error
 async function errorHandling() {
   console.log("\n=== Error Handling ===\n");
 
@@ -85,16 +203,16 @@ async function errorHandling() {
     const result = await l0({
       stream: () =>
         streamText({
-          model: openai("gpt-5-nano"),
+          model: openai("gpt-4o-mini"),
           prompt: "Hello",
         }),
       guardrails: recommendedGuardrails,
-      retry: { attempts: 1 },
+      retry: { attempts: 1, maxRetries: 2 },
     });
 
     for await (const event of result.stream) {
-      if (event.type === "token") {
-        process.stdout.write(event.value || "");
+      if (event.type === "text") {
+        process.stdout.write(event.text);
       }
     }
     console.log("\n✓ Success");
@@ -102,29 +220,72 @@ async function errorHandling() {
     if (isL0Error(error)) {
       console.log("L0 Error:");
       console.log("  Code:", error.code);
+      console.log("  Category:", error.category);
       console.log("  Message:", error.message);
       console.log("  Has checkpoint:", error.hasCheckpoint);
-      console.log("  Checkpoint:", error.getCheckpoint());
+      console.log("  Timestamp:", new Date(error.timestamp).toISOString());
+
+      if (error.hasCheckpoint) {
+        console.log("  Checkpoint:", error.getCheckpoint()?.slice(0, 50));
+      }
+
+      // Detailed string for logging
+      console.log("  Details:", error.toDetailedString());
+
+      // JSON serialization for transport
+      console.log("  JSON:", JSON.stringify(error.toJSON(), null, 2));
     } else if (error instanceof Error && isNetworkError(error)) {
-      const analysis = analyzeNetworkError(error);
+      const analysis: NetworkErrorAnalysis = analyzeNetworkError(error);
       console.log("Network Error:");
       console.log("  Type:", analysis.type);
       console.log("  Retryable:", analysis.retryable);
+      console.log("  Counts toward limit:", analysis.countsTowardLimit);
       console.log("  Suggestion:", analysis.suggestion);
+      if (analysis.context) {
+        console.log("  Context:", analysis.context);
+      }
+
+      // Human-readable description
+      console.log("  Description:", describeNetworkError(error));
+
+      // Suggested retry delay
+      const delay = suggestRetryDelay(error, 0);
+      console.log("  Suggested delay:", delay, "ms");
     } else {
       console.log("Unknown error:", error);
     }
   }
 }
 
-// Example 4: Timeouts
+// Example 5: Error codes reference
+function showErrorCodes() {
+  console.log("\n=== L0 Error Codes ===\n");
+
+  const codes = Object.entries(L0ErrorCodes);
+  console.log("Available error codes:");
+  codes.forEach(([key, value]) => {
+    console.log(`  ${key}: "${value}"`);
+  });
+
+  console.log("\nError Categories:");
+  Object.values(ErrorCategory).forEach((cat) => {
+    console.log(`  ${cat}`);
+  });
+
+  console.log("\nNetwork Error Types:");
+  Object.values(NetworkErrorType).forEach((type) => {
+    console.log(`  ${type}`);
+  });
+}
+
+// Example 6: Timeouts
 async function timeouts() {
   console.log("\n=== Timeout Configuration ===\n");
 
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-5-nano"),
+        model: openai("gpt-4o-mini"),
         prompt: "Write a haiku",
       }),
     timeout: {
@@ -132,27 +293,27 @@ async function timeouts() {
       interToken: 10000, // 10s between tokens
     },
     onEvent: (event) => {
-      if (event.type === "token") {
-        // Could track timing here
+      if (event.type === "text") {
+        // Track timing between tokens
       }
     },
   });
 
   for await (const event of result.stream) {
-    if (event.type === "token") {
-      process.stdout.write(event.value || "");
+    if (event.type === "text") {
+      process.stdout.write(event.text);
     }
   }
   console.log("\n\n✓ Completed within timeouts");
 }
 
-// Example 5: Abort handling
+// Example 7: Abort handling
 async function abortHandling() {
   console.log("\n=== Abort Handling ===\n");
 
   const controller = new AbortController();
 
-  // Abort after 100ms (will likely cut off response)
+  // Abort after 100ms
   setTimeout(() => {
     console.log("\n[Aborting...]");
     controller.abort();
@@ -162,32 +323,55 @@ async function abortHandling() {
     const result = await l0({
       stream: () =>
         streamText({
-          model: openai("gpt-5-nano"),
+          model: openai("gpt-4o-mini"),
           prompt: "Write a long story about a dragon",
         }),
       signal: controller.signal,
     });
 
     for await (const event of result.stream) {
-      if (event.type === "token") {
-        process.stdout.write(event.value || "");
+      if (event.type === "text") {
+        process.stdout.write(event.text);
       }
     }
   } catch (error) {
     if ((error as Error).name === "AbortError") {
       console.log("\n✓ Request was aborted as expected");
+    } else if (isL0Error(error) && error.code === L0ErrorCodes.STREAM_ABORTED) {
+      console.log("\n✓ Stream aborted (L0Error)");
+      if (error.hasCheckpoint) {
+        console.log("  Partial content:", error.getCheckpoint()?.slice(0, 50));
+      }
     } else {
       throw error;
     }
   }
 }
 
+// Example 8: Error category behavior
+function showErrorCategoryBehavior() {
+  console.log("\n=== Error Category Behavior ===\n");
+
+  console.log("| Category  | Retries | Counts | Backoff       |");
+  console.log("|-----------|---------|--------|---------------|");
+  console.log("| NETWORK   | Forever | No     | Custom delays |");
+  console.log("| TRANSIENT | Forever | No     | Exponential   |");
+  console.log("| MODEL     | Limited | Yes    | Fixed-jitter  |");
+  console.log("| CONTENT   | Limited | Yes    | Fixed-jitter  |");
+  console.log("| PROVIDER  | Depends | Varies | Varies        |");
+  console.log("| FATAL     | Never   | N/A    | N/A           |");
+  console.log("| INTERNAL  | Never   | N/A    | N/A           |");
+}
+
 async function main() {
   await basicRetry();
-  await recommendedRetryExample();
+  await retryPresets();
+  await customRetryLogic();
   await errorHandling();
+  showErrorCodes();
   await timeouts();
   await abortHandling();
+  showErrorCategoryBehavior();
 }
 
 main().catch(console.error);
