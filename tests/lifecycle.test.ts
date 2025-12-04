@@ -579,7 +579,7 @@ describe("Lifecycle: Retry Flow", () => {
     const streamFactory = () => {
       attemptCount++;
       if (attemptCount === 1) {
-        return createFailingStream(new Error("Network error"))();
+        return createFailingStream([], new Error("Network error"))();
       }
       return createTokenStream(["success"])();
     };
@@ -623,7 +623,7 @@ describe("Lifecycle: Retry Flow", () => {
     const collector = createEventCollector();
 
     const streamFactory = () => {
-      return createFailingStream(new Error("Network error"))();
+      return createFailingStream([], new Error("Network error"))();
     };
 
     try {
@@ -659,7 +659,7 @@ describe("Lifecycle: Retry Flow", () => {
     let shouldRetryCalls = 0;
 
     const streamFactory = () => {
-      return createFailingStream(new Error("Network error"))();
+      return createFailingStream([], new Error("Network error"))();
     };
 
     const result = await l0({
@@ -1526,6 +1526,7 @@ describe("Lifecycle: Guardrail Violation Flow", () => {
               rule: "no-bad",
               severity: "warning",
               message: "Bad word detected",
+              recoverable: true,
             },
           ];
         }
@@ -1570,6 +1571,7 @@ describe("Lifecycle: Guardrail Violation Flow", () => {
               rule: "always-violate",
               severity: "warning",
               message: "Always violates",
+              recoverable: true,
             },
           ];
         }
@@ -1606,6 +1608,7 @@ describe("Lifecycle: Guardrail Violation Flow", () => {
               severity: "warning", // Use warning to avoid fatal halt
               message: "Detailed violation message",
               position: { line: 1, column: 5 },
+              recoverable: true,
             },
           ];
         }
