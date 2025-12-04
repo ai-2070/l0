@@ -11,11 +11,20 @@ async function main() {
   const result = await l0({
     stream: () =>
       streamText({
-        model: openai("gpt-5-nano"),
+        model: openai("gpt-4o-mini"),
         prompt: "Write a haiku about TypeScript",
       }),
+
+    // Guardrails: jsonRule, markdownRule, zeroOutputRule, patternRule
     guardrails: recommendedGuardrails,
+
+    // Retry: { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
     retry: recommendedRetry,
+
+    // Optional: User metadata attached to all observability events
+    meta: {
+      example: "01-basic-streaming",
+    },
   });
 
   // Consume the stream
@@ -37,6 +46,9 @@ async function main() {
   console.log("\nFinal state:", {
     tokens: result.state.tokenCount,
     content: result.state.content,
+    duration: result.state.duration,
+    violations: result.state.violations.length,
+    networkRetryCount: result.state.networkRetryCount,
   });
 }
 
