@@ -570,6 +570,129 @@ describe("Lifecycle: Retry Flow", () => {
 
     expect(sessionStartAfterRetry).toBe(2);
   });
+
+  it("should emit RETRY_FN_START and RETRY_FN_RESULT when shouldRetry callback is provided", async () => {
+    const collector = createEventCollector();
+    let attemptCount = 0;
+    let shouldRetryCalled = false;
+
+    const streamFactory = () => {
+      attemptCount++;
+      if (attemptCount === 1) {
+        return createFailingStream([], new Error("Network error"))();
+      }
+      return createTokenStream(["success"])();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      retry: {
+        attempts: 3,
+        retryOn: ["unknown"],
+        shouldRetry: async (error, state, attempt, category) => {
+          shouldRetryCalled = true;
+          return true; // Allow retry
+        },
+      },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(shouldRetryCalled).toBe(true);
+
+    // Check for RETRY_FN_START and RETRY_FN_RESULT events
+    const fnStartEvents = collector.getEventsOfType(EventType.RETRY_FN_START);
+    const fnResultEvents = collector.getEventsOfType(EventType.RETRY_FN_RESULT);
+
+    expect(fnStartEvents.length).toBeGreaterThan(0);
+    expect(fnResultEvents.length).toBeGreaterThan(0);
+
+    // RETRY_FN_START should have defaultShouldRetry
+    expect(fnStartEvents[0]?.data).toHaveProperty("defaultShouldRetry");
+
+    // RETRY_FN_RESULT should have userResult and finalShouldRetry
+    expect(fnResultEvents[0]?.data).toHaveProperty("userResult");
+    expect(fnResultEvents[0]?.data).toHaveProperty("finalShouldRetry");
+  });
+
+  it("should emit RETRY_FN_ERROR when shouldRetry callback throws", async () => {
+    const collector = createEventCollector();
+
+    const streamFactory = () => {
+      return createFailingStream([], new Error("Network error"))();
+    };
+
+    try {
+      const result = await l0({
+        stream: streamFactory,
+        retry: {
+          attempts: 3,
+          retryOn: ["unknown"],
+          shouldRetry: async () => {
+            throw new Error("Callback error");
+          },
+        },
+        onEvent: collector.handler,
+        detectZeroTokens: false,
+      });
+
+      for await (const _ of result.stream) {
+        // Consume stream
+      }
+    } catch {
+      // Expected to throw since callback errors veto retry
+    }
+
+    // Check for RETRY_FN_ERROR event
+    const fnErrorEvents = collector.getEventsOfType(EventType.RETRY_FN_ERROR);
+    expect(fnErrorEvents.length).toBeGreaterThan(0);
+    expect(fnErrorEvents[0]?.data).toHaveProperty("error");
+    expect(fnErrorEvents[0]?.data.finalShouldRetry).toBe(false);
+  });
+
+  it("should allow shouldRetry to veto retry and proceed to fallback", async () => {
+    const collector = createEventCollector();
+    let shouldRetryCalls = 0;
+
+    const streamFactory = () => {
+      return createFailingStream([], new Error("Network error"))();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      fallbackStreams: [() => createTokenStream(["fallback-success"])()],
+      retry: {
+        attempts: 3,
+        retryOn: ["unknown"],
+        shouldRetry: async () => {
+          shouldRetryCalls++;
+          return false; // Veto retry, should trigger fallback
+        },
+      },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    expect(shouldRetryCalls).toBe(1);
+
+    // Should have proceeded to fallback
+    const fallbackStarts = collector.getEventsOfType(EventType.FALLBACK_START);
+    expect(fallbackStarts.length).toBe(1);
+
+    // Verify event order: RETRY_FN_RESULT (with veto) should come before FALLBACK_START
+    const types = collector.getEventTypes();
+    const fnResultIndex = types.indexOf(EventType.RETRY_FN_RESULT);
+    const fallbackIndex = types.indexOf(EventType.FALLBACK_START);
+    expect(fnResultIndex).toBeLessThan(fallbackIndex);
+  });
 });
 
 // ============================================================================
@@ -1403,6 +1526,7 @@ describe("Lifecycle: Guardrail Violation Flow", () => {
               rule: "no-bad",
               severity: "warning",
               message: "Bad word detected",
+              recoverable: true,
             },
           ];
         }
@@ -1447,6 +1571,7 @@ describe("Lifecycle: Guardrail Violation Flow", () => {
               rule: "always-violate",
               severity: "warning",
               message: "Always violates",
+              recoverable: true,
             },
           ];
         }
@@ -1482,7 +1607,8 @@ describe("Lifecycle: Guardrail Violation Flow", () => {
               rule: "detailed-rule",
               severity: "warning", // Use warning to avoid fatal halt
               message: "Detailed violation message",
-              position: { line: 1, column: 5 },
+              position: 5,
+              recoverable: true,
             },
           ];
         }

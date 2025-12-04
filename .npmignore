@@ -11,22 +11,11 @@ scripts/
 vitest.config.*
 vitest.*.config.*
 
-# Documentation (README is included via package.json files)
+# Documentation
 *.md
 !README.md
 !API.md
-!DOCUMENT_WINDOWS.md
-!MONITORING.md
-!ERROR_HANDLING.md
-!FORMATTING.md
-!GUARDRAILS.md
-!INTERCEPTORS_AND_PARALLEL.md
-!NETWORK_ERRORS.md
-!PERFORMANCE.md
-!QUICKSTART.md
-!STRUCTURED_OUTPUT.md
-!CUSTOM_ADAPTERS.md
-!MULTIMODAL.md
+!LICENSE
 .env*
 
 # Build artifacts

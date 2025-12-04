@@ -1462,23 +1462,63 @@ export async function l0<TOutput = unknown>(
           const categorized = retryManager.categorizeError(err);
           let decision = retryManager.shouldRetry(err);
 
-          // Check custom shouldRetry function if provided
-          if (processedRetry.shouldRetry) {
-            const customDecision = processedRetry.shouldRetry(err, {
+          // Check async shouldRetry callback if provided (can only veto/narrow, never widen)
+          // Fatal errors always override - never retry fatal errors regardless of user fn
+          if (
+            processedRetry.shouldRetry &&
+            categorized.category !== ErrorCategory.FATAL
+          ) {
+            const defaultShouldRetry = decision.shouldRetry;
+
+            // Emit RETRY_FN_START event
+            dispatcher.emit(EventType.RETRY_FN_START, {
               attempt: retryAttempt,
-              totalAttempts: retryAttempt + state.networkRetryCount,
               category: categorized.category,
-              reason: categorized.reason,
-              content: state.content,
-              tokenCount: state.tokenCount,
+              defaultShouldRetry,
             });
-            // If custom function returns boolean, override default decision
-            if (customDecision === true) {
-              decision = { ...decision, shouldRetry: true };
-            } else if (customDecision === false) {
+
+            const fnStartTime = Date.now();
+            try {
+              const userResult = await processedRetry.shouldRetry(
+                err,
+                state,
+                retryAttempt,
+                categorized.category,
+              );
+
+              const durationMs = Date.now() - fnStartTime;
+              // Final decision: defaultDecision AND userResult
+              // userFn can only veto (narrow), not force (widen)
+              const finalShouldRetry = defaultShouldRetry && userResult;
+
+              // Emit RETRY_FN_RESULT event
+              dispatcher.emit(EventType.RETRY_FN_RESULT, {
+                attempt: retryAttempt,
+                category: categorized.category,
+                userResult,
+                finalShouldRetry,
+                durationMs,
+              });
+
+              decision = { ...decision, shouldRetry: finalShouldRetry };
+            } catch (fnError) {
+              const durationMs = Date.now() - fnStartTime;
+              const fnErrMsg =
+                fnError instanceof Error ? fnError.message : String(fnError);
+
+              // Emit RETRY_FN_ERROR event
+              // Exception treated as veto (false)
+              dispatcher.emit(EventType.RETRY_FN_ERROR, {
+                attempt: retryAttempt,
+                category: categorized.category,
+                error: fnErrMsg,
+                finalShouldRetry: false,
+                durationMs,
+              });
+
+              // Exception in shouldRetry is treated as veto
               decision = { ...decision, shouldRetry: false };
             }
-            // If undefined, use default decision
           }
 
           // Check custom calculateDelay function if provided

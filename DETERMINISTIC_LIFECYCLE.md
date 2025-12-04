@@ -194,7 +194,7 @@ These parameters use 1-based indexing for human readability:
 These parameters use 0-based indexing for array/iteration compatibility:
 
 - **`onFallback` → `index`**: First fallback is `0`, second is `1`, etc.
-- **`shouldRetry` context → `attempt`**: Used for exponential backoff calculations
+- **`shouldRetry` → `attempt`**: Current attempt (0-based) for retry veto decisions
 - **`calculateDelay` context → `attempt`**: Used for delay calculations
 
 ## Observability Events

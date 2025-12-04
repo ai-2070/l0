@@ -1091,29 +1091,126 @@ const result = await l0({
 
 Override default retry behavior with custom functions:
 
+#### shouldRetry (Async Veto Callback)
+
+The `shouldRetry` callback provides async control over retry decisions. It can only **veto** retries, never force them.
+
 ```typescript
 const result = await l0({
   stream,
   retry: {
     attempts: 3,
-    // Custom function to control whether to retry
-    shouldRetry: (error, context) => {
-      // context: { attempt, totalAttempts, category, reason, content, tokenCount }
+    shouldRetry: async (error, state, attempt, category) => {
+      // Veto retry if we already have substantial content
+      if (state.tokenCount > 100) return false;
 
-      // Never retry after 5 total attempts
-      if (context.totalAttempts >= 5) return false;
+      // Veto retry for context length errors
+      if (error.message.includes("context_length_exceeded")) return false;
 
-      // Always retry rate limits
-      if (context.reason === "rate_limit") return true;
+      // Check external service before retrying
+      const canRetry = await checkRateLimitService();
+      if (!canRetry) return false;
 
-      // Don't retry if we already have significant content
-      if (context.tokenCount > 100) return false;
-
-      // Return undefined to use default behavior
-      return undefined;
+      // Return true to allow default retry behavior
+      return true;
     },
+  },
+});
+```
 
-    // Custom function to calculate retry delay
+#### Key Behavior
+
+The final retry decision follows this formula:
+
+```
+shouldRetry = defaultDecision && shouldRetry(...)
+```
+
+**What this means:**
+
+| Default Decision | shouldRetry Returns | Final Result | Explanation                  |
+| ---------------- | --------------------- | ------------ | ---------------------------- |
+| `true`           | `true`                | **Retry**    | Both agree to retry          |
+| `true`           | `false`               | **No retry** | User vetoed the retry        |
+| `false`          | `true`                | **No retry** | User cannot force retry      |
+| `false`          | `false`               | **No retry** | Both agree not to retry      |
+
+#### Permitted vs Forbidden
+
+**✓ Permitted:**
+
+- User can veto any retry by returning `false`
+- User can set high `attempts` limit for many retries
+- User function can return `true` forever (preserves default behavior)
+
+**✗ Forbidden (user cannot force retry when):**
+
+- Fatal errors (401, 403) - always skipped
+- `attempts` limit exhausted for model errors
+- `maxRetries` absolute cap reached
+- Exception thrown in `shouldRetry` (treated as veto)
+
+#### shouldRetry Parameters
+
+| Parameter  | Type            | Description                                    |
+| ---------- | --------------- | ---------------------------------------------- |
+| `error`    | `Error`         | The error that occurred                        |
+| `state`    | `L0State`       | Current state (content, tokenCount, etc.)      |
+| `attempt`  | `number`        | Current attempt (0-based)                      |
+| `category` | `ErrorCategory` | Error category (network/transient/model/fatal) |
+
+#### Error Categories
+
+| Category    | Default Behavior             | Counts Toward `attempts` |
+| ----------- | ---------------------------- | ------------------------ |
+| `network`   | Retry forever with backoff   | No                       |
+| `transient` | Retry forever (429, 5xx)     | No                       |
+| `model`     | Retry up to `attempts` limit | Yes                      |
+| `content`   | Retry up to `attempts` limit | Yes                      |
+| `fatal`     | Never retry (401, 403)       | N/A                      |
+
+#### Events Emitted
+
+| Event             | When                         | Key Fields                                      |
+| ----------------- | ---------------------------- | ----------------------------------------------- |
+| `RETRY_FN_START`  | Before calling shouldRetry | `attempt`, `category`, `defaultShouldRetry`     |
+| `RETRY_FN_RESULT` | After callback returns       | `userResult`, `finalShouldRetry`, `durationMs`  |
+| `RETRY_FN_ERROR`  | If callback throws           | `error`, `finalShouldRetry` (always false)      |
+
+#### Example: Conditional Veto Based on Content
+
+```typescript
+const result = await l0({
+  stream,
+  retry: {
+    attempts: 5,
+    shouldRetry: async (error, state, attempt, category) => {
+      // Don't retry if we have usable partial content
+      if (state.tokenCount > 50 && state.content.includes("conclusion")) {
+        console.log("Keeping partial content, skipping retry");
+        return false;
+      }
+
+      // Log retry decision for debugging
+      console.log(`Retry decision: attempt=${attempt}, category=${category}`);
+
+      // Allow default behavior
+      return true;
+    },
+  },
+});
+```
+
+#### calculateDelay
+
+Custom delay calculation function to override default backoff behavior:
+
+```typescript
+const result = await l0({
+  stream,
+  retry: {
+    attempts: 3,
+    baseDelay: 1000,
     calculateDelay: (context) => {
       // context: { attempt, totalAttempts, category, reason, error, defaultDelay }
 
@@ -1130,19 +1227,6 @@ const result = await l0({
   },
 });
 ```
-
-#### shouldRetry Context
-
-| Property        | Type   | Description                          |
-| --------------- | ------ | ------------------------------------ |
-| `attempt`       | number | Current retry attempt (0-based)      |
-| `totalAttempts` | number | Total attempts including network     |
-| `category`      | string | Error category (network/model/fatal) |
-| `reason`        | string | Error reason code                    |
-| `content`       | string | Accumulated content so far           |
-| `tokenCount`    | number | Token count so far                   |
-
-#### calculateDelay Context
 
 | Property        | Type   | Description                          |
 | --------------- | ------ | ------------------------------------ |
@@ -2542,19 +2626,15 @@ interface RetryOptions {
     unknown?: number;
   };
 
-  // Custom function to override default retry behavior
-  // Return true to retry, false to stop, undefined to use default logic
+  // Async callback to veto retry decisions (can only narrow, never force retries)
+  // Return true to allow default behavior, false to veto retry
+  // Fatal errors always bypass this callback
   shouldRetry?: (
     error: Error,
-    context: {
-      attempt: number;
-      totalAttempts: number;
-      category: ErrorCategory;
-      reason: string;
-      content: string;
-      tokenCount: number;
-    },
-  ) => boolean | undefined;
+    state: L0State,
+    attempt: number,
+    category: ErrorCategory,
+  ) => Promise<boolean>;
 
   // Custom function to calculate retry delay
   // Return number for custom delay, undefined to use default calculation
