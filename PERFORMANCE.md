@@ -26,12 +26,14 @@ This guide covers performance optimization for L0 in production environments.
 
 ### Initial Token Timeout
 
-The time to wait for the first token. Set based on your model and network conditions:
+The time to wait for the first token. Default is 5000ms. Set based on your model and network conditions:
 
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  initialToken: 3000, // 3 seconds for first token
+  timeout: {
+    initialToken: 3000, // 3 seconds for first token
+  },
 });
 ```
 
@@ -44,12 +46,14 @@ const result = await l0({
 
 ### Inter-Token Timeout
 
-Maximum gap between tokens during streaming:
+Maximum gap between tokens during streaming. Default is 10000ms (10 seconds):
 
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
-  interTokenTimeout: 1000, // 1 second max gap
+  timeout: {
+    interToken: 1000, // 1 second max gap
+  },
 });
 ```
 
@@ -58,6 +62,18 @@ const result = await l0({
 - **Most use cases:** 1000ms
 - **Long-form generation:** 2000ms (models may pause to "think")
 - **Code generation:** 1500ms (complex reasoning)
+
+### Combined Timeout Configuration
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  timeout: {
+    initialToken: 5000, // 5 seconds for first token (default)
+    interToken: 10000, // 10 seconds between tokens (default)
+  },
+});
+```
 
 ---
 
@@ -93,7 +109,10 @@ retry: { backoff: "fixed", baseDelay: 1000 }
 
 ### Retry Limits
 
-Balance reliability vs. latency:
+L0 has two retry limits:
+
+- **`attempts`**: Maximum retry attempts for model failures (default: 3). Network and transient errors do not count toward this limit.
+- **`maxRetries`**: Absolute maximum retries across ALL error types (default: 6). This is a hard cap including network errors.
 
 ```typescript
 // Conservative (fast failure)
@@ -105,7 +124,7 @@ retry: { attempts: 2 }
 // Default (recommended)
 retry: { attempts: 3 }
 
-// With custom cap (default maxRetries is 6)
+// With custom absolute cap
 retry: { attempts: 3, maxRetries: 10 }
 ```
 
@@ -114,7 +133,7 @@ retry: { attempts: 3, maxRetries: 10 }
 Only retry on specific error types:
 
 ```typescript
-// Defaults to all recoverable errors
+// Defaults - all recoverable errors (unknown is NOT included by default)
 retry: {
   retryOn: [
     "zero_output",
@@ -133,6 +152,56 @@ retry: {
   retryOn: ["network_error", "timeout"]
 }
 ```
+
+Available retry reasons:
+- `zero_output` - No tokens received
+- `guardrail_violation` - Guardrail check failed
+- `drift` - Content drift detected
+- `incomplete` - Stream ended unexpectedly
+- `network_error` - Network connectivity issues
+- `timeout` - Request timed out
+- `rate_limit` - Rate limit (429) response
+- `server_error` - Server error (5xx) response
+- `unknown` - Unknown error type (not included by default)
+
+### Error-Type-Specific Delays
+
+Configure custom delays for specific network error types:
+
+```typescript
+retry: {
+  attempts: 3,
+  baseDelay: 1000,
+  errorTypeDelays: {
+    connectionDropped: 1000,   // Default: 1000ms
+    fetchError: 500,           // Default: 500ms
+    econnreset: 1000,          // Default: 1000ms
+    econnrefused: 2000,        // Default: 2000ms
+    sseAborted: 500,           // Default: 500ms
+    noBytes: 500,              // Default: 500ms
+    partialChunks: 500,        // Default: 500ms
+    runtimeKilled: 2000,       // Default: 2000ms
+    backgroundThrottle: 5000,  // Default: 5000ms
+    dnsError: 3000,            // Default: 3000ms
+    timeout: 1000,             // Default: 1000ms
+    unknown: 1000,             // Default: 1000ms
+  }
+}
+```
+
+### Error Categories
+
+L0 categorizes errors for retry decision-making:
+
+| Category | Description | Counts Toward Limit |
+| -------- | ----------- | ------------------- |
+| `NETWORK` | Network/connection failures | No (retries forever with backoff) |
+| `TRANSIENT` | Rate limits (429), 503, timeouts | No (retries forever with backoff) |
+| `MODEL` | Model-side errors (bad response) | Yes |
+| `CONTENT` | Guardrails, drift | Yes |
+| `PROVIDER` | API errors (may retry based on status) | Depends |
+| `FATAL` | Auth failures, invalid config | No retry |
+| `INTERNAL` | Internal bugs | No retry |
 
 ---
 
@@ -154,10 +223,20 @@ const result = await l0({
 });
 ```
 
+**Performance Warning:** Both guardrails and drift detection scan the accumulated content at each check interval. For very long outputs (multi-MB), this becomes O(n) per check. Consider:
+- Increasing intervals for long-form content
+- Using streaming-optimized guardrail rules that only check the delta
+- Setting a maximum content length before disabling checks
+
 **Trade-offs:**
 
 - Lower intervals = faster detection, higher CPU
 - Higher intervals = lower CPU, delayed detection
+
+**Recommendations:**
+- For simple delta-only rules: 1-5 tokens
+- For rules that scan full content: 10-20 tokens
+- For very long outputs: 50+ tokens
 
 ### Guardrail Selection
 
@@ -197,7 +276,7 @@ Prevent memory leaks in long-running processes:
 ```typescript
 retry: {
   attempts: 3,
-  maxErrorHistory: 100  // Keep last 100 errors only
+  maxErrorHistory: 100  // Keep last 100 errors only (default: unlimited)
 }
 ```
 
@@ -308,7 +387,7 @@ createWindow(doc, { size: 2000, overlap: 0 });
 
 ### Parallel Processing
 
-Process chunks concurrently:
+Process chunks concurrently (default concurrency: 5):
 
 ```typescript
 const results = await window.processAll(
@@ -372,13 +451,44 @@ Typical performance characteristics (measured on Node.js 20):
 
 ---
 
+## RETRY_DEFAULTS Reference
+
+L0 exports default retry configuration values:
+
+```typescript
+import { RETRY_DEFAULTS } from "@ai2070/l0";
+
+RETRY_DEFAULTS = {
+  attempts: 3,           // Maximum model failure retries
+  maxRetries: 6,         // Absolute maximum across all error types
+  baseDelay: 1000,       // Base delay in ms
+  maxDelay: 10000,       // Maximum delay cap in ms
+  networkMaxDelay: 30000, // Max delay for network error suggestions
+  backoff: "fixed-jitter", // Default backoff strategy
+  retryOn: [             // Default retry reasons
+    "zero_output",
+    "guardrail_violation",
+    "drift",
+    "incomplete",
+    "network_error",
+    "timeout",
+    "rate_limit",
+    "server_error",
+  ],
+};
+```
+
+---
+
 ## Production Checklist
 
-- [ ] Set appropriate timeouts for your model
-- [ ] Configure retry limits to balance reliability vs. latency
+- [ ] Set appropriate timeouts for your model (`timeout.initialToken`, `timeout.interToken`)
+- [ ] Configure retry limits to balance reliability vs. latency (`attempts`, `maxRetries`)
 - [ ] Select only needed guardrails
 - [ ] Set `maxErrorHistory` for long-running processes
 - [ ] Use appropriate chunk sizes for document windows
 - [ ] Pre-compile regex patterns for custom guardrails
 - [ ] Consume all streams to prevent memory leaks
 - [ ] Use `AbortController` for cancellation
+- [ ] Consider error-type-specific delays for network errors
+- [ ] Increase check intervals for long-form content generation
