@@ -1607,7 +1607,7 @@ describe("Lifecycle: Guardrail Violation Flow", () => {
               rule: "detailed-rule",
               severity: "warning", // Use warning to avoid fatal halt
               message: "Detailed violation message",
-              position: { line: 1, column: 5 },
+              position: 5,
               recoverable: true,
             },
           ];
