@@ -91,23 +91,77 @@ type L0RecordedEvent =
   | { type: "FALLBACK"; ts: number; to: number }
   | { type: "CONTINUATION"; ts: number; checkpoint: string; at: number }
   | { type: "COMPLETE"; ts: number; content: string; tokenCount: number }
-  | { type: "ERROR"; ts: number; error: SerializedError; recoverable: boolean };
+  | {
+      type: "ERROR";
+      ts: number;
+      error: SerializedError;
+      failureType: FailureType;
+      recoveryStrategy: RecoveryStrategy;
+      policy: RecoveryPolicy;
+    };
 ```
 
 ### Event Descriptions
 
-| Event          | Description                                          |
-| -------------- | ---------------------------------------------------- |
-| `START`        | Stream execution started with serialized options     |
-| `TOKEN`        | Token received from LLM stream                       |
-| `CHECKPOINT`   | Checkpoint saved for continuation support            |
-| `GUARDRAIL`    | Guardrail evaluation result (stored, not recomputed) |
-| `DRIFT`        | Drift detection result (stored, not recomputed)      |
-| `RETRY`        | Retry triggered with reason and attempt count        |
-| `FALLBACK`     | Fallback to next stream in chain                     |
-| `CONTINUATION` | Resumed from checkpoint after failure                |
-| `COMPLETE`     | Stream completed successfully                        |
-| `ERROR`        | Stream failed with error                             |
+| Event          | Description                                            |
+| -------------- | ------------------------------------------------------ |
+| `START`        | Stream execution started with serialized options       |
+| `TOKEN`        | Token received from LLM stream                         |
+| `CHECKPOINT`   | Checkpoint saved for continuation support              |
+| `GUARDRAIL`    | Guardrail evaluation result (stored, not recomputed)   |
+| `DRIFT`        | Drift detection result (stored, not recomputed)        |
+| `RETRY`        | Retry triggered with reason and attempt count          |
+| `FALLBACK`     | Fallback to next stream in chain                       |
+| `CONTINUATION` | Resumed from checkpoint after failure                  |
+| `COMPLETE`     | Stream completed successfully                          |
+| `ERROR`        | Stream failed with error, failure type, and recovery   |
+
+### Serialized Options
+
+```typescript
+interface SerializedOptions {
+  prompt?: string;
+  model?: string;
+  retry?: {
+    attempts?: number;
+    maxRetries?: number;
+    baseDelay?: number;
+    maxDelay?: number;
+    backoff?: BackoffStrategy;
+  };
+  timeout?: {
+    initialToken?: number;
+    interToken?: number;
+  };
+  checkIntervals?: {
+    guardrails?: number;
+    drift?: number;
+    checkpoint?: number;
+  };
+  continueFromLastKnownGoodToken?: boolean;
+  detectDrift?: boolean;
+  detectZeroTokens?: boolean;
+  fallbackCount?: number;
+  guardrailCount?: number;
+  metadata?: Record<string, unknown>;
+}
+```
+
+### Guardrail and Drift Event Results
+
+```typescript
+interface GuardrailEventResult {
+  violations: GuardrailViolation[];
+  shouldRetry: boolean;
+  shouldHalt: boolean;
+}
+
+interface DriftEventResult {
+  detected: boolean;
+  types: string[];
+  confidence: number;
+}
+```
 
 ## Event Store Interface
 
@@ -166,6 +220,9 @@ const recorder = createEventRecorder(store);
 // Auto-generates stream ID
 console.log(recorder.getStreamId()); // "l0_abc123..."
 
+// Get current sequence number
+console.log(recorder.getSeq()); // 0
+
 // Record events
 await recorder.recordStart({ prompt: "test", model: "gpt-5-micro" });
 await recorder.recordToken("Hello", 0);
@@ -177,6 +234,13 @@ await recorder.recordGuardrail(1, {
   violations: [],
   shouldRetry: false,
   shouldHalt: false,
+});
+
+// Record drift detection
+await recorder.recordDrift(1, {
+  detected: false,
+  types: [],
+  confidence: 0,
 });
 
 // Record retry
@@ -191,7 +255,12 @@ await recorder.recordContinuation("Hello World", 1);
 // Complete or error
 await recorder.recordComplete("Hello World", 2);
 // OR
-await recorder.recordError({ name: "Error", message: "Failed" }, true);
+await recorder.recordError(
+  { name: "Error", message: "Failed" },
+  "network_error", // failureType
+  "retry", // recoveryStrategy
+  "default", // policy
+);
 ```
 
 ### Recording a Complex Stream
@@ -330,10 +399,16 @@ const state = await replayer.replayToState("my-stream");
 
 console.log(state.content); // Final content
 console.log(state.tokenCount); // Token count
+console.log(state.checkpoint); // Last checkpoint content
 console.log(state.completed); // true/false
 console.log(state.violations); // Guardrail violations
-console.log(state.modelRetryCount); // Retry count
+console.log(state.retryAttempts); // Model retry count
+console.log(state.networkRetryCount); // Network retry count
 console.log(state.fallbackIndex); // Which fallback was used
+console.log(state.driftDetected); // Whether drift was detected
+console.log(state.error); // Error if failed (SerializedError | null)
+console.log(state.startTs); // Start timestamp
+console.log(state.endTs); // End timestamp
 ```
 
 ### Replay Tokens Only
@@ -343,6 +418,46 @@ const replayer = createEventReplayer(store);
 
 for await (const token of replayer.replayTokens("my-stream")) {
   process.stdout.write(token);
+}
+
+// With timing simulation
+for await (const token of replayer.replayTokens("my-stream", { speed: 1 })) {
+  process.stdout.write(token);
+}
+```
+
+### Replay with Generator
+
+Use the replayer's generator for more control:
+
+```typescript
+const replayer = createEventReplayer(store);
+
+for await (const envelope of replayer.replay("my-stream", {
+  speed: 0,
+  fromSeq: 0,
+  toSeq: Infinity,
+})) {
+  console.log(`Event ${envelope.seq}: ${envelope.event.type}`);
+}
+```
+
+## Replayed State Interface
+
+```typescript
+interface ReplayedState {
+  content: string;
+  tokenCount: number;
+  checkpoint: string;
+  violations: GuardrailViolation[];
+  driftDetected: boolean;
+  retryAttempts: number;
+  networkRetryCount: number;
+  fallbackIndex: number;
+  completed: boolean;
+  error: SerializedError | null;
+  startTs: number;
+  endTs: number;
 }
 ```
 
@@ -506,7 +621,7 @@ interface L0Snapshot {
   checkpoint: string;
   violations: GuardrailViolation[];
   driftDetected: boolean;
-  modelRetryCount: number;
+  retryAttempts: number;
   networkRetryCount: number;
   fallbackIndex: number;
 }
@@ -522,7 +637,12 @@ await store.saveSnapshot({
   ts: Date.now(),
   content: "...",
   tokenCount: 100,
-  // ...
+  checkpoint: "...",
+  violations: [],
+  driftDetected: false,
+  retryAttempts: 0,
+  networkRetryCount: 0,
+  fallbackIndex: 0,
 });
 
 // Get latest snapshot
@@ -591,6 +711,37 @@ const store = await createEventStore({
 });
 ```
 
+### Storage Adapter Configuration
+
+```typescript
+interface StorageAdapterConfig {
+  type: string; // Adapter type identifier
+  connection?: string; // Connection string or configuration
+  prefix?: string; // Table/collection/key prefix
+  ttl?: number; // TTL for events in milliseconds (0 = no expiry)
+  options?: Record<string, unknown>; // Custom options
+}
+```
+
+### Adapter Registry Functions
+
+```typescript
+import {
+  registerStorageAdapter,
+  unregisterStorageAdapter,
+  getRegisteredAdapters,
+} from "@ai2070/l0";
+
+// Register
+registerStorageAdapter("redis", factory);
+
+// Unregister
+unregisterStorageAdapter("redis");
+
+// List registered adapters
+const adapters = getRegisteredAdapters(); // ["memory", "file", "localStorage", ...]
+```
+
 ### Extending BaseEventStore
 
 Use `BaseEventStore` for easier implementation:
@@ -645,6 +796,47 @@ class RedisEventStore extends BaseEventStore {
 }
 ```
 
+### BaseEventStore Helper Methods
+
+The `BaseEventStore` class provides:
+
+```typescript
+// Get storage key for a stream
+protected getStreamKey(streamId: string): string; // `${prefix}:stream:${streamId}`
+
+// Get storage key for metadata
+protected getMetaKey(streamId: string): string; // `${prefix}:meta:${streamId}`
+
+// Check if event is expired based on TTL
+protected isExpired(timestamp: number): boolean;
+
+// Default implementations (can be overridden)
+async getLastEvent(streamId: string): Promise<L0EventEnvelope | null>;
+async getEventsAfter(streamId: string, afterSeq: number): Promise<L0EventEnvelope[]>;
+```
+
+### Extending BaseEventStoreWithSnapshots
+
+For stores with snapshot support:
+
+```typescript
+import { BaseEventStoreWithSnapshots } from "@ai2070/l0";
+
+class MyEventStore extends BaseEventStoreWithSnapshots {
+  // Inherits from BaseEventStore plus:
+
+  // Get storage key for snapshots
+  protected getSnapshotKey(streamId: string): string; // `${prefix}:snapshot:${streamId}`
+
+  // Must implement
+  async saveSnapshot(snapshot: L0Snapshot): Promise<void>;
+  async getSnapshot(streamId: string): Promise<L0Snapshot | null>;
+
+  // Default implementation provided
+  async getSnapshotBefore(streamId: string, seq: number): Promise<L0Snapshot | null>;
+}
+```
+
 ### Composite Stores
 
 Write to multiple backends simultaneously (write-through cache, redundancy):
@@ -667,6 +859,12 @@ await store.append("stream-1", event);
 
 // Reads come from primary (memory - fast!)
 const events = await store.getEvents("stream-1");
+
+// Specify different primary index
+const store2 = createCompositeStore(
+  [memStore, fileStore, redisStore],
+  1, // Use fileStore as primary for reads
+);
 ```
 
 ### TTL Wrapper
@@ -815,6 +1013,9 @@ const store = await createEventStore({
 // Create in-memory store
 createInMemoryEventStore(): InMemoryEventStore
 
+// Create store from config
+createEventStore(config: StorageAdapterConfig): Promise<L0EventStore>
+
 // Create recorder
 createEventRecorder(store: L0EventStore, streamId?: string): L0EventRecorder
 
@@ -835,6 +1036,20 @@ interface L0ReplayOptions {
   fromSeq?: number;
   toSeq?: number;
 }
+
+interface L0ReplayResult extends L0Result {
+  streamId: string;
+  isReplay: true;
+  originalOptions: SerializedOptions;
+  setCallbacks(callbacks: ReplayCallbacks): void;
+}
+
+interface ReplayCallbacks {
+  onToken?: (token: string) => void;
+  onViolation?: (violation: any) => void;
+  onRetry?: (attempt: number, reason: string) => void;
+  onEvent?: (event: L0Event) => void;
+}
 ```
 
 ### Utilities
@@ -852,6 +1067,22 @@ getStreamMetadata(store: L0EventStore, streamId: string): Promise<StreamMetadata
 
 // Compare replay results
 compareReplays(a: L0State, b: L0State): ReplayComparison
+
+interface StreamMetadata {
+  streamId: string;
+  eventCount: number;
+  tokenCount: number;
+  startTs: number;
+  endTs: number;
+  completed: boolean;
+  hasError: boolean;
+  options: SerializedOptions;
+}
+
+interface ReplayComparison {
+  identical: boolean;
+  differences: string[];
+}
 ```
 
 ## Best Practices
