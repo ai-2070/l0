@@ -88,6 +88,7 @@ const result = await consensus({
 // Type-safe access
 console.log(result.consensus.answer);
 console.log(result.fieldConsensus.fields.answer.agreement); // 0-1
+console.log(result.fieldConsensus.fields.answer.unanimous); // true/false
 ```
 
 ---
@@ -105,9 +106,11 @@ interface ConsensusOptions {
   minimumAgreement?: number; // Min agreement ratio, default: 0.6
   timeout?: number; // Timeout in ms
   signal?: AbortSignal;
-  monitoring?: { enabled: boolean };
-  onComplete?: (outputs) => void;
-  onConsensus?: (result) => void;
+  detectZeroTokens?: boolean; // Detect zero-token outputs, default: true
+  monitoring?: { enabled?: boolean; metadata?: Record<string, any> };
+  metadata?: Record<string, any>;
+  onComplete?: (outputs: ConsensusOutput[]) => void | Promise<void>;
+  onConsensus?: (result: ConsensusResult) => void | Promise<void>;
 }
 ```
 
@@ -126,6 +129,25 @@ interface ConsensusResult<T> {
   type: "text" | "structured";
   fieldConsensus?: FieldConsensus; // For structured
   status: "success" | "partial" | "failed";
+  error?: Error; // Error if consensus failed
+  metadata?: Record<string, any>;
+}
+```
+
+### ConsensusOutput
+
+```typescript
+interface ConsensusOutput {
+  index: number; // Output index
+  text: string; // Raw text output
+  data?: any; // Parsed data (if structured)
+  l0Result?: L0Result; // L0 result (if text-based)
+  structuredResult?: StructuredResult; // Structured result (if schema)
+  status: "success" | "error";
+  error?: Error;
+  duration: number; // Execution duration (ms)
+  weight: number; // Weight assigned
+  similarities?: number[]; // Similarity scores with other outputs
 }
 ```
 
@@ -138,8 +160,14 @@ interface Agreement {
   count: number; // How many agreed
   ratio: number; // Agreement ratio
   indices: number[]; // Which outputs
-  type: "exact" | "similar" | "structural" | "semantic";
+  type: AgreementType;
 }
+
+type AgreementType =
+  | "exact" // Exact match
+  | "similar" // Fuzzy match (high similarity)
+  | "structural" // Same structure (for objects)
+  | "semantic"; // Same meaning (estimated)
 ```
 
 ### Disagreements
@@ -152,10 +180,16 @@ interface Disagreement {
     count: number;
     indices: number[];
   }>;
-  severity: "minor" | "moderate" | "major" | "critical";
+  severity: DisagreementSeverity;
   resolution?: string;
   resolutionConfidence?: number;
 }
+
+type DisagreementSeverity =
+  | "minor" // Strong majority (>=80%)
+  | "moderate" // Weak majority (>=60%)
+  | "major" // No clear majority (>=40%)
+  | "critical"; // Complete split (<40%)
 ```
 
 ### Analysis
@@ -172,9 +206,30 @@ interface ConsensusAnalysis {
   maxSimilarity: number;
   totalAgreements: number;
   totalDisagreements: number;
-  strategy: string;
-  conflictResolution: string;
+  strategy: ConsensusStrategy;
+  conflictResolution: ConflictResolution;
   duration: number;
+}
+```
+
+### FieldConsensus
+
+```typescript
+interface FieldConsensus {
+  fields: Record<string, FieldAgreement>;
+  overallAgreement: number; // 0-1
+  agreedFields: string[]; // Fields with full agreement
+  disagreedFields: string[]; // Fields with disagreement
+}
+
+interface FieldAgreement {
+  path: string;
+  value: any; // Consensus value
+  agreement: number; // 0-1
+  votes: Record<string, number>; // Vote counts
+  values: any[]; // All values seen
+  unanimous: boolean; // Full agreement?
+  confidence: number; // 0-1
 }
 ```
 
@@ -192,19 +247,19 @@ import {
 
 // Strict: all must agree
 await consensus({ streams, ...strictConsensus });
-// strategy: "unanimous", threshold: 1.0, resolveConflicts: "fail"
+// strategy: "unanimous", threshold: 1.0, resolveConflicts: "fail", minimumAgreement: 1.0
 
 // Standard: majority rules (default)
 await consensus({ streams, ...standardConsensus });
-// strategy: "majority", threshold: 0.8, resolveConflicts: "vote"
+// strategy: "majority", threshold: 0.8, resolveConflicts: "vote", minimumAgreement: 0.6
 
 // Lenient: flexible
 await consensus({ streams, ...lenientConsensus });
-// strategy: "majority", threshold: 0.7, resolveConflicts: "merge"
+// strategy: "majority", threshold: 0.7, resolveConflicts: "merge", minimumAgreement: 0.5
 
 // Best: choose highest quality
 await consensus({ streams, ...bestConsensus });
-// strategy: "best", resolveConflicts: "best"
+// strategy: "best", threshold: 0.8, resolveConflicts: "best", minimumAgreement: 0.5
 ```
 
 ---
@@ -264,8 +319,8 @@ Weight models differently:
 const result = await consensus({
   streams: [
     () => streamText({ model: openai("gpt-4o"), prompt }), // Expert
-    () => streamText({ model: openai("gpt-5-mini"), prompt }), // Fast
-    () => streamText({ model: openai("gpt-5-nano"), prompt }), // Fast
+    () => streamText({ model: openai("gpt-4o-mini"), prompt }), // Fast
+    () => streamText({ model: openai("gpt-4o-mini"), prompt }), // Fast
   ],
   strategy: "weighted",
   weights: [2.0, 1.0, 1.0], // GPT-4o counts double
@@ -292,7 +347,7 @@ const result = await consensus({
 ### Code Generation
 
 ```typescript
-// Generate code 3 times, merge best parts
+// Generate code 3 times, pick best
 const result = await consensus({
   streams: Array(3).fill(() =>
     streamText({ model, prompt: "Write function X" }),
@@ -314,5 +369,46 @@ const result = await consensus({
 // Check per-field agreement
 for (const [field, info] of Object.entries(result.fieldConsensus.fields)) {
   console.log(`${field}: ${info.agreement * 100}% agreement`);
+  if (info.unanimous) {
+    console.log(`  Unanimous: ${info.value}`);
+  }
 }
+```
+
+---
+
+## Similarity Utilities
+
+Low-level comparison utilities used by consensus:
+
+```typescript
+import {
+  calculateSimilarityMatrix,
+  calculateOutputSimilarity,
+  calculateStructuralSimilarity,
+  findAgreements,
+  findDisagreements,
+  calculateFieldConsensus,
+  resolveMajority,
+  resolveBest,
+  resolveMerge,
+  meetsMinimumAgreement,
+} from "@ai2070/l0";
+
+// Calculate pairwise similarity between outputs
+const matrix = calculateSimilarityMatrix(outputs);
+
+// Compare two structured objects
+const similarity = calculateStructuralSimilarity(obj1, obj2); // 0-1
+
+// Find all agreements above threshold
+const agreements = findAgreements(outputs, 0.8);
+
+// Find all disagreements
+const disagreements = findDisagreements(outputs, 0.8);
+
+// Resolve using different strategies
+const majority = resolveMajority(outputs, weights);
+const best = resolveBest(outputs, weights);
+const merged = resolveMerge(outputs);
 ```
