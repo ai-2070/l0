@@ -118,15 +118,16 @@ customPatternRule([/forbidden/i, /blocked/i], "Custom violation", "error");
 
 **Built-in patterns:**
 
-| Category         | Examples                                    |
-| ---------------- | ------------------------------------------- |
-| Meta commentary  | "As an AI...", "I'm an AI assistant"        |
-| Hedging          | "Sure!", "Certainly!", "Of course!"         |
-| Refusal          | "I cannot provide...", "I'm not able to..." |
-| Instruction leak | `[SYSTEM]`, `<\|im_start\|>`                |
-| Placeholders     | `[INSERT ...]`, `{{placeholder}}`           |
-| Format collapse  | "Here is the...", "Let me..."               |
-| Repetition       | Same sentence repeated 3+ times             |
+| Category              | Examples                                    |
+| --------------------- | ------------------------------------------- |
+| Meta commentary       | "As an AI...", "I'm an AI assistant"        |
+| Hedging               | "Sure!", "Certainly!", "Of course!"         |
+| Refusal               | "I cannot provide...", "I'm not able to..." |
+| Instruction leak      | `[SYSTEM]`, `<\|im_start\|>`                |
+| Placeholders          | `[INSERT ...]`, `{{placeholder}}`           |
+| Format collapse       | "Here is the...", "Let me..."               |
+| Repetition            | Same sentence repeated 3+ times             |
+| First/last duplicate  | First and last sentences identical          |
 
 ---
 
@@ -146,6 +147,8 @@ interface GuardrailViolation {
   recoverable: boolean;
   position?: number;
   suggestion?: string;
+  timestamp?: number;
+  context?: Record<string, any>;
 }
 ```
 
@@ -214,10 +217,11 @@ const lengthLimit: GuardrailRule = {
 ```typescript
 interface GuardrailContext {
   content: string; // Full accumulated content
+  checkpoint?: string; // Previous checkpoint content
   delta?: string; // Latest chunk (streaming)
   completed: boolean; // Stream finished?
   tokenCount: number; // Tokens received
-  previousViolations: GuardrailViolation[];
+  previousViolations?: GuardrailViolation[];
   metadata?: Record<string, any>;
 }
 ```
@@ -239,6 +243,7 @@ import {
 const engine = createGuardrailEngine(recommendedGuardrails, {
   stopOnFatal: true,
   enableStreaming: true,
+  checkInterval: 100,
   onViolation: (v) => console.log("Violation:", v.message),
 });
 
@@ -268,6 +273,7 @@ engine.getState(); // Get current state
 engine.reset(); // Reset state
 engine.hasViolations(); // Any violations?
 engine.hasFatalViolations(); // Any fatal?
+engine.hasErrorViolations(); // Any errors?
 engine.getViolationsByRule("json"); // Violations for rule
 engine.getAllViolations(); // All violations
 ```
@@ -276,21 +282,33 @@ engine.getAllViolations(); // All violations
 
 ## Analysis Functions
 
-Low-level analysis utilities:
+Low-level analysis utilities available from the guardrails submodule:
 
 ````typescript
 import {
   analyzeJsonStructure,
   looksLikeJson,
+} from "@ai2070/l0/guardrails";
+
+import {
   analyzeMarkdownStructure,
   looksLikeMarkdown,
+} from "@ai2070/l0/guardrails";
+
+import {
   analyzeLatexStructure,
   looksLikeLatex,
+} from "@ai2070/l0/guardrails";
+
+import {
   isZeroOutput,
   isNoiseOnly,
+} from "@ai2070/l0/guardrails";
+
+import {
   findBadPatterns,
   BAD_PATTERNS,
-} from "@ai2070/l0";
+} from "@ai2070/l0/guardrails";
 
 // JSON analysis
 const json = analyzeJsonStructure('{"a": 1');
@@ -343,8 +361,12 @@ Deferred to `setImmediate()` to avoid blocking:
 - **Non-blocking**: Results delivered via callback
 
 ```typescript
-import { runAsyncGuardrailCheck } from "@ai2070/l0/guardrails";
+import {
+  runAsyncGuardrailCheck,
+  runGuardrailCheckAsync,
+} from "@ai2070/l0/guardrails";
 
+// Fast/slow path with immediate result if possible
 const result = runAsyncGuardrailCheck(engine, context, (asyncResult) => {
   // Called when slow path completes
   if (asyncResult.shouldHalt) {
@@ -357,6 +379,11 @@ if (result) {
 } else {
   // Deferred to async callback
 }
+
+// Always async version
+runGuardrailCheckAsync(engine, context, (result) => {
+  // Always called via setImmediate
+});
 ```
 
 ### Rule Complexity
@@ -398,9 +425,9 @@ await l0({
 });
 ```
 
-| Violation Type       | Counts Toward Limit           |
-| -------------------- | ----------------------------- |
-| `recoverable: true`  | Yes                           |
-| `recoverable: false` | No (treated as network error) |
+| Violation Type       | Counts Toward Limit |
+| -------------------- | ------------------- |
+| `recoverable: true`  | Yes                 |
+| `recoverable: false` | No                  |
 
-Zero output violations are `recoverable: false` because they indicate transport issues, not model issues.
+Zero output violations are `recoverable: true` because retry may help recover from transport issues.
