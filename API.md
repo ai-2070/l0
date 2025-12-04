@@ -124,10 +124,14 @@ console.log(result.state.tokenCount);
 
 **Returns:** `L0Result`
 
-| Property | Type                     | Description   |
-| -------- | ------------------------ | ------------- |
-| `stream` | `AsyncIterable<L0Event>` | Event stream  |
-| `state`  | `L0State`                | Runtime state |
+| Property    | Type                     | Description                          |
+| ----------- | ------------------------ | ------------------------------------ |
+| `stream`    | `AsyncIterable<L0Event>` | Event stream                         |
+| `text`      | `string`                 | Full accumulated text (after stream) |
+| `state`     | `L0State`                | Runtime state                        |
+| `errors`    | `Error[]`                | Any errors that occurred             |
+| `telemetry` | `L0Telemetry`            | Telemetry data (if monitoring on)    |
+| `abort`     | `() => void`             | Abort controller for cancellation    |
 
 ---
 
@@ -687,7 +691,7 @@ const result = await l0<{ status: "success" | "error"; code: number }>({
 
 ### structured(options)
 
-Guaranteed valid JSON matching a Zod schema.
+Guaranteed valid JSON matching a Zod schema. Supports Effect Schema and JSON Schema via adapters.
 
 ```typescript
 import { structured } from "@ai2070/l0";
@@ -706,11 +710,14 @@ const result = await structured({
   // Optional: Fallbacks
   fallbackStreams: [...],
 
-  // Optional: Auto-correction
+  // Optional: Auto-correction (default: true)
   autoCorrect: true,
 
-  // Optional: Validation retries
-  retry: { attempts: 3 }
+  // Optional: Strict mode - reject unknown fields (default: false)
+  strictMode: false,
+
+  // Optional: Validation retries (default: 2)
+  retry: { attempts: 2 }
 });
 
 // Type-safe access
@@ -719,6 +726,120 @@ console.log(result.data.age);     // number
 console.log(result.corrected);    // boolean - was auto-corrected
 console.log(result.corrections);  // string[] - corrections made
 console.log(result.raw);          // string - raw output
+```
+
+### structuredObject(shape, options)
+
+Helper to create structured output with a simple object schema.
+
+```typescript
+import { structuredObject } from "@ai2070/l0";
+import { z } from "zod";
+
+const result = await structuredObject({
+  amount: z.number(),
+  approved: z.boolean()
+}, {
+  stream: () => streamText({ model, prompt })
+});
+```
+
+### structuredArray(itemSchema, options)
+
+Helper to create structured output with an array schema.
+
+```typescript
+import { structuredArray } from "@ai2070/l0";
+import { z } from "zod";
+
+const result = await structuredArray(
+  z.object({ name: z.string() }),
+  { stream: () => streamText({ model, prompt }) }
+);
+```
+
+### structuredStream(options)
+
+Streaming structured output - yields tokens as they arrive, validates at end.
+
+```typescript
+import { structuredStream } from "@ai2070/l0";
+import { z } from "zod";
+
+const { stream, result, abort } = await structuredStream({
+  schema: z.object({ name: z.string() }),
+  stream: () => streamText({ model, prompt })
+});
+
+// Stream tokens in real-time
+for await (const event of stream) {
+  if (event.type === 'token') {
+    console.log(event.value);
+  }
+}
+
+// Get validated result
+const validated = await result;
+console.log(validated.data);
+```
+
+### Structured Output Presets
+
+```typescript
+import {
+  minimalStructured,    // { autoCorrect: false, retry: { attempts: 1 } }
+  recommendedStructured, // { autoCorrect: true, retry: { attempts: 2 } }
+  strictStructured,      // { autoCorrect: true, strictMode: true, retry: { attempts: 3 } }
+} from "@ai2070/l0";
+
+const result = await structured({
+  schema,
+  stream,
+  ...recommendedStructured
+});
+```
+
+### Effect Schema Support
+
+```typescript
+import { registerEffectSchemaAdapter, wrapEffectSchema } from "@ai2070/l0";
+import * as S from "@effect/schema/Schema";
+
+// Register the adapter once
+registerEffectSchemaAdapter({
+  isSchema: (s) => S.isSchema(s),
+  decode: (schema, data) => S.decodeUnknownSync(schema)(data),
+  // ...
+});
+
+// Wrap Effect Schema for use with structured()
+const schema = wrapEffectSchema(S.Struct({
+  name: S.String,
+  age: S.Number
+}));
+
+const result = await structured({ schema, stream });
+```
+
+### JSON Schema Support
+
+```typescript
+import { registerJSONSchemaAdapter, wrapJSONSchema, createSimpleJSONSchemaAdapter } from "@ai2070/l0";
+
+// Register with your preferred validator (e.g., Ajv)
+registerJSONSchemaAdapter(createSimpleJSONSchemaAdapter(ajvValidate));
+
+// Wrap JSON Schema for use with structured()
+const schema = wrapJSONSchema({
+  type: "object",
+  properties: {
+    name: { type: "string" },
+    age: { type: "number" }
+  },
+  required: ["name", "age"]
+});
+
+const result = await structured({ schema, stream });
 ```
 
 ---
@@ -837,14 +958,23 @@ import {
 
 ```typescript
 import {
-  minimalGuardrails, // JSON + zero output
-  recommendedGuardrails, // + Markdown, patterns
-  strictGuardrails, // + LaTeX
-  jsonOnlyGuardrails,
-  markdownOnlyGuardrails,
-  latexOnlyGuardrails,
+  minimalGuardrails,     // jsonRule, zeroOutputRule
+  recommendedGuardrails, // jsonRule, markdownRule, zeroOutputRule, patternRule
+  strictGuardrails,      // jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule
+  jsonOnlyGuardrails,    // jsonRule, zeroOutputRule
+  markdownOnlyGuardrails,// markdownRule, zeroOutputRule
+  latexOnlyGuardrails,   // latexRule, zeroOutputRule
 } from "@ai2070/l0";
 ```
+
+| Preset                   | Rules Included                                               |
+| ------------------------ | ------------------------------------------------------------ |
+| `minimalGuardrails`      | `jsonRule`, `zeroOutputRule`                                 |
+| `recommendedGuardrails`  | `jsonRule`, `markdownRule`, `zeroOutputRule`, `patternRule`  |
+| `strictGuardrails`       | `jsonRule`, `markdownRule`, `latexRule`, `patternRule`, `zeroOutputRule` |
+| `jsonOnlyGuardrails`     | `jsonRule`, `zeroOutputRule`                                 |
+| `markdownOnlyGuardrails` | `markdownRule`, `zeroOutputRule`                             |
+| `latexOnlyGuardrails`    | `latexRule`, `zeroOutputRule`                                |
 
 ### Custom Guardrails
 
@@ -896,12 +1026,19 @@ const result = engine.check({
 
 ```typescript
 import {
-  minimalRetry, // { attempts: 2 }
-  recommendedRetry, // { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
-  strictRetry, // { attempts: 3, maxRetries: 6, backoff: "full-jitter" }
-  exponentialRetry, // { attempts: 4, maxRetries: 8, backoff: "exponential" }
+  minimalRetry,      // { attempts: 2, maxRetries: 4, backoff: "linear" }
+  recommendedRetry,  // { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
+  strictRetry,       // { attempts: 3, maxRetries: 6, backoff: "full-jitter" }
+  exponentialRetry,  // { attempts: 4, maxRetries: 8, backoff: "exponential" }
 } from "@ai2070/l0";
 ```
+
+| Preset            | attempts | maxRetries | backoff         | baseDelay | maxDelay |
+| ----------------- | -------- | ---------- | --------------- | --------- | -------- |
+| `minimalRetry`    | 2        | 4          | `linear`        | 1000ms    | 10000ms  |
+| `recommendedRetry`| 3        | 6          | `fixed-jitter`  | 1000ms    | 10000ms  |
+| `strictRetry`     | 3        | 6          | `full-jitter`   | 1000ms    | 10000ms  |
+| `exponentialRetry`| 4        | 8          | `exponential`   | 1000ms    | 10000ms  |
 
 ### Centralized Defaults
 
@@ -1908,6 +2045,9 @@ interface L0Options {
   // Optional fallback streams (tried in order if primary fails)
   fallbackStreams?: Array<() => Promise<StreamTextResult> | StreamTextResult>;
 
+  // User metadata attached to all observability events (immutable for session)
+  meta?: Record<string, unknown>;
+
   // Guardrail rules to apply during streaming
   guardrails?: GuardrailRule[];
 
@@ -1966,6 +2106,12 @@ interface L0Options {
 
   // Interceptors for preprocessing/postprocessing
   interceptors?: L0Interceptor[];
+
+  // Custom adapter for wrapping the stream (for SDKs not natively supported)
+  adapter?: L0Adapter | string;
+
+  // Options to pass to the adapter's wrap() function
+  adapterOptions?: unknown;
 
   // Event callbacks
   onEvent?: (event: L0Event) => void;
@@ -2053,6 +2199,12 @@ interface L0State {
 
   // Character offset where resume occurred (for debugging)
   resumeFrom?: number;
+
+  // Multimodal data outputs collected during streaming
+  dataOutputs: L0DataPayload[];
+
+  // Last progress update received (for long-running operations)
+  lastProgress?: L0Progress;
 }
 ```
 
@@ -2062,14 +2214,89 @@ Unified event format that L0 normalizes all streaming events into.
 
 ```typescript
 interface L0Event {
+  // Event type
   type: "token" | "message" | "data" | "progress" | "error" | "complete";
+
+  // Text value (for token/message events)
   value?: string;
+
+  // Role (for message events)
   role?: string;
-  data?: L0DataPayload; // For multimodal data events
-  progress?: L0Progress; // For progress events
+
+  // Multimodal data payload (for data events)
+  data?: L0DataPayload;
+
+  // Progress information (for progress events)
+  progress?: L0Progress;
+
+  // Error (for error events)
   error?: Error;
-  reason?: ErrorCategory; // Error category (for error events)
+
+  // Error category/reason (for error events)
+  reason?: ErrorCategory;
+
+  // Event timestamp
   timestamp?: number;
+
+  // Usage information (typically on complete event)
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cost?: number; // Cost in USD (if available)
+    [key: string]: unknown;
+  };
+}
+```
+
+### L0DataPayload
+
+Multimodal data payload for non-text content.
+
+```typescript
+interface L0DataPayload {
+  // Content type: "text" | "image" | "audio" | "video" | "file" | "json" | "binary"
+  contentType: L0ContentType;
+
+  // MIME type (e.g., "image/png", "audio/mp3")
+  mimeType?: string;
+
+  // Data as base64 string (for binary content)
+  base64?: string;
+
+  // Data as URL (for remote content)
+  url?: string;
+
+  // Data as raw bytes (for binary content in Node.js)
+  bytes?: Uint8Array;
+
+  // Structured data (for JSON content type)
+  json?: unknown;
+
+  // Optional metadata about the content
+  metadata?: {
+    width?: number;      // For images/video
+    height?: number;     // For images/video
+    duration?: number;   // For audio/video (seconds)
+    size?: number;       // File size in bytes
+    filename?: string;   // Original filename
+    seed?: number;       // Generation seed
+    model?: string;      // Model used for generation
+    [key: string]: unknown;
+  };
+}
+```
+
+### L0Progress
+
+Progress information for long-running operations.
+
+```typescript
+interface L0Progress {
+  percent?: number;    // Progress percentage (0-100)
+  step?: number;       // Current step number
+  totalSteps?: number; // Total steps
+  message?: string;    // Status message
+  eta?: number;        // Estimated time remaining in ms
 }
 ```
 
@@ -2248,6 +2475,31 @@ interface L0Interceptor {
 }
 ```
 
+### L0Adapter
+
+Interface for custom stream adapters. Adapters normalize foreign SDK streams to L0Events.
+
+```typescript
+interface L0Adapter<StreamType = unknown, Options = unknown> {
+  // Unique identifier for this adapter
+  name: string;
+
+  // Optional type guard for auto-detection (required for registerAdapter())
+  detect?(input: unknown): input is StreamType;
+
+  // Convert provider stream → L0Events
+  // MUST yield events in exact order, include timestamp, never throw
+  wrap(stream: StreamType, options?: Options): AsyncGenerator<L0Event>;
+}
+```
+
+**Adapter Rules:**
+- MUST yield events in exact order received
+- MUST include timestamp on every event
+- MUST convert errors to `{ type: "error" }` events (never throw)
+- MUST yield `{ type: "complete" }` exactly once at end
+- MUST NOT modify text content, buffer/batch chunks, or perform retries
+
 ### RetryOptions
 
 Retry configuration options. See [BackoffStrategy](#backoffstrategy), [RetryReason](#retryreason), and [RETRY_DEFAULTS](#retry_defaults) for type details.
@@ -2405,6 +2657,28 @@ interface ConsensusResult<T> {
 }
 ```
 
+### CorrectionType
+
+Types of auto-corrections that can be applied to structured output.
+
+```typescript
+type CorrectionType =
+  | "close_brace"           // Add missing closing brace
+  | "close_bracket"         // Add missing closing bracket
+  | "remove_trailing_comma" // Remove trailing commas
+  | "strip_markdown_fence"  // Remove ```json fences
+  | "strip_json_prefix"     // Remove "json:" prefix
+  | "remove_prefix_text"    // Remove text before JSON
+  | "remove_suffix_text"    // Remove text after JSON
+  | "fix_quotes"            // Fix quote issues
+  | "remove_comments"       // Remove comments from JSON
+  | "escape_control_chars"  // Escape control characters
+  | "fill_missing_fields"   // Fill missing required fields
+  | "remove_unknown_fields" // Remove unknown fields (strict mode)
+  | "coerce_types"          // Coerce types to match schema
+  | "extract_json";         // Extract JSON from surrounding text
+```
+
 ### BackoffStrategy
 
 Backoff strategy options for retry delays. Defined in `src/types/retry.ts`.
@@ -2437,17 +2711,29 @@ type RetryReason =
 
 ### ErrorCategory
 
-Error classification enum for routing and handling decisions. Defined in `src/utils/errors.ts`.
+Error classification enum for routing and handling decisions. Defined in `src/types/retry.ts`.
 
 ```typescript
 enum ErrorCategory {
-  NETWORK = "network", // Network/connection errors - transient, retry without limit
-  TIMEOUT = "timeout", // Timeout errors - transient, retry with backoff
-  PROVIDER = "provider", // Provider/API errors - may retry depending on status
-  CONTENT = "content", // Content errors (guardrails, drift) - may retry
-  INTERNAL = "internal", // Internal errors - bugs, don't retry
+  NETWORK = "network",     // Network/connection failures - retry forever with backoff
+  TRANSIENT = "transient", // Transient errors (429, 503, timeouts) - retry forever with backoff
+  MODEL = "model",         // Model-side errors (bad response) - counts toward retry limit
+  CONTENT = "content",     // Content errors (guardrails, drift) - counts toward retry limit
+  PROVIDER = "provider",   // Provider/API errors - may retry depending on status
+  FATAL = "fatal",         // Fatal errors - don't retry (auth failures, invalid config)
+  INTERNAL = "internal",   // Internal errors (bugs) - don't retry
 }
 ```
+
+| Category    | Retry Behavior                             | Counts Toward Limit |
+| ----------- | ------------------------------------------ | ------------------- |
+| `NETWORK`   | Retry indefinitely with backoff            | No                  |
+| `TRANSIENT` | Retry indefinitely with backoff            | No                  |
+| `MODEL`     | Retry up to `attempts` limit               | Yes                 |
+| `CONTENT`   | Retry up to `attempts` limit               | Yes                 |
+| `PROVIDER`  | May retry depending on status code         | Depends             |
+| `FATAL`     | Never retry                                | N/A                 |
+| `INTERNAL`  | Never retry                                | N/A                 |
 
 ### RuntimeState
 
@@ -2597,3 +2883,11 @@ For Node.js servers and most applications, the full import is fine.
 - [NETWORK_ERRORS.md](./NETWORK_ERRORS.md) - Network error handling
 - [PERFORMANCE.md](./PERFORMANCE.md) - Performance tuning
 - [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling guide
+- [GUARDRAILS.md](./GUARDRAILS.md) - Guardrail rules reference
+- [MONITORING.md](./MONITORING.md) - Monitoring and telemetry
+- [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) - Interceptors and parallel operations
+- [MULTIMODAL.md](./MULTIMODAL.md) - Multimodal content handling
+- [CONSENSUS.md](./CONSENSUS.md) - Multi-model consensus
+- [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md) - Building custom adapters
+- [EVENT_SOURCING.md](./EVENT_SOURCING.md) - Event recording and replay
+- [FORMATTING.md](./FORMATTING.md) - Prompt formatting helpers
