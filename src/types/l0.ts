@@ -1185,50 +1185,6 @@ export interface RetryOptions {
   };
 
   /**
-   * Custom retry function to override default retry behavior.
-   * Return `true` to retry, `false` to stop retrying.
-   * This function is called before the default retry logic.
-   *
-   * @param error - The error that occurred
-   * @param context - Context about the current retry state
-   * @returns Whether to retry (true) or stop (false), or undefined to use default behavior
-   *
-   * @example
-   * ```typescript
-   * {
-   *   retry: {
-   *     attempts: 3,
-   *     shouldRetry: (error, context) => {
-   *       // Never retry after 5 total attempts
-   *       if (context.totalAttempts >= 5) return false;
-   *       // Always retry rate limits
-   *       if (error.message.includes('rate limit')) return true;
-   *       // Use default behavior for everything else
-   *       return undefined;
-   *     }
-   *   }
-   * }
-   * ```
-   */
-  shouldRetry?: (
-    error: Error,
-    context: {
-      /** Current retry attempt (0-based) */
-      attempt: number;
-      /** Total attempts including network retries */
-      totalAttempts: number;
-      /** Error category: network, transient, model, or fatal */
-      category: ErrorCategory;
-      /** Reason for the error */
-      reason: string;
-      /** Accumulated content so far */
-      content: string;
-      /** Token count so far */
-      tokenCount: number;
-    },
-  ) => boolean | undefined;
-
-  /**
    * Custom delay calculation function to override default backoff behavior.
    * Return a delay in milliseconds, or undefined to use the default backoff strategy.
    *
@@ -1300,11 +1256,11 @@ export interface RetryOptions {
    * It can only VETO a retry (return false to prevent retry), never FORCE one.
    *
    * **Behavior:**
-   * - `shouldRetry = defaultDecision && onShouldRetry(...)` (if provided)
+   * - `shouldRetry = defaultDecision && shouldRetry(...)` (if provided)
    * - Fatal errors always override: if category is "fatal", retry is never allowed
-   * - If onShouldRetry throws an exception, it's treated as a veto (false)
-   * - If onShouldRetry returns true, the default decision is preserved
-   * - If onShouldRetry returns false, retry is vetoed regardless of default
+   * - If shouldRetry throws an exception, it's treated as a veto (false)
+   * - If shouldRetry returns true, the default decision is preserved
+   * - If shouldRetry returns false, retry is vetoed regardless of default
    *
    * **Error Categories:**
    * - `network`: Connection drops, DNS, fetch errors - infinite retries by default
@@ -1314,9 +1270,9 @@ export interface RetryOptions {
    * - `fatal`: Auth failures (401/403), client errors (4xx) - never retried
    *
    * **Events emitted:**
-   * - `RETRY_FN_START`: Before calling onShouldRetry
-   * - `RETRY_FN_RESULT`: After onShouldRetry returns (includes result)
-   * - `RETRY_FN_ERROR`: If onShouldRetry throws (treated as veto)
+   * - `RETRY_FN_START`: Before calling shouldRetry
+   * - `RETRY_FN_RESULT`: After shouldRetry returns (includes result)
+   * - `RETRY_FN_ERROR`: If shouldRetry throws (treated as veto)
    *
    * @param error - The error that occurred
    * @param state - Current L0 state (content, tokenCount, etc.)
@@ -1330,7 +1286,7 @@ export interface RetryOptions {
    *   stream: () => streamText({ model, prompt }),
    *   retry: {
    *     attempts: 3,
-   *     onShouldRetry: async (error, state, attempt, category) => {
+   *     shouldRetry: async (error, state, attempt, category) => {
    *       // Veto retry if we already have substantial content
    *       if (state.tokenCount > 100) return false;
    *
@@ -1351,7 +1307,7 @@ export interface RetryOptions {
    *   stream: () => streamText({ model, prompt }),
    *   retry: {
    *     attempts: 3,
-   *     onShouldRetry: async (error, state, attempt, category) => {
+   *     shouldRetry: async (error, state, attempt, category) => {
    *       console.log(`Retry decision: attempt=${attempt}, category=${category}`);
    *       console.log(`  tokenCount=${state.tokenCount}, error=${error.message}`);
    *       // Always allow default behavior
@@ -1361,7 +1317,7 @@ export interface RetryOptions {
    * });
    * ```
    */
-  onShouldRetry?: (
+  shouldRetry?: (
     error: Error,
     state: L0State,
     attempt: number,

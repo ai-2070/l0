@@ -134,32 +134,27 @@ async function customRetryLogic() {
     backoff: "exponential",
     baseDelay: 1000,
 
-    // Custom shouldRetry function
-    shouldRetry: (error, context) => {
+    // Async shouldRetry callback (can only veto, never force retries)
+    shouldRetry: async (error, state, attempt, category) => {
       console.log(
-        `  shouldRetry called: attempt=${context.attempt}, category=${context.category}`,
+        `  shouldRetry called: attempt=${attempt}, category=${category}`,
       );
 
-      // Never retry after 5 total attempts
-      if (context.totalAttempts >= 5) {
-        console.log("    -> stopping: too many total attempts");
+      // Veto retry if we have substantial content
+      if (state.content.length > 100) {
+        console.log("    -> vetoing: have enough content");
         return false;
       }
 
-      // Always retry rate limits
-      if (error.message.includes("rate limit")) {
-        console.log("    -> retrying: rate limit error");
-        return true;
-      }
-
-      // Don't retry if we have substantial content
-      if (context.content.length > 100) {
-        console.log("    -> stopping: have enough content");
+      // Veto retry for context length errors
+      if (error.message.includes("context_length_exceeded")) {
+        console.log("    -> vetoing: context length exceeded");
         return false;
       }
 
-      // Use default behavior
-      return undefined;
+      // Allow default retry behavior
+      console.log("    -> allowing default behavior");
+      return true;
     },
 
     // Custom delay calculation

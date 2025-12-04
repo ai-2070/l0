@@ -601,7 +601,7 @@ export interface RetryFnResultEvent extends L0ObservabilityEvent {
   userResult: boolean;
   /** Final retry decision after applying user function */
   finalShouldRetry: boolean;
-  /** Duration of onShouldRetry call in ms */
+  /** Duration of shouldRetry call in ms */
   durationMs: number;
 }
 

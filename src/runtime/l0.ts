@@ -1462,29 +1462,10 @@ export async function l0<TOutput = unknown>(
           const categorized = retryManager.categorizeError(err);
           let decision = retryManager.shouldRetry(err);
 
-          // Check custom shouldRetry function if provided (sync, can widen or narrow)
-          if (processedRetry.shouldRetry) {
-            const customDecision = processedRetry.shouldRetry(err, {
-              attempt: retryAttempt,
-              totalAttempts: retryAttempt + state.networkRetryCount,
-              category: categorized.category,
-              reason: categorized.reason,
-              content: state.content,
-              tokenCount: state.tokenCount,
-            });
-            // If custom function returns boolean, override default decision
-            if (customDecision === true) {
-              decision = { ...decision, shouldRetry: true };
-            } else if (customDecision === false) {
-              decision = { ...decision, shouldRetry: false };
-            }
-            // If undefined, use default decision
-          }
-
-          // Check async onShouldRetry callback if provided (can only veto/narrow, never widen)
+          // Check async shouldRetry callback if provided (can only veto/narrow, never widen)
           // Fatal errors always override - never retry fatal errors regardless of user fn
           if (
-            processedRetry.onShouldRetry &&
+            processedRetry.shouldRetry &&
             categorized.category !== ErrorCategory.FATAL
           ) {
             const defaultShouldRetry = decision.shouldRetry;
@@ -1498,7 +1479,7 @@ export async function l0<TOutput = unknown>(
 
             const fnStartTime = Date.now();
             try {
-              const userResult = await processedRetry.onShouldRetry(
+              const userResult = await processedRetry.shouldRetry(
                 err,
                 state,
                 retryAttempt,
@@ -1535,7 +1516,7 @@ export async function l0<TOutput = unknown>(
                 durationMs,
               });
 
-              // Exception in onShouldRetry is treated as veto
+              // Exception in shouldRetry is treated as veto
               decision = { ...decision, shouldRetry: false };
             }
           }
