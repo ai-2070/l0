@@ -2,7 +2,7 @@
 
 This document specifies the **deterministic lifecycle behavior** of the L0 runtime. It serves as a reference for porting L0 to other languages (e.g., Python) and ensures consistent behavior across implementations.
 
-## Lifecycle Flow Diagram
+## Deterministic Lifecycle Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
