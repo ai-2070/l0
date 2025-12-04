@@ -13,7 +13,7 @@ L0 includes a **built-in monitoring system** that tracks:
 - Retry attempts (network vs model)
 - Timing information (TTFT, inter-token times)
 
-**No external services required** - all monitoring is built into L0.
+**No external dependencies required** - core monitoring is built into L0. Optional integrations for Sentry and OpenTelemetry are available via the `/monitoring` subpath.
 
 ## Quick Start
 
@@ -74,19 +74,19 @@ interface MonitoringConfig {
    * Sample rate for telemetry (0-1, default: 1.0)
    * 0.5 = monitor 50% of requests
    */
-  sampleRate?: number;
+  sampleRate: number;
 
   /**
    * Include detailed network error information
    * (default: true)
    */
-  includeNetworkDetails?: boolean;
+  includeNetworkDetails: boolean;
 
   /**
    * Include timing metrics like TTFT, inter-token times
    * (default: true)
    */
-  includeTimings?: boolean;
+  includeTimings: boolean;
 
   /**
    * Custom metadata to attach to all events
@@ -166,6 +166,10 @@ interface L0Telemetry {
   guardrails?: {
     violationCount: number;
     violationsByRule: Record<string, number>;
+    violationsByRuleAndSeverity: Record<
+      string,
+      { warning: number; error: number; fatal: number }
+    >;
     violationsBySeverity: {
       warning: number;
       error: number;
@@ -257,6 +261,10 @@ if (telemetry.guardrails) {
   console.log("Violations:", telemetry.guardrails.violationCount);
   console.log("By severity:", telemetry.guardrails.violationsBySeverity);
   console.log("By rule:", telemetry.guardrails.violationsByRule);
+  console.log(
+    "By rule and severity:",
+    telemetry.guardrails.violationsByRuleAndSeverity,
+  );
 }
 ```
 
@@ -336,12 +344,21 @@ logger.info("L0 execution completed", logEntry);
 //     tokens: 150,
 //     tokens_per_second: 100,
 //     time_to_first_token_ms: 250,
-//     total_retries: 1
+//     avg_inter_token_time_ms: 6.5,
+//     total_retries: 1,
+//     network_retries: 1,
+//     model_retries: 0
 //   },
 //   network: {
 //     error_count: 1,
 //     errors_by_type: { "connection_dropped": 1 }
-//   }
+//   },
+//   guardrails: {
+//     violation_count: 0,
+//     violations_by_severity: { warning: 0, error: 0, fatal: 0 }
+//   },
+//   drift: null,
+//   metadata: { user_id: "user_123" }
 // }
 ```
 
@@ -622,7 +639,7 @@ await trackABTest(performance);
 Use the `L0Monitor` class directly for fine-grained control:
 
 ```typescript
-import { L0Monitor } from "@ai2070/l0/monitoring";
+import { L0Monitor, createMonitor } from "@ai2070/l0/monitoring";
 
 const monitor = new L0Monitor({
   enabled: true,
@@ -634,12 +651,23 @@ monitor.start();
 // Record events manually
 monitor.recordToken();
 monitor.recordToken();
-monitor.recordNetworkError(error, true, 1000, 1);
-monitor.recordRetry(true);
+monitor.recordNetworkError(error, true, 1000);
+monitor.recordRetry(true); // true = network error
+
+// Record guardrail violations
+monitor.recordGuardrailViolations([
+  { rule: "json-structure", severity: "error", message: "Invalid JSON" },
+]);
+
+// Record drift
+monitor.recordDrift(true, ["format_drift"]);
 
 // Record continuation events
 monitor.recordContinuation(true, false); // Enabled but not used yet
 monitor.recordContinuation(true, true, "checkpoint content"); // Used with checkpoint
+
+// Log custom events
+monitor.logEvent({ type: "custom", data: "value" });
 
 monitor.complete();
 
@@ -654,7 +682,39 @@ console.log(summary);
 // Export
 const json = monitor.toJSON();
 console.log(json);
+
+// Helper methods
+console.log("Has network errors:", monitor.hasNetworkErrors());
+console.log("Has violations:", monitor.hasViolations());
+console.log("Most common error:", monitor.getMostCommonNetworkError());
+console.log("Error breakdown:", monitor.getNetworkErrorBreakdown());
+
+// Reset for new execution
+monitor.reset();
 ```
+
+### L0Monitor Methods
+
+| Method                           | Description                                          |
+| -------------------------------- | ---------------------------------------------------- |
+| `start()`                        | Record stream start time                             |
+| `complete()`                     | Record stream completion, calculate final metrics    |
+| `recordToken(timestamp?)`        | Record a token received                              |
+| `recordNetworkError(err, retried, delay?)` | Record a network error                      |
+| `recordRetry(isNetworkError)`    | Record a retry attempt                               |
+| `recordGuardrailViolations(violations)` | Record guardrail violations                   |
+| `recordDrift(detected, types)`   | Record drift detection result                        |
+| `recordContinuation(enabled, used, content?)` | Record continuation usage               |
+| `logEvent(event)`                | Log custom event to metadata                         |
+| `getTelemetry()`                 | Get current telemetry (live reference)               |
+| `toJSON()`                       | Export telemetry as JSON string                      |
+| `export()`                       | Alias for getTelemetry()                             |
+| `getSummary()`                   | Get high-level summary statistics                    |
+| `getNetworkErrorBreakdown()`     | Get errors grouped by type                           |
+| `hasNetworkErrors()`             | Check if any network errors occurred                 |
+| `hasViolations()`                | Check if any guardrail violations occurred           |
+| `getMostCommonNetworkError()`    | Get the most frequent network error type             |
+| `reset()`                        | Reset telemetry for new execution                    |
 
 ### Custom Metrics
 
@@ -802,6 +862,94 @@ Monitoring overhead is minimal:
 
 Sampling reduces overhead proportionally.
 
+---
+
+## Event Handler Utilities
+
+L0 provides utilities for combining and composing event handlers, useful when integrating multiple observability systems.
+
+### combineEvents
+
+Combine multiple event handlers into a single handler:
+
+```typescript
+import {
+  combineEvents,
+  createOpenTelemetryHandler,
+  createSentryHandler,
+} from "@ai2070/l0/monitoring";
+
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  onEvent: combineEvents(
+    createOpenTelemetryHandler({ tracer, meter }),
+    createSentryHandler({ sentry: Sentry }),
+    (event) => console.log(event.type), // custom handler
+  ),
+});
+```
+
+### filterEvents
+
+Create a handler that only receives specific event types:
+
+```typescript
+import { filterEvents, EventType } from "@ai2070/l0/monitoring";
+
+const errorHandler = filterEvents(
+  [EventType.ERROR, EventType.NETWORK_ERROR],
+  (event) => {
+    // Only receives ERROR and NETWORK_ERROR events
+    sendToAlertSystem(event);
+  },
+);
+```
+
+### excludeEvents
+
+Create a handler that excludes specific event types:
+
+```typescript
+import { excludeEvents, EventType } from "@ai2070/l0/monitoring";
+
+const quietHandler = excludeEvents(
+  [EventType.TOKEN], // Exclude noisy token events
+  (event) => console.log(event.type),
+);
+```
+
+### debounceEvents
+
+Create a debounced handler for high-frequency events:
+
+```typescript
+import { debounceEvents } from "@ai2070/l0/monitoring";
+
+const throttledLogger = debounceEvents(
+  100, // 100ms debounce
+  (event) => console.log(`Latest: ${event.type}`),
+);
+```
+
+### batchEvents
+
+Create a batched handler that collects events:
+
+```typescript
+import { batchEvents } from "@ai2070/l0/monitoring";
+
+const batchedHandler = batchEvents(
+  10, // Batch size
+  1000, // Max wait time (ms)
+  (events) => {
+    // Process batch of events
+    sendToAnalytics(events);
+  },
+);
+```
+
+---
+
 ## Sentry Integration
 
 L0 includes native Sentry support for error tracking and performance monitoring.
@@ -841,18 +989,28 @@ const result = await withSentry({ sentry: Sentry }, () =>
 ```typescript
 import { createSentryHandler } from "@ai2070/l0/monitoring";
 
+interface SentryConfig {
+  sentry: SentryClient; // Required: Sentry instance
+  captureNetworkErrors?: boolean; // Capture network failures (default: true)
+  captureGuardrailViolations?: boolean; // Capture guardrail violations (default: true)
+  minGuardrailSeverity?: "warning" | "error" | "fatal"; // Min severity to capture (default: 'error')
+  breadcrumbsForTokens?: boolean; // Add breadcrumb per token (default: false)
+  enableTracing?: boolean; // Enable performance tracing (default: true)
+  tags?: Record<string, string>; // Custom tags for all events
+  environment?: string; // Environment name
+}
+
 createSentryHandler({
-  sentry: Sentry, // Required: Sentry instance
-  captureNetworkErrors: true, // Capture network failures (default: true)
-  captureGuardrailViolations: true, // Capture guardrail violations (default: true)
-  minGuardrailSeverity: "error", // Min severity to capture (default: 'error')
-  breadcrumbsForTokens: false, // Add breadcrumb per token (default: false)
-  enableTracing: true, // Enable performance tracing (default: true)
+  sentry: Sentry,
+  captureNetworkErrors: true,
+  captureGuardrailViolations: true,
+  minGuardrailSeverity: "error",
+  breadcrumbsForTokens: false,
+  enableTracing: true,
   tags: {
-    // Custom tags for all events
     model: "gpt-5-micro",
-    environment: "production",
   },
+  environment: "production",
 });
 ```
 
@@ -877,17 +1035,16 @@ createSentryHandler({
 **Performance Transactions:**
 
 - `l0.execution` - Full execution span
-- `l0.stream.consume` - Stream consumption span
 - Token count, duration, TTFT as span data
 
-### Manual Integration
+### L0Sentry Class
 
-For fine-grained control:
+For fine-grained control, use the `L0Sentry` class directly:
 
 ```typescript
 import * as Sentry from "@sentry/node";
 import { l0 } from "@ai2070/l0/core";
-import { createSentryIntegration } from "@ai2070/l0/monitoring";
+import { createSentryIntegration, L0Sentry } from "@ai2070/l0/monitoring";
 
 const sentry = createSentryIntegration({ sentry: Sentry });
 
@@ -915,6 +1072,22 @@ for await (const event of result.stream) {
 sentry.completeStream(tokenCount);
 sentry.completeExecution(result.telemetry);
 ```
+
+### L0Sentry Methods
+
+| Method                                    | Description                          |
+| ----------------------------------------- | ------------------------------------ |
+| `startExecution(name?, metadata?)`        | Start tracking execution, returns span finish fn |
+| `startStream()`                           | Record stream start breadcrumb       |
+| `recordToken(token?)`                     | Record token breadcrumb (if enabled) |
+| `recordFirstToken(ttft)`                  | Record first token with TTFT         |
+| `recordNetworkError(error, type, retried)` | Record network error                |
+| `recordRetry(attempt, reason, isNetwork)` | Record retry attempt                 |
+| `recordGuardrailViolations(violations)`   | Record guardrail violations          |
+| `recordDrift(detected, types)`            | Record drift detection               |
+| `completeStream(tokenCount)`              | Record stream completion             |
+| `completeExecution(telemetry)`            | Complete execution with telemetry    |
+| `recordFailure(error, telemetry?)`        | Record execution failure             |
 
 ### Error Handling
 
@@ -967,8 +1140,7 @@ Events you'll see in Sentry:
   Message: Unbalanced braces: 2 open, 1 close
 
 [TRANSACTION] l0.execution (1.5s)
-  └── l0.stream.consume (1.2s)
-      Data: tokens=250, ttft_ms=280
+  Data: tokens=250, ttft_ms=280
 ```
 
 ---
@@ -1021,15 +1193,24 @@ const result = await otel.traceStream("chat-completion", async (span) => {
 ```typescript
 import { createOpenTelemetryHandler } from "@ai2070/l0/monitoring";
 
+interface OpenTelemetryConfig {
+  tracer?: Tracer; // OTel tracer instance
+  meter?: Meter; // OTel meter for metrics (optional)
+  serviceName?: string; // Service name for spans (default: 'l0')
+  traceTokens?: boolean; // Create spans for individual tokens (default: false)
+  recordTokenContent?: boolean; // Record token content in spans (default: false)
+  recordGuardrailViolations?: boolean; // Record violations as span events (default: true)
+  defaultAttributes?: Attributes; // Custom attributes for all spans
+}
+
 createOpenTelemetryHandler({
-  tracer: trace.getTracer("l0"), // Required: OTel tracer
-  meter: metrics.getMeter("l0"), // Optional: OTel meter for metrics
-  serviceName: "l0", // Service name for spans (default: 'l0')
-  traceTokens: false, // Create spans for individual tokens (default: false)
-  recordTokenContent: false, // Record token content in spans (default: false)
-  recordGuardrailViolations: true, // Record violations as span events (default: true)
+  tracer: trace.getTracer("l0"),
+  meter: metrics.getMeter("l0"),
+  serviceName: "l0",
+  traceTokens: false,
+  recordTokenContent: false,
+  recordGuardrailViolations: true,
   defaultAttributes: {
-    // Custom attributes for all spans
     "deployment.environment": "production",
     "service.version": "1.0.0",
   },
@@ -1047,13 +1228,21 @@ import { SemanticAttributes } from "@ai2070/l0/monitoring";
 SemanticAttributes.LLM_SYSTEM; // "gen_ai.system"
 SemanticAttributes.LLM_REQUEST_MODEL; // "gen_ai.request.model"
 SemanticAttributes.LLM_RESPONSE_MODEL; // "gen_ai.response.model"
+SemanticAttributes.LLM_REQUEST_MAX_TOKENS; // "gen_ai.request.max_tokens"
+SemanticAttributes.LLM_REQUEST_TEMPERATURE; // "gen_ai.request.temperature"
+SemanticAttributes.LLM_REQUEST_TOP_P; // "gen_ai.request.top_p"
+SemanticAttributes.LLM_RESPONSE_FINISH_REASON; // "gen_ai.response.finish_reasons"
 SemanticAttributes.LLM_USAGE_INPUT_TOKENS; // "gen_ai.usage.input_tokens"
 SemanticAttributes.LLM_USAGE_OUTPUT_TOKENS; // "gen_ai.usage.output_tokens"
 
 // L0-specific attributes
 SemanticAttributes.L0_SESSION_ID; // "l0.session_id"
+SemanticAttributes.L0_STREAM_COMPLETED; // "l0.stream.completed"
+SemanticAttributes.L0_FALLBACK_INDEX; // "l0.fallback.index"
 SemanticAttributes.L0_RETRY_COUNT; // "l0.retry.count"
 SemanticAttributes.L0_NETWORK_ERROR_COUNT; // "l0.network.error_count"
+SemanticAttributes.L0_GUARDRAIL_VIOLATION_COUNT; // "l0.guardrail.violation_count"
+SemanticAttributes.L0_DRIFT_DETECTED; // "l0.drift.detected"
 SemanticAttributes.L0_TIME_TO_FIRST_TOKEN; // "l0.time_to_first_token_ms"
 SemanticAttributes.L0_TOKENS_PER_SECOND; // "l0.tokens_per_second"
 ```
@@ -1062,27 +1251,41 @@ SemanticAttributes.L0_TOKENS_PER_SECOND; // "l0.tokens_per_second"
 
 **Spans:**
 
-- `l0.execution` - Full L0 execution span
-- `l0.stream` - Stream consumption span
-- `l0.token` - Individual token spans (if `traceTokens: true`)
+- `l0.stream` - Stream consumption span (via createOpenTelemetryHandler)
+- Custom spans via `traceStream()` or `createSpan()`
 
 **Span Events:**
 
-- `l0.stream.start` - Stream started
-- `l0.token.first` - First token received (TTFT)
-- `l0.retry` - Retry attempt with reason
-- `l0.network.error` - Network error occurred
-- `l0.guardrail.violation` - Guardrail violation detected
-- `l0.stream.complete` - Stream completed
+- `token` - Individual token events (if `traceTokens: true`)
+- `retry` - Retry attempt with reason and attempt number
+- `network_error` - Network error with type and message
+- `guardrail_violation` - Guardrail violation with rule, severity, message
+- `drift_detected` - Drift detection with type and confidence
 
 **Metrics (if meter provided):**
 
-- `l0.request.duration` - Histogram of request durations
-- `l0.request.tokens` - Histogram of token counts
-- `l0.request.ttft` - Histogram of time-to-first-token
-- `l0.errors` - Counter of errors by type
-- `l0.retries` - Counter of retry attempts
-- `l0.guardrail.violations` - Counter of guardrail violations
+- `l0.requests` - Counter of stream requests
+- `l0.tokens` - Counter of tokens processed
+- `l0.retries` - Counter of retry attempts (with type tag)
+- `l0.errors` - Counter of errors (with type/error_type tags)
+- `l0.duration` - Histogram of request durations
+- `l0.time_to_first_token` - Histogram of TTFT
+- `l0.active_streams` - UpDownCounter of currently active streams
+
+### L0OpenTelemetry Methods
+
+| Method                              | Description                                     |
+| ----------------------------------- | ----------------------------------------------- |
+| `traceStream(name, fn, attrs?)`     | Trace an L0 stream operation                    |
+| `recordTelemetry(telemetry, span?)` | Record telemetry from completed operation       |
+| `recordToken(span?, content?)`      | Record token span event                         |
+| `recordRetry(reason, attempt, span?)` | Record retry span event                       |
+| `recordNetworkError(error, type, span?)` | Record network error span event            |
+| `recordGuardrailViolation(violation, span?)` | Record violation span event            |
+| `recordDrift(type, confidence, span?)` | Record drift span event                      |
+| `createSpan(name, attrs?)`          | Create a child span                             |
+| `connectMonitor(monitor)`           | Connect to L0Monitor for auto recording         |
+| `getActiveStreams()`                | Get current active stream count                 |
 
 ### Manual Tracing
 
@@ -1096,10 +1299,8 @@ const otel = new L0OpenTelemetry({
 
 // Create a span manually
 const span = otel.createSpan("my-operation", {
-  attributes: {
-    [SemanticAttributes.LLM_REQUEST_MODEL]: "gpt-5-micro",
-    "custom.attribute": "value",
-  },
+  [SemanticAttributes.LLM_REQUEST_MODEL]: "gpt-5-micro",
+  "custom.attribute": "value",
 });
 
 try {
@@ -1116,10 +1317,11 @@ try {
 
   // Record telemetry to span
   otel.recordTelemetry(result.telemetry, span);
-  otel.endSpan(span);
+  span.end();
 } catch (error) {
-  otel.recordError(span, error);
-  otel.endSpan(span);
+  span.recordException(error);
+  span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+  span.end();
   throw error;
 }
 ```
@@ -1149,17 +1351,18 @@ const result = await l0({
 ### Example Trace Output
 
 ```
-Trace: l0.execution (1.5s)
+Trace: l0.stream (1.5s)
 ├── Attributes:
-│   ├── l0.session_id: "l0_abc123..."
-│   ├── gen_ai.request.model: "gpt-5-micro"
-│   ├── l0.retry.count: 1
-│   └── l0.tokens_per_second: 166
+│   ├── l0.attempt: 1
+│   ├── l0.is_retry: false
+│   ├── l0.is_fallback: false
+│   ├── l0.token_count: 250
+│   ├── l0.content_length: 1200
+│   └── l0.duration_ms: 1500
 ├── Events:
-│   ├── l0.stream.start (t=0ms)
-│   ├── l0.retry { reason: "rate_limit", attempt: 1 } (t=100ms)
-│   ├── l0.token.first { ttft_ms: 280 } (t=380ms)
-│   └── l0.stream.complete { tokens: 250 } (t=1500ms)
+│   ├── retry { retry.reason: "rate_limit", retry.attempt: 1 } (t=100ms)
+│   ├── guardrail_violation { guardrail.rule: "json", guardrail.severity: "warning" } (t=800ms)
+│   └── ... 
 └── Status: OK
 ```
 
@@ -1191,20 +1394,33 @@ async function handleRequest(req) {
 }
 ```
 
+### Re-exported Types
+
+The monitoring subpath re-exports useful OpenTelemetry types for convenience:
+
+```typescript
+import { SpanStatusCode, SpanKind } from "@ai2070/l0/monitoring";
+
+// SpanStatusCode.OK, SpanStatusCode.ERROR, SpanStatusCode.UNSET
+// SpanKind.CLIENT, SpanKind.SERVER, SpanKind.INTERNAL, etc.
+```
+
 ---
 
 ## Summary
 
 L0's built-in monitoring provides:
 
-- ✅ **Native Sentry support** - error tracking and performance monitoring
-- ✅ **Native OpenTelemetry support** - distributed tracing with GenAI semantic conventions
-- ✅ **No external dependencies** - everything built-in
-- ✅ **Comprehensive metrics** - performance, errors, violations
-- ✅ **Flexible sampling** - control overhead
-- ✅ **Multiple export formats** - JSON, CSV, logs, metrics
-- ✅ **Built-in abort handling** - cancel streams anytime
-- ✅ **Production-ready** - minimal overhead
-- ✅ **Easy integration** - works with any monitoring service
+- **Core monitoring** - L0Monitor class with comprehensive telemetry
+- **Event handler utilities** - combineEvents, filterEvents, excludeEvents, debounceEvents, batchEvents
+- **Native Sentry support** - error tracking and performance monitoring
+- **Native OpenTelemetry support** - distributed tracing with GenAI semantic conventions
+- **No external dependencies** - core monitoring is built-in
+- **Comprehensive metrics** - performance, errors, violations, drift
+- **Flexible sampling** - control overhead
+- **Multiple export formats** - JSON, CSV, logs, metrics
+- **Built-in abort handling** - cancel streams anytime
+- **Production-ready** - minimal overhead
+- **Easy integration** - works with any monitoring service
 
 Use L0's monitoring to track reliability, performance, and quality of your LLM applications!

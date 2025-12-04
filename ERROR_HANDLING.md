@@ -31,9 +31,11 @@ try {
 } catch (error) {
   if (isL0Error(error)) {
     // L0-specific error with context
-    console.log(error.code);
-    console.log(error.context);
+    console.log(error.code); // L0ErrorCode
+    console.log(error.category); // ErrorCategory
+    console.log(error.context); // L0ErrorContext
     console.log(error.hasCheckpoint); // Has checkpoint for continuation?
+    console.log(error.timestamp); // When error occurred
   }
 }
 ```
@@ -52,7 +54,9 @@ try {
     const analysis = analyzeNetworkError(error);
     console.log(analysis.type); // NetworkErrorType
     console.log(analysis.retryable); // boolean
+    console.log(analysis.countsTowardLimit); // boolean
     console.log(analysis.suggestion); // string
+    console.log(analysis.context); // Additional context
   }
 }
 ```
@@ -82,9 +86,14 @@ class L0Error extends Error {
   readonly context: L0ErrorContext;
   readonly timestamp: number;
 
-  hasCheckpoint: boolean; // Has checkpoint for continuation?
+  // Properties
+  get category(): ErrorCategory;
+  get hasCheckpoint(): boolean;
+
+  // Methods
   getCheckpoint(): string | undefined;
   toDetailedString(): string;
+  toJSON(): Record<string, unknown>;
 }
 ```
 
@@ -96,10 +105,55 @@ interface L0ErrorContext {
   checkpoint?: string; // Last good content for continuation
   tokenCount?: number; // Tokens before failure
   contentLength?: number; // Content length before failure
-  modelRetryCount?: number; // Retry attempts made
-  networkRetryCount?: number; // Network retries made
-  fallbackIndex?: number; // Which fallback was tried
+  modelRetryCount?: number; // Model retry attempts made
+  networkRetryCount?: number; // Network retries made (don't count toward limit)
+  fallbackIndex?: number; // Which fallback was tried (0 = primary)
   metadata?: Record<string, unknown>;
+}
+```
+
+### Usage Example
+
+```typescript
+import { isL0Error } from "@ai2070/l0";
+
+try {
+  const result = await l0({
+    stream: () => streamText({ model, prompt }),
+    guardrails: strictGuardrails,
+  });
+} catch (error) {
+  if (isL0Error(error)) {
+    // Log detailed error info
+    console.error(error.toDetailedString());
+    // "Message | Tokens: 42 | Retries: 2 | Fallback: 1 | Checkpoint: 150 chars"
+
+    // Access JSON representation
+    console.log(error.toJSON());
+    // {
+    //   name: "L0Error",
+    //   code: "GUARDRAIL_VIOLATION",
+    //   category: "content",
+    //   message: "...",
+    //   timestamp: 1699000000000,
+    //   hasCheckpoint: true,
+    //   checkpoint: 150,
+    //   tokenCount: 42,
+    //   modelRetryCount: 2,
+    //   networkRetryCount: 0,
+    //   fallbackIndex: 1
+    // }
+
+    // Check if we have a checkpoint for continuation
+    if (error.hasCheckpoint) {
+      const checkpoint = error.getCheckpoint();
+      // Retry with checkpoint context
+    }
+
+    // Access specific context
+    console.log(`Failed after ${error.context.tokenCount} tokens`);
+    console.log(`Model retry attempts: ${error.context.modelRetryCount}`);
+  }
 }
 ```
 
@@ -114,6 +168,8 @@ When errors occur, L0 emits `ERROR` events with detailed failure and recovery in
 What actually went wrong - the root cause of the failure:
 
 ```typescript
+import { FailureType } from "@ai2070/l0";
+
 type FailureType =
   | "network" // Connection drops, DNS, SSL, fetch errors
   | "model" // Model refused, content filter, guardrail violation
@@ -129,6 +185,8 @@ type FailureType =
 What L0 decided to do next:
 
 ```typescript
+import { RecoveryStrategy } from "@ai2070/l0";
+
 type RecoveryStrategy =
   | "retry" // Will retry the same stream
   | "fallback" // Will try next fallback stream
@@ -141,6 +199,8 @@ type RecoveryStrategy =
 Why L0 chose that recovery strategy:
 
 ```typescript
+import { RecoveryPolicy } from "@ai2070/l0";
+
 interface RecoveryPolicy {
   retryEnabled: boolean; // Whether retry is enabled in config
   fallbackEnabled: boolean; // Whether fallback streams are configured
@@ -154,7 +214,8 @@ interface RecoveryPolicy {
 ### Handling Error Events
 
 ```typescript
-import { EventType, type ErrorEvent } from "@ai2070/l0";
+import { EventType } from "@ai2070/l0";
+import type { ErrorEvent } from "@ai2070/l0";
 
 const result = await l0({
   stream: () => streamText({ model, prompt }),
@@ -162,6 +223,8 @@ const result = await l0({
     if (event.type === EventType.ERROR) {
       const e = event as ErrorEvent;
 
+      console.log("Error:", e.error);
+      console.log("Error code:", e.errorCode);
       console.log("Failure type:", e.failureType); // "network", "timeout", etc.
       console.log("Recovery:", e.recoveryStrategy); // "retry", "fallback", "halt"
       console.log("Policy:", e.policy);
@@ -179,31 +242,16 @@ const result = await l0({
 });
 ```
 
-### Usage Example
+### ErrorEvent Interface
 
 ```typescript
-import { isL0Error } from "@ai2070/l0";
-
-try {
-  const result = await l0({
-    stream: () => streamText({ model, prompt }),
-    guardrails: strictGuardrails,
-  });
-} catch (error) {
-  if (isL0Error(error)) {
-    // Log detailed error info
-    console.error(error.toDetailedString());
-
-    // Check if we have a checkpoint for continuation
-    if (error.hasCheckpoint) {
-      const checkpoint = error.getCheckpoint();
-      // Retry with checkpoint context
-    }
-
-    // Access specific context
-    console.log(`Failed after ${error.context.tokenCount} tokens`);
-    console.log(`Retry attempts: ${error.context.modelRetryCount}`);
-  }
+interface ErrorEvent extends L0ObservabilityEvent {
+  type: "ERROR";
+  error: string;
+  errorCode?: string;
+  failureType: FailureType;
+  recoveryStrategy: RecoveryStrategy;
+  policy: RecoveryPolicy;
 }
 ```
 
@@ -213,23 +261,46 @@ try {
 
 L0 uses specific error codes for programmatic handling:
 
-| Code                        | Description                                       | Recoverable |
+| Code                        | Description                                       | Category    |
 | --------------------------- | ------------------------------------------------- | ----------- |
-| `STREAM_ABORTED`            | Stream was aborted (user cancellation or timeout) | Sometimes   |
-| `INITIAL_TOKEN_TIMEOUT`     | First token didn't arrive in time                 | Yes         |
-| `INTER_TOKEN_TIMEOUT`       | Gap between tokens exceeded limit                 | Yes         |
-| `ZERO_OUTPUT`               | Stream produced no meaningful output              | Yes         |
-| `GUARDRAIL_VIOLATION`       | Content violated a guardrail rule                 | Yes         |
-| `FATAL_GUARDRAIL_VIOLATION` | Content violated a fatal guardrail                | No          |
-| `INVALID_STREAM`            | Stream factory returned invalid stream            | No          |
-| `ALL_STREAMS_EXHAUSTED`     | All streams (primary + fallbacks) failed          | No          |
-| `NETWORK_ERROR`             | Network-level failure                             | Yes         |
-| `DRIFT_DETECTED`            | Output drifted from expected behavior             | Yes         |
+| `STREAM_ABORTED`            | Stream was aborted (user cancellation or timeout) | PROVIDER    |
+| `INITIAL_TOKEN_TIMEOUT`     | First token didn't arrive in time                 | TRANSIENT   |
+| `INTER_TOKEN_TIMEOUT`       | Gap between tokens exceeded limit                 | TRANSIENT   |
+| `ZERO_OUTPUT`               | Stream produced no meaningful output              | CONTENT     |
+| `GUARDRAIL_VIOLATION`       | Content violated a guardrail rule                 | CONTENT     |
+| `FATAL_GUARDRAIL_VIOLATION` | Content violated a fatal guardrail                | CONTENT     |
+| `INVALID_STREAM`            | Stream factory returned invalid stream            | INTERNAL    |
+| `ALL_STREAMS_EXHAUSTED`     | All streams (primary + fallbacks) failed          | PROVIDER    |
+| `NETWORK_ERROR`             | Network-level failure                             | NETWORK     |
+| `DRIFT_DETECTED`            | Output drifted from expected behavior             | CONTENT     |
+| `ADAPTER_NOT_FOUND`         | Named adapter not found in registry               | INTERNAL    |
+| `FEATURE_NOT_ENABLED`       | Feature requires explicit enablement              | INTERNAL    |
+
+### L0ErrorCodes Constant
+
+```typescript
+import { L0ErrorCodes } from "@ai2070/l0";
+
+const L0ErrorCodes = {
+  STREAM_ABORTED: "STREAM_ABORTED",
+  INITIAL_TOKEN_TIMEOUT: "INITIAL_TOKEN_TIMEOUT",
+  INTER_TOKEN_TIMEOUT: "INTER_TOKEN_TIMEOUT",
+  ZERO_OUTPUT: "ZERO_OUTPUT",
+  GUARDRAIL_VIOLATION: "GUARDRAIL_VIOLATION",
+  FATAL_GUARDRAIL_VIOLATION: "FATAL_GUARDRAIL_VIOLATION",
+  INVALID_STREAM: "INVALID_STREAM",
+  ALL_STREAMS_EXHAUSTED: "ALL_STREAMS_EXHAUSTED",
+  NETWORK_ERROR: "NETWORK_ERROR",
+  DRIFT_DETECTED: "DRIFT_DETECTED",
+  ADAPTER_NOT_FOUND: "ADAPTER_NOT_FOUND",
+  FEATURE_NOT_ENABLED: "FEATURE_NOT_ENABLED",
+};
+```
 
 ### Handling Specific Codes
 
 ```typescript
-import { isL0Error } from "@ai2070/l0";
+import { isL0Error, L0ErrorCodes } from "@ai2070/l0";
 
 try {
   await l0({ stream, guardrails });
@@ -237,24 +308,34 @@ try {
   if (!isL0Error(error)) throw error;
 
   switch (error.code) {
-    case "ZERO_OUTPUT":
+    case L0ErrorCodes.ZERO_OUTPUT:
       // Model produced nothing - maybe adjust prompt
       console.log("Empty response, adjusting prompt...");
       break;
 
-    case "GUARDRAIL_VIOLATION":
+    case L0ErrorCodes.GUARDRAIL_VIOLATION:
       // Content failed validation - log for review
       console.log("Content violated:", error.context.metadata);
       break;
 
-    case "INITIAL_TOKEN_TIMEOUT":
+    case L0ErrorCodes.INITIAL_TOKEN_TIMEOUT:
       // First token slow - network or model overloaded
       console.log("Model slow to respond");
       break;
 
-    case "ALL_STREAMS_EXHAUSTED":
+    case L0ErrorCodes.ALL_STREAMS_EXHAUSTED:
       // All models failed - critical failure
       console.error("All models unavailable");
+      break;
+
+    case L0ErrorCodes.ADAPTER_NOT_FOUND:
+      // Named adapter not registered
+      console.error("Register the adapter first");
+      break;
+
+    case L0ErrorCodes.FEATURE_NOT_ENABLED:
+      // Feature needs to be enabled
+      console.error("Call the enable function first");
       break;
 
     default:
@@ -272,7 +353,13 @@ L0's retry system categorizes errors for appropriate handling:
 ```typescript
 import { ErrorCategory, getErrorCategory } from "@ai2070/l0";
 
+// Get category from error
 const category = getErrorCategory(error);
+
+// Or from L0Error
+if (isL0Error(error)) {
+  console.log(error.category);
+}
 
 switch (category) {
   case ErrorCategory.NETWORK:
@@ -280,16 +367,44 @@ switch (category) {
     break;
 
   case ErrorCategory.TRANSIENT:
-    // Rate limits, server errors - retry forever
+    // Rate limits, server errors, timeouts - retry forever
+    break;
+
+  case ErrorCategory.CONTENT:
+    // Guardrails, drift, zero output - counts toward retry limit
     break;
 
   case ErrorCategory.MODEL:
-    // Model-caused errors - counts toward retry limit
+    // Model-side errors - counts toward retry limit
+    break;
+
+  case ErrorCategory.PROVIDER:
+    // Provider/API errors - may retry depending on status code
     break;
 
   case ErrorCategory.FATAL:
-    // Don't retry (auth errors, invalid requests)
+    // Don't retry (auth errors, SSL, invalid requests)
     break;
+
+  case ErrorCategory.INTERNAL:
+    // Internal bugs, invalid config - don't retry
+    break;
+}
+```
+
+### ErrorCategory Enum
+
+```typescript
+import { ErrorCategory } from "@ai2070/l0";
+
+enum ErrorCategory {
+  NETWORK = "network", // Retry forever, doesn't count toward limit
+  TRANSIENT = "transient", // Retry forever (429, 503), doesn't count
+  MODEL = "model", // Model errors, counts toward retry limit
+  CONTENT = "content", // Guardrails, drift, counts toward limit
+  PROVIDER = "provider", // Provider/API errors
+  FATAL = "fatal", // Don't retry (auth, SSL, config)
+  INTERNAL = "internal", // Internal bugs, don't retry
 }
 ```
 
@@ -307,14 +422,24 @@ switch (category) {
 
 - 429 rate limit
 - 503 server overload
-- Timeouts
+- Timeouts (initial, inter-token)
+
+**CONTENT (retry with limit)**
+
+- Guardrail violations
+- Drift detected
+- Zero output
 
 **MODEL (retry with limit)**
 
-- Guardrail violations
+- Model-caused errors
+- Bad response format
 - Server error (model-side)
-- Drift detected
-- Incomplete structure
+
+**PROVIDER (may retry)**
+
+- Stream aborted
+- All streams exhausted
 
 **FATAL (no retry)**
 
@@ -322,6 +447,12 @@ switch (category) {
 - Invalid request
 - SSL errors
 - Fatal guardrail violations
+
+**INTERNAL (no retry)**
+
+- Invalid stream
+- Adapter not found
+- Feature not enabled
 
 ---
 
@@ -341,7 +472,9 @@ if (isNetworkError(error)) {
 
   console.log(analysis.type); // NetworkErrorType enum
   console.log(analysis.retryable); // boolean
+  console.log(analysis.countsTowardLimit); // boolean (always false for network)
   console.log(analysis.suggestion); // Human-readable suggestion
+  console.log(analysis.context); // Additional context
 }
 ```
 
@@ -446,7 +579,7 @@ async function generateWithFallback(prompt: string) {
       retry: recommendedRetry,
     });
   } catch (error) {
-    if (isL0Error(error) && error.code === "ALL_STREAMS_EXHAUSTED") {
+    if (isL0Error(error) && error.code === L0ErrorCodes.ALL_STREAMS_EXHAUSTED) {
       // All models failed - return cached/default response
       return getCachedResponse(prompt);
     }
@@ -483,8 +616,10 @@ catch (error) {
   if (isL0Error(error)) {
     logger.error({
       code: error.code,
+      category: error.category,
       tokenCount: error.context.tokenCount,
       modelRetryCount: error.context.modelRetryCount,
+      networkRetryCount: error.context.networkRetryCount,
       checkpoint: error.getCheckpoint()?.slice(0, 100),
       timestamp: error.timestamp
     });
@@ -509,6 +644,7 @@ retry: {
 catch (error) {
   if (isL0Error(error)) {
     metrics.increment(`l0.error.${error.code}`);
+    metrics.increment(`l0.error.category.${error.category}`);
     metrics.increment(`l0.error.has_checkpoint.${error.hasCheckpoint}`);
   }
 }
@@ -528,7 +664,7 @@ try {
     signal: controller.signal,
   });
 } catch (error) {
-  if (isL0Error(error) && error.code === "STREAM_ABORTED") {
+  if (isL0Error(error) && error.code === L0ErrorCodes.STREAM_ABORTED) {
     // User cancelled - not an error
     return;
   }
@@ -578,32 +714,59 @@ describe("Error handling", () => {
 Stream starts
     |
     v
-[First token received?]--No--> INITIAL_TOKEN_TIMEOUT (retry)
+[First token received?]--No--> INITIAL_TOKEN_TIMEOUT (TRANSIENT, retry)
     |
     Yes
     v
-[Token gap OK?]--No--> INTER_TOKEN_TIMEOUT (retry)
+[Token gap OK?]--No--> INTER_TOKEN_TIMEOUT (TRANSIENT, retry)
     |
     Yes
     v
-[Guardrail check]--Fail--> GUARDRAIL_VIOLATION (retry if not fatal)
-    |
-    Pass
+[Guardrail check]--Fail--> GUARDRAIL_VIOLATION (CONTENT, retry if not fatal)
+    |                 |
+    Pass        [Fatal?]--Yes--> FATAL_GUARDRAIL_VIOLATION (halt)
     v
 [Content accumulates...]
     |
     v
 [Stream complete?]--Error--> Check error type
     |                              |
-    Yes                    [Network?]--Yes--> Retry (no count)
+    Yes                    [Network?]--Yes--> NETWORK (retry, no count)
     |                              |
-    v                      [Model?]--Yes--> Retry (counts)
+    v                      [Model?]--Yes--> MODEL (retry, counts)
 [Final validation]                 |
-    |                      [Fatal?]--Yes--> Throw immediately
-    v
-[Zero output?]--Yes--> ZERO_OUTPUT (retry, no count)
-    |
+    |                      [Fatal?]--Yes--> FATAL (halt)
+    v                              |
+[Zero output?]--Yes--> ZERO_OUTPUT [Internal?]--Yes--> INTERNAL (halt)
+    |              (CONTENT, retry)
     No
     v
 Success!
 ```
+
+### Error Code to Category Mapping
+
+```typescript
+// From getErrorCategory(code: L0ErrorCode): ErrorCategory
+
+NETWORK_ERROR -> NETWORK
+INITIAL_TOKEN_TIMEOUT -> TRANSIENT
+INTER_TOKEN_TIMEOUT -> TRANSIENT
+GUARDRAIL_VIOLATION -> CONTENT
+FATAL_GUARDRAIL_VIOLATION -> CONTENT
+DRIFT_DETECTED -> CONTENT
+ZERO_OUTPUT -> CONTENT
+INVALID_STREAM -> INTERNAL
+ADAPTER_NOT_FOUND -> INTERNAL
+FEATURE_NOT_ENABLED -> INTERNAL
+STREAM_ABORTED -> PROVIDER
+ALL_STREAMS_EXHAUSTED -> PROVIDER
+```
+
+---
+
+## See Also
+
+- [NETWORK_ERRORS.md](./NETWORK_ERRORS.md) - Network error handling
+- [GUARDRAILS.md](./GUARDRAILS.md) - Guardrail violations
+- [API.md](./API.md) - Complete API reference

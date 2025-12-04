@@ -16,11 +16,11 @@ npm install ai @ai-sdk/openai
 
 ## Bundle Size
 
-| Import                  | Size   | Gzipped |
-| ----------------------- | ------ | ------- |
-| `@ai2070/l0` (full)     | 177 KB | 51 KB   |
-| `@ai2070/l0/core`       | 51 KB  | 15 KB   |
-| `@ai2070/l0/guardrails` | 18 KB  | 6 KB    |
+| Import                  | Size  | Gzipped | Description              |
+| ----------------------- | ----- | ------- | ------------------------ |
+| `@ai2070/l0` (full)     | 188KB | 55KB    | Everything               |
+| `@ai2070/l0/core`       | 68KB  | 20KB    | Runtime + retry + errors |
+| `@ai2070/l0/guardrails` | 17KB  | 5KB     | Validation rules         |
 
 Use subpath imports for smaller bundles.
 
@@ -54,7 +54,7 @@ console.log("\n\nTokens:", result.state.tokenCount);
 
 You now have:
 
-- Automatic retry on network failures
+- Automatic retry on network failures (doesn't count toward retry limit)
 - Guardrails detecting malformed output
 - Zero-token detection
 - Unified event format
@@ -89,24 +89,26 @@ console.log(result.data.name); // string
 console.log(result.data.age); // number
 ```
 
+Also supports Effect Schema and JSON Schema - see [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md).
+
 ### Timeout Protection
 
 ```typescript
 const result = await l0({
   stream: () => streamText({ model, prompt }),
 
-  // Optional, default as follows
+  // Optional timeout configuration
   timeout: {
-    initialToken: 5000, // 5s to first token
-    interToken: 10000, // 10s between tokens
+    initialToken: 5000, // 5s to first token (default: 5000ms)
+    interToken: 10000, // 10s between tokens (default: 10000ms)
   },
 
-  // Optional, default: none
+  // Optional guardrails
   guardrails: recommendedGuardrails,
 });
 ```
 
-⚠️ Free and low-priority models may take **3–7 seconds** before emitting the first token and **10 seconds** between tokens.
+**Note:** Free and low-priority models may take **3-7 seconds** before emitting the first token and **10+ seconds** between tokens.
 
 ### Fallback Models
 
@@ -133,7 +135,7 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   guardrails: [
     zeroOutputRule(),
-    customPatternRule([/forbidden/i], "Contains forbidden word"),
+    customPatternRule([/forbidden/i], "Contains forbidden word", "error"),
   ],
 });
 ```
@@ -189,19 +191,42 @@ import {
   minimalGuardrails, // JSON + zero output
   recommendedGuardrails, // + Markdown, patterns
   strictGuardrails, // + LaTeX
-} from "@ai2070/l0";
+  jsonOnlyGuardrails, // JSON + zero output
+  markdownOnlyGuardrails, // Markdown + zero output
+  latexOnlyGuardrails, // LaTeX + zero output
+} from "@ai2070/l0/guardrails";
 ```
+
+**Preset contents:**
+
+| Preset        | Rules                                        |
+| ------------- | -------------------------------------------- |
+| minimal       | jsonRule, zeroOutputRule                     |
+| recommended   | jsonRule, markdownRule, zeroOutputRule, patternRule |
+| strict        | jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule |
+| jsonOnly      | jsonRule, zeroOutputRule                     |
+| markdownOnly  | markdownRule, zeroOutputRule                 |
+| latexOnly     | latexRule, zeroOutputRule                    |
 
 ### Retry
 
 ```typescript
 import {
-  minimalRetry, // 2 attempts
+  minimalRetry, // 2 attempts, linear backoff
   recommendedRetry, // 3 attempts, fixed-jitter backoff
   strictRetry, // 3 attempts, full-jitter backoff
   exponentialRetry, // 4 attempts, exponential backoff
-} from "@ai2070/l0";
+} from "@ai2070/l0/core";
 ```
+
+**Preset details:**
+
+| Preset      | attempts | maxRetries | backoff      |
+| ----------- | -------- | ---------- | ------------ |
+| minimal     | 2        | 4          | linear       |
+| recommended | 3        | 6          | fixed-jitter |
+| strict      | 3        | 6          | full-jitter  |
+| exponential | 4        | 8          | exponential  |
 
 ---
 
@@ -214,9 +239,32 @@ console.log({
   content: result.state.content, // Full output
   tokenCount: result.state.tokenCount, // Token count
   completed: result.state.completed, // Stream finished
-  modelRetryCount: result.state.modelRetryCount,
-  fallbackIndex: result.state.fallbackIndex,
+  modelRetryCount: result.state.modelRetryCount, // Model retries (counts toward limit)
+  networkRetryCount: result.state.networkRetryCount, // Network retries (doesn't count)
+  fallbackIndex: result.state.fallbackIndex, // Which stream was used (0 = primary)
+  violations: result.state.violations, // Guardrail violations
 });
+```
+
+---
+
+## Monitoring
+
+Enable built-in telemetry:
+
+```typescript
+const result = await l0({
+  stream: () => streamText({ model, prompt }),
+  monitoring: {
+    enabled: true,
+    includeTimings: true,
+    includeNetworkDetails: true,
+  },
+});
+
+// After stream completes
+console.log(result.telemetry);
+// { sessionId, duration, metrics: { totalTokens, tokensPerSecond, ... }, ... }
 ```
 
 ---
@@ -231,3 +279,4 @@ console.log({
 | [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)       | Network error handling       |
 | [PERFORMANCE.md](./PERFORMANCE.md)             | Performance tuning           |
 | [ERROR_HANDLING.md](./ERROR_HANDLING.md)       | Error codes and recovery     |
+| [MONITORING.md](./MONITORING.md)               | Telemetry and observability  |

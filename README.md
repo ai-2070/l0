@@ -152,12 +152,12 @@ const result = await l0({
   // Optional: Guardrails, default: none
   guardrails: recommendedGuardrails,
   // Other presets:
-  // minimalGuardrails       // JSON + zero output
-  // recommendedGuardrails   // + Markdown, patterns
-  // strictGuardrails        // + LaTeX
-  // jsonOnlyGuardrails      // JSON only
-  // markdownOnlyGuardrails  // Markdown only
-  // latexOnlyGuardrails     // LaTeX only
+  // minimalGuardrails       // jsonRule, zeroOutputRule
+  // recommendedGuardrails   // jsonRule, markdownRule, zeroOutputRule, patternRule
+  // strictGuardrails        // jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule
+  // jsonOnlyGuardrails      // jsonRule, zeroOutputRule
+  // markdownOnlyGuardrails  // markdownRule, zeroOutputRule
+  // latexOnlyGuardrails     // latexRule, zeroOutputRule
 
   // Optional: Retry configuration, default as follows
   retry: {
@@ -167,8 +167,11 @@ const result = await l0({
     maxDelay: 10000,
     backoff: "fixed-jitter", // "exponential" | "linear" | "fixed" | "full-jitter"
   },
-  // Or simply:
-  // retry: recommendedRetry (3/6/fixed-jitter) | minimalRetry (2/4/linear) | strictRetry (3/6/full-jitter) | exponentialRetry (4/8/exponential)
+  // Or use presets:
+  // minimalRetry       // { attempts: 2, maxRetries: 4, backoff: "linear" }
+  // recommendedRetry   // { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
+  // strictRetry        // { attempts: 3, maxRetries: 6, backoff: "full-jitter" }
+  // exponentialRetry   // { attempts: 4, maxRetries: 8, backoff: "exponential" }
 
   // Optional: Timeout configuration, default as follows
   timeout: {
@@ -182,6 +185,9 @@ const result = await l0({
     drift: 10,
     checkpoint: 10,
   },
+
+  // Optional: User metadata (attached to all observability events)
+  meta: { requestId: "req_123", userId: "user_456" },
 
   // Optional: Abort signal
   signal: abortController.signal,
@@ -358,16 +364,18 @@ const result = await l0({
 
 ### Retry Behavior
 
-| Error Type           | Retries | Counts Toward `attempts` | Counts Toward `maxRetries` |
-| -------------------- | ------- | ------------------------ | -------------------------- |
-| Network disconnect   | Yes     | No                       | Yes                        |
-| Zero output          | Yes     | No                       | Yes                        |
-| Timeout              | Yes     | No                       | Yes                        |
-| 429 rate limit       | Yes     | No                       | Yes                        |
-| 503 server error     | Yes     | No                       | Yes                        |
-| Guardrail violation  | Yes     | **Yes**                  | Yes                        |
-| Drift detected       | Yes     | **Yes**                  | Yes                        |
-| Auth error (401/403) | No      | -                        | -                          |
+| Error Type           | Category    | Retries | Counts Toward `attempts` | Counts Toward `maxRetries` |
+| -------------------- | ----------- | ------- | ------------------------ | -------------------------- |
+| Network disconnect   | `NETWORK`   | Yes     | No                       | Yes                        |
+| Zero output          | `CONTENT`   | Yes     | **Yes**                  | Yes                        |
+| Timeout              | `TRANSIENT` | Yes     | No                       | Yes                        |
+| 429 rate limit       | `TRANSIENT` | Yes     | No                       | Yes                        |
+| 503 server error     | `TRANSIENT` | Yes     | No                       | Yes                        |
+| Guardrail violation  | `CONTENT`   | Yes     | **Yes**                  | Yes                        |
+| Drift detected       | `CONTENT`   | Yes     | **Yes**                  | Yes                        |
+| Model error          | `MODEL`     | Yes     | **Yes**                  | Yes                        |
+| Auth error (401/403) | `FATAL`     | No      | -                        | -                          |
+| Invalid config       | `INTERNAL`  | No      | -                        | -                          |
 
 ---
 
@@ -515,6 +523,51 @@ const result = await structured({
 });
 
 console.log(result.data.name); // string - typed via generic
+```
+
+### Helper Functions
+
+```typescript
+import { structuredObject, structuredArray, structuredStream } from "@ai2070/l0";
+
+// Quick object schema
+const result = await structuredObject({
+  name: z.string(),
+  age: z.number()
+}, { stream });
+
+// Quick array schema
+const result = await structuredArray(
+  z.object({ name: z.string() }),
+  { stream }
+);
+
+// Streaming with end validation
+const { stream, result, abort } = await structuredStream({
+  schema,
+  stream: () => streamText({ model, prompt })
+});
+
+for await (const event of stream) {
+  if (event.type === 'token') console.log(event.value);
+}
+const validated = await result;
+```
+
+### Structured Output Presets
+
+```typescript
+import { minimalStructured, recommendedStructured, strictStructured } from "@ai2070/l0";
+
+// minimalStructured:     { autoCorrect: false, retry: { attempts: 1 } }
+// recommendedStructured: { autoCorrect: true, retry: { attempts: 2 } }
+// strictStructured:      { autoCorrect: true, strictMode: true, retry: { attempts: 3 } }
+
+const result = await structured({
+  schema,
+  stream,
+  ...recommendedStructured
+});
 ```
 
 ---
@@ -741,15 +794,20 @@ const result = await l0({
 
 ```typescript
 import {
-  minimalGuardrails,
-  recommendedGuardrails,
-  strictGuardrails,
+  minimalGuardrails,      // jsonRule, zeroOutputRule
+  recommendedGuardrails,  // jsonRule, markdownRule, zeroOutputRule, patternRule
+  strictGuardrails,       // jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule
+  jsonOnlyGuardrails,     // jsonRule, zeroOutputRule
+  markdownOnlyGuardrails, // markdownRule, zeroOutputRule
+  latexOnlyGuardrails,    // latexRule, zeroOutputRule
 } from "@ai2070/l0";
-
-// Minimal: JSON + zero output detection
-// Recommended: + Markdown, drift, patterns
-// Strict: + function calls, schema validation
 ```
+
+| Preset                   | Rules Included                                               |
+| ------------------------ | ------------------------------------------------------------ |
+| `minimalGuardrails`      | `jsonRule`, `zeroOutputRule`                                 |
+| `recommendedGuardrails`  | `jsonRule`, `markdownRule`, `zeroOutputRule`, `patternRule`  |
+| `strictGuardrails`       | `jsonRule`, `markdownRule`, `latexRule`, `patternRule`, `zeroOutputRule` |
 
 ### Fast/Slow Path Execution
 
@@ -816,6 +874,8 @@ const result = await race([
   { stream: () => streamText({ model: google("gemini-pro"), prompt }) },
 ]);
 // Returns first successful response, cancels others
+console.log(result.winnerIndex); // 0-based index of winning stream
+console.log(result.state.content); // Content from winning stream
 ```
 
 ### Parallel with Concurrency Control
@@ -861,6 +921,27 @@ const result = await race([
   { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
   { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
 ]);
+```
+
+### Operation Pool
+
+For dynamic workloads, use `OperationPool` to process operations with a shared concurrency limit:
+
+```typescript
+import { createPool } from "@ai2070/l0";
+
+const pool = createPool(3); // Max 3 concurrent operations
+
+// Add operations dynamically
+const result1 = pool.execute({ stream: () => streamText({ model, prompt: "Task 1" }) });
+const result2 = pool.execute({ stream: () => streamText({ model, prompt: "Task 2" }) });
+
+// Wait for all operations to complete
+await pool.drain();
+
+// Pool methods
+pool.getQueueLength();   // Pending operations
+pool.getActiveWorkers(); // Currently executing
 ```
 
 ---
@@ -1097,6 +1178,96 @@ const result = await l0({
     console.log(`  Args: ${JSON.stringify(args)}`);
   },
 });
+```
+
+## Deterministic Lifecycle Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            L0 LIFECYCLE FLOW                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                                ┌──────────┐
+                                │  START   │
+                                └────┬─────┘
+                                     │
+                                     ▼
+                      ┌──────────────────────────────┐
+                      │ onStart(attempt, false, false) │
+                      └──────────────┬───────────────┘
+                                     │
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                              STREAMING PHASE                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                         onEvent(event)                              │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                            │
+│  During streaming, these callbacks fire as conditions occur:               │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │ onCheckpoint │  │  onToolCall  │  │   onDrift    │  │  onTimeout   │   │
+│  │ (checkpoint, │  │ (toolName,   │  │ (types,      │  │ (type,       │   │
+│  │  tokenCount) │  │  id, args)   │  │  confidence) │  │  elapsedMs)  │   │
+│  └──────────────┘  └──────────────┘  └──────┬───────┘  └──────┬───────┘   │
+│                                             │                  │           │
+│                                             └────────┬─────────┘           │
+│                                                      │ triggers retry      │
+└──────────────────────────────────────────────────────┼─────────────────────┘
+                                                       │
+              ┌────────────────────────────────────────┼────────────────┐
+              │                    │                   │                │
+              ▼                    ▼                   ▼                ▼
+        ┌─────────┐          ┌───────────┐      ┌──────────┐      ┌─────────┐
+        │ SUCCESS │          │   ERROR   │      │VIOLATION │      │  ABORT  │
+        └────┬────┘          └─────┬─────┘      └────┬─────┘      └────┬────┘
+             │                     │                 │                 │
+             │                     │                 ▼                 ▼
+             │                     │          ┌─────────────┐   ┌───────────┐
+             │                     │          │ onViolation │   │  onAbort  │
+             │                     │          └──────┬──────┘   │(tokenCount│
+             │                     │                 │          │ contentLen)│
+             │                     ▼                 ▼          └───────────┘
+             │              ┌────────────────────────────────┐
+             │              │ onError(error, willRetry,      │
+             │              │         willFallback)          │
+             │              └──────────────┬─────────────────┘
+             │                             │
+             │                 ┌───────────┼───────────┐
+             │                 │           │           │
+             │                 ▼           ▼           ▼
+             │           ┌──────────┐ ┌──────────┐ ┌──────────┐
+             │           │  RETRY   │ │ FALLBACK │ │  FATAL   │
+             │           └────┬─────┘ └────┬─────┘ └────┬─────┘
+             │                │            │            │
+             │                ▼            ▼            │
+             │          ┌───────────┐ ┌───────────┐     │
+             │          │ onRetry() │ │onFallback │     │
+             │          └─────┬─────┘ └─────┬─────┘     │
+             │                │             │           │
+             │                │    ┌────────┘           │
+             │                │    │                    │
+             │                ▼    ▼                    │
+             │          ┌─────────────────────┐         │
+             │          │  Has checkpoint?    │         │
+             │          └──────────┬──────────┘         │
+             │                YES  │  NO                │
+             │                ┌────┴────┐               │
+             │                ▼         ▼               │
+             │          ┌──────────┐    │               │
+             │          │ onResume │    │               │
+             │          └────┬─────┘    │               │
+             │               │          │               │
+             │               ▼          ▼               │
+             │          ┌─────────────────────────┐     │
+             │          │onStart(attempt, isRetry,│     │
+             │          │        isFallback)      │─────┼──► Back to STREAMING
+             │          └─────────────────────────┘     │
+             │                                          │
+             ▼                                          ▼
+      ┌─────────────┐                            ┌──────────┐
+      │ onComplete  │                            │  THROW   │
+      │   (state)   │                            │  ERROR   │
+      └─────────────┘                            └──────────┘
 ```
 
 ### Callback Reference
@@ -1593,21 +1764,23 @@ Every major reliability feature in L0 has dedicated test suites:
 
 ## Documentation
 
-| Guide                                                          | Description                 |
-| -------------------------------------------------------------- | --------------------------- |
-| [QUICKSTART.md](./QUICKSTART.md)                               | 5-minute getting started    |
-| [API.md](./API.md)                                             | Complete API reference      |
-| [GUARDRAILS.md](./GUARDRAILS.md)                               | Guardrails and validation   |
-| [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md)                 | Structured output guide     |
-| [CONSENSUS.md](./CONSENSUS.md)                                 | Multi-generation consensus  |
-| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md)                   | Document chunking guide     |
-| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)                       | Network error handling      |
-| [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Parallel operations         |
-| [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics       |
-| [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails |
-| [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers          |
-| [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md)                     | Build your own adapters     |
-| [MULTIMODAL.md](./MULTIMODAL.md)                               | Image/audio/video support   |
+| Guide                                                          | Description                        |
+| -------------------------------------------------------------- | ---------------------------------- |
+| [QUICKSTART.md](./QUICKSTART.md)                               | 5-minute getting started           |
+| [API.md](./API.md)                                             | Complete API reference             |
+| [GUARDRAILS.md](./GUARDRAILS.md)                               | Guardrails and validation          |
+| [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md)                 | Structured output guide            |
+| [CONSENSUS.md](./CONSENSUS.md)                                 | Multi-generation consensus         |
+| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md)                   | Document chunking guide            |
+| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)                       | Network error handling             |
+| [ERROR_HANDLING.md](./ERROR_HANDLING.md)                       | Error handling guide               |
+| [PERFORMANCE.md](./PERFORMANCE.md)                             | Performance tuning                 |
+| [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Interceptors and parallel ops      |
+| [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics              |
+| [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails        |
+| [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers                 |
+| [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md)                     | Build your own adapters            |
+| [MULTIMODAL.md](./MULTIMODAL.md)                               | Image/audio/video support          |
 
 ---
 

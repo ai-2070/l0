@@ -16,9 +16,26 @@ Interceptors provide hooks into the L0 execution pipeline for **request/response
 
 ```typescript
 interface L0Interceptor {
+  /**
+   * Optional name for the interceptor
+   */
   name?: string;
+
+  /**
+   * Before hook - runs before stream starts
+   * Can modify options, inject metadata, add authentication, etc.
+   */
   before?: (options: L0Options) => L0Options | Promise<L0Options>;
+
+  /**
+   * After hook - runs after stream completes
+   * Can inspect output, post-process content, log results, etc.
+   */
   after?: (result: L0Result) => L0Result | Promise<L0Result>;
+
+  /**
+   * Error hook - runs if an error occurs
+   */
   onError?: (error: Error, options: L0Options) => void | Promise<void>;
 }
 ```
@@ -27,12 +44,13 @@ interface L0Interceptor {
 
 ```typescript
 import {
-  loggingInterceptor, // Log execution start/complete
-  metadataInterceptor, // Inject metadata into telemetry
+  loggingInterceptor, // Log execution start/complete/error
+  metadataInterceptor, // Inject metadata into monitoring
   authInterceptor, // Add authentication tokens
-  timingInterceptor, // Track detailed timing
-  validationInterceptor, // Validate output
+  timingInterceptor, // Track detailed timing (enables monitoring)
+  validationInterceptor, // Validate output content
   rateLimitInterceptor, // Throttle requests
+  cachingInterceptor, // Cache results based on prompt hash
   transformInterceptor, // Post-process content
   analyticsInterceptor, // Send to analytics services
 } from "@ai2070/l0";
@@ -49,6 +67,111 @@ const result = await l0({
 });
 ```
 
+### Built-In Interceptor Details
+
+#### loggingInterceptor
+
+Logs L0 operations to a logger interface:
+
+```typescript
+loggingInterceptor(logger?: { info: Function, error: Function })
+
+// Logs on before: "L0 execution starting" with hasGuardrails, hasRetry, hasMonitoring
+// Logs on after: "L0 execution completed" with completed, tokens, retries, networkRetryCount, violations
+// Logs on error: "L0 execution failed" with error message
+```
+
+#### metadataInterceptor
+
+Injects metadata into monitoring (enables monitoring if not already):
+
+```typescript
+metadataInterceptor(metadata: Record<string, any>)
+
+// Merges provided metadata into options.monitoring.metadata
+```
+
+#### authInterceptor
+
+Adds authentication data to monitoring metadata:
+
+```typescript
+authInterceptor(getAuth: () => Record<string, any> | Promise<Record<string, any>>)
+
+// Calls getAuth() and adds result to options.monitoring.metadata.auth
+```
+
+#### timingInterceptor
+
+Enables detailed timing tracking:
+
+```typescript
+timingInterceptor()
+
+// Sets monitoring.enabled = true, monitoring.includeTimings = true
+// Generates a sessionId and tracks start time
+```
+
+#### validationInterceptor
+
+Validates output content after completion:
+
+```typescript
+validationInterceptor(
+  validate: (content: string) => boolean | Promise<boolean>,
+  onInvalid?: (content: string) => void
+)
+
+// Throws "Output validation failed" if validate returns false
+// Calls onInvalid callback if provided before throwing
+```
+
+#### rateLimitInterceptor
+
+Throttles requests within a time window:
+
+```typescript
+rateLimitInterceptor(maxRequests: number, windowMs: number)
+
+// Throws "Rate limit exceeded. Wait Xms before retrying." if over limit
+// Tracks requests in a sliding window
+```
+
+#### cachingInterceptor
+
+Caches results based on a custom cache key:
+
+```typescript
+cachingInterceptor(
+  cache: Map<string, L0Result>,
+  getCacheKey: (options: L0Options) => string
+)
+
+// Throws CachedResultError with cached result if key exists
+// Note: Requires external handling to catch CachedResultError
+```
+
+#### transformInterceptor
+
+Post-processes content after completion:
+
+```typescript
+transformInterceptor(transform: (content: string) => string | Promise<string>)
+
+// Replaces result.state.content with transformed content
+```
+
+#### analyticsInterceptor
+
+Sends execution data to an analytics service:
+
+```typescript
+analyticsInterceptor(track: (event: string, data: any) => void | Promise<void>)
+
+// Tracks: "l0_started", "l0_completed", "l0_failed"
+// Includes duration, tokens, retries, completed status, error message
+```
+
 ### Custom Interceptor
 
 ```typescript
@@ -62,7 +185,7 @@ const myInterceptor: L0Interceptor = {
     console.log("Completed!");
     return result;
   },
-  onError: async (error) => {
+  onError: async (error, options) => {
     console.error("Failed:", error.message);
   },
 };
@@ -81,8 +204,34 @@ const result = await l0({
     transformInterceptor(transform), // after: 2nd
   ],
 });
-// Before hooks: 1 → 2 → 3
-// After hooks: 4 → 5
+// Before hooks: 1 → 2 → 3 (in order)
+// After hooks: 1 → 2 (in order, not reversed)
+// Error hooks: called for all interceptors if error occurs
+```
+
+### InterceptorManager
+
+For advanced use cases, you can use the `InterceptorManager` class directly:
+
+```typescript
+import { InterceptorManager, createInterceptorManager } from "@ai2070/l0";
+
+const manager = createInterceptorManager([
+  loggingInterceptor(),
+  validationInterceptor(validate),
+]);
+
+// Execute hooks manually
+const modifiedOptions = await manager.executeBefore(options);
+const modifiedResult = await manager.executeAfter(result);
+await manager.executeError(error, options);
+
+// Get execution contexts for debugging
+const contexts = manager.getContexts();
+// Returns: Array<{ name, phase, timestamp, duration? }>
+
+// Reset contexts
+manager.reset();
 ```
 
 ---
@@ -121,12 +270,39 @@ console.log("Spanish:", results.results[0]?.state.content);
 
 ```typescript
 interface ParallelOptions {
-  concurrency?: number; // Max concurrent (default: 5)
-  failFast?: boolean; // Stop on first error (default: false)
-  sharedRetry?: RetryOptions;
-  sharedMonitoring?: MonitoringConfig;
+  /**
+   * Maximum number of concurrent operations (default: 5)
+   */
+  concurrency?: number;
+
+  /**
+   * Whether to fail fast on first error (default: false)
+   */
+  failFast?: boolean;
+
+  /**
+   * Shared retry configuration for all operations
+   */
+  sharedRetry?: L0Options["retry"];
+
+  /**
+   * Shared monitoring configuration for all operations
+   */
+  sharedMonitoring?: L0Options["monitoring"];
+
+  /**
+   * Callback for progress updates
+   */
   onProgress?: (completed: number, total: number) => void;
+
+  /**
+   * Callback when an operation completes
+   */
   onComplete?: (result: L0Result, index: number) => void;
+
+  /**
+   * Callback when an operation fails
+   */
   onError?: (error: Error, index: number) => void;
 }
 ```
@@ -134,35 +310,80 @@ interface ParallelOptions {
 ### Result
 
 ```typescript
-interface ParallelResult {
-  results: Array<L0Result | null>;
+interface ParallelResult<TOutput = unknown> {
+  /**
+   * Results from all operations (null for failed operations if failFast: false)
+   */
+  results: Array<L0Result<TOutput> | null>;
+
+  /**
+   * Errors encountered (null for successful operations)
+   */
   errors: Array<Error | null>;
+
+  /**
+   * Number of successful operations
+   */
   successCount: number;
+
+  /**
+   * Number of failed operations
+   */
   failureCount: number;
+
+  /**
+   * Total duration in milliseconds
+   */
   duration: number;
+
+  /**
+   * Whether all operations succeeded
+   */
   allSucceeded: boolean;
+
+  /**
+   * Aggregated telemetry from all operations
+   */
   aggregatedTelemetry?: AggregatedTelemetry;
+}
+
+interface AggregatedTelemetry {
+  totalTokens: number;
+  totalDuration: number;
+  totalRetries: number;
+  totalNetworkErrors: number;
+  totalViolations: number;
+  avgTokensPerSecond: number;
+  avgTimeToFirstToken: number;
 }
 ```
 
 ### Helper Functions
 
 ```typescript
-import { parallel, parallelAll, sequential, batched, race } from "@ai2070/l0";
+import {
+  parallel,
+  parallelAll,
+  sequential,
+  batched,
+  race,
+  createPool,
+  OperationPool,
+} from "@ai2070/l0";
 
-// Limited concurrency
+// Limited concurrency (default: 5)
 await parallel(operations, { concurrency: 3 });
 
-// Unlimited concurrency
+// Unlimited concurrency (concurrency = operations.length)
 await parallelAll(operations);
 
-// One at a time
+// One at a time (concurrency: 1)
 await sequential(operations);
 
-// Process in batches
-await batched(operations, { batchSize: 5, concurrency: 3 });
+// Process in batches (runs each batch in parallel, then next batch)
+await batched(operations, 5); // batchSize as second argument
 
-// First to succeed wins
+// First to succeed wins (uses Promise.any internally)
 await race(operations);
 ```
 
@@ -176,13 +397,27 @@ const result = await race([
   { stream: () => streamText({ model: anthropic("claude-3"), prompt }) },
   { stream: () => streamText({ model: google("gemini-pro"), prompt }) },
 ]);
+
 // Uses first successful response
+// Other operations are aborted via AbortController
+console.log("Winner index:", result.winnerIndex);
+```
+
+### Race Result
+
+```typescript
+interface RaceResult<TOutput = unknown> extends L0Result<TOutput> {
+  /**
+   * Index of the winning operation (0-based)
+   */
+  winnerIndex: number;
+}
 ```
 
 ### Pool - Reusable Workers
 
 ```typescript
-import { createPool } from "@ai2070/l0";
+import { createPool, OperationPool } from "@ai2070/l0";
 
 const pool = createPool(3, {
   sharedRetry: recommendedRetry,
@@ -195,8 +430,22 @@ const results = await Promise.all([
   pool.execute({ stream: () => streamText({ model, prompt: "Task 3" }) }),
 ]);
 
+// Wait for all queued operations to complete
 await pool.drain();
+
+// Get current status
+console.log("Queue length:", pool.getQueueLength());
+console.log("Active workers:", pool.getActiveWorkers());
 ```
+
+### OperationPool Methods
+
+| Method              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `execute(options)`  | Add operation to pool, returns Promise   |
+| `drain()`           | Wait for all operations to complete      |
+| `getQueueLength()`  | Get number of queued operations          |
+| `getActiveWorkers()`| Get number of currently active workers   |
 
 ---
 
@@ -226,11 +475,12 @@ Call all models simultaneously, use fastest response:
 
 ```typescript
 const result = await race([
-  () => streamText({ model: openai("gpt-4o"), prompt }),
-  () => streamText({ model: anthropic("claude-3-opus"), prompt }),
-  () => streamText({ model: google("gemini-pro"), prompt }),
+  { stream: () => streamText({ model: openai("gpt-4o"), prompt }) },
+  { stream: () => streamText({ model: anthropic("claude-3-opus"), prompt }) },
+  { stream: () => streamText({ model: google("gemini-pro"), prompt }) },
 ]);
 // All called at once, first to complete wins
+// Others are automatically aborted
 ```
 
 **Use when:** Latency critical, cost not a constraint.
@@ -250,8 +500,8 @@ const result = await race([
 const result = await l0({
   stream: async () =>
     race([
-      () => streamText({ model: openai("gpt-5-mini"), prompt }),
-      () => streamText({ model: anthropic("claude-3-haiku"), prompt }),
+      { stream: () => streamText({ model: openai("gpt-5-mini"), prompt }) },
+      { stream: () => streamText({ model: anthropic("claude-3-haiku"), prompt }) },
     ]),
   fallbackStreams: [
     () => streamText({ model: openai("gpt-5-mini"), prompt }),
@@ -260,3 +510,29 @@ const result = await l0({
 });
 // Fast models race first, fallback to quality if both fail
 ```
+
+---
+
+## Batched Operations
+
+Process operations in batches with control over batch size:
+
+```typescript
+import { batched } from "@ai2070/l0";
+
+const result = await batched(
+  operations,
+  5, // batchSize - operations per batch
+  {
+    failFast: false,
+    onProgress: (completed, total) => {
+      console.log(`Progress: ${completed}/${total}`);
+    },
+  },
+);
+
+// Runs 5 operations in parallel, waits for all to complete
+// Then runs next 5 operations, and so on
+```
+
+The `batched` function differs from `parallel` in that it waits for each batch to fully complete before starting the next batch, rather than maintaining a rolling window of concurrent operations.

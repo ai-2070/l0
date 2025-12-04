@@ -28,11 +28,33 @@ formatContext("Content", { delimiter: "brackets" });
 // Content
 // ==============================
 
+// No delimiters
+formatContext("Content", { delimiter: "none" });
+
+// Custom delimiters
+formatContext("Content", {
+  customDelimiterStart: "<<<START>>>",
+  customDelimiterEnd: "<<<END>>>",
+});
+
 // Document with metadata
 formatDocument("Report content", { title: "Q4 Report", author: "Team" });
 
 // System instructions
 formatInstructions("You are a helpful assistant.");
+```
+
+### Options
+
+```typescript
+formatContext(content, {
+  label: "Context", // Label for section (default: "Context")
+  delimiter: "xml", // xml | markdown | brackets | none
+  dedent: true, // Remove common indentation (default: true)
+  normalize: true, // Normalize whitespace (default: true)
+  customDelimiterStart: "...", // Custom start delimiter
+  customDelimiterEnd: "...", // Custom end delimiter
+});
 ```
 
 ### Multiple Contexts
@@ -58,6 +80,14 @@ escapeDelimiters("<script>alert('xss')</script>", "xml");
 
 unescapeDelimiters("&lt;div&gt;", "xml");
 // <div>
+
+// Markdown escaping
+escapeDelimiters("# Header", "markdown");
+// \# Header
+
+// Bracket escaping
+escapeDelimiters("[section]", "brackets");
+// \[section\]
 ```
 
 ---
@@ -83,8 +113,12 @@ formatMemory(memory);
 // Structured XML style
 formatMemory(memory, { style: "structured" });
 // <conversation_history>
-//   <message role="user">Hello</message>
-//   <message role="assistant">Hi there!</message>
+//   <message role="user">
+//     Hello
+//   </message>
+//   <message role="assistant">
+//     Hi there!
+//   </message>
 // </conversation_history>
 
 // Compact style
@@ -97,10 +131,11 @@ formatMemory(memory, { style: "compact" });
 
 ```typescript
 formatMemory(memory, {
-  maxEntries: 10, // Limit entries
+  maxEntries: 10, // Limit entries (takes last N)
   includeTimestamps: true, // Add timestamps
   includeMetadata: true, // Add metadata
   style: "conversational", // conversational | structured | compact
+  normalize: true, // Normalize content (default: true)
 });
 ```
 
@@ -118,6 +153,7 @@ import {
 
 // Create timestamped entry
 const entry = createMemoryEntry("user", "Hello", { source: "chat" });
+// { role: "user", content: "Hello", timestamp: 1234567890, metadata: { source: "chat" } }
 
 // Merge and sort by timestamp
 const merged = mergeMemory(memory1, memory2);
@@ -131,8 +167,19 @@ const recent = getLastNEntries(memory, 5);
 // Calculate size
 const size = calculateMemorySize(memory); // character count
 
-// Truncate to fit limit
+// Truncate to fit limit (keeps most recent)
 const truncated = truncateMemory(memory, 10000); // max chars
+```
+
+### Memory Entry Interface
+
+```typescript
+interface MemoryEntry {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp?: number;
+  metadata?: Record<string, any>;
+}
 ```
 
 ---
@@ -146,13 +193,22 @@ import { formatJsonOutput, formatStructuredOutput } from "@ai2070/l0";
 
 // Strict JSON output
 formatJsonOutput({ strict: true });
-// Respond with valid JSON only. Do not include any text before or after...
+// Respond with valid JSON only. Do not include any text before or after the JSON object.
+// Do not wrap the JSON in markdown code blocks or backticks.
+// Start your response with { and end with }.
 
 // With schema
 formatJsonOutput({
   strict: true,
   schema: '{ "name": "string", "age": "number" }',
 });
+
+// Non-strict (allows surrounding text)
+formatJsonOutput({ strict: false });
+// Respond with valid JSON.
+
+// Control whether to include instructions
+formatJsonOutput({ includeInstructions: false, schema: "..." });
 
 // Other formats
 formatStructuredOutput("yaml", { strict: true });
@@ -164,7 +220,11 @@ formatStructuredOutput("plain");
 ### Output Constraints
 
 ```typescript
-import { formatOutputConstraints, createOutputFormatSection } from "@ai2070/l0";
+import {
+  formatOutputConstraints,
+  createOutputFormatSection,
+  wrapOutputInstruction,
+} from "@ai2070/l0";
 
 formatOutputConstraints({
   maxLength: 500,
@@ -180,8 +240,14 @@ createOutputFormatSection("json", {
   strict: true,
   schema: '{ "result": "string" }',
   constraints: { maxLength: 1000 },
-  wrap: true, // Wraps in <output_format> tags
+  wrap: true, // Wraps in <output_format> tags (default: true)
 });
+
+// Manual wrapping
+wrapOutputInstruction("Respond with JSON only");
+// <output_format>
+// Respond with JSON only
+// </output_format>
 ```
 
 ### Extract & Clean
@@ -196,6 +262,14 @@ extractJsonFromOutput('Here is the result: {"name": "John"}');
 // Extract from code blocks
 extractJsonFromOutput('```json\n{"name": "John"}\n```');
 // {"name": "John"}
+
+// Extract arrays
+extractJsonFromOutput("The list: [1, 2, 3]");
+// [1, 2, 3]
+
+// Returns null if no JSON found
+extractJsonFromOutput("No JSON here");
+// null
 
 // Clean common prefixes
 cleanOutput("Sure, here is the result:\n```json\n{}\n```");
@@ -220,22 +294,47 @@ const tool = createTool("get_weather", "Get current weather", [
 formatTool(tool, { style: "json-schema" });
 // {
 //   "name": "get_weather",
-//   "parameters": { "type": "object", "properties": {...} }
+//   "description": "Get current weather",
+//   "parameters": {
+//     "type": "object",
+//     "properties": {...},
+//     "required": ["location"]
+//   }
 // }
 
 // TypeScript format
 formatTool(tool, { style: "typescript" });
+// /**
+//  * Get current weather
+//  * @param location - City name
+//  * @param units - Temperature units
+//  */
 // function get_weather(location: string, units?: string): void;
 
 // Natural language
 formatTool(tool, { style: "natural" });
 // Tool: get_weather
 // Description: Get current weather
+//
 // Parameters:
 //   - location (required): string - City name
+//   - units (optional): string - Temperature units
+
+// Natural language with examples
+formatTool(tool, { style: "natural", includeExamples: true });
 
 // XML format
 formatTool(tool, { style: "xml" });
+```
+
+### Tool Options
+
+```typescript
+formatTool(tool, {
+  style: "json-schema", // json-schema | typescript | natural | xml
+  includeExamples: false, // Add usage examples (natural style only)
+  includeTypes: true, // Include type info in JSON schema
+});
 ```
 
 ### Multiple Tools
@@ -253,18 +352,54 @@ if (errors.length > 0) {
 }
 ```
 
+### Validation Rules
+
+`validateTool` checks:
+
+- Tool name is required and must be a valid identifier (`[a-zA-Z_][a-zA-Z0-9_]*`)
+- Tool description is required
+- Parameters must be an array
+- Each parameter needs a name (valid identifier) and type
+- Valid types: `string`, `number`, `integer`, `boolean`, `array`, `object`
+
 ### Parse Function Calls
 
 ```typescript
 import { parseFunctionCall, formatFunctionArguments } from "@ai2070/l0";
 
-// Parse from model output
+// Parse from model output - JSON format
+parseFunctionCall('{"name": "get_weather", "arguments": {"location": "NYC"}}');
+// { name: "get_weather", arguments: { location: "NYC" } }
+
+// Parse from model output - function call format
 parseFunctionCall('get_weather({"location": "NYC"})');
 // { name: "get_weather", arguments: { location: "NYC" } }
 
+// Returns null if no match
+parseFunctionCall("No function call here");
+// null
+
 // Format arguments
 formatFunctionArguments({ location: "NYC" }, true);
-// { "location": "NYC" }
+// {
+//   "location": "NYC"
+// }
+
+formatFunctionArguments({ location: "NYC" }, false);
+// {"location":"NYC"}
+```
+
+### Parameter Options
+
+```typescript
+const param: ToolParameter = {
+  name: "status",
+  type: "string",
+  description: "Order status",
+  required: true,
+  enum: ["pending", "shipped", "delivered"], // Allowed values
+  default: "pending", // Default value
+};
 ```
 
 ---
@@ -289,6 +424,9 @@ import {
   removeAnsi,
 } from "@ai2070/l0";
 
+// Trim whitespace
+trim("  hello  "); // "hello"
+
 // Escape special characters
 escape('Hello\n"World"'); // Hello\\n\\"World\\"
 unescape("Hello\\nWorld"); // Hello\nWorld
@@ -300,22 +438,27 @@ unescapeHtml("&lt;div&gt;"); // <div>
 // Regex escaping
 escapeRegex("file.txt"); // file\\.txt
 
-// Sanitize (remove control chars)
+// Sanitize (remove control chars except \n and \t)
 sanitize("Hello\x00World"); // HelloWorld
 
 // Truncate
 truncate("Hello World", 8); // "Hello..."
-truncateWords("Hello World", 8); // "Hello..."
+truncate("Hello World", 8, "…"); // "Hello…"
+
+// Truncate at word boundary
+truncateWords("Hello World Test", 12); // "Hello..."
 
 // Wrap to width
-wrap("Hello World Test", 10);
+wrap("Hello World Test String", 10);
 // Hello
 // World Test
+// String
 
 // Pad string
 pad("Hi", 10); // "Hi        "
 pad("Hi", 10, " ", "right"); // "        Hi"
 pad("Hi", 10, " ", "center"); // "    Hi    "
+pad("Hi", 10, "-", "left"); // "Hi--------"
 
 // Remove ANSI codes
 removeAnsi("\x1b[31mRed\x1b[0m"); // "Red"
@@ -327,14 +470,14 @@ removeAnsi("\x1b[31mRed\x1b[0m"); // "Red"
 
 ### Context
 
-| Function                                     | Description                   |
-| -------------------------------------------- | ----------------------------- |
-| `formatContext(content, options)`            | Wrap content with delimiters  |
-| `formatMultipleContexts(items, options)`     | Format multiple contexts      |
-| `formatDocument(content, metadata, options)` | Format document with metadata |
-| `formatInstructions(instructions, options)`  | Format system instructions    |
-| `escapeDelimiters(content, delimiter)`       | Escape delimiters for safety  |
-| `unescapeDelimiters(content, delimiter)`     | Unescape delimiters           |
+| Function                                     | Description                    |
+| -------------------------------------------- | ------------------------------ |
+| `formatContext(content, options)`            | Wrap content with delimiters   |
+| `formatMultipleContexts(items, options)`     | Format multiple contexts       |
+| `formatDocument(content, metadata, options)` | Format document with metadata  |
+| `formatInstructions(instructions, options)`  | Format system instructions     |
+| `escapeDelimiters(content, delimiter)`       | Escape delimiters for safety   |
+| `unescapeDelimiters(content, delimiter)`     | Unescape delimiters            |
 
 ### Memory
 
@@ -356,6 +499,7 @@ removeAnsi("\x1b[31mRed\x1b[0m"); // "Red"
 | `formatStructuredOutput(format, options)`    | Format-specific instructions     |
 | `formatOutputConstraints(constraints)`       | Length/tone/language constraints |
 | `createOutputFormatSection(format, options)` | Complete format section          |
+| `wrapOutputInstruction(instruction)`         | Wrap in `<output_format>` tags   |
 | `extractJsonFromOutput(output)`              | Extract JSON from text           |
 | `cleanOutput(output)`                        | Remove prefixes and wrappers     |
 

@@ -7,7 +7,12 @@
  * Run: OPENAI_API_KEY=sk-... npx tsx examples/11-continuation-resumption.ts
  */
 
-import { l0 } from "@ai2070/l0";
+import {
+  l0,
+  recommendedRetry,
+  type L0State,
+  type L0Telemetry,
+} from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -25,6 +30,7 @@ async function basicContinuation() {
         model,
         prompt: "Write a short paragraph about the benefits of clean code.",
       }),
+    meta: { example: "basic-continuation" },
 
     // Enable continuation from last checkpoint
     continueFromLastKnownGoodToken: true,
@@ -32,12 +38,22 @@ async function basicContinuation() {
     // Save checkpoint every 10 tokens
     checkIntervals: { checkpoint: 10 },
 
-    retry: { attempts: 3 },
+    retry: { ...recommendedRetry, attempts: 3 },
+
+    // Optional: Track checkpoint saves
+    onCheckpoint: (checkpoint, tokenCount) => {
+      console.log(`[Checkpoint saved: ${tokenCount} tokens]`);
+    },
+
+    // Optional: Track resume events
+    onResume: (checkpoint, tokenCount) => {
+      console.log(`[Resuming from ${tokenCount} tokens]`);
+    },
   });
 
   for await (const event of result.stream) {
     if (event.type === "token") {
-      process.stdout.write(event.value!);
+      process.stdout.write(event.value || "");
     }
   }
 
@@ -46,7 +62,11 @@ async function basicContinuation() {
   // Check if continuation was used
   if (result.state.resumed) {
     console.log("Stream was resumed from checkpoint!");
-    console.log("Resume point:", result.state.checkpoint?.slice(0, 50) + "...");
+    console.log(
+      "Resume point:",
+      result.state.resumePoint?.slice(0, 50) + "...",
+    );
+    console.log("Resume offset:", result.state.resumeFrom, "chars");
   } else {
     console.log("Stream completed without needing resumption.");
   }
@@ -83,7 +103,7 @@ async function customContinuationPrompt() {
 
   for await (const event of result.stream) {
     if (event.type === "token") {
-      process.stdout.write(event.value!);
+      process.stdout.write(event.value || "");
     }
   }
 
@@ -114,22 +134,27 @@ async function continuationWithFallback() {
     onRetry: (attempt, reason) => {
       console.log(`[Retry ${attempt}: ${reason}]`);
     },
+    onFallback: (index, reason) => {
+      console.log(`[Fallback to model ${index + 1}: ${reason}]`);
+    },
   });
 
   for await (const event of result.stream) {
     if (event.type === "token") {
-      process.stdout.write(event.value!);
+      process.stdout.write(event.value || "");
     }
   }
 
   console.log("\n");
 
   // Check telemetry for continuation details
-  if (result.telemetry?.continuation?.used) {
+  const telemetry: L0Telemetry | undefined = result.telemetry;
+  if (telemetry?.continuation?.used) {
     console.log("Continuation was used!");
+    console.log("Checkpoint length:", telemetry.continuation.checkpointLength);
     console.log(
-      "Checkpoint length:",
-      result.telemetry.continuation.checkpointLength,
+      "Continuation count:",
+      telemetry.continuation.continuationCount,
     );
   }
 }
@@ -157,10 +182,10 @@ async function deduplicationOptions() {
 
     // Fine-tune deduplication behavior
     deduplicationOptions: {
-      minOverlap: 3, // Minimum characters to consider as overlap
-      maxOverlap: 200, // Maximum characters to search for overlap
-      caseSensitive: false, // Ignore case when matching
-      normalizeWhitespace: true, // Treat multiple spaces as one
+      minOverlap: 2, // Minimum characters to consider as overlap (default: 2)
+      maxOverlap: 500, // Maximum characters to search for overlap (default: 500)
+      caseSensitive: true, // Case-sensitive matching (default: true)
+      normalizeWhitespace: false, // Treat multiple spaces as one (default: false)
     },
 
     checkIntervals: { checkpoint: 10 },
@@ -169,11 +194,18 @@ async function deduplicationOptions() {
 
   for await (const event of result.stream) {
     if (event.type === "token") {
-      process.stdout.write(event.value!);
+      process.stdout.write(event.value || "");
     }
   }
 
   console.log("\n");
+
+  // Check continuation telemetry
+  const telemetry = result.telemetry;
+  if (telemetry?.continuation?.used) {
+    console.log("Continuation was used!");
+    console.log("Checkpoint length:", telemetry.continuation.checkpointLength);
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -189,6 +221,7 @@ async function monitoringContinuation() {
         prompt:
           "Explain the concept of immutability in functional programming.",
       }),
+    meta: { example: "monitoring" },
 
     continueFromLastKnownGoodToken: true,
     checkIntervals: { checkpoint: 10 },
@@ -204,20 +237,78 @@ async function monitoringContinuation() {
 
   for await (const event of result.stream) {
     if (event.type === "token") {
-      process.stdout.write(event.value!);
+      process.stdout.write(event.value || "");
     }
   }
 
   // Detailed state inspection
+  const state: L0State = result.state;
   console.log("\n\n--- Final State ---");
-  console.log("Content length:", result.state.content.length);
-  console.log("Token count:", result.state.tokenCount);
-  console.log("Resumed:", result.state.resumed);
-  console.log("Model retries:", result.state.modelRetryCount);
-  console.log("Network retries:", result.state.networkRetryCount);
+  console.log("Content length:", state.content.length);
+  console.log("Token count:", state.tokenCount);
+  console.log("Resumed:", state.resumed);
+  console.log("Model retries:", state.modelRetryCount);
+  console.log("Network retries:", state.networkRetryCount);
+  console.log("Duration:", state.duration, "ms");
 
-  if (result.state.checkpoint) {
-    console.log("Last checkpoint length:", result.state.checkpoint.length);
+  if (state.checkpoint) {
+    console.log("Last checkpoint length:", state.checkpoint.length);
+  }
+
+  if (state.resumed) {
+    console.log("Resume point:", state.resumePoint?.slice(0, 30) + "...");
+    console.log("Resume offset:", state.resumeFrom);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Example 6: Continuation Telemetry
+// -----------------------------------------------------------------------------
+async function continuationTelemetry() {
+  console.log("\n=== Continuation Telemetry ===\n");
+
+  const result = await l0({
+    stream: () =>
+      streamText({
+        model,
+        prompt: "Write three sentences about functional programming.",
+      }),
+
+    continueFromLastKnownGoodToken: true,
+    checkIntervals: { checkpoint: 5 },
+    retry: { attempts: 2 },
+  });
+
+  for await (const event of result.stream) {
+    if (event.type === "token") {
+      process.stdout.write(event.value || "");
+    }
+  }
+
+  console.log("\n");
+
+  // Full telemetry inspection
+  const telemetry = result.telemetry;
+  if (telemetry) {
+    console.log("--- Telemetry ---");
+    console.log("Session ID:", telemetry.sessionId);
+    console.log("Total duration:", telemetry.duration, "ms");
+
+    if (telemetry.continuation) {
+      console.log("\nContinuation telemetry:");
+      console.log("  Enabled:", telemetry.continuation.enabled);
+      console.log("  Used:", telemetry.continuation.used);
+      console.log(
+        "  Continuation count:",
+        telemetry.continuation.continuationCount,
+      );
+      if (telemetry.continuation.checkpointLength) {
+        console.log(
+          "  Checkpoint length:",
+          telemetry.continuation.checkpointLength,
+        );
+      }
+    }
   }
 }
 
@@ -231,6 +322,7 @@ async function main() {
     await continuationWithFallback();
     await deduplicationOptions();
     await monitoringContinuation();
+    await continuationTelemetry();
 
     console.log("\n=== All examples completed ===");
   } catch (error) {

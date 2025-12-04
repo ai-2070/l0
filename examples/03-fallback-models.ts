@@ -1,7 +1,7 @@
 // Fallback Models Example
 // Run: OPENAI_API_KEY=sk-... npx tsx examples/03-fallback-models.ts
 
-import { l0, recommendedGuardrails } from "@ai2070/l0";
+import { l0, recommendedGuardrails, recommendedRetry } from "@ai2070/l0";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -10,6 +10,8 @@ const prompt = "Explain quantum computing in one sentence";
 async function main() {
   console.log("=== Fallback Models Example ===\n");
 
+  const modelNames = ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"];
+
   const result = await l0({
     // Primary: GPT-4o
     stream: () =>
@@ -17,11 +19,13 @@ async function main() {
         model: openai("gpt-4o"),
         prompt,
       }),
+
     // Fallbacks: try cheaper/different models if primary fails
+    // L0 tries each in order until one succeeds
     fallbackStreams: [
       () =>
         streamText({
-          model: openai("gpt-5-nano"),
+          model: openai("gpt-4o-mini"),
           prompt,
         }),
       () =>
@@ -30,7 +34,17 @@ async function main() {
           prompt,
         }),
     ],
+
     guardrails: recommendedGuardrails,
+    retry: recommendedRetry,
+
+    // Callbacks to track fallback behavior
+    onFallback: (index, reason) => {
+      console.log(`\n⚠ Switching to fallback ${index}: ${reason}`);
+    },
+    onRetry: (attempt, reason) => {
+      console.log(`\n↻ Retry attempt ${attempt}: ${reason}`);
+    },
   });
 
   for await (const event of result.stream) {
@@ -39,12 +53,18 @@ async function main() {
     }
   }
 
+  // Check which model succeeded
+  const modelUsed = modelNames[result.state.fallbackIndex] || "unknown";
+  console.log("\n\n--- Results ---");
   console.log(
-    "\n\nModel used:",
+    "Model used:",
     result.state.fallbackIndex === 0
-      ? "Primary (gpt-4o)"
-      : `Fallback ${result.state.fallbackIndex}`,
+      ? `Primary (${modelUsed})`
+      : `Fallback ${result.state.fallbackIndex} (${modelUsed})`,
   );
+  console.log("Tokens:", result.state.tokenCount);
+  console.log("Model retries:", result.state.modelRetryCount);
+  console.log("Network retries:", result.state.networkRetryCount);
 }
 
 main().catch(console.error);
