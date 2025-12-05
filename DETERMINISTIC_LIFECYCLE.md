@@ -94,6 +94,8 @@ This document specifies the **deterministic lifecycle behavior** of the L0 runti
 
 ## Event Ordering Specifications
 
+**Important:** `SESSION_START` is emitted exactly ONCE at the beginning of the session (anchor for entire session). Retries and fallbacks do NOT emit additional `SESSION_START` events.
+
 ### Normal Successful Flow
 
 ```
@@ -110,9 +112,8 @@ This document specifies the **deterministic lifecycle behavior** of the L0 runti
 2. [tokens stream...]
 3. ERROR (with recoveryStrategy="retry")
 4. RETRY_ATTEMPT (attempt=N, reason)
-5. SESSION_START (attempt=2, isRetry=true, isFallback=false)
-6. [tokens stream...]
-7. COMPLETE
+5. [tokens stream...]
+6. COMPLETE
 ```
 
 ### Fallback Flow (retries exhausted)
@@ -122,9 +123,8 @@ This document specifies the **deterministic lifecycle behavior** of the L0 runti
 2. [error occurs, retries exhausted]
 3. ERROR (with recoveryStrategy="fallback")
 4. FALLBACK_START (fromIndex=0, toIndex=1)
-5. SESSION_START (attempt=1, isRetry=false, isFallback=true)
-6. [tokens stream...]
-7. COMPLETE
+5. [tokens stream...]
+6. COMPLETE
 ```
 
 ### Continuation/Resume Flow
@@ -136,10 +136,9 @@ This document specifies the **deterministic lifecycle behavior** of the L0 runti
 4. [error occurs]
 5. ERROR (with recoveryStrategy="retry" or "fallback")
 6. RETRY_ATTEMPT or FALLBACK_START
-7. SESSION_START (isRetry=true or isFallback=true)
-8. RESUME_START (checkpoint content, tokenCount)
-9. [continuation tokens...]
-10. COMPLETE
+7. RESUME_START (checkpoint content, tokenCount)
+8. [continuation tokens...]
+9. COMPLETE
 ```
 
 ### Abort Flow
