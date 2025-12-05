@@ -198,13 +198,12 @@ export class L0Error extends Error {
       message: this.message,
       timestamp: this.timestamp,
       hasCheckpoint: this.hasCheckpoint,
-      checkpoint: this.context.checkpoint
-        ? this.context.checkpoint.length
-        : undefined,
+      checkpoint: this.context.checkpoint,
       tokenCount: this.context.tokenCount,
       modelRetryCount: this.context.modelRetryCount,
       networkRetryCount: this.context.networkRetryCount,
       fallbackIndex: this.context.fallbackIndex,
+      metadata: this.context.metadata,
     };
   }
 }
