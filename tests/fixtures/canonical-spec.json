@@ -1,0 +1,383 @@
+{
+  "$schema": "./canonical-spec.schema.json",
+  "version": "1.0.0",
+  "description": "Canonical specification for L0 runtime behavior. Used to reconcile TypeScript and Python implementations.",
+
+  "errorHandling": {
+    "L0Error": {
+      "description": "Enhanced error class with recovery context",
+      "properties": {
+        "name": { "type": "string", "value": "L0Error" },
+        "message": { "type": "string", "description": "Human-readable error message" },
+        "code": { "type": "L0ErrorCode", "description": "Error code for programmatic handling" },
+        "category": { "type": "ErrorCategory", "description": "Computed from code via getErrorCategory()" },
+        "timestamp": { "type": "number", "description": "Unix timestamp when error occurred" },
+        "context": { "type": "L0ErrorContext", "description": "Recovery context information" }
+      },
+      "computedProperties": {
+        "hasCheckpoint": {
+          "type": "boolean",
+          "description": "True if checkpoint exists and has length > 0",
+          "computation": "context.checkpoint !== undefined && context.checkpoint.length > 0"
+        }
+      },
+      "toJSON": {
+        "description": "Serialization format for logging/transport",
+        "shape": {
+          "name": "string",
+          "code": "L0ErrorCode",
+          "category": "ErrorCategory",
+          "message": "string",
+          "timestamp": "number",
+          "hasCheckpoint": "boolean",
+          "checkpoint": "string | undefined",
+          "tokenCount": "number | undefined",
+          "modelRetryCount": "number | undefined",
+          "networkRetryCount": "number | undefined",
+          "fallbackIndex": "number | undefined",
+          "metadata": "Record<string, unknown> | undefined",
+          "context": "Record<string, unknown> | undefined"
+        },
+        "notes": [
+          "metadata contains internal state (retry counters, violation details, etc.)",
+          "context contains user-provided context from L0Options.context"
+        ]
+      }
+    },
+
+    "L0ErrorCodes": {
+      "description": "All possible error codes",
+      "values": {
+        "STREAM_ABORTED": "User/signal aborted the stream",
+        "INITIAL_TOKEN_TIMEOUT": "No token received within initialToken timeout",
+        "INTER_TOKEN_TIMEOUT": "Gap between tokens exceeded interToken timeout",
+        "ZERO_OUTPUT": "Model returned empty/whitespace-only response",
+        "GUARDRAIL_VIOLATION": "Recoverable guardrail violation (triggers retry)",
+        "FATAL_GUARDRAIL_VIOLATION": "Non-recoverable guardrail violation (halts)",
+        "INVALID_STREAM": "Stream result not iterable and no adapter matched",
+        "ALL_STREAMS_EXHAUSTED": "Primary and all fallback streams failed",
+        "NETWORK_ERROR": "Network connectivity issue",
+        "DRIFT_DETECTED": "Semantic drift detected in output",
+        "ADAPTER_NOT_FOUND": "No adapter found for stream type",
+        "FEATURE_NOT_ENABLED": "Feature requires explicit opt-in"
+      }
+    },
+
+    "ErrorCategory": {
+      "description": "Error categories for routing decisions",
+      "values": {
+        "network": "Connection drops, DNS, SSL, fetch errors",
+        "transient": "Temporary issues like timeouts",
+        "content": "Content quality issues (guardrails, drift, zero output)",
+        "provider": "Provider-side issues (aborted, exhausted)",
+        "internal": "L0 internal errors (invalid stream, adapter not found)"
+      },
+      "codeToCategory": {
+        "NETWORK_ERROR": "network",
+        "INITIAL_TOKEN_TIMEOUT": "transient",
+        "INTER_TOKEN_TIMEOUT": "transient",
+        "GUARDRAIL_VIOLATION": "content",
+        "FATAL_GUARDRAIL_VIOLATION": "content",
+        "DRIFT_DETECTED": "content",
+        "ZERO_OUTPUT": "content",
+        "INVALID_STREAM": "internal",
+        "ADAPTER_NOT_FOUND": "internal",
+        "FEATURE_NOT_ENABLED": "internal",
+        "STREAM_ABORTED": "provider",
+        "ALL_STREAMS_EXHAUSTED": "provider"
+      }
+    },
+
+    "L0ErrorContext": {
+      "description": "Context passed to L0Error constructor",
+      "shape": {
+        "code": { "type": "L0ErrorCode", "required": true },
+        "checkpoint": { "type": "string", "required": false, "description": "Current checkpoint content for recovery" },
+        "tokenCount": { "type": "number", "required": false, "description": "Tokens processed before error" },
+        "contentLength": { "type": "number", "required": false, "description": "Accumulated content length" },
+        "modelRetryCount": { "type": "number", "required": false, "description": "Model retry attempts made" },
+        "networkRetryCount": { "type": "number", "required": false, "description": "Network retries (don't count toward limit)" },
+        "fallbackIndex": { "type": "number", "required": false, "description": "Current fallback index (0 = primary)" },
+        "metadata": { "type": "Record<string, unknown>", "required": false, "description": "Additional internal context" },
+        "context": { "type": "Record<string, unknown>", "required": false, "description": "User-provided context" }
+      }
+    }
+  },
+
+  "monitoring": {
+    "observabilityEvents": {
+      "description": "Events emitted via EventDispatcher for monitoring/observability",
+      "baseShape": {
+        "type": { "type": "EventType", "description": "Event type identifier" },
+        "ts": { "type": "number", "description": "Unix timestamp" },
+        "streamId": { "type": "string", "description": "UUID v7 for session correlation" },
+        "context": { "type": "Record<string, unknown>", "description": "User-provided context (deeply cloned, immutable)" }
+      },
+      "events": {
+        "SESSION_START": {
+          "description": "Emitted exactly ONCE at session start (anchor event)",
+          "additionalFields": {
+            "attempt": "number (always 1)",
+            "isRetry": "boolean (always false)",
+            "isFallback": "boolean (always false)"
+          }
+        },
+        "ATTEMPT_START": {
+          "description": "Emitted for retry attempts only (not initial, not fallbacks)",
+          "additionalFields": {
+            "attempt": "number (2+)",
+            "isRetry": "boolean (always true)",
+            "isFallback": "boolean (always false)"
+          }
+        },
+        "FALLBACK_START": {
+          "description": "Emitted when switching to fallback stream",
+          "additionalFields": {
+            "fromIndex": "number (previous stream index)",
+            "toIndex": "number (new stream index)"
+          }
+        },
+        "RETRY_ATTEMPT": {
+          "description": "Emitted before ATTEMPT_START when retry is triggered",
+          "additionalFields": {
+            "attempt": "number",
+            "maxAttempts": "number",
+            "reason": "string",
+            "delayMs": "number"
+          }
+        },
+        "ERROR": {
+          "description": "Emitted when error occurs",
+          "additionalFields": {
+            "error": "string (error message)",
+            "errorCode": "string | undefined",
+            "failureType": "FailureType",
+            "recoveryStrategy": "RecoveryStrategy",
+            "policy": "RecoveryPolicy"
+          }
+        },
+        "COMPLETE": {
+          "description": "Emitted on successful completion",
+          "additionalFields": {
+            "tokenCount": "number",
+            "contentLength": "number",
+            "state": "L0State | undefined"
+          }
+        },
+        "CHECKPOINT_SAVED": {
+          "description": "Emitted when checkpoint is saved",
+          "additionalFields": {
+            "checkpoint": "string",
+            "tokenCount": "number"
+          }
+        },
+        "RESUME_START": {
+          "description": "Emitted when resuming from checkpoint",
+          "additionalFields": {
+            "checkpoint": "string",
+            "tokenCount": "number"
+          }
+        },
+        "ABORT_COMPLETED": {
+          "description": "Emitted when stream abort completes",
+          "additionalFields": {
+            "tokenCount": "number",
+            "contentLength": "number"
+          }
+        },
+        "GUARDRAIL_RULE_RESULT": {
+          "description": "Emitted after guardrail rule evaluation",
+          "additionalFields": {
+            "index": "number",
+            "ruleId": "string",
+            "passed": "boolean",
+            "violation": "GuardrailViolation | undefined"
+          }
+        },
+        "TIMEOUT_TRIGGERED": {
+          "description": "Emitted when timeout fires",
+          "additionalFields": {
+            "timeoutType": "'initial' | 'inter'",
+            "elapsedMs": "number",
+            "configuredMs": "number"
+          }
+        }
+      }
+    },
+
+    "failureTypes": {
+      "description": "Root cause classification for errors",
+      "values": {
+        "network": "Connection drops, DNS, SSL, fetch errors",
+        "model": "Model refused, content filter, bad response",
+        "tool": "Tool execution failed",
+        "timeout": "Initial token or inter-token timeout",
+        "abort": "User or signal abort",
+        "zero_output": "Empty response from model",
+        "unknown": "Unclassified error"
+      }
+    },
+
+    "recoveryStrategies": {
+      "description": "What L0 does after an error",
+      "values": {
+        "retry": "Will retry the same stream",
+        "fallback": "Will try next fallback stream",
+        "continue": "Will continue despite error (non-fatal)",
+        "halt": "Will stop, no recovery possible"
+      }
+    }
+  },
+
+  "lifecycleInvariants": {
+    "description": "Critical invariants that must hold in both TS and Python",
+    "invariants": [
+      {
+        "id": "session-start-once",
+        "rule": "SESSION_START is emitted exactly ONCE per session",
+        "rationale": "Anchor event for entire session, regardless of retries/fallbacks"
+      },
+      {
+        "id": "attempt-start-retries-only",
+        "rule": "ATTEMPT_START is only emitted for retries (attempt >= 2)",
+        "rationale": "Initial attempt gets SESSION_START, fallbacks get FALLBACK_START"
+      },
+      {
+        "id": "fallback-not-attempt",
+        "rule": "FALLBACK_START is emitted for fallbacks, not ATTEMPT_START",
+        "rationale": "Fallbacks are a different flow from retries"
+      },
+      {
+        "id": "retry-precedes-attempt",
+        "rule": "RETRY_ATTEMPT always precedes ATTEMPT_START",
+        "rationale": "RETRY_ATTEMPT announces intent, ATTEMPT_START triggers onStart"
+      },
+      {
+        "id": "timestamps-monotonic",
+        "rule": "Event timestamps are monotonically increasing",
+        "rationale": "Enables correct ordering during replay"
+      },
+      {
+        "id": "stream-id-consistent",
+        "rule": "streamId is consistent across all events in a session",
+        "rationale": "Enables correlation of all events for a single request"
+      },
+      {
+        "id": "context-immutable",
+        "rule": "User context is deeply cloned and frozen",
+        "rationale": "Prevents mutation of context after session starts"
+      },
+      {
+        "id": "context-propagated",
+        "rule": "User context appears in all observability events",
+        "rationale": "Enables correlation with user's request tracking"
+      }
+    ]
+  },
+
+  "callbacks": {
+    "description": "Callback signatures and when they fire",
+    "callbacks": {
+      "onStart": {
+        "signature": "(attempt: number, isRetry: boolean, isFallback: boolean) => void",
+        "triggeredBy": ["SESSION_START", "ATTEMPT_START", "FALLBACK_START"],
+        "notes": [
+          "Called for initial attempt (1, false, false)",
+          "Called for retry attempts (N, true, false)",
+          "Called for fallback streams (1, false, true)"
+        ]
+      },
+      "onComplete": {
+        "signature": "(state: L0State) => void",
+        "triggeredBy": ["COMPLETE"],
+        "notes": ["Called once on successful completion"]
+      },
+      "onError": {
+        "signature": "(error: Error, willRetry: boolean, willFallback: boolean) => void",
+        "triggeredBy": ["ERROR"],
+        "notes": ["Called for each error, flags indicate recovery path"]
+      },
+      "onRetry": {
+        "signature": "(attempt: number, reason: string) => void",
+        "triggeredBy": ["RETRY_ATTEMPT"],
+        "notes": ["Called before each retry attempt"]
+      },
+      "onFallback": {
+        "signature": "(index: number, reason: string) => void",
+        "triggeredBy": ["FALLBACK_START"],
+        "notes": ["index is 0-based fallback stream index"]
+      },
+      "onCheckpoint": {
+        "signature": "(checkpoint: string, tokenCount: number) => void",
+        "triggeredBy": ["CHECKPOINT_SAVED"],
+        "notes": ["Called at configured intervals when continuation enabled"]
+      },
+      "onResume": {
+        "signature": "(checkpoint: string, tokenCount: number) => void",
+        "triggeredBy": ["RESUME_START"],
+        "notes": ["Called when resuming from checkpoint after error"]
+      },
+      "onAbort": {
+        "signature": "(tokenCount: number, contentLength: number) => void",
+        "triggeredBy": ["ABORT_COMPLETED"],
+        "notes": ["Called when stream is aborted"]
+      },
+      "onTimeout": {
+        "signature": "(type: 'initial' | 'inter', elapsedMs: number) => void",
+        "triggeredBy": ["TIMEOUT_TRIGGERED"],
+        "notes": ["Called when timeout occurs"]
+      },
+      "onViolation": {
+        "signature": "(violation: GuardrailViolation) => void",
+        "triggeredBy": ["GUARDRAIL_RULE_RESULT (when passed=false)"],
+        "notes": ["Called for each guardrail violation"]
+      }
+    }
+  },
+
+  "networkErrorTypes": {
+    "description": "Network error classification for retry decisions",
+    "types": {
+      "connection_dropped": {
+        "detection": ["connection dropped", "connection closed", "connection lost", "econnreset", "broken pipe"],
+        "retryable": true,
+        "countsTowardLimit": false
+      },
+      "fetch_error": {
+        "detection": ["TypeError with 'fetch'", "failed to fetch", "network request failed"],
+        "retryable": true,
+        "countsTowardLimit": false
+      },
+      "econnreset": {
+        "detection": ["econnreset", "connection reset by peer", "code: ECONNRESET"],
+        "retryable": true,
+        "countsTowardLimit": false
+      },
+      "econnrefused": {
+        "detection": ["econnrefused", "connection refused", "code: ECONNREFUSED"],
+        "retryable": true,
+        "countsTowardLimit": false
+      },
+      "dns_error": {
+        "detection": ["dns", "enotfound", "host not found", "getaddrinfo"],
+        "retryable": true,
+        "countsTowardLimit": false
+      },
+      "ssl_error": {
+        "detection": ["ssl", "tls", "certificate", "handshake", "self signed"],
+        "retryable": false,
+        "countsTowardLimit": false
+      },
+      "timeout": {
+        "detection": ["timeout", "timed out", "deadline exceeded", "etimedout"],
+        "retryable": true,
+        "countsTowardLimit": false
+      }
+    },
+    "notes": [
+      "Network errors don't count toward retry limit by default",
+      "SSL errors are not retryable (configuration issue)",
+      "Detection is case-insensitive substring matching"
+    ]
+  }
+}
