@@ -424,15 +424,16 @@ describe("onStart callback", () => {
       // Consume stream
     }
 
-    // onStart is called only once at the beginning (anchor for entire session)
-    expect(onStart).toHaveBeenCalledTimes(1);
+    // onStart is called for initial attempt and retry attempt
+    expect(onStart).toHaveBeenCalledTimes(2);
     expect(onStart.mock.calls[0]).toEqual([1, false, false]); // First attempt
+    expect(onStart.mock.calls[1]).toEqual([2, true, false]); // Retry attempt
 
     // onRetry is called for the retry attempt
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it("should call onStart only once even with fallback", async () => {
+  it("should call onStart for each attempt including fallback", async () => {
     const onStart = vi.fn();
     const onFallback = vi.fn();
 
@@ -466,9 +467,10 @@ describe("onStart callback", () => {
       // Consume stream
     }
 
-    // onStart is called only once at the beginning (anchor for entire session)
-    expect(onStart).toHaveBeenCalledTimes(1);
+    // onStart is called for initial attempt and fallback attempt
+    expect(onStart).toHaveBeenCalledTimes(2);
     expect(onStart.mock.calls[0]).toEqual([1, false, false]); // Primary
+    expect(onStart.mock.calls[1]).toEqual([1, false, true]); // Fallback
 
     // onFallback is called when switching to fallback
     expect(onFallback).toHaveBeenCalledTimes(1);

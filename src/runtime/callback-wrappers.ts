@@ -11,6 +11,7 @@ import type { L0Options } from "../types/l0";
 import { EventType } from "../types/observability";
 import type {
   SessionStartEvent,
+  AttemptStartEvent,
   CompleteEvent,
   ErrorEvent,
   GuardrailRuleResultEvent,
@@ -35,13 +36,19 @@ export function registerCallbackWrappers(
   dispatcher: EventDispatcher,
   options: L0Options,
 ): void {
-  // onStart -> SESSION_START
+  // onStart -> SESSION_START (initial), ATTEMPT_START (retries), FALLBACK_START (fallbacks)
   if (options.onStart) {
     const callback = options.onStart;
     dispatcher.onEvent((event: L0ObservabilityEvent) => {
       if (event.type === EventType.SESSION_START) {
         const e = event as SessionStartEvent;
         callback(e.attempt, e.isRetry, e.isFallback);
+      } else if (event.type === EventType.ATTEMPT_START) {
+        const e = event as AttemptStartEvent;
+        callback(e.attempt, e.isRetry, e.isFallback);
+      } else if (event.type === EventType.FALLBACK_START) {
+        // Fallback starts a new attempt with attempt=1, isRetry=false, isFallback=true
+        callback(1, false, true);
       }
     });
   }

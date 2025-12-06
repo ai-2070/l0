@@ -1283,6 +1283,12 @@ export async function l0<TOutput = unknown>(
               });
               retryAttempt++;
               state.modelRetryCount++;
+              // Emit ATTEMPT_START for onStart callback (retry attempt)
+              dispatcher.emit(EventType.ATTEMPT_START, {
+                attempt: retryAttempt + 1,
+                isRetry: true,
+                isFallback: fallbackIndex > 0,
+              });
               continue;
             }
 
@@ -1328,6 +1334,12 @@ export async function l0<TOutput = unknown>(
               monitor?.recordRetry(false);
               retryAttempt++;
               state.modelRetryCount++;
+              // Emit ATTEMPT_START for onStart callback (retry attempt)
+              dispatcher.emit(EventType.ATTEMPT_START, {
+                attempt: retryAttempt + 1,
+                isRetry: true,
+                isFallback: fallbackIndex > 0,
+              });
               continue;
             }
           }
@@ -1600,6 +1612,13 @@ export async function l0<TOutput = unknown>(
               isModelIssue: !isNetError,
             });
 
+            // Emit ATTEMPT_START for onStart callback (retry attempt)
+            dispatcher.emit(EventType.ATTEMPT_START, {
+              attempt: retryAttempt + 1,
+              isRetry: true,
+              isFallback: fallbackIndex > 0,
+            });
+
             // Record retry and wait
             await retryManager.recordRetry(categorized, decision);
             continue;
@@ -1649,6 +1668,7 @@ export async function l0<TOutput = unknown>(
           });
 
           // Emit FALLBACK_START event
+          // Note: onStart callback is triggered by FALLBACK_START via callback-wrappers
           dispatcher.emit(EventType.FALLBACK_START, {
             fromIndex: fallbackIndex - 1,
             toIndex: fallbackIndex,

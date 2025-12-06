@@ -347,7 +347,7 @@ describe("Lifecycle: Retry Flow", () => {
     expect(retryIndex).toBeGreaterThan(sessionStartIndices[0]!);
   });
 
-  it("should emit only one SESSION_START even with retries", async () => {
+  it("should emit SESSION_START once and ATTEMPT_START for retries", async () => {
     const collector = createEventCollector();
     let attemptCount = 0;
 
@@ -395,6 +395,13 @@ describe("Lifecycle: Retry Flow", () => {
     expect(sessionStarts[0]!.data.attempt).toBe(1);
     expect(sessionStarts[0]!.data.isRetry).toBe(false);
     expect(sessionStarts[0]!.data.isFallback).toBe(false);
+
+    // ATTEMPT_START is emitted for retry attempts (triggers onStart callback)
+    const attemptStarts = collector.getEventsOfType(EventType.ATTEMPT_START);
+    expect(attemptStarts.length).toBe(1);
+    expect(attemptStarts[0]!.data.attempt).toBe(2);
+    expect(attemptStarts[0]!.data.isRetry).toBe(true);
+    expect(attemptStarts[0]!.data.isFallback).toBe(false);
 
     // Verify retry actually happened via RETRY_ATTEMPT event
     const retryAttempts = collector.getEventsOfType(EventType.RETRY_ATTEMPT);
@@ -725,7 +732,7 @@ describe("Lifecycle: Fallback Flow", () => {
     expect(fallbackStarts.length).toBe(1);
   });
 
-  it("should mark SESSION_START as isFallback=true for fallback streams", async () => {
+  it("should emit FALLBACK_START (not ATTEMPT_START) for fallback streams", async () => {
     const collector = createEventCollector();
 
     const failRule: GuardrailRule = {
@@ -764,7 +771,11 @@ describe("Lifecycle: Fallback Flow", () => {
     // The single SESSION_START should have initial values (not fallback)
     expect(sessionStarts[0]!.data.isFallback).toBe(false);
 
-    // Verify fallback happened via FALLBACK_START event
+    // ATTEMPT_START is NOT emitted for fallbacks (only for retries)
+    const attemptStarts = collector.getEventsOfType(EventType.ATTEMPT_START);
+    expect(attemptStarts.length).toBe(0);
+
+    // Verify fallback happened via FALLBACK_START event (triggers onStart callback)
     const fallbackStarts = collector.getEventsOfType(EventType.FALLBACK_START);
     expect(fallbackStarts.length).toBe(1);
   });
@@ -1731,9 +1742,10 @@ describe("Lifecycle: Combined Complex Flows", () => {
       // Consume stream
     }
 
-    // onStart should be called exactly once at the beginning (anchor for entire session)
+    // onStart should be called at the beginning (initial attempt) and for fallback attempt
     expect(callOrder[0]).toBe("onStart");
-    expect(callOrder.filter((c) => c === "onStart").length).toBe(1);
+    // onStart is called twice: once for initial, once for fallback
+    expect(callOrder.filter((c) => c === "onStart").length).toBe(2);
 
     // onComplete should be called last
     expect(callOrder[callOrder.length - 1]).toBe("onComplete");
@@ -1741,7 +1753,7 @@ describe("Lifecycle: Combined Complex Flows", () => {
     // Checkpoints should come during streaming
     expect(callOrder.includes("onCheckpoint")).toBe(true);
 
-    // onFallback should come after onStart (since SESSION_START is only emitted once)
+    // onFallback should come after first onStart
     const fallbackIndex = callOrder.indexOf("onFallback");
     const onStartIndex = callOrder.indexOf("onStart");
     if (fallbackIndex !== -1) {
