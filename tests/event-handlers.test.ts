@@ -23,7 +23,7 @@ function createMockEvent(
     type,
     ts: Date.now(),
     streamId: "test-stream-id",
-    meta: {},
+    context: {},
     ...overrides,
   } as L0Event;
 }

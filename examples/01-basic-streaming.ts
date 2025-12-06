@@ -21,8 +21,8 @@ async function main() {
     // Retry: { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
     retry: recommendedRetry,
 
-    // Optional: User metadata attached to all observability events
-    meta: {
+    // Optional: User context attached to all observability events
+    context: {
       example: "01-basic-streaming",
     },
   });

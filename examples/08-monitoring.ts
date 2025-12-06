@@ -32,8 +32,8 @@ async function basicTelemetry() {
       includeNetworkDetails: true,
     },
 
-    // Optional: User metadata attached to all events
-    meta: {
+    // Optional: User context attached to all events
+    context: {
       example: "08-monitoring",
     },
   });
@@ -66,8 +66,8 @@ async function customMetadata() {
         prompt: "Summarize: The quick brown fox jumps over the lazy dog.",
       }),
 
-    // User metadata (immutable for session, on all events)
-    meta: {
+    // User context (immutable for session, on all events)
+    context: {
       userId: "user-123",
       requestType: "summarization",
     },

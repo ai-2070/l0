@@ -220,7 +220,7 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Interceptors require enableInterceptors() to be called first. " +
           'Import and call: import { enableInterceptors } from "@ai2070/l0"; enableInterceptors();',
-        { code: L0ErrorCodes.FEATURE_NOT_ENABLED },
+        { code: L0ErrorCodes.FEATURE_NOT_ENABLED, context: options.context },
       );
     }
     interceptorManager = _interceptorManagerFactory(interceptors);
@@ -257,11 +257,11 @@ export async function l0<TOutput = unknown>(
     buildContinuationPrompt: processedBuildContinuationPrompt,
     deduplicateContinuation: processedDeduplicateContinuation,
     deduplicationOptions: processedDeduplicationOptions = {},
-    meta: processedMeta = {},
+    context: processedContext = {},
   } = processedOptions;
 
   // Initialize event dispatcher for observability
-  const dispatcher = new EventDispatcher(processedMeta);
+  const dispatcher = new EventDispatcher(processedContext);
 
   // Register onEvent handler with dispatcher for lifecycle events
   if (processedOnEvent) {
@@ -295,7 +295,10 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Monitoring requires enableMonitoring() to be called first. " +
           'Import and call: import { enableMonitoring } from "@ai2070/l0"; enableMonitoring();',
-        { code: L0ErrorCodes.FEATURE_NOT_ENABLED },
+        {
+          code: L0ErrorCodes.FEATURE_NOT_ENABLED,
+          context: processedContext,
+        },
       );
     }
     monitor = _monitorFactory({
@@ -344,7 +347,10 @@ export async function l0<TOutput = unknown>(
       throw new L0Error(
         "Drift detection requires enableDriftDetection() to be called first. " +
           'Import and call: import { enableDriftDetection } from "@ai2070/l0"; enableDriftDetection();',
-        { code: L0ErrorCodes.FEATURE_NOT_ENABLED },
+        {
+          code: L0ErrorCodes.FEATURE_NOT_ENABLED,
+          context: processedContext,
+        },
       );
     }
     driftDetector = _driftDetectorFactory();
@@ -522,6 +528,7 @@ export async function l0<TOutput = unknown>(
                     'Import and call: import { enableAdapterRegistry } from "@ai2070/l0"; enableAdapterRegistry();',
                   {
                     code: L0ErrorCodes.FEATURE_NOT_ENABLED,
+                    context: processedContext,
                   },
                 );
               }
@@ -535,6 +542,7 @@ export async function l0<TOutput = unknown>(
                     modelRetryCount: state.modelRetryCount,
                     networkRetryCount: state.networkRetryCount,
                     fallbackIndex,
+                    context: processedContext,
                   },
                 );
               }
@@ -578,6 +586,7 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
+                context: processedContext,
               },
             );
           }
@@ -625,6 +634,7 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
+                context: processedContext,
               });
             }
 
@@ -647,7 +657,7 @@ export async function l0<TOutput = unknown>(
                   modelRetryCount: state.modelRetryCount,
                   networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
-
+                  context: processedContext,
                   metadata: { timeout: interTimeout, timeSinceLastToken },
                 });
               }
@@ -677,7 +687,7 @@ export async function l0<TOutput = unknown>(
                 modelRetryCount: state.modelRetryCount,
                 networkRetryCount: state.networkRetryCount,
                 fallbackIndex,
-
+                context: processedContext,
                 metadata: {
                   timeout:
                     processedTimeout.initialToken ?? defaultInitialTokenTimeout,
@@ -856,7 +866,7 @@ export async function l0<TOutput = unknown>(
                       modelRetryCount: state.modelRetryCount,
                       networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
-
+                      context: processedContext,
                       metadata: { violation: result.violations[0] },
                     },
                   );
@@ -1187,7 +1197,7 @@ export async function l0<TOutput = unknown>(
                       modelRetryCount: state.modelRetryCount,
                       networkRetryCount: state.networkRetryCount,
                       fallbackIndex,
-
+                      context: processedContext,
                       metadata: { violation: result.violations[0] },
                     },
                   );
@@ -1239,6 +1249,7 @@ export async function l0<TOutput = unknown>(
               modelRetryCount: state.modelRetryCount,
               networkRetryCount: state.networkRetryCount,
               fallbackIndex,
+              context: processedContext,
             });
           }
 
@@ -1304,7 +1315,7 @@ export async function l0<TOutput = unknown>(
                   modelRetryCount: state.modelRetryCount,
                   networkRetryCount: state.networkRetryCount,
                   fallbackIndex,
-
+                  context: processedContext,
                   metadata: { violation: result.violations[0] },
                 },
               );

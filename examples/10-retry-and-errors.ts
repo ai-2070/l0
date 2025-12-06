@@ -37,7 +37,7 @@ async function basicRetry() {
         model: openai("gpt-4o-mini"),
         prompt: "Say hello",
       }),
-    meta: { example: "basic-retry" },
+    context: { example: "basic-retry" },
     retry: {
       attempts: 3, // Model failures (counts toward limit)
       maxRetries: 6, // Hard cap on ALL retries including network

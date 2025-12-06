@@ -126,7 +126,7 @@ function createEventCollector() {
   const handler = (event: L0Event | L0ObservabilityEvent) => {
     // Handle streaming events (L0Event from types/l0.ts)
     if ("type" in event && typeof event.type === "string") {
-      // Check if it's an observability event (has ts, streamId, meta)
+      // Check if it's an observability event (has ts, streamId, context)
       if ("ts" in event && "streamId" in event) {
         const obsEvent = event as L0ObservabilityEvent;
         events.push({
@@ -1868,12 +1868,12 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     }
   });
 
-  it("should include user meta in all observability events", async () => {
+  it("should include user context in all observability events", async () => {
     const collector = createEventCollector();
 
     const result = await l0({
       stream: createTokenStream(["test"]),
-      meta: {
+      context: {
         requestId: "req-123",
         userId: "user-456",
       },
@@ -1884,13 +1884,13 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
       // Consume stream
     }
 
-    // Get all observability events (those with meta)
-    const obsEvents = collector.events.filter((e) => e.data.meta);
+    // Get all observability events (those with context)
+    const obsEvents = collector.events.filter((e) => e.data.context);
 
     for (const event of obsEvents) {
-      const meta = event.data.meta as Record<string, unknown>;
-      expect(meta.requestId).toBe("req-123");
-      expect(meta.userId).toBe("user-456");
+      const context = event.data.context as Record<string, unknown>;
+      expect(context.requestId).toBe("req-123");
+      expect(context.userId).toBe("user-456");
     }
   });
 });

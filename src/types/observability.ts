@@ -2,7 +2,7 @@
  * L0 Observability Event System
  *
  * Unified event types for all L0 lifecycle events.
- * All events include: type, ts (Unix ms), streamId (UUID v7), meta (user metadata)
+ * All events include: type, ts (Unix ms), streamId (UUID v7), context (user-provided context)
  */
 
 import type { GuardrailViolation } from "./guardrails";
@@ -268,8 +268,8 @@ export interface L0ObservabilityEvent {
   ts: number;
   /** UUID v7 stream identifier */
   streamId: string;
-  /** User-provided metadata (immutable for session) */
-  meta: Record<string, unknown>;
+  /** User-provided context (immutable for session) */
+  context: Record<string, unknown>;
 }
 
 /**

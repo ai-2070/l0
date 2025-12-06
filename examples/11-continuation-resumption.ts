@@ -30,7 +30,7 @@ async function basicContinuation() {
         model,
         prompt: "Write a short paragraph about the benefits of clean code.",
       }),
-    meta: { example: "basic-continuation" },
+    context: { example: "basic-continuation" },
 
     // Enable continuation from last checkpoint
     continueFromLastKnownGoodToken: true,
@@ -221,7 +221,7 @@ async function monitoringContinuation() {
         prompt:
           "Explain the concept of immutability in functional programming.",
       }),
-    meta: { example: "monitoring" },
+    context: { example: "monitoring" },
 
     continueFromLastKnownGoodToken: true,
     checkIntervals: { checkpoint: 10 },

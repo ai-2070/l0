@@ -32,7 +32,7 @@ async function basicCallbacks() {
         model,
         prompt: "Write a haiku about TypeScript.",
       }),
-    meta: { example: "basic-callbacks", userId: "demo" },
+    context: { example: "basic-callbacks", userId: "demo" },
 
     // Called when execution starts
     onStart: (attempt, isRetry, isFallback) => {
@@ -77,7 +77,7 @@ async function errorAndRetryCallbacks() {
         model,
         prompt: "Generate a valid JSON object with name and age.",
       }),
-    meta: { example: "error-retry" },
+    context: { example: "error-retry" },
 
     guardrails: recommendedGuardrails,
     retry: { ...recommendedRetry, attempts: 3 },
@@ -125,7 +125,7 @@ async function fallbackCallbacks() {
 
   const result = await l0({
     stream: () => streamText({ model, prompt }),
-    meta: { example: "fallback" },
+    context: { example: "fallback" },
 
     fallbackStreams: [() => streamText({ model: fallbackModel, prompt })],
 
@@ -172,7 +172,7 @@ async function violationCallbacks() {
         model,
         prompt: "Write a short greeting message.",
       }),
-    meta: { example: "violation" },
+    context: { example: "violation" },
 
     guardrails: recommendedGuardrails,
     retry: { attempts: 2 },
@@ -220,7 +220,7 @@ async function checkpointResumeCallbacks() {
         model,
         prompt: "Write a paragraph about functional programming.",
       }),
-    meta: { example: "checkpoint-resume" },
+    context: { example: "checkpoint-resume" },
 
     continueFromLastKnownGoodToken: true,
     checkIntervals: { checkpoint: 10 },
@@ -279,7 +279,7 @@ async function advancedCallbacks() {
         prompt:
           "Write a detailed explanation of how async/await works in JavaScript.",
       }),
-    meta: { example: "advanced" },
+    context: { example: "advanced" },
 
     continueFromLastKnownGoodToken: true,
     checkIntervals: { checkpoint: 5 },
@@ -346,7 +346,7 @@ async function toolCallCallback() {
         // Note: Tool definitions would be passed to the model here
         // tools: { getWeather: { ... } }
       }),
-    meta: { example: "tool-call" },
+    context: { example: "tool-call" },
 
     // Called when the model requests a tool call
     // L0 does NOT execute tools - this is for observability only
@@ -380,7 +380,7 @@ async function allCallbacks() {
 
   const result = await l0({
     stream: () => streamText({ model, prompt }),
-    meta: {
+    context: {
       example: "all-callbacks",
       requestId: `req_${Date.now()}`,
       environment: "development",
