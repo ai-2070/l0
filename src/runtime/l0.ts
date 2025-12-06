@@ -511,10 +511,14 @@ export async function l0<TOutput = unknown>(
           }
 
           // Get stream from factory
+          dispatcher.emit(EventType.STREAM_INIT, {});
           const streamResult = await currentStreamFactory();
 
           // Handle different stream result types
           let sourceStream: AsyncIterable<any>;
+          let detectedAdapterName: string | undefined;
+
+          dispatcher.emit(EventType.ADAPTER_WRAP_START, {});
 
           // 1. Explicit adapter (highest priority)
           if (processedOptions.adapter) {
@@ -551,6 +555,7 @@ export async function l0<TOutput = unknown>(
               adapter = processedOptions.adapter;
             }
 
+            detectedAdapterName = adapter.name;
             sourceStream = adapter.wrap(
               streamResult,
               processedOptions.adapterOptions,
@@ -561,6 +566,7 @@ export async function l0<TOutput = unknown>(
           // to provide enhanced handling (e.g., tool calls via fullStream)
           else if (_adapterRegistry?.hasMatchingAdapter(streamResult)) {
             const adapter = _adapterRegistry.detectAdapter(streamResult);
+            detectedAdapterName = adapter.name;
             sourceStream = adapter.wrap(
               streamResult,
               processedOptions.adapterOptions,
@@ -568,12 +574,15 @@ export async function l0<TOutput = unknown>(
           }
           // 3. Native L0-compatible streams (Vercel AI SDK pattern - simple text only)
           else if (streamResult.textStream) {
+            detectedAdapterName = "textStream";
             sourceStream = streamResult.textStream;
           } else if (streamResult.fullStream) {
+            detectedAdapterName = "fullStream";
             sourceStream = streamResult.fullStream;
           }
           // 4. Generic async iterable (already L0Events or compatible)
           else if (Symbol.asyncIterator in streamResult) {
+            detectedAdapterName = "asyncIterable";
             sourceStream = streamResult;
           }
           // 5. No valid stream found
@@ -590,6 +599,12 @@ export async function l0<TOutput = unknown>(
               },
             );
           }
+
+          dispatcher.emit(EventType.ADAPTER_DETECTED, {
+            adapter: detectedAdapterName,
+          });
+          dispatcher.emit(EventType.ADAPTER_WRAP_END, {});
+          dispatcher.emit(EventType.STREAM_READY, {});
 
           // Track timing
           const startTime = Date.now();
@@ -613,6 +628,10 @@ export async function l0<TOutput = unknown>(
           let initialTimeoutReached = false;
 
           if (!signal?.aborted) {
+            dispatcher.emit(EventType.TIMEOUT_START, {
+              timeoutType: "initial_token",
+              durationMs: initialTimeout,
+            });
             initialTimeoutId = setTimeout(() => {
               initialTimeoutReached = true;
             }, initialTimeout);
@@ -722,6 +741,12 @@ export async function l0<TOutput = unknown>(
                 firstTokenReceived = true;
                 state.firstTokenAt = Date.now();
                 stateMachine.transition(RuntimeStates.STREAMING);
+                // Switch from initial to inter-token timeout
+                const interTimeout = processedTimeout.interToken ?? 10000;
+                dispatcher.emit(EventType.TIMEOUT_RESET, {
+                  timeoutType: "inter_token",
+                  durationMs: interTimeout,
+                });
               }
 
               metrics.tokens++;
@@ -1389,6 +1414,14 @@ export async function l0<TOutput = unknown>(
             state,
           });
 
+          // Emit FALLBACK_END if we used a fallback
+          if (fallbackIndex > 0) {
+            dispatcher.emit(EventType.FALLBACK_END, {
+              index: fallbackIndex,
+              success: true,
+            });
+          }
+
           break; // Exit retry loop on success
         } catch (error) {
           const err = error instanceof Error ? error : new Error(String(error));
@@ -1595,6 +1628,12 @@ export async function l0<TOutput = unknown>(
 
           // Check if should retry (but not if aborted)
           if (decision.shouldRetry && !signal?.aborted) {
+            dispatcher.emit(EventType.RETRY_START, {
+              attempt: retryAttempt + 1,
+              maxAttempts: modelRetryLimit,
+              reason: decision.reason,
+            });
+
             if (decision.countsTowardLimit) {
               retryAttempt++;
               state.modelRetryCount++;
@@ -1632,7 +1671,21 @@ export async function l0<TOutput = unknown>(
 
             // Record retry and wait
             await retryManager.recordRetry(categorized, decision);
+            dispatcher.emit(EventType.RETRY_END, {
+              attempt: retryAttempt,
+              success: true,
+            });
             continue;
+          }
+
+          // Not retryable - emit RETRY_GIVE_UP if we had retries
+          if (retryAttempt > 0) {
+            dispatcher.emit(EventType.RETRY_GIVE_UP, {
+              attempt: retryAttempt,
+              maxAttempts: modelRetryLimit,
+              reason: decision.reason,
+              lastError: err.message,
+            });
           }
 
           // Not retryable - check if we have fallbacks available
@@ -1684,6 +1737,9 @@ export async function l0<TOutput = unknown>(
             fromIndex: fallbackIndex - 1,
             toIndex: fallbackIndex,
             reason: fallbackMessage,
+          });
+          dispatcher.emit(EventType.FALLBACK_MODEL_SELECTED, {
+            index: fallbackIndex,
           });
 
           // Reset state for fallback attempt (but preserve checkpoint if continuation enabled)
