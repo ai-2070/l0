@@ -187,12 +187,6 @@ export const StructuredEvents = {
 /** Continuation events */
 export const ContinuationEvents = {
   CONTINUATION_START: "CONTINUATION_START",
-  CONTINUATION_DEDUPLICATION_START: "CONTINUATION_DEDUPLICATION_START",
-  CONTINUATION_DEDUPLICATION_END: "CONTINUATION_DEDUPLICATION_END",
-  /** Alias for CONTINUATION_DEDUPLICATION_START (Python compat) */
-  DEDUPLICATION_START: "DEDUPLICATION_START",
-  /** Alias for CONTINUATION_DEDUPLICATION_END (Python compat) */
-  DEDUPLICATION_END: "DEDUPLICATION_END",
 } as const;
 
 /** Tool use events */
@@ -708,30 +702,6 @@ export interface ContinuationStartEvent extends L0ObservabilityEvent {
   tokenCount: number;
 }
 
-export interface ContinuationDeduplicationStartEvent extends L0ObservabilityEvent {
-  type: "CONTINUATION_DEDUPLICATION_START";
-  overlapLength: number;
-}
-
-export interface ContinuationDeduplicationEndEvent extends L0ObservabilityEvent {
-  type: "CONTINUATION_DEDUPLICATION_END";
-  durationMs: number;
-  deduplicatedLength: number;
-}
-
-/** Alias for CONTINUATION_DEDUPLICATION_START (Python compat) */
-export interface DeduplicationStartEvent extends L0ObservabilityEvent {
-  type: "DEDUPLICATION_START";
-}
-
-/** Alias for CONTINUATION_DEDUPLICATION_END (Python compat) */
-export interface DeduplicationEndEvent extends L0ObservabilityEvent {
-  type: "DEDUPLICATION_END";
-  overlapDetected: boolean;
-  overlapLength?: number;
-  overlapText?: string;
-}
-
 // ============================================================================
 // Tool Events
 // ============================================================================
@@ -870,10 +840,6 @@ export type L0Event =
   | StructuredAutoCorrectEndEvent
   // Continuation
   | ContinuationStartEvent
-  | ContinuationDeduplicationStartEvent
-  | ContinuationDeduplicationEndEvent
-  | DeduplicationStartEvent
-  | DeduplicationEndEvent
   // Tool
   | ToolRequestedEvent
   | ToolStartEvent
