@@ -140,38 +140,65 @@ describe("Canonical Spec: L0Error", () => {
   });
 
   describe("Error code to category mapping", () => {
-    const expectedMappings = canonicalSpec.errorHandling.ErrorCategory.codeToCategory;
+    const expectedMappings =
+      canonicalSpec.errorHandling.ErrorCategory.codeToCategory;
 
     it("should map NETWORK_ERROR to network category", () => {
-      expect(getErrorCategory(L0ErrorCodes.NETWORK_ERROR)).toBe(ErrorCategory.NETWORK);
+      expect(getErrorCategory(L0ErrorCodes.NETWORK_ERROR)).toBe(
+        ErrorCategory.NETWORK,
+      );
     });
 
     it("should map timeout codes to transient category", () => {
-      expect(getErrorCategory(L0ErrorCodes.INITIAL_TOKEN_TIMEOUT)).toBe(ErrorCategory.TRANSIENT);
-      expect(getErrorCategory(L0ErrorCodes.INTER_TOKEN_TIMEOUT)).toBe(ErrorCategory.TRANSIENT);
+      expect(getErrorCategory(L0ErrorCodes.INITIAL_TOKEN_TIMEOUT)).toBe(
+        ErrorCategory.TRANSIENT,
+      );
+      expect(getErrorCategory(L0ErrorCodes.INTER_TOKEN_TIMEOUT)).toBe(
+        ErrorCategory.TRANSIENT,
+      );
     });
 
     it("should map content quality codes to content category", () => {
-      expect(getErrorCategory(L0ErrorCodes.GUARDRAIL_VIOLATION)).toBe(ErrorCategory.CONTENT);
-      expect(getErrorCategory(L0ErrorCodes.FATAL_GUARDRAIL_VIOLATION)).toBe(ErrorCategory.CONTENT);
-      expect(getErrorCategory(L0ErrorCodes.DRIFT_DETECTED)).toBe(ErrorCategory.CONTENT);
-      expect(getErrorCategory(L0ErrorCodes.ZERO_OUTPUT)).toBe(ErrorCategory.CONTENT);
+      expect(getErrorCategory(L0ErrorCodes.GUARDRAIL_VIOLATION)).toBe(
+        ErrorCategory.CONTENT,
+      );
+      expect(getErrorCategory(L0ErrorCodes.FATAL_GUARDRAIL_VIOLATION)).toBe(
+        ErrorCategory.CONTENT,
+      );
+      expect(getErrorCategory(L0ErrorCodes.DRIFT_DETECTED)).toBe(
+        ErrorCategory.CONTENT,
+      );
+      expect(getErrorCategory(L0ErrorCodes.ZERO_OUTPUT)).toBe(
+        ErrorCategory.CONTENT,
+      );
     });
 
     it("should map internal codes to internal category", () => {
-      expect(getErrorCategory(L0ErrorCodes.INVALID_STREAM)).toBe(ErrorCategory.INTERNAL);
-      expect(getErrorCategory(L0ErrorCodes.ADAPTER_NOT_FOUND)).toBe(ErrorCategory.INTERNAL);
-      expect(getErrorCategory(L0ErrorCodes.FEATURE_NOT_ENABLED)).toBe(ErrorCategory.INTERNAL);
+      expect(getErrorCategory(L0ErrorCodes.INVALID_STREAM)).toBe(
+        ErrorCategory.INTERNAL,
+      );
+      expect(getErrorCategory(L0ErrorCodes.ADAPTER_NOT_FOUND)).toBe(
+        ErrorCategory.INTERNAL,
+      );
+      expect(getErrorCategory(L0ErrorCodes.FEATURE_NOT_ENABLED)).toBe(
+        ErrorCategory.INTERNAL,
+      );
     });
 
     it("should map provider codes to provider category", () => {
-      expect(getErrorCategory(L0ErrorCodes.STREAM_ABORTED)).toBe(ErrorCategory.PROVIDER);
-      expect(getErrorCategory(L0ErrorCodes.ALL_STREAMS_EXHAUSTED)).toBe(ErrorCategory.PROVIDER);
+      expect(getErrorCategory(L0ErrorCodes.STREAM_ABORTED)).toBe(
+        ErrorCategory.PROVIDER,
+      );
+      expect(getErrorCategory(L0ErrorCodes.ALL_STREAMS_EXHAUSTED)).toBe(
+        ErrorCategory.PROVIDER,
+      );
     });
   });
 
   describe("All error codes exist", () => {
-    const specErrorCodes = Object.keys(canonicalSpec.errorHandling.L0ErrorCodes.values);
+    const specErrorCodes = Object.keys(
+      canonicalSpec.errorHandling.L0ErrorCodes.values,
+    );
 
     for (const code of specErrorCodes) {
       it(`should have error code: ${code}`, () => {
@@ -278,12 +305,16 @@ describe("Canonical Spec: Network Error Classification", () => {
 
 describe("Canonical Spec: Observability Events", () => {
   describe("EventType enum completeness", () => {
-    const specEvents = Object.keys(canonicalSpec.monitoring.observabilityEvents.events);
+    const specEvents = Object.keys(
+      canonicalSpec.monitoring.observabilityEvents.events,
+    );
 
     for (const eventType of specEvents) {
       it(`should have EventType.${eventType}`, () => {
         expect(EventType).toHaveProperty(eventType);
-        expect((EventType as Record<string, string>)[eventType]).toBe(eventType);
+        expect((EventType as Record<string, string>)[eventType]).toBe(
+          eventType,
+        );
       });
     }
   });

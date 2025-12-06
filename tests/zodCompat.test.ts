@@ -60,6 +60,7 @@ describe("Zod Compatibility Layer", () => {
     it("should detect ZodError from safeParse", () => {
       const schema = z.string();
       const result = schema.safeParse(123);
+      expect(result.success).toBe(false);
       if (!result.success) {
         expect(isZodError(result.error)).toBe(true);
       }
@@ -89,6 +90,7 @@ describe("Zod Compatibility Layer", () => {
       const result = safeParse(schema, { name: 123 });
 
       expect(result.success).toBe(false);
+      // Type narrowing after assertion
       if (!result.success) {
         expect(isZodError(result.error)).toBe(true);
       }
@@ -124,6 +126,7 @@ describe("Zod Compatibility Layer", () => {
       });
       const result = schema.safeParse({ name: 123, age: "invalid" });
 
+      expect(result.success).toBe(false);
       if (!result.success) {
         const messages = getZodErrorMessages(result.error);
         expect(messages.length).toBe(2);
@@ -136,6 +139,7 @@ describe("Zod Compatibility Layer", () => {
       const schema = z.string();
       const result = schema.safeParse(123);
 
+      expect(result.success).toBe(false);
       if (!result.success) {
         const messages = getZodErrorMessages(result.error);
         expect(messages.length).toBeGreaterThan(0);
@@ -151,6 +155,7 @@ describe("Zod Compatibility Layer", () => {
       });
       const result = schema.safeParse({ name: 123, email: "invalid" });
 
+      expect(result.success).toBe(false);
       if (!result.success) {
         const flat = flattenZodError(result.error);
         expect(flat.fieldErrors.name).toBeDefined();
@@ -173,6 +178,7 @@ describe("Zod Compatibility Layer", () => {
         confirm: "xyz",
       });
 
+      expect(result.success).toBe(false);
       if (!result.success) {
         const flat = flattenZodError(result.error);
         expect(flat.formErrors.length).toBeGreaterThan(0);
