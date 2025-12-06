@@ -209,7 +209,7 @@ The following `EventType` values are emitted during the lifecycle:
 | Event Type              | Description                              |
 | ----------------------- | ---------------------------------------- |
 | `SESSION_START`         | Session started (once per session)       |
-| `ATTEMPT_START`         | New attempt started (retry/fallback)     |
+| `ATTEMPT_START`         | New attempt started (retry)              |
 | `COMPLETE`              | Stream completed successfully            |
 | `ERROR`                 | Error occurred                           |
 | `RETRY_ATTEMPT`         | Retry is being attempted                 |

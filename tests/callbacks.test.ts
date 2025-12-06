@@ -377,7 +377,7 @@ describe("onStart callback", () => {
     expect(onStart).toHaveBeenCalledWith(1, false, false); // attempt 1, not retry, not fallback
   });
 
-  it("should call onStart only once even with retries", async () => {
+  it("should call onStart for each attempt including retries", async () => {
     const onStart = vi.fn();
     const onRetry = vi.fn();
     let attemptCount = 0;
