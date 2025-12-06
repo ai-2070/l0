@@ -1900,24 +1900,28 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
 
     const forceRetryRule: GuardrailRule = {
       name: "force-retry",
-      check: (ctx: GuardrailContext) => {
-        if (attemptCount < 2) {
-          return {
-            rule: "force-retry",
-            severity: "error" as const,
-            message: "Forcing retry",
-            recoverable: true,
-          };
+      check: (ctx) => {
+        if (ctx.completed && attemptCount < 2) {
+          return [
+            {
+              rule: "force-retry",
+              severity: "error",
+              message: "Forcing retry",
+              recoverable: true,
+            },
+          ];
         }
-        return null;
+        return [];
       },
     };
 
+    const streamFactory = () => {
+      attemptCount++;
+      return createTokenStream(["test"])();
+    };
+
     const result = await l0({
-      stream: () => {
-        attemptCount++;
-        return createTokenStream(["test"]);
-      },
+      stream: streamFactory,
       guardrails: [forceRetryRule],
       retry: { attempts: 3 },
       context: {
@@ -1932,7 +1936,7 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     }
 
     // Check RETRY_ATTEMPT events have context
-    const retryEvents = collector.getEventsOfType("RETRY_ATTEMPT");
+    const retryEvents = collector.getEventsOfType(EventType.RETRY_ATTEMPT);
     expect(retryEvents.length).toBeGreaterThan(0);
     for (const event of retryEvents) {
       const context = event.data.context as Record<string, unknown>;
@@ -1941,7 +1945,7 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     }
 
     // Check ATTEMPT_START events have context
-    const attemptStarts = collector.getEventsOfType("ATTEMPT_START");
+    const attemptStarts = collector.getEventsOfType(EventType.ATTEMPT_START);
     for (const event of attemptStarts) {
       const context = event.data.context as Record<string, unknown>;
       expect(context.requestId).toBe("retry-req-123");
@@ -1953,18 +1957,26 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     const collector = createEventCollector();
 
     const failRule: GuardrailRule = {
-      name: "always-fail",
-      check: () => ({
-        rule: "always-fail",
-        severity: "error" as const,
-        message: "Always fails",
-        recoverable: false,
-      }),
+      name: "fail-primary",
+      check: (ctx) => {
+        // Only fail on primary content, not fallback
+        if (ctx.completed && ctx.content === "primary") {
+          return [
+            {
+              rule: "fail-primary",
+              severity: "error",
+              message: "Primary must fail",
+              recoverable: false,
+            },
+          ];
+        }
+        return [];
+      },
     };
 
     const result = await l0({
       stream: createTokenStream(["primary"]),
-      fallbackStreams: [() => createTokenStream(["fallback"])],
+      fallbackStreams: [createTokenStream(["fallback"])],
       guardrails: [failRule],
       retry: { attempts: 1 },
       context: {
@@ -1979,7 +1991,7 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     }
 
     // Check FALLBACK_START events have context
-    const fallbackStarts = collector.getEventsOfType("FALLBACK_START");
+    const fallbackStarts = collector.getEventsOfType(EventType.FALLBACK_START);
     expect(fallbackStarts.length).toBeGreaterThan(0);
     for (const event of fallbackStarts) {
       const context = event.data.context as Record<string, unknown>;
@@ -1992,8 +2004,8 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     const collector = createEventCollector();
 
     const result = await l0({
-      stream: createFailingStream(0),
-      fallbackStreams: [() => createTokenStream(["fallback"])],
+      stream: createFailingStream([]),
+      fallbackStreams: [createTokenStream(["fallback"])],
       retry: { attempts: 1 },
       context: {
         requestId: "error-req-789",
@@ -2007,7 +2019,7 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     }
 
     // Check ERROR events have context
-    const errorEvents = collector.getEventsOfType("ERROR");
+    const errorEvents = collector.getEventsOfType(EventType.ERROR);
     expect(errorEvents.length).toBeGreaterThan(0);
     for (const event of errorEvents) {
       const context = event.data.context as Record<string, unknown>;
