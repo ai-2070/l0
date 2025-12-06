@@ -146,7 +146,9 @@ export const DriftEvents = {
 
 /** Checkpoint events */
 export const CheckpointEvents = {
+  CHECKPOINT_START: "CHECKPOINT_START",
   CHECKPOINT_SAVED: "CHECKPOINT_SAVED",
+  CHECKPOINT_END: "CHECKPOINT_END",
 } as const;
 
 /** Resume events */
@@ -191,6 +193,10 @@ export const ContinuationEvents = {
   CONTINUATION_END: "CONTINUATION_END",
   CONTINUATION_DEDUPLICATION_START: "CONTINUATION_DEDUPLICATION_START",
   CONTINUATION_DEDUPLICATION_END: "CONTINUATION_DEDUPLICATION_END",
+  /** Alias for CONTINUATION_DEDUPLICATION_START (Python compat) */
+  DEDUPLICATION_START: "DEDUPLICATION_START",
+  /** Alias for CONTINUATION_DEDUPLICATION_END (Python compat) */
+  DEDUPLICATION_END: "DEDUPLICATION_END",
 } as const;
 
 /** Tool use events */
@@ -531,10 +537,20 @@ export interface DriftCheckSkippedEvent extends L0ObservabilityEvent {
 // Checkpoint Events
 // ============================================================================
 
+export interface CheckpointStartEvent extends L0ObservabilityEvent {
+  type: "CHECKPOINT_START";
+  checkpointLength: number;
+}
+
 export interface CheckpointSavedEvent extends L0ObservabilityEvent {
   type: "CHECKPOINT_SAVED";
   checkpoint: string;
   tokenCount: number;
+}
+
+export interface CheckpointEndEvent extends L0ObservabilityEvent {
+  type: "CHECKPOINT_END";
+  valid: boolean;
 }
 
 // ============================================================================
@@ -730,6 +746,19 @@ export interface ContinuationDeduplicationEndEvent extends L0ObservabilityEvent 
   deduplicatedLength: number;
 }
 
+/** Alias for CONTINUATION_DEDUPLICATION_START (Python compat) */
+export interface DeduplicationStartEvent extends L0ObservabilityEvent {
+  type: "DEDUPLICATION_START";
+}
+
+/** Alias for CONTINUATION_DEDUPLICATION_END (Python compat) */
+export interface DeduplicationEndEvent extends L0ObservabilityEvent {
+  type: "DEDUPLICATION_END";
+  overlapDetected: boolean;
+  overlapLength?: number;
+  overlapText?: string;
+}
+
 // ============================================================================
 // Tool Events
 // ============================================================================
@@ -842,7 +871,9 @@ export type L0Event =
   | DriftCheckEndEvent
   | DriftCheckSkippedEvent
   // Checkpoint
+  | CheckpointStartEvent
   | CheckpointSavedEvent
+  | CheckpointEndEvent
   // Resume
   | ResumeStartEvent
   | ResumeEndEvent
@@ -872,6 +903,8 @@ export type L0Event =
   | ContinuationEndEvent
   | ContinuationDeduplicationStartEvent
   | ContinuationDeduplicationEndEvent
+  | DeduplicationStartEvent
+  | DeduplicationEndEvent
   // Tool
   | ToolRequestedEvent
   | ToolStartEvent
