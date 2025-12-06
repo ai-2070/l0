@@ -1444,6 +1444,14 @@ export async function l0<TOutput = unknown>(
             state,
           });
 
+          // Emit RETRY_END if we had retries and succeeded
+          if (retryAttempt > 0 || state.networkRetryCount > 0) {
+            dispatcher.emit(EventType.RETRY_END, {
+              attempt: retryAttempt + state.networkRetryCount,
+              success: true,
+            });
+          }
+
           // Emit FALLBACK_END if we used a fallback
           if (fallbackIndex > 0) {
             dispatcher.emit(EventType.FALLBACK_END, {
@@ -1699,12 +1707,10 @@ export async function l0<TOutput = unknown>(
               isFallback: fallbackIndex > 0,
             });
 
-            // Record retry and wait
+            // Record retry and wait (delay)
             await retryManager.recordRetry(categorized, decision);
-            dispatcher.emit(EventType.RETRY_END, {
-              attempt: retryAttempt,
-              success: true,
-            });
+            // Note: RETRY_END is NOT emitted here because the retry hasn't completed yet.
+            // Success/failure will be determined after the retry attempt runs.
             continue;
           }
 

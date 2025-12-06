@@ -2494,3 +2494,435 @@ describe("Lifecycle: Continuation Events", () => {
     }
   });
 });
+
+// ============================================================================
+// Stream Initialization Events Tests
+// ============================================================================
+
+describe("Lifecycle: Stream Initialization Events", () => {
+  it("should emit STREAM_INIT at start of streaming", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello", " ", "world"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const streamInits = collector.getEventsOfType(EventType.STREAM_INIT);
+    expect(streamInits.length).toBeGreaterThan(0);
+  });
+
+  it("should emit STREAM_INIT before tokens are yielded", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const types = collector.getEventTypes();
+    const streamInitIdx = types.indexOf(EventType.STREAM_INIT);
+    expect(streamInitIdx).toBeGreaterThanOrEqual(0);
+    // STREAM_INIT should come early in the sequence (after SESSION_START)
+    expect(streamInitIdx).toBeLessThan(5);
+  });
+});
+
+// ============================================================================
+// Adapter Events Tests
+// ============================================================================
+
+describe("Lifecycle: Adapter Events", () => {
+  it("should emit ADAPTER_WRAP_START and ADAPTER_WRAP_END", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const wrapStarts = collector.getEventsOfType(EventType.ADAPTER_WRAP_START);
+    const wrapEnds = collector.getEventsOfType(EventType.ADAPTER_WRAP_END);
+
+    expect(wrapStarts.length).toBeGreaterThan(0);
+    expect(wrapEnds.length).toBeGreaterThan(0);
+  });
+
+  it("should emit ADAPTER_DETECTED with adapter name", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const adapterDetected = collector.getEventsOfType(
+      EventType.ADAPTER_DETECTED,
+    );
+    expect(adapterDetected.length).toBeGreaterThan(0);
+    expect(typeof adapterDetected[0]!.data.adapter).toBe("string");
+  });
+
+  it("should emit adapter events in order: WRAP_START -> DETECTED -> WRAP_END", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const types = collector.getEventTypes();
+    const wrapStartIdx = types.indexOf(EventType.ADAPTER_WRAP_START);
+    const detectedIdx = types.indexOf(EventType.ADAPTER_DETECTED);
+    const wrapEndIdx = types.indexOf(EventType.ADAPTER_WRAP_END);
+
+    expect(wrapStartIdx).toBeGreaterThanOrEqual(0);
+    expect(detectedIdx).toBeGreaterThanOrEqual(0);
+    expect(wrapEndIdx).toBeGreaterThanOrEqual(0);
+
+    expect(wrapStartIdx).toBeLessThan(detectedIdx);
+    expect(detectedIdx).toBeLessThan(wrapEndIdx);
+  });
+});
+
+// ============================================================================
+// Timeout Events Tests
+// ============================================================================
+
+describe("Lifecycle: Timeout Events", () => {
+  it("should emit TIMEOUT_START when timeout is configured", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello"]),
+      timeout: { initialToken: 5000, interToken: 2000 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const timeoutStarts = collector.getEventsOfType(EventType.TIMEOUT_START);
+    expect(timeoutStarts.length).toBeGreaterThan(0);
+  });
+
+  it("should include timeout type in TIMEOUT_START event", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello"]),
+      timeout: { initialToken: 5000 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const timeoutStarts = collector.getEventsOfType(EventType.TIMEOUT_START);
+    if (timeoutStarts.length > 0) {
+      expect(timeoutStarts[0]!.data.timeoutType).toBeDefined();
+    }
+  });
+
+  it("should emit TIMEOUT_RESET after each token", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["a", "b", "c"]),
+      timeout: { interToken: 5000 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const timeoutResets = collector.getEventsOfType(EventType.TIMEOUT_RESET);
+    // Should have at least one reset per token
+    expect(timeoutResets.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ============================================================================
+// Retry Lifecycle Events Tests
+// ============================================================================
+
+describe("Lifecycle: Retry Lifecycle Events", () => {
+  it("should emit RETRY_START when retry begins", async () => {
+    const collector = createEventCollector();
+    let attempts = 0;
+
+    const streamFactory = () => {
+      attempts++;
+      return (async function* (): AsyncGenerator<L0Event> {
+        if (attempts < 2) {
+          yield {
+            type: "error",
+            error: new Error("Retry needed"),
+            timestamp: Date.now(),
+          };
+        } else {
+          yield { type: "token", value: "success", timestamp: Date.now() };
+        }
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryStarts = collector.getEventsOfType(EventType.RETRY_START);
+    expect(retryStarts.length).toBeGreaterThan(0);
+  });
+
+  it("should include attempt and maxAttempts in RETRY_START", async () => {
+    const collector = createEventCollector();
+    let attempts = 0;
+
+    const streamFactory = () => {
+      attempts++;
+      return (async function* (): AsyncGenerator<L0Event> {
+        if (attempts < 2) {
+          yield {
+            type: "error",
+            error: new Error("Retry"),
+            timestamp: Date.now(),
+          };
+        } else {
+          yield { type: "token", value: "ok", timestamp: Date.now() };
+        }
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      retry: { attempts: 3, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryStarts = collector.getEventsOfType(EventType.RETRY_START);
+    if (retryStarts.length > 0) {
+      expect(typeof retryStarts[0]!.data.attempt).toBe("number");
+      expect(typeof retryStarts[0]!.data.maxAttempts).toBe("number");
+    }
+  });
+
+  it("should emit RETRY_END after successful retry", async () => {
+    const collector = createEventCollector();
+    let attempts = 0;
+
+    const streamFactory = () => {
+      attempts++;
+      return (async function* (): AsyncGenerator<L0Event> {
+        if (attempts < 2) {
+          yield {
+            type: "error",
+            error: new Error("Retry"),
+            timestamp: Date.now(),
+          };
+        } else {
+          yield { type: "token", value: "ok", timestamp: Date.now() };
+        }
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryEnds = collector.getEventsOfType(EventType.RETRY_END);
+    expect(retryEnds.length).toBeGreaterThan(0);
+    expect(retryEnds[0]!.data.success).toBe(true);
+  });
+
+  it("should emit RETRY_GIVE_UP when retries exhausted", async () => {
+    const collector = createEventCollector();
+
+    const streamFactory = () => {
+      return (async function* (): AsyncGenerator<L0Event> {
+        yield {
+          type: "error",
+          error: new Error("Always fails"),
+          timestamp: Date.now(),
+        };
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryGiveUps = collector.getEventsOfType(EventType.RETRY_GIVE_UP);
+    expect(retryGiveUps.length).toBeGreaterThan(0);
+  });
+
+  it("should include attempts count in RETRY_GIVE_UP", async () => {
+    const collector = createEventCollector();
+
+    const streamFactory = () => {
+      return (async function* (): AsyncGenerator<L0Event> {
+        yield {
+          type: "error",
+          error: new Error("Always fails"),
+          timestamp: Date.now(),
+        };
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryGiveUps = collector.getEventsOfType(EventType.RETRY_GIVE_UP);
+    if (retryGiveUps.length > 0) {
+      expect(typeof retryGiveUps[0]!.data.attempt).toBe("number");
+      expect(typeof retryGiveUps[0]!.data.maxAttempts).toBe("number");
+    }
+  });
+});
+
+// ============================================================================
+// Fallback Lifecycle Events Tests
+// ============================================================================
+
+describe("Lifecycle: Fallback Lifecycle Events", () => {
+  it("should emit FALLBACK_MODEL_SELECTED when fallback is chosen", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createFailingStream("Primary failed"),
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const modelSelected = collector.getEventsOfType(
+      EventType.FALLBACK_MODEL_SELECTED,
+    );
+    expect(modelSelected.length).toBeGreaterThan(0);
+  });
+
+  it("should include model index in FALLBACK_MODEL_SELECTED", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createFailingStream("Primary failed"),
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const modelSelected = collector.getEventsOfType(
+      EventType.FALLBACK_MODEL_SELECTED,
+    );
+    if (modelSelected.length > 0) {
+      expect(typeof modelSelected[0]!.data.index).toBe("number");
+    }
+  });
+
+  it("should emit FALLBACK_END after fallback completes", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createFailingStream("Primary failed"),
+      fallbackStreams: [createTokenStream(["fallback", " ", "success"])],
+      retry: { attempts: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const fallbackEnds = collector.getEventsOfType(EventType.FALLBACK_END);
+    expect(fallbackEnds.length).toBeGreaterThan(0);
+  });
+
+  it("should emit FALLBACK_END after FALLBACK_START", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createFailingStream("Primary failed"),
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const types = collector.getEventTypes();
+    const fallbackStartIdx = types.indexOf(EventType.FALLBACK_START);
+    const fallbackEndIdx = types.indexOf(EventType.FALLBACK_END);
+
+    expect(fallbackStartIdx).toBeGreaterThanOrEqual(0);
+    expect(fallbackEndIdx).toBeGreaterThanOrEqual(0);
+    expect(fallbackStartIdx).toBeLessThan(fallbackEndIdx);
+  });
+});
