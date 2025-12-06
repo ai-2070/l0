@@ -2028,11 +2028,12 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     }
   });
 
-  it("should preserve context immutability", async () => {
+  it("should preserve context immutability (deep clone)", async () => {
     const collector = createEventCollector();
     const originalContext = {
       requestId: "immutable-123",
-      nested: { value: "original" },
+      nested: { value: "original", deep: { level: 1 } },
+      items: [1, 2, { name: "test" }],
     };
 
     const result = await l0({
@@ -2045,15 +2046,46 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
       // Consume stream
     }
 
-    // Verify context in events matches original
+    // Verify context in events matches original values
     const obsEvents = collector.events.filter((e) => e.data.context);
     expect(obsEvents.length).toBeGreaterThan(0);
 
-    const eventContext = obsEvents[0].data.context as Record<string, unknown>;
+    const eventContext = obsEvents[0]!.data.context as Record<string, unknown>;
     expect(eventContext.requestId).toBe("immutable-123");
 
-    // Modifying original shouldn't affect emitted events
+    const nested = eventContext.nested as Record<string, unknown>;
+    expect(nested.value).toBe("original");
+
+    const deep = nested.deep as Record<string, unknown>;
+    expect(deep.level).toBe(1);
+
+    const items = eventContext.items as unknown[];
+    expect(items).toEqual([1, 2, { name: "test" }]);
+
+    // Modifying original at any level shouldn't affect emitted events
     originalContext.requestId = "modified";
+    originalContext.nested.value = "modified";
+    originalContext.nested.deep.level = 999;
+    (originalContext.items[2] as Record<string, string>).name = "modified";
+
+    // Event context should still have original values
     expect(eventContext.requestId).toBe("immutable-123");
+    expect(nested.value).toBe("original");
+    expect(deep.level).toBe(1);
+    expect((items[2] as Record<string, string>).name).toBe("test");
+
+    // Attempting to modify frozen context should throw in strict mode
+    // or silently fail in non-strict mode
+    expect(() => {
+      (eventContext as Record<string, unknown>).requestId = "hacked";
+    }).toThrow();
+
+    expect(() => {
+      (nested as Record<string, unknown>).value = "hacked";
+    }).toThrow();
+
+    expect(() => {
+      (items as unknown[]).push(4);
+    }).toThrow();
   });
 });
