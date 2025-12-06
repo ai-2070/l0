@@ -3,7 +3,7 @@
  *
  * The EventDispatcher is the centralized event emission system for L0.
  * It handles:
- * - Automatic event metadata (ts, streamId, meta)
+ * - Automatic event metadata (ts, streamId, context)
  * - Async (microtask) and sync event emission
  * - Handler registration and removal
  * - Error isolation (handlers can't crash the runtime)
@@ -18,24 +18,24 @@ import { EventType } from "../src/types/observability";
 
 describe("EventDispatcher", () => {
   describe("constructor", () => {
-    it("should create dispatcher with empty meta by default", () => {
+    it("should create dispatcher with empty context by default", () => {
       const dispatcher = new EventDispatcher();
-      expect(dispatcher.getMeta()).toEqual({});
+      expect(dispatcher.getContext()).toEqual({});
     });
 
-    it("should create dispatcher with provided meta", () => {
-      const meta = { userId: "123", sessionId: "abc" };
-      const dispatcher = new EventDispatcher(meta);
-      expect(dispatcher.getMeta()).toEqual(meta);
+    it("should create dispatcher with provided context", () => {
+      const context = { userId: "123", sessionId: "abc" };
+      const dispatcher = new EventDispatcher(context);
+      expect(dispatcher.getContext()).toEqual(context);
     });
 
-    it("should freeze meta to prevent mutation", () => {
-      const meta = { key: "value" };
-      const dispatcher = new EventDispatcher(meta);
-      const retrievedMeta = dispatcher.getMeta();
+    it("should freeze context to prevent mutation", () => {
+      const context = { key: "value" };
+      const dispatcher = new EventDispatcher(context);
+      const retrievedContext = dispatcher.getContext();
 
       expect(() => {
-        (retrievedMeta as Record<string, unknown>).newKey = "newValue";
+        (retrievedContext as Record<string, unknown>).newKey = "newValue";
       }).toThrow();
     });
 
@@ -144,7 +144,7 @@ describe("EventDispatcher", () => {
       expect(event.type).toBe(EventType.SESSION_START);
       expect(typeof event.ts).toBe("number");
       expect(event.streamId).toBe(dispatcher.getStreamId());
-      expect(event.meta).toEqual(meta);
+      expect(event.context).toEqual(meta);
     });
 
     it("should include payload in event", async () => {
@@ -284,7 +284,7 @@ describe("EventDispatcher", () => {
       expect(event.type).toBe(EventType.SESSION_START);
       expect(typeof event.ts).toBe("number");
       expect(event.streamId).toBe(dispatcher.getStreamId());
-      expect(event.meta).toEqual(meta);
+      expect(event.context).toEqual(meta);
     });
 
     it("should include payload in event", () => {
@@ -398,16 +398,16 @@ describe("EventDispatcher", () => {
     });
   });
 
-  describe("getMeta", () => {
-    it("should return the meta object", () => {
-      const meta = { env: "test", version: "1.0" };
-      const dispatcher = new EventDispatcher(meta);
-      expect(dispatcher.getMeta()).toEqual(meta);
+  describe("getContext", () => {
+    it("should return the context object", () => {
+      const context = { env: "test", version: "1.0" };
+      const dispatcher = new EventDispatcher(context);
+      expect(dispatcher.getContext()).toEqual(context);
     });
 
-    it("should return empty object when no meta provided", () => {
+    it("should return empty object when no context provided", () => {
       const dispatcher = new EventDispatcher();
-      expect(dispatcher.getMeta()).toEqual({});
+      expect(dispatcher.getContext()).toEqual({});
     });
   });
 
@@ -444,15 +444,15 @@ describe("EventDispatcher", () => {
       expect(dispatcher).toBeInstanceOf(EventDispatcher);
     });
 
-    it("should pass meta to constructor", () => {
-      const meta = { factory: true };
-      const dispatcher = createEventDispatcher(meta);
-      expect(dispatcher.getMeta()).toEqual(meta);
+    it("should pass context to constructor", () => {
+      const context = { factory: true };
+      const dispatcher = createEventDispatcher(context);
+      expect(dispatcher.getContext()).toEqual(context);
     });
 
-    it("should work with empty meta", () => {
+    it("should work with empty context", () => {
       const dispatcher = createEventDispatcher({});
-      expect(dispatcher.getMeta()).toEqual({});
+      expect(dispatcher.getContext()).toEqual({});
     });
   });
 });

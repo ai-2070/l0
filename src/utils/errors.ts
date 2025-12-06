@@ -98,6 +98,11 @@ export interface L0ErrorContext {
    * Additional context data
    */
   metadata?: Record<string, unknown>;
+
+  /**
+   * User-provided context (from L0Options.context)
+   */
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -190,7 +195,21 @@ export class L0Error extends Error {
   /**
    * Serialize error for logging/transport
    */
-  toJSON(): Record<string, unknown> {
+  toJSON(): {
+    name: string;
+    code: L0ErrorCode;
+    category: ErrorCategory;
+    message: string;
+    timestamp: number;
+    hasCheckpoint: boolean;
+    checkpoint: string | undefined;
+    tokenCount: number | undefined;
+    modelRetryCount: number | undefined;
+    networkRetryCount: number | undefined;
+    fallbackIndex: number | undefined;
+    metadata: Record<string, unknown> | undefined;
+    context: Record<string, unknown> | undefined;
+  } {
     return {
       name: this.name,
       code: this.code,
@@ -204,6 +223,7 @@ export class L0Error extends Error {
       networkRetryCount: this.context.networkRetryCount,
       fallbackIndex: this.context.fallbackIndex,
       metadata: this.context.metadata,
+      context: this.context.context,
     };
   }
 }

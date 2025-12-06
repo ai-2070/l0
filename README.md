@@ -186,8 +186,8 @@ const result = await l0({
     checkpoint: 10,
   },
 
-  // Optional: User metadata (attached to all observability events)
-  meta: { requestId: "req_123", userId: "user_456" },
+  // Optional: User context (attached to all observability events)
+  context: { requestId: "req_123", userId: "user_456" },
 
   // Optional: Abort signal
   signal: abortController.signal,
@@ -1378,10 +1378,10 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 
 ```typescript
 // Model requests tool execution
-{ type: "TOOL_REQUESTED", ts, toolName, arguments, toolCallId, meta? }
+{ type: "TOOL_REQUESTED", ts, toolName, arguments, toolCallId, context? }
 { type: "TOOL_START", ts, toolCallId, toolName }
-{ type: "TOOL_RESULT", ts, toolCallId, result, durationMs, meta? }
-{ type: "TOOL_ERROR", ts, toolCallId, error, durationMs, meta? }
+{ type: "TOOL_RESULT", ts, toolCallId, result, durationMs, context? }
+{ type: "TOOL_ERROR", ts, toolCallId, error, durationMs, context? }
 { type: "TOOL_COMPLETED", ts, toolCallId, status }  // status: success|error
 ```
 

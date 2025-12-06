@@ -2131,8 +2131,8 @@ interface L0Options {
   // Optional fallback streams (tried in order if primary fails)
   fallbackStreams?: Array<() => Promise<StreamTextResult> | StreamTextResult>;
 
-  // User metadata attached to all observability events (immutable for session)
-  meta?: Record<string, unknown>;
+  // User context attached to all observability events (immutable for session)
+  context?: Record<string, unknown>;
 
   // Guardrail rules to apply during streaming
   guardrails?: GuardrailRule[];

@@ -170,8 +170,8 @@ export interface L0Options<TOutput = unknown> {
   stream: () => Promise<any> | any;
 
   /**
-   * User metadata attached to all observability events.
-   * This metadata is immutable for the duration of the session
+   * User-provided context attached to all observability events.
+   * This context is immutable for the duration of the session
    * and included in every event emitted via onEvent.
    *
    * Use this to attach request IDs, user IDs, or other context
@@ -181,7 +181,7 @@ export interface L0Options<TOutput = unknown> {
    * ```typescript
    * await l0({
    *   stream: () => streamText({ model, prompt }),
-   *   meta: {
+   *   context: {
    *     requestId: "req_123",
    *     userId: "user_456",
    *     environment: "production"
@@ -189,7 +189,7 @@ export interface L0Options<TOutput = unknown> {
    * });
    * ```
    */
-  meta?: Record<string, unknown>;
+  context?: Record<string, unknown>;
 
   /**
    * Optional fallback stream functions to try if primary stream fails

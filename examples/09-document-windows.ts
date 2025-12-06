@@ -155,7 +155,7 @@ async function processAllWithL0() {
           model: openai("gpt-4o-mini"),
           prompt: `Extract 2-3 key terms from this text. Return only the terms, comma-separated:\n\n${chunk.content}`,
         }),
-      meta: { chunkIndex: chunk.index },
+      context: { chunkIndex: chunk.index },
     }),
     { concurrency: 3 }, // Control parallelism
   );

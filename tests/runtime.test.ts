@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { l0, getText } from "../src/runtime/l0";
 import type { L0Options, L0Event } from "../src/types/l0";
+import type { L0ObservabilityEvent } from "../src/types/observability";
 import { jsonRule, zeroOutputRule } from "../src/guardrails";
 import { registerAdapter, clearAdapters } from "../src/adapters/registry";
 
@@ -720,7 +721,7 @@ describe("L0 Runtime", () => {
 
   describe("Event Callbacks", () => {
     it("should call onEvent callback", async () => {
-      const events: L0Event[] = [];
+      const events: (L0Event | L0ObservabilityEvent)[] = [];
       const tokens = ["Hello"];
 
       const result = await l0({
