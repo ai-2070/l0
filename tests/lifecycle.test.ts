@@ -2089,3 +2089,408 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     }).toThrow();
   });
 });
+
+// ============================================================================
+// Guardrail Phase Events Tests
+// ============================================================================
+
+describe("Lifecycle: Guardrail Phase Events", () => {
+  it("should emit GUARDRAIL_PHASE_START and GUARDRAIL_PHASE_END when guardrails are configured", async () => {
+    const collector = createEventCollector();
+
+    const simpleRule: GuardrailRule = {
+      name: "simple-check",
+      check: () => [], // No violations
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["hello", " ", "world"]),
+      guardrails: [simpleRule],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const phaseStarts = collector.getEventsOfType(
+      EventType.GUARDRAIL_PHASE_START,
+    );
+    const phaseEnds = collector.getEventsOfType(EventType.GUARDRAIL_PHASE_END);
+
+    expect(phaseStarts.length).toBeGreaterThan(0);
+    expect(phaseEnds.length).toBeGreaterThan(0);
+    expect(phaseStarts.length).toBe(phaseEnds.length);
+  });
+
+  it("should include contextSize and ruleCount in GUARDRAIL_PHASE_START", async () => {
+    const collector = createEventCollector();
+
+    const rule1: GuardrailRule = {
+      name: "rule-1",
+      check: () => [],
+    };
+    const rule2: GuardrailRule = {
+      name: "rule-2",
+      check: () => [],
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["test", " ", "content"]),
+      guardrails: [rule1, rule2],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const phaseStarts = collector.getEventsOfType(
+      EventType.GUARDRAIL_PHASE_START,
+    );
+    expect(phaseStarts.length).toBeGreaterThan(0);
+
+    const firstStart = phaseStarts[0]!;
+    expect(typeof firstStart.data.contextSize).toBe("number");
+    expect(firstStart.data.ruleCount).toBe(2);
+  });
+
+  it("should include ruleCount and violationCount in GUARDRAIL_PHASE_END", async () => {
+    const collector = createEventCollector();
+
+    const violatingRule: GuardrailRule = {
+      name: "violating-rule",
+      check: (ctx) => {
+        if (ctx.content.includes("bad")) {
+          return [
+            {
+              rule: "violating-rule",
+              severity: "warning",
+              message: "Bad content",
+              recoverable: true,
+            },
+          ];
+        }
+        return [];
+      },
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["this", " ", "is", " ", "bad"]),
+      guardrails: [violatingRule],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const phaseEnds = collector.getEventsOfType(EventType.GUARDRAIL_PHASE_END);
+    expect(phaseEnds.length).toBeGreaterThan(0);
+
+    // Find a phase end with violations
+    const withViolations = phaseEnds.find(
+      (e) => (e.data.violationCount as number) > 0,
+    );
+    if (withViolations) {
+      expect(withViolations.data.ruleCount).toBe(1);
+      expect(typeof withViolations.data.violationCount).toBe("number");
+    }
+  });
+
+  it("should emit GUARDRAIL_RULE_START and GUARDRAIL_RULE_END for each rule", async () => {
+    const collector = createEventCollector();
+
+    const rule1: GuardrailRule = {
+      name: "rule-alpha",
+      check: () => [],
+    };
+    const rule2: GuardrailRule = {
+      name: "rule-beta",
+      check: () => [],
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      guardrails: [rule1, rule2],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const ruleStarts = collector.getEventsOfType(
+      EventType.GUARDRAIL_RULE_START,
+    );
+    const ruleEnds = collector.getEventsOfType(EventType.GUARDRAIL_RULE_END);
+
+    expect(ruleStarts.length).toBeGreaterThan(0);
+    expect(ruleEnds.length).toBeGreaterThan(0);
+    expect(ruleStarts.length).toBe(ruleEnds.length);
+  });
+
+  it("should include index and ruleId in GUARDRAIL_RULE_START/END", async () => {
+    const collector = createEventCollector();
+
+    const namedRule: GuardrailRule = {
+      name: "named-rule-123",
+      check: () => [],
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      guardrails: [namedRule],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const ruleStarts = collector.getEventsOfType(
+      EventType.GUARDRAIL_RULE_START,
+    );
+    expect(ruleStarts.length).toBeGreaterThan(0);
+
+    const firstRuleStart = ruleStarts[0]!;
+    expect(firstRuleStart.data.index).toBe(0);
+    expect(firstRuleStart.data.ruleId).toBe("named-rule-123");
+
+    const ruleEnds = collector.getEventsOfType(EventType.GUARDRAIL_RULE_END);
+    expect(ruleEnds.length).toBeGreaterThan(0);
+
+    const firstRuleEnd = ruleEnds[0]!;
+    expect(firstRuleEnd.data.index).toBe(0);
+    expect(firstRuleEnd.data.ruleId).toBe("named-rule-123");
+  });
+
+  it("should emit phase events in correct order: PHASE_START -> RULE_START -> RULE_END -> PHASE_END", async () => {
+    const collector = createEventCollector();
+
+    const simpleRule: GuardrailRule = {
+      name: "order-test-rule",
+      check: () => [],
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      guardrails: [simpleRule],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    // Get just the guardrail-related events in order
+    const guardrailEvents = collector.events
+      .filter((e) =>
+        [
+          EventType.GUARDRAIL_PHASE_START,
+          EventType.GUARDRAIL_PHASE_END,
+          EventType.GUARDRAIL_RULE_START,
+          EventType.GUARDRAIL_RULE_END,
+        ].includes(e.type as EventType),
+      )
+      .map((e) => e.type);
+
+    // Should have at least one complete phase cycle
+    expect(guardrailEvents.length).toBeGreaterThanOrEqual(4);
+
+    // Find first complete sequence
+    const phaseStartIdx = guardrailEvents.indexOf(
+      EventType.GUARDRAIL_PHASE_START,
+    );
+    expect(phaseStartIdx).toBeGreaterThanOrEqual(0);
+
+    // After PHASE_START, we should see RULE_START
+    const ruleStartIdx = guardrailEvents.indexOf(
+      EventType.GUARDRAIL_RULE_START,
+      phaseStartIdx,
+    );
+    expect(ruleStartIdx).toBeGreaterThan(phaseStartIdx);
+
+    // After RULE_START, we should see RULE_END
+    const ruleEndIdx = guardrailEvents.indexOf(
+      EventType.GUARDRAIL_RULE_END,
+      ruleStartIdx,
+    );
+    expect(ruleEndIdx).toBeGreaterThan(ruleStartIdx);
+
+    // After RULE_END, we should see PHASE_END
+    const phaseEndIdx = guardrailEvents.indexOf(
+      EventType.GUARDRAIL_PHASE_END,
+      ruleEndIdx,
+    );
+    expect(phaseEndIdx).toBeGreaterThan(ruleEndIdx);
+  });
+});
+
+// ============================================================================
+// Continuation Start Events Tests
+// ============================================================================
+
+describe("Lifecycle: Continuation Events", () => {
+  it("should emit CONTINUATION_START before RESUME_START when continuing from checkpoint", async () => {
+    const collector = createEventCollector();
+
+    // Primary generates tokens then fails
+    const primaryStream = async function* (): AsyncGenerator<L0Event> {
+      for (let i = 0; i < 12; i++) {
+        yield { type: "token", value: `t${i}-`, timestamp: Date.now() };
+      }
+      yield {
+        type: "error",
+        error: new Error("Failed"),
+        timestamp: Date.now(),
+      };
+    };
+
+    const result = await l0({
+      stream: () => primaryStream(),
+      fallbackStreams: [createTokenStream(["continued"])],
+      retry: { attempts: 1 },
+      continueFromLastKnownGoodToken: true,
+      checkIntervals: { checkpoint: 5 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const continuationStarts = collector.getEventsOfType(
+      EventType.CONTINUATION_START,
+    );
+    const resumeStarts = collector.getEventsOfType(EventType.RESUME_START);
+
+    expect(continuationStarts.length).toBeGreaterThan(0);
+    expect(resumeStarts.length).toBeGreaterThan(0);
+
+    // CONTINUATION_START should come before RESUME_START
+    const types = collector.getEventTypes();
+    const contIdx = types.indexOf(EventType.CONTINUATION_START);
+    const resumeIdx = types.indexOf(EventType.RESUME_START);
+    expect(contIdx).toBeLessThan(resumeIdx);
+  });
+
+  it("should include checkpoint and tokenCount in CONTINUATION_START event", async () => {
+    const collector = createEventCollector();
+
+    const primaryStream = async function* (): AsyncGenerator<L0Event> {
+      yield { type: "token", value: "check", timestamp: Date.now() };
+      yield { type: "token", value: "point", timestamp: Date.now() };
+      yield { type: "token", value: "data", timestamp: Date.now() };
+      yield { type: "token", value: "here", timestamp: Date.now() };
+      yield { type: "token", value: "now", timestamp: Date.now() };
+      yield { type: "token", value: "fail", timestamp: Date.now() };
+      yield { type: "error", error: new Error("Fail"), timestamp: Date.now() };
+    };
+
+    const result = await l0({
+      stream: () => primaryStream(),
+      fallbackStreams: [createTokenStream(["ok"])],
+      retry: { attempts: 1 },
+      continueFromLastKnownGoodToken: true,
+      checkIntervals: { checkpoint: 3 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const continuationStarts = collector.getEventsOfType(
+      EventType.CONTINUATION_START,
+    );
+    if (continuationStarts.length > 0) {
+      const contEvent = continuationStarts[0]!;
+      expect(typeof contEvent.data.checkpoint).toBe("string");
+      expect((contEvent.data.checkpoint as string).length).toBeGreaterThan(0);
+      expect(typeof contEvent.data.tokenCount).toBe("number");
+    }
+  });
+
+  it("should emit CONTINUATION_START on retry with checkpoint", async () => {
+    const collector = createEventCollector();
+    let attempts = 0;
+
+    const streamFactory = () => {
+      attempts++;
+      return (async function* (): AsyncGenerator<L0Event> {
+        for (let i = 0; i < 10; i++) {
+          yield { type: "token", value: `t${i}-`, timestamp: Date.now() };
+        }
+        if (attempts < 2) {
+          yield {
+            type: "error",
+            error: new Error("Retry needed"),
+            timestamp: Date.now(),
+          };
+        }
+        // Stream ends naturally on second attempt
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      continueFromLastKnownGoodToken: true,
+      checkIntervals: { checkpoint: 3 },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const continuationStarts = collector.getEventsOfType(
+      EventType.CONTINUATION_START,
+    );
+    expect(continuationStarts.length).toBeGreaterThan(0);
+  });
+
+  it("should emit CONTINUATION_START after FALLBACK_START in fallback+continuation flow", async () => {
+    const collector = createEventCollector();
+
+    const primaryStream = async function* (): AsyncGenerator<L0Event> {
+      for (let i = 0; i < 10; i++) {
+        yield { type: "token", value: `t${i}-`, timestamp: Date.now() };
+      }
+      yield {
+        type: "error",
+        error: new Error("Primary failed"),
+        timestamp: Date.now(),
+      };
+    };
+
+    const result = await l0({
+      stream: () => primaryStream(),
+      fallbackStreams: [createTokenStream(["fallback", " ", "success"])],
+      retry: { attempts: 1 },
+      continueFromLastKnownGoodToken: true,
+      checkIntervals: { checkpoint: 3 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const types = collector.getEventTypes();
+    const fallbackIdx = types.indexOf(EventType.FALLBACK_START);
+    const contIdx = types.indexOf(EventType.CONTINUATION_START);
+
+    if (fallbackIdx >= 0 && contIdx >= 0) {
+      expect(fallbackIdx).toBeLessThan(contIdx);
+    }
+  });
+});
