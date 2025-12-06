@@ -366,9 +366,8 @@ describe("Consensus Utilities", () => {
         createMockOutput(4, "B"),
       ];
       const minorDisagreements = findDisagreements(minorOutputs, 0.99);
-      if (minorDisagreements.length > 0) {
-        expect(minorDisagreements[0]!.severity).toBe("minor");
-      }
+      expect(minorDisagreements.length).toBeGreaterThan(0);
+      expect(minorDisagreements[0]!.severity).toBe("minor");
     });
 
     it("should calculate severity correctly - critical", () => {
@@ -394,9 +393,8 @@ describe("Consensus Utilities", () => {
         createMockOutput(4, "C"),
       ];
       const moderateDisagreements = findDisagreements(moderateOutputs, 0.99);
-      if (moderateDisagreements.length > 0) {
-        expect(moderateDisagreements[0]!.severity).toBe("moderate");
-      }
+      expect(moderateDisagreements.length).toBeGreaterThan(0);
+      expect(moderateDisagreements[0]!.severity).toBe("moderate");
     });
 
     it("should filter structured disagreements by threshold", () => {

@@ -224,10 +224,9 @@ describe("Lifecycle: Normal Successful Flow", () => {
 
     // State should be included
     const state = complete!.data.state as L0State | undefined;
-    if (state) {
-      expect(state.content).toBe("Hello World");
-      expect(state.completed).toBe(true);
-    }
+    expect(state).toBeDefined();
+    expect(state!.content).toBe("Hello World");
+    expect(state!.completed).toBe(true);
   });
 
   it("should call onStart callback with correct parameters", async () => {
@@ -1062,11 +1061,10 @@ describe("Lifecycle: Error Flow", () => {
     const policy = errorEvent.data.policy as
       | Record<string, unknown>
       | undefined;
-    if (policy) {
-      expect(policy.retryEnabled).toBeDefined();
-      expect(policy.fallbackEnabled).toBeDefined();
-      expect(policy.maxRetries).toBeDefined();
-    }
+    expect(policy).toBeDefined();
+    expect(policy!.retryEnabled).toBeDefined();
+    expect(policy!.fallbackEnabled).toBeDefined();
+    expect(policy!.maxRetries).toBeDefined();
   });
 });
 
@@ -1287,10 +1285,12 @@ describe("Lifecycle: Checkpoint and Continuation Flow", () => {
     const fallbackIndex = types.indexOf(EventType.FALLBACK_START);
     const resumeIndex = types.indexOf(EventType.RESUME_START);
 
+    // Both events should be present
+    expect(fallbackIndex).toBeGreaterThanOrEqual(0);
+    expect(resumeIndex).toBeGreaterThanOrEqual(0);
+
     // RESUME_START should come after FALLBACK_START
-    if (fallbackIndex !== -1 && resumeIndex !== -1) {
-      expect(resumeIndex).toBeGreaterThan(fallbackIndex);
-    }
+    expect(resumeIndex).toBeGreaterThan(fallbackIndex);
   });
 });
 
@@ -1755,9 +1755,8 @@ describe("Lifecycle: Combined Complex Flows", () => {
     // onFallback should come after first onStart
     const fallbackIndex = callOrder.indexOf("onFallback");
     const onStartIndex = callOrder.indexOf("onStart");
-    if (fallbackIndex !== -1) {
-      expect(fallbackIndex).toBeGreaterThan(onStartIndex);
-    }
+    expect(fallbackIndex).toBeGreaterThanOrEqual(0);
+    expect(fallbackIndex).toBeGreaterThan(onStartIndex);
   });
 
   /**
@@ -2193,10 +2192,9 @@ describe("Lifecycle: Guardrail Phase Events", () => {
     const withViolations = phaseEnds.find(
       (e) => (e.data.violationCount as number) > 0,
     );
-    if (withViolations) {
-      expect(withViolations.data.ruleCount).toBe(1);
-      expect(typeof withViolations.data.violationCount).toBe("number");
-    }
+    expect(withViolations).toBeDefined();
+    expect(withViolations!.data.ruleCount).toBe(1);
+    expect(typeof withViolations!.data.violationCount).toBe("number");
   });
 
   it("should emit GUARDRAIL_RULE_START and GUARDRAIL_RULE_END for each rule", async () => {

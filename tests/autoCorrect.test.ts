@@ -28,10 +28,9 @@ describe("autoCorrectJSON edge cases", () => {
     const result = autoCorrectJSON(nested);
 
     expect(result.corrections).toContain("close_brace");
-    if (result.success) {
-      const parsed = JSON.parse(result.corrected);
-      expect(parsed.a.b.c.d.e).toBe("value");
-    }
+    expect(result.success).toBe(true);
+    const parsed = JSON.parse(result.corrected);
+    expect(parsed.a.b.c.d.e).toBe("value");
   });
 
   it("should handle mixed missing brackets and braces", () => {
