@@ -1224,12 +1224,11 @@ describe("Lifecycle: Checkpoint and Continuation Flow", () => {
     }
 
     const resumes = collector.getEventsOfType(EventType.RESUME_START);
-    if (resumes.length > 0) {
-      const resumeEvent = resumes[0]!;
-      expect(typeof resumeEvent.data.checkpoint).toBe("string");
-      expect((resumeEvent.data.checkpoint as string).length).toBeGreaterThan(0);
-      expect(typeof resumeEvent.data.tokenCount).toBe("number");
-    }
+    expect(resumes.length).toBeGreaterThan(0);
+    const resumeEvent = resumes[0]!;
+    expect(typeof resumeEvent.data.checkpoint).toBe("string");
+    expect((resumeEvent.data.checkpoint as string).length).toBeGreaterThan(0);
+    expect(typeof resumeEvent.data.tokenCount).toBe("number");
   });
 
   it("should call onResume callback with checkpoint content", async () => {
@@ -1859,12 +1858,11 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
 
     // Get all observability events (those with streamId)
     const obsEvents = collector.events.filter((e) => e.data.streamId);
+    expect(obsEvents.length).toBeGreaterThan(0);
 
-    if (obsEvents.length > 0) {
-      const streamId = obsEvents[0]!.data.streamId;
-      for (const event of obsEvents) {
-        expect(event.data.streamId).toBe(streamId);
-      }
+    const streamId = obsEvents[0]!.data.streamId;
+    for (const event of obsEvents) {
+      expect(event.data.streamId).toBe(streamId);
     }
   });
 
@@ -2410,12 +2408,11 @@ describe("Lifecycle: Continuation Events", () => {
     const continuationStarts = collector.getEventsOfType(
       EventType.CONTINUATION_START,
     );
-    if (continuationStarts.length > 0) {
-      const contEvent = continuationStarts[0]!;
-      expect(typeof contEvent.data.checkpoint).toBe("string");
-      expect((contEvent.data.checkpoint as string).length).toBeGreaterThan(0);
-      expect(typeof contEvent.data.tokenCount).toBe("number");
-    }
+    expect(continuationStarts.length).toBeGreaterThan(0);
+    const contEvent = continuationStarts[0]!;
+    expect(typeof contEvent.data.checkpoint).toBe("string");
+    expect((contEvent.data.checkpoint as string).length).toBeGreaterThan(0);
+    expect(typeof contEvent.data.tokenCount).toBe("number");
   });
 
   it("should emit CONTINUATION_START on retry with checkpoint", async () => {
@@ -2489,9 +2486,9 @@ describe("Lifecycle: Continuation Events", () => {
     const fallbackIdx = types.indexOf(EventType.FALLBACK_START);
     const contIdx = types.indexOf(EventType.CONTINUATION_START);
 
-    if (fallbackIdx >= 0 && contIdx >= 0) {
-      expect(fallbackIdx).toBeLessThan(contIdx);
-    }
+    expect(fallbackIdx).toBeGreaterThanOrEqual(0);
+    expect(contIdx).toBeGreaterThanOrEqual(0);
+    expect(fallbackIdx).toBeLessThan(contIdx);
   });
 });
 
@@ -2641,9 +2638,8 @@ describe("Lifecycle: Timeout Events", () => {
     }
 
     const timeoutStarts = collector.getEventsOfType(EventType.TIMEOUT_START);
-    if (timeoutStarts.length > 0) {
-      expect(timeoutStarts[0]!.data.timeoutType).toBeDefined();
-    }
+    expect(timeoutStarts.length).toBeGreaterThan(0);
+    expect(timeoutStarts[0]!.data.timeoutType).toBeDefined();
   });
 
   it("should emit TIMEOUT_RESET after each token", async () => {
@@ -2735,10 +2731,9 @@ describe("Lifecycle: Retry Lifecycle Events", () => {
     }
 
     const retryStarts = collector.getEventsOfType(EventType.RETRY_START);
-    if (retryStarts.length > 0) {
-      expect(typeof retryStarts[0]!.data.attempt).toBe("number");
-      expect(typeof retryStarts[0]!.data.maxAttempts).toBe("number");
-    }
+    expect(retryStarts.length).toBeGreaterThan(0);
+    expect(typeof retryStarts[0]!.data.attempt).toBe("number");
+    expect(typeof retryStarts[0]!.data.maxAttempts).toBe("number");
   });
 
   it("should emit RETRY_END after successful retry", async () => {
@@ -2831,10 +2826,9 @@ describe("Lifecycle: Retry Lifecycle Events", () => {
     }
 
     const retryGiveUps = collector.getEventsOfType(EventType.RETRY_GIVE_UP);
-    if (retryGiveUps.length > 0) {
-      expect(typeof retryGiveUps[0]!.data.attempt).toBe("number");
-      expect(typeof retryGiveUps[0]!.data.maxAttempts).toBe("number");
-    }
+    expect(retryGiveUps.length).toBeGreaterThan(0);
+    expect(typeof retryGiveUps[0]!.data.attempt).toBe("number");
+    expect(typeof retryGiveUps[0]!.data.maxAttempts).toBe("number");
   });
 });
 
@@ -2880,9 +2874,8 @@ describe("Lifecycle: Fallback Lifecycle Events", () => {
     const modelSelected = collector.getEventsOfType(
       EventType.FALLBACK_MODEL_SELECTED,
     );
-    if (modelSelected.length > 0) {
-      expect(typeof modelSelected[0]!.data.index).toBe("number");
-    }
+    expect(modelSelected.length).toBeGreaterThan(0);
+    expect(typeof modelSelected[0]!.data.index).toBe("number");
   });
 
   it("should emit FALLBACK_END after fallback completes", async () => {
