@@ -148,7 +148,10 @@ export function excludeEvents(
  * @param handler - Handler to call with latest event
  * @returns Debounced event handler
  */
-export function debounceEvents(ms: number, handler: EventHandler): EventHandler {
+export function debounceEvents(
+  ms: number,
+  handler: EventHandler,
+): EventHandler {
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let latestEvent: L0Event | null = null;
 

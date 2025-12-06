@@ -2288,15 +2288,14 @@ describe("Lifecycle: Guardrail Phase Events", () => {
     }
 
     // Get just the guardrail-related events in order
+    const guardrailEventTypes: string[] = [
+      EventType.GUARDRAIL_PHASE_START,
+      EventType.GUARDRAIL_PHASE_END,
+      EventType.GUARDRAIL_RULE_START,
+      EventType.GUARDRAIL_RULE_END,
+    ];
     const guardrailEvents = collector.events
-      .filter((e) =>
-        [
-          EventType.GUARDRAIL_PHASE_START,
-          EventType.GUARDRAIL_PHASE_END,
-          EventType.GUARDRAIL_RULE_START,
-          EventType.GUARDRAIL_RULE_END,
-        ].includes(e.type as EventType),
-      )
+      .filter((e) => guardrailEventTypes.includes(e.type))
       .map((e) => e.type);
 
     // Should have at least one complete phase cycle
