@@ -374,6 +374,307 @@ describe("Canonical Spec: Callbacks", () => {
 });
 
 // ============================================================================
+// Callback Parameter Schema Tests
+// ============================================================================
+
+describe("Canonical Spec: Callback Parameter Schemas", () => {
+  const callbacks = canonicalSpec.callbacks.callbacks;
+
+  // Helper to validate parameter schema structure
+  interface ParameterSchema {
+    name: string;
+    type: string;
+    required: boolean;
+    description: string;
+    enum?: string[];
+    shape?: Record<string, unknown>;
+  }
+
+  function validateParameterSchema(param: ParameterSchema) {
+    expect(param.name).toBeDefined();
+    expect(typeof param.name).toBe("string");
+    expect(param.name.length).toBeGreaterThan(0);
+
+    expect(param.type).toBeDefined();
+    expect(typeof param.type).toBe("string");
+
+    expect(typeof param.required).toBe("boolean");
+
+    expect(param.description).toBeDefined();
+    expect(typeof param.description).toBe("string");
+    expect(param.description.length).toBeGreaterThan(0);
+  }
+
+  describe("All callbacks have parameter schemas", () => {
+    const callbackNames = Object.keys(callbacks);
+
+    for (const name of callbackNames) {
+      it(`${name} should have parameters array`, () => {
+        const callback = callbacks[name as keyof typeof callbacks];
+        expect(callback.parameters).toBeDefined();
+        expect(Array.isArray(callback.parameters)).toBe(true);
+        expect(callback.parameters.length).toBeGreaterThan(0);
+      });
+    }
+  });
+
+  describe("onStart parameter schema", () => {
+    const params = callbacks.onStart.parameters as ParameterSchema[];
+
+    it("should have exactly 3 parameters", () => {
+      expect(params.length).toBe(3);
+    });
+
+    it("should define attempt as required number", () => {
+      const param = params.find((p) => p.name === "attempt");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("number");
+      expect(param!.required).toBe(true);
+    });
+
+    it("should define isRetry as required boolean", () => {
+      const param = params.find((p) => p.name === "isRetry");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("boolean");
+      expect(param!.required).toBe(true);
+    });
+
+    it("should define isFallback as required boolean", () => {
+      const param = params.find((p) => p.name === "isFallback");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("boolean");
+      expect(param!.required).toBe(true);
+    });
+  });
+
+  describe("onComplete parameter schema", () => {
+    const params = callbacks.onComplete.parameters as ParameterSchema[];
+
+    it("should have exactly 1 parameter", () => {
+      expect(params.length).toBe(1);
+    });
+
+    it("should define state as required L0State with shape", () => {
+      const param = params.find((p) => p.name === "state");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("L0State");
+      expect(param!.required).toBe(true);
+      expect(param!.shape).toBeDefined();
+      expect(param!.shape!.content).toBeDefined();
+      expect(param!.shape!.tokenCount).toBeDefined();
+      expect(param!.shape!.contentLength).toBeDefined();
+    });
+  });
+
+  describe("onError parameter schema", () => {
+    const params = callbacks.onError.parameters as ParameterSchema[];
+
+    it("should have exactly 3 parameters", () => {
+      expect(params.length).toBe(3);
+    });
+
+    it("should define error as required L0Error with shape", () => {
+      const param = params.find((p) => p.name === "error");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("L0Error");
+      expect(param!.required).toBe(true);
+      expect(param!.shape).toBeDefined();
+      expect(param!.shape!.message).toBeDefined();
+      expect(param!.shape!.code).toBeDefined();
+      expect(param!.shape!.category).toBeDefined();
+    });
+
+    it("should define willRetry as required boolean", () => {
+      const param = params.find((p) => p.name === "willRetry");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("boolean");
+      expect(param!.required).toBe(true);
+    });
+
+    it("should define willFallback as required boolean", () => {
+      const param = params.find((p) => p.name === "willFallback");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("boolean");
+      expect(param!.required).toBe(true);
+    });
+  });
+
+  describe("onRetry parameter schema", () => {
+    const params = callbacks.onRetry.parameters as ParameterSchema[];
+
+    it("should have exactly 2 parameters", () => {
+      expect(params.length).toBe(2);
+    });
+
+    it("should define attempt as required number", () => {
+      const param = params.find((p) => p.name === "attempt");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("number");
+      expect(param!.required).toBe(true);
+    });
+
+    it("should define reason as required string", () => {
+      const param = params.find((p) => p.name === "reason");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("string");
+      expect(param!.required).toBe(true);
+    });
+  });
+
+  describe("onFallback parameter schema", () => {
+    const params = callbacks.onFallback.parameters as ParameterSchema[];
+
+    it("should have exactly 2 parameters", () => {
+      expect(params.length).toBe(2);
+    });
+
+    it("should define index as required number", () => {
+      const param = params.find((p) => p.name === "index");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("number");
+      expect(param!.required).toBe(true);
+    });
+
+    it("should define reason as required string", () => {
+      const param = params.find((p) => p.name === "reason");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("string");
+      expect(param!.required).toBe(true);
+    });
+  });
+
+  describe("onCheckpoint parameter schema", () => {
+    const params = callbacks.onCheckpoint.parameters as ParameterSchema[];
+
+    it("should have exactly 2 parameters", () => {
+      expect(params.length).toBe(2);
+    });
+
+    it("should define checkpoint as required string", () => {
+      const param = params.find((p) => p.name === "checkpoint");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("string");
+      expect(param!.required).toBe(true);
+    });
+
+    it("should define tokenCount as required number", () => {
+      const param = params.find((p) => p.name === "tokenCount");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("number");
+      expect(param!.required).toBe(true);
+    });
+  });
+
+  describe("onResume parameter schema", () => {
+    const params = callbacks.onResume.parameters as ParameterSchema[];
+
+    it("should have exactly 2 parameters", () => {
+      expect(params.length).toBe(2);
+    });
+
+    it("should define checkpoint as required string", () => {
+      const param = params.find((p) => p.name === "checkpoint");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("string");
+      expect(param!.required).toBe(true);
+    });
+
+    it("should define tokenCount as required number", () => {
+      const param = params.find((p) => p.name === "tokenCount");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("number");
+      expect(param!.required).toBe(true);
+    });
+  });
+
+  describe("onAbort parameter schema", () => {
+    const params = callbacks.onAbort.parameters as ParameterSchema[];
+
+    it("should have exactly 2 parameters", () => {
+      expect(params.length).toBe(2);
+    });
+
+    it("should define tokenCount as required number", () => {
+      const param = params.find((p) => p.name === "tokenCount");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("number");
+      expect(param!.required).toBe(true);
+    });
+
+    it("should define contentLength as required number", () => {
+      const param = params.find((p) => p.name === "contentLength");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("number");
+      expect(param!.required).toBe(true);
+    });
+  });
+
+  describe("onTimeout parameter schema", () => {
+    const params = callbacks.onTimeout.parameters as ParameterSchema[];
+
+    it("should have exactly 2 parameters", () => {
+      expect(params.length).toBe(2);
+    });
+
+    it("should define type as required string with enum", () => {
+      const param = params.find((p) => p.name === "type");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("string");
+      expect(param!.required).toBe(true);
+      expect(param!.enum).toBeDefined();
+      expect(param!.enum).toContain("initial");
+      expect(param!.enum).toContain("inter");
+    });
+
+    it("should define elapsedMs as required number", () => {
+      const param = params.find((p) => p.name === "elapsedMs");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("number");
+      expect(param!.required).toBe(true);
+    });
+  });
+
+  describe("onViolation parameter schema", () => {
+    const params = callbacks.onViolation.parameters as ParameterSchema[];
+
+    it("should have exactly 1 parameter", () => {
+      expect(params.length).toBe(1);
+    });
+
+    it("should define violation as required GuardrailViolation with shape", () => {
+      const param = params.find((p) => p.name === "violation");
+      expect(param).toBeDefined();
+      validateParameterSchema(param!);
+      expect(param!.type).toBe("GuardrailViolation");
+      expect(param!.required).toBe(true);
+      expect(param!.shape).toBeDefined();
+      expect(param!.shape!.ruleId).toBeDefined();
+      expect(param!.shape!.message).toBeDefined();
+      expect(param!.shape!.severity).toBeDefined();
+    });
+  });
+});
+
+// ============================================================================
 // Lifecycle Invariants Tests
 // ============================================================================
 

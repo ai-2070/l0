@@ -630,6 +630,314 @@ describe("Canonical Lifecycle Tests", () => {
   });
 });
 
+// ============================================================================
+// Callback Parameter Runtime Validation Tests
+// ============================================================================
+
+describe("Callback Parameter Runtime Validation", () => {
+  const callbackSpec = scenarios.callbackReference;
+
+  describe("onStart receives correct parameter types", () => {
+    it("should receive (attempt: number, isRetry: boolean, isFallback: boolean)", async () => {
+      const collector = createEventCollector();
+      const receivedArgs: unknown[][] = [];
+
+      const result = await l0({
+        stream: createTokenStream(["hello"]),
+        onEvent: collector.handler,
+        onStart: (attempt, isRetry, isFallback) => {
+          receivedArgs.push([attempt, isRetry, isFallback]);
+          // Validate types at runtime
+          expect(typeof attempt).toBe("number");
+          expect(typeof isRetry).toBe("boolean");
+          expect(typeof isFallback).toBe("boolean");
+        },
+      });
+
+      for await (const _ of result.stream) {
+        // Consume
+      }
+
+      expect(receivedArgs.length).toBe(1);
+      expect(receivedArgs[0]).toEqual([1, false, false]);
+    });
+
+    it("should receive isRetry=true on retry attempts", async () => {
+      let attemptIndex = 0;
+      const receivedArgs: unknown[][] = [];
+
+      const guardrailRule: GuardrailRule = {
+        name: "force-retry",
+        check: (ctx) => {
+          if (ctx.completed && attemptIndex === 1) {
+            return [
+              {
+                rule: "force-retry",
+                severity: "error",
+                message: "Retry",
+                recoverable: true,
+              },
+            ];
+          }
+          return [];
+        },
+      };
+
+      const streamFactory = () => {
+        attemptIndex++;
+        return createTokenStream(["token"])();
+      };
+
+      const result = await l0({
+        stream: streamFactory,
+        guardrails: [guardrailRule],
+        retry: { attempts: 2 },
+        onStart: (attempt, isRetry, isFallback) => {
+          receivedArgs.push([attempt, isRetry, isFallback]);
+        },
+      });
+
+      for await (const _ of result.stream) {
+        // Consume
+      }
+
+      expect(receivedArgs.length).toBe(2);
+      expect(receivedArgs[0]).toEqual([1, false, false]); // Initial
+      expect(receivedArgs[1]).toEqual([2, true, false]); // Retry
+    });
+
+    it("should receive isFallback=true on fallback streams", async () => {
+      const receivedArgs: unknown[][] = [];
+
+      const result = await l0({
+        stream: createFailingStream([]),
+        fallbackStreams: [createTokenStream(["fallback"])],
+        retry: { attempts: 0 },
+        onStart: (attempt, isRetry, isFallback) => {
+          receivedArgs.push([attempt, isRetry, isFallback]);
+        },
+      });
+
+      for await (const _ of result.stream) {
+        // Consume
+      }
+
+      expect(receivedArgs.length).toBe(2);
+      expect(receivedArgs[0]).toEqual([1, false, false]); // Initial
+      expect(receivedArgs[1]).toEqual([1, false, true]); // Fallback
+    });
+  });
+
+  describe("onComplete receives correct parameter types", () => {
+    it("should receive state with content, tokenCount, contentLength", async () => {
+      let receivedState: L0State | undefined;
+
+      const result = await l0({
+        stream: createTokenStream(["hello", " ", "world"]),
+        onComplete: (state) => {
+          receivedState = state;
+          // Validate types at runtime
+          expect(typeof state.content).toBe("string");
+          expect(typeof state.tokenCount).toBe("number");
+          expect(typeof state.contentLength).toBe("number");
+        },
+      });
+
+      for await (const _ of result.stream) {
+        // Consume
+      }
+
+      expect(receivedState).toBeDefined();
+      expect(receivedState!.content).toBe("hello world");
+      expect(receivedState!.tokenCount).toBe(3);
+      expect(receivedState!.contentLength).toBe(11);
+    });
+  });
+
+  describe("onRetry receives correct parameter types", () => {
+    it("should receive (attempt: number, reason: string)", async () => {
+      let attemptIndex = 0;
+      const receivedArgs: unknown[][] = [];
+
+      const guardrailRule: GuardrailRule = {
+        name: "force-retry",
+        check: (ctx) => {
+          if (ctx.completed && attemptIndex === 1) {
+            return [
+              {
+                rule: "force-retry",
+                severity: "error",
+                message: "Guardrail failed",
+                recoverable: true,
+              },
+            ];
+          }
+          return [];
+        },
+      };
+
+      const streamFactory = () => {
+        attemptIndex++;
+        return createTokenStream(["token"])();
+      };
+
+      const result = await l0({
+        stream: streamFactory,
+        guardrails: [guardrailRule],
+        retry: { attempts: 2 },
+        onRetry: (attempt, reason) => {
+          receivedArgs.push([attempt, reason]);
+          // Validate types at runtime
+          expect(typeof attempt).toBe("number");
+          expect(typeof reason).toBe("string");
+        },
+      });
+
+      for await (const _ of result.stream) {
+        // Consume
+      }
+
+      expect(receivedArgs.length).toBe(1);
+      expect(receivedArgs[0]![0]).toBe(2); // attempt number
+      expect(typeof receivedArgs[0]![1]).toBe("string"); // reason
+    });
+  });
+
+  describe("onFallback receives correct parameter types", () => {
+    it("should receive (index: number, reason: string)", async () => {
+      const receivedArgs: unknown[][] = [];
+
+      const result = await l0({
+        stream: createFailingStream([]),
+        fallbackStreams: [createTokenStream(["fallback"])],
+        retry: { attempts: 0 },
+        onFallback: (index, reason) => {
+          receivedArgs.push([index, reason]);
+          // Validate types at runtime
+          expect(typeof index).toBe("number");
+          expect(typeof reason).toBe("string");
+        },
+      });
+
+      for await (const _ of result.stream) {
+        // Consume
+      }
+
+      expect(receivedArgs.length).toBe(1);
+      expect(receivedArgs[0]![0]).toBe(0); // 0-based index
+      expect(typeof receivedArgs[0]![1]).toBe("string"); // reason
+    });
+  });
+
+  describe("onError receives correct parameter types", () => {
+    it("should receive (error: L0Error, willRetry: boolean, willFallback: boolean)", async () => {
+      const receivedArgs: unknown[][] = [];
+
+      const result = await l0({
+        stream: createFailingStream([]),
+        fallbackStreams: [createTokenStream(["fallback"])],
+        retry: { attempts: 0 },
+        onError: (error, willRetry, willFallback) => {
+          receivedArgs.push([error, willRetry, willFallback]);
+          // Validate types at runtime
+          expect(error).toBeInstanceOf(Error);
+          expect(typeof willRetry).toBe("boolean");
+          expect(typeof willFallback).toBe("boolean");
+        },
+      });
+
+      for await (const _ of result.stream) {
+        // Consume
+      }
+
+      expect(receivedArgs.length).toBeGreaterThan(0);
+      // First error should indicate willFallback=true since we have fallback streams
+      expect(receivedArgs[0]![2]).toBe(true); // willFallback
+    });
+  });
+
+  describe("onAbort receives correct parameter types", () => {
+    it("should receive (tokenCount: number, contentLength: number)", async () => {
+      const receivedArgs: unknown[][] = [];
+      const abortController = new AbortController();
+
+      const slowStream = async function* (): AsyncGenerator<L0Event> {
+        yield { type: "token", value: "hello", timestamp: Date.now() };
+        yield { type: "token", value: " ", timestamp: Date.now() };
+        // Abort after first two tokens
+        abortController.abort();
+        yield { type: "token", value: "world", timestamp: Date.now() };
+        yield { type: "complete", timestamp: Date.now() };
+      };
+
+      const result = await l0({
+        stream: slowStream,
+        signal: abortController.signal,
+        onAbort: (tokenCount, contentLength) => {
+          receivedArgs.push([tokenCount, contentLength]);
+          // Validate types at runtime
+          expect(typeof tokenCount).toBe("number");
+          expect(typeof contentLength).toBe("number");
+        },
+      });
+
+      try {
+        for await (const _ of result.stream) {
+          // Consume until abort
+        }
+      } catch {
+        // Expected abort error
+      }
+
+      expect(receivedArgs.length).toBe(1);
+      expect(typeof receivedArgs[0]![0]).toBe("number"); // tokenCount
+      expect(typeof receivedArgs[0]![1]).toBe("number"); // contentLength
+    });
+  });
+
+  describe("Callback signature matches spec", () => {
+    it("onStart signature should match: (attempt: number, isRetry: boolean, isFallback: boolean) => void", () => {
+      expect(callbackSpec.onStart).toBe(
+        "(attempt: number, isRetry: boolean, isFallback: boolean) => void",
+      );
+    });
+
+    it("onComplete signature should match: (state: L0State) => void", () => {
+      expect(callbackSpec.onComplete).toBe("(state: L0State) => void");
+    });
+
+    it("onRetry signature should match: (attempt: number, reason: string) => void", () => {
+      expect(callbackSpec.onRetry).toBe(
+        "(attempt: number, reason: string) => void",
+      );
+    });
+
+    it("onFallback signature should match: (index: number, reason: string) => void", () => {
+      expect(callbackSpec.onFallback).toBe(
+        "(index: number, reason: string) => void",
+      );
+    });
+
+    it("onCheckpoint signature should match: (checkpoint: string, tokenCount: number) => void", () => {
+      expect(callbackSpec.onCheckpoint).toBe(
+        "(checkpoint: string, tokenCount: number) => void",
+      );
+    });
+
+    it("onResume signature should match: (checkpoint: string, tokenCount: number) => void", () => {
+      expect(callbackSpec.onResume).toBe(
+        "(checkpoint: string, tokenCount: number) => void",
+      );
+    });
+
+    it("onAbort signature should match: (tokenCount: number, contentLength: number) => void", () => {
+      expect(callbackSpec.onAbort).toBe(
+        "(tokenCount: number, contentLength: number) => void",
+      );
+    });
+  });
+});
+
 /**
  * Export scenario data for Python test runner to consume
  */

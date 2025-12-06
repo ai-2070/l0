@@ -441,6 +441,26 @@
     "callbacks": {
       "onStart": {
         "signature": "(attempt: number, isRetry: boolean, isFallback: boolean) => void",
+        "parameters": [
+          {
+            "name": "attempt",
+            "type": "number",
+            "required": true,
+            "description": "1-based attempt number"
+          },
+          {
+            "name": "isRetry",
+            "type": "boolean",
+            "required": true,
+            "description": "True if this is a retry attempt"
+          },
+          {
+            "name": "isFallback",
+            "type": "boolean",
+            "required": true,
+            "description": "True if this is a fallback stream"
+          }
+        ],
         "triggeredBy": ["SESSION_START", "ATTEMPT_START", "FALLBACK_START"],
         "notes": [
           "Called for initial attempt (1, false, false)",
@@ -450,46 +470,220 @@
       },
       "onComplete": {
         "signature": "(state: L0State) => void",
+        "parameters": [
+          {
+            "name": "state",
+            "type": "L0State",
+            "required": true,
+            "description": "Final state of the stream",
+            "shape": {
+              "content": {
+                "type": "string",
+                "description": "Accumulated content"
+              },
+              "tokenCount": {
+                "type": "number",
+                "description": "Total tokens processed"
+              },
+              "contentLength": {
+                "type": "number",
+                "description": "Length of content string"
+              },
+              "checkpoint": {
+                "type": "string",
+                "required": false,
+                "description": "Last checkpoint if continuation enabled"
+              }
+            }
+          }
+        ],
         "triggeredBy": ["COMPLETE"],
         "notes": ["Called once on successful completion"]
       },
       "onError": {
-        "signature": "(error: Error, willRetry: boolean, willFallback: boolean) => void",
+        "signature": "(error: L0Error, willRetry: boolean, willFallback: boolean) => void",
+        "parameters": [
+          {
+            "name": "error",
+            "type": "L0Error",
+            "required": true,
+            "description": "The error that occurred",
+            "shape": {
+              "message": {
+                "type": "string",
+                "description": "Human-readable error message"
+              },
+              "code": {
+                "type": "L0ErrorCode",
+                "description": "Error code for programmatic handling"
+              },
+              "category": {
+                "type": "ErrorCategory",
+                "description": "Error category (network, transient, content, provider, internal)"
+              }
+            }
+          },
+          {
+            "name": "willRetry",
+            "type": "boolean",
+            "required": true,
+            "description": "True if L0 will retry after this error"
+          },
+          {
+            "name": "willFallback",
+            "type": "boolean",
+            "required": true,
+            "description": "True if L0 will fallback after this error"
+          }
+        ],
         "triggeredBy": ["ERROR"],
         "notes": ["Called for each error, flags indicate recovery path"]
       },
       "onRetry": {
         "signature": "(attempt: number, reason: string) => void",
+        "parameters": [
+          {
+            "name": "attempt",
+            "type": "number",
+            "required": true,
+            "description": "The retry attempt number (1-based, where 1 = first retry)"
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "required": true,
+            "description": "Human-readable reason for the retry"
+          }
+        ],
         "triggeredBy": ["RETRY_ATTEMPT"],
         "notes": ["Called before each retry attempt"]
       },
       "onFallback": {
         "signature": "(index: number, reason: string) => void",
+        "parameters": [
+          {
+            "name": "index",
+            "type": "number",
+            "required": true,
+            "description": "0-based fallback stream index"
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "required": true,
+            "description": "Human-readable reason for fallback"
+          }
+        ],
         "triggeredBy": ["FALLBACK_START"],
         "notes": ["index is 0-based fallback stream index"]
       },
       "onCheckpoint": {
         "signature": "(checkpoint: string, tokenCount: number) => void",
+        "parameters": [
+          {
+            "name": "checkpoint",
+            "type": "string",
+            "required": true,
+            "description": "The checkpoint content for resumption"
+          },
+          {
+            "name": "tokenCount",
+            "type": "number",
+            "required": true,
+            "description": "Tokens processed at checkpoint time"
+          }
+        ],
         "triggeredBy": ["CHECKPOINT_SAVED"],
         "notes": ["Called at configured intervals when continuation enabled"]
       },
       "onResume": {
         "signature": "(checkpoint: string, tokenCount: number) => void",
+        "parameters": [
+          {
+            "name": "checkpoint",
+            "type": "string",
+            "required": true,
+            "description": "The checkpoint content being resumed from"
+          },
+          {
+            "name": "tokenCount",
+            "type": "number",
+            "required": true,
+            "description": "Tokens that were processed before the checkpoint"
+          }
+        ],
         "triggeredBy": ["RESUME_START"],
         "notes": ["Called when resuming from checkpoint after error"]
       },
       "onAbort": {
         "signature": "(tokenCount: number, contentLength: number) => void",
+        "parameters": [
+          {
+            "name": "tokenCount",
+            "type": "number",
+            "required": true,
+            "description": "Tokens processed before abort"
+          },
+          {
+            "name": "contentLength",
+            "type": "number",
+            "required": true,
+            "description": "Content length at abort time"
+          }
+        ],
         "triggeredBy": ["ABORT_COMPLETED"],
         "notes": ["Called when stream is aborted"]
       },
       "onTimeout": {
         "signature": "(type: 'initial' | 'inter', elapsedMs: number) => void",
+        "parameters": [
+          {
+            "name": "type",
+            "type": "string",
+            "enum": ["initial", "inter"],
+            "required": true,
+            "description": "Timeout type: 'initial' for first token, 'inter' for between tokens"
+          },
+          {
+            "name": "elapsedMs",
+            "type": "number",
+            "required": true,
+            "description": "Milliseconds elapsed before timeout"
+          }
+        ],
         "triggeredBy": ["TIMEOUT_TRIGGERED"],
         "notes": ["Called when timeout occurs"]
       },
       "onViolation": {
         "signature": "(violation: GuardrailViolation) => void",
+        "parameters": [
+          {
+            "name": "violation",
+            "type": "GuardrailViolation",
+            "required": true,
+            "description": "Details of the guardrail violation",
+            "shape": {
+              "ruleId": {
+                "type": "string",
+                "description": "Identifier of the violated rule"
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable violation message"
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["warning", "error", "fatal"],
+                "description": "Violation severity"
+              },
+              "metadata": {
+                "type": "Record<string, unknown>",
+                "required": false,
+                "description": "Additional violation context"
+              }
+            }
+          }
+        ],
         "triggeredBy": ["GUARDRAIL_RULE_RESULT (when passed=false)"],
         "notes": ["Called for each guardrail violation"]
       }
