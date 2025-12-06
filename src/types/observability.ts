@@ -87,6 +87,7 @@ export const SessionEvents = {
   SESSION_START: "SESSION_START",
   SESSION_END: "SESSION_END",
   SESSION_SUMMARY: "SESSION_SUMMARY",
+  ATTEMPT_START: "ATTEMPT_START",
 } as const;
 
 /** Stream initialization events */
@@ -308,6 +309,18 @@ export interface SessionSummaryEvent extends L0ObservabilityEvent {
   fallbackDepth: number;
   retryCount: number;
   checkpointsCreated: number;
+}
+
+/**
+ * Emitted when a new execution attempt begins (retry or fallback).
+ * This is separate from SESSION_START which only fires once at session start.
+ * Used to notify onStart callback for retry/fallback attempts.
+ */
+export interface AttemptStartEvent extends L0ObservabilityEvent {
+  type: "ATTEMPT_START";
+  attempt: number;
+  isRetry: boolean;
+  isFallback: boolean;
 }
 
 // ============================================================================
@@ -795,6 +808,7 @@ export type L0Event =
   | SessionStartEvent
   | SessionEndEvent
   | SessionSummaryEvent
+  | AttemptStartEvent
   // Stream
   | StreamInitEvent
   | StreamReadyEvent

@@ -1290,6 +1290,8 @@ const result = await l0({
 
 > **Note:** All callbacks are fire-and-forget. They execute via microtasks and never block the stream. Errors in callbacks are silently caught and do not affect stream processing.
 
+> **Important:** The `onStart` callback is called for the initial attempt, retry attempts, and fallback attempts. Internally, `SESSION_START` is emitted once at session start, `ATTEMPT_START` is emitted for retries, and `FALLBACK_START` is emitted for fallbacks. All three events trigger the `onStart` callback.
+
 ### Use Cases
 
 ```typescript

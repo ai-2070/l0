@@ -110,7 +110,7 @@ describe("Error Utilities", () => {
       expect(json.code).toBe(L0ErrorCodes.NETWORK_ERROR);
       expect(json.message).toBe("Test");
       expect(json.tokenCount).toBe(5);
-      expect(json.checkpoint).toBe(12); // length of "test content"
+      expect(json.checkpoint).toBe("test content");
     });
   });
 

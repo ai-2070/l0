@@ -94,10 +94,16 @@ This document specifies the **deterministic lifecycle behavior** of the L0 runti
 
 ## Event Ordering Specifications
 
+**Important:** 
+- `SESSION_START` is emitted exactly ONCE at the beginning of the session (anchor for entire session).
+- `ATTEMPT_START` is emitted for each retry attempt.
+- `FALLBACK_START` is emitted when switching to a fallback stream.
+- The `onStart` callback fires for `SESSION_START` (initial), `ATTEMPT_START` (retries), and `FALLBACK_START` (fallbacks).
+
 ### Normal Successful Flow
 
 ```
-1. SESSION_START (attempt=1, isRetry=false, isFallback=false)
+1. SESSION_START (attempt=1, isRetry=false, isFallback=false) → onStart(1, false, false)
 2. [tokens stream...]
 3. CHECKPOINT_SAVED (if continuation enabled, every N tokens)
 4. COMPLETE (with full L0State)
@@ -106,11 +112,11 @@ This document specifies the **deterministic lifecycle behavior** of the L0 runti
 ### Retry Flow (guardrail violation, drift, network error)
 
 ```
-1. SESSION_START (attempt=1, isRetry=false, isFallback=false)
+1. SESSION_START (attempt=1, isRetry=false, isFallback=false) → onStart(1, false, false)
 2. [tokens stream...]
 3. ERROR (with recoveryStrategy="retry")
 4. RETRY_ATTEMPT (attempt=N, reason)
-5. SESSION_START (attempt=2, isRetry=true, isFallback=false)
+5. ATTEMPT_START (attempt=2, isRetry=true, isFallback=false) → onStart(2, true, false)
 6. [tokens stream...]
 7. COMPLETE
 ```
@@ -118,28 +124,27 @@ This document specifies the **deterministic lifecycle behavior** of the L0 runti
 ### Fallback Flow (retries exhausted)
 
 ```
-1. SESSION_START (attempt=1, isRetry=false, isFallback=false)
+1. SESSION_START (attempt=1, isRetry=false, isFallback=false) → onStart(1, false, false)
 2. [error occurs, retries exhausted]
 3. ERROR (with recoveryStrategy="fallback")
-4. FALLBACK_START (fromIndex=0, toIndex=1)
-5. SESSION_START (attempt=1, isRetry=false, isFallback=true)
-6. [tokens stream...]
-7. COMPLETE
+4. FALLBACK_START (fromIndex=0, toIndex=1) → onStart(1, false, true)
+5. [tokens stream...]
+6. COMPLETE
 ```
 
 ### Continuation/Resume Flow
 
 ```
-1. SESSION_START (attempt=1)
+1. SESSION_START (attempt=1) → onStart(1, false, false)
 2. [tokens stream...]
 3. CHECKPOINT_SAVED
 4. [error occurs]
 5. ERROR (with recoveryStrategy="retry" or "fallback")
-6. RETRY_ATTEMPT or FALLBACK_START
-7. SESSION_START (isRetry=true or isFallback=true)
-8. RESUME_START (checkpoint content, tokenCount)
-9. [continuation tokens...]
-10. COMPLETE
+6. RETRY_ATTEMPT + ATTEMPT_START → onStart(N, true, false)
+   or FALLBACK_START → onStart(1, false, true)
+7. RESUME_START (checkpoint content, tokenCount)
+8. [continuation tokens...]
+9. COMPLETE
 ```
 
 ### Abort Flow
@@ -203,7 +208,8 @@ The following `EventType` values are emitted during the lifecycle:
 
 | Event Type              | Description                              |
 | ----------------------- | ---------------------------------------- |
-| `SESSION_START`         | New execution attempt started            |
+| `SESSION_START`         | Session started (once per session)       |
+| `ATTEMPT_START`         | New attempt started (retry)              |
 | `COMPLETE`              | Stream completed successfully            |
 | `ERROR`                 | Error occurred                           |
 | `RETRY_ATTEMPT`         | Retry is being attempted                 |
@@ -228,6 +234,7 @@ All lifecycle events are emitted through a centralized `EventDispatcher`. The di
 Legacy callbacks (e.g., `onStart`, `onRetry`) are mapped to observability events via callback wrappers in `src/runtime/callback-wrappers.ts`. This ensures:
 - Callbacks fire at the correct time relative to events
 - Parameter transformations are applied (e.g., `toIndex - 1` for 0-based fallback index)
+- `onStart` fires for `SESSION_START` (initial), `ATTEMPT_START` (retries), and `FALLBACK_START` (fallbacks)
 
 ### State Machine
 

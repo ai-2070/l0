@@ -6,6 +6,9 @@
  *
  * LIFECYCLE EVENT ORDERING:
  * -------------------------
+ * SESSION_START is emitted exactly ONCE at the beginning of the session (anchor for entire session).
+ * Retries and fallbacks do NOT emit additional SESSION_START events.
+ *
  * Normal successful flow:
  *   1. SESSION_START (attempt=1, isRetry=false, isFallback=false)
  *   2. [tokens stream...]
@@ -17,18 +20,16 @@
  *   2. [tokens stream...]
  *   3. ERROR (with recoveryStrategy="retry")
  *   4. RETRY_ATTEMPT (attempt=N, reason)
- *   5. SESSION_START (attempt=2, isRetry=true, isFallback=false)
- *   6. [tokens stream...]
- *   7. COMPLETE
+ *   5. [tokens stream...]
+ *   6. COMPLETE
  *
  * Fallback flow (retries exhausted):
  *   1. SESSION_START (attempt=1, isRetry=false, isFallback=false)
  *   2. [error occurs, retries exhausted]
  *   3. ERROR (with recoveryStrategy="fallback")
  *   4. FALLBACK_START (fromIndex=0, toIndex=1)
- *   5. SESSION_START (attempt=1, isRetry=false, isFallback=true)
- *   6. [tokens stream...]
- *   7. COMPLETE
+ *   5. [tokens stream...]
+ *   6. COMPLETE
  *
  * Continuation/Resume flow:
  *   1. SESSION_START (attempt=1)
@@ -37,10 +38,9 @@
  *   4. [error occurs]
  *   5. ERROR (with recoveryStrategy="retry" or "fallback")
  *   6. RETRY_ATTEMPT or FALLBACK_START
- *   7. SESSION_START (isRetry=true or isFallback=true)
- *   8. RESUME_START (checkpoint content, tokenCount)
- *   9. [continuation tokens...]
- *   10. COMPLETE
+ *   7. RESUME_START (checkpoint content, tokenCount)
+ *   8. [continuation tokens...]
+ *   9. COMPLETE
  *
  * Abort flow:
  *   1. SESSION_START
@@ -290,7 +290,7 @@ describe("Lifecycle: Normal Successful Flow", () => {
 // ============================================================================
 
 describe("Lifecycle: Retry Flow", () => {
-  it("should emit RETRY_ATTEMPT before second SESSION_START on guardrail retry", async () => {
+  it("should emit RETRY_ATTEMPT after SESSION_START on guardrail retry", async () => {
     const collector = createEventCollector();
     let attemptCount = 0;
 
@@ -336,19 +336,18 @@ describe("Lifecycle: Retry Flow", () => {
     const retryIndex = types.indexOf(EventType.RETRY_ATTEMPT);
     expect(retryIndex).toBeGreaterThan(-1);
 
-    // Find SESSION_START events
+    // SESSION_START should be emitted exactly once at the beginning
     const sessionStartIndices = types
       .map((t, i) => (t === EventType.SESSION_START ? i : -1))
       .filter((i) => i !== -1);
 
-    expect(sessionStartIndices.length).toBe(2);
+    expect(sessionStartIndices.length).toBe(1);
 
-    // RETRY_ATTEMPT should be between first and second SESSION_START
+    // RETRY_ATTEMPT should come after the single SESSION_START
     expect(retryIndex).toBeGreaterThan(sessionStartIndices[0]!);
-    expect(retryIndex).toBeLessThan(sessionStartIndices[1]!);
   });
 
-  it("should mark second SESSION_START as isRetry=true", async () => {
+  it("should emit SESSION_START once and ATTEMPT_START for retries", async () => {
     const collector = createEventCollector();
     let attemptCount = 0;
 
@@ -388,18 +387,25 @@ describe("Lifecycle: Retry Flow", () => {
       // Consume stream
     }
 
+    // SESSION_START is emitted only once at the beginning (anchor for entire session)
     const sessionStarts = collector.getEventsOfType(EventType.SESSION_START);
-    expect(sessionStarts.length).toBe(2);
+    expect(sessionStarts.length).toBe(1);
 
-    // First attempt
+    // The single SESSION_START should have initial attempt values
     expect(sessionStarts[0]!.data.attempt).toBe(1);
     expect(sessionStarts[0]!.data.isRetry).toBe(false);
     expect(sessionStarts[0]!.data.isFallback).toBe(false);
 
-    // Second attempt (retry)
-    expect(sessionStarts[1]!.data.attempt).toBe(2);
-    expect(sessionStarts[1]!.data.isRetry).toBe(true);
-    expect(sessionStarts[1]!.data.isFallback).toBe(false);
+    // ATTEMPT_START is emitted for retry attempts (triggers onStart callback)
+    const attemptStarts = collector.getEventsOfType(EventType.ATTEMPT_START);
+    expect(attemptStarts.length).toBe(1);
+    expect(attemptStarts[0]!.data.attempt).toBe(2);
+    expect(attemptStarts[0]!.data.isRetry).toBe(true);
+    expect(attemptStarts[0]!.data.isFallback).toBe(false);
+
+    // Verify retry actually happened via RETRY_ATTEMPT event
+    const retryAttempts = collector.getEventsOfType(EventType.RETRY_ATTEMPT);
+    expect(retryAttempts.length).toBe(1);
   });
 
   it("should call onRetry callback with attempt number and reason", async () => {
@@ -543,32 +549,22 @@ describe("Lifecycle: Retry Flow", () => {
     const sessionStarts = collector.getEventsOfType(EventType.SESSION_START);
     const retryAttempts = collector.getEventsOfType(EventType.RETRY_ATTEMPT);
 
-    // Should have 3 session starts (initial + 2 retries)
-    expect(sessionStarts.length).toBe(3);
+    // SESSION_START is emitted only once (anchor for entire session)
+    expect(sessionStarts.length).toBe(1);
 
     // Should have 2 retry attempts
     expect(retryAttempts.length).toBe(2);
 
-    // Verify ordering: each RETRY_ATTEMPT should come before its corresponding SESSION_START
+    // Verify ordering: SESSION_START comes first, then RETRY_ATTEMPTs
     const types = collector.getEventTypes();
-    let lastRetryIndex = -1;
-    let sessionStartAfterRetry = 0;
+    const sessionStartIndex = types.indexOf(EventType.SESSION_START);
 
+    // All RETRY_ATTEMPTs should come after SESSION_START
     for (let i = 0; i < types.length; i++) {
       if (types[i] === EventType.RETRY_ATTEMPT) {
-        lastRetryIndex = i;
-      }
-      if (
-        types[i] === EventType.SESSION_START &&
-        lastRetryIndex !== -1 &&
-        i > lastRetryIndex
-      ) {
-        sessionStartAfterRetry++;
-        lastRetryIndex = -1; // Reset to avoid double counting
+        expect(i).toBeGreaterThan(sessionStartIndex);
       }
     }
-
-    expect(sessionStartAfterRetry).toBe(2);
   });
 
   it("should emit RETRY_FN_START and RETRY_FN_RESULT when shouldRetry callback is provided", async () => {
@@ -736,7 +732,7 @@ describe("Lifecycle: Fallback Flow", () => {
     expect(fallbackStarts.length).toBe(1);
   });
 
-  it("should mark SESSION_START as isFallback=true for fallback streams", async () => {
+  it("should emit FALLBACK_START (not ATTEMPT_START) for fallback streams", async () => {
     const collector = createEventCollector();
 
     const failRule: GuardrailRule = {
@@ -768,14 +764,20 @@ describe("Lifecycle: Fallback Flow", () => {
       // Consume stream
     }
 
+    // SESSION_START is emitted only once at the beginning (anchor for entire session)
     const sessionStarts = collector.getEventsOfType(EventType.SESSION_START);
-    expect(sessionStarts.length).toBe(2);
+    expect(sessionStarts.length).toBe(1);
 
-    // First is primary
+    // The single SESSION_START should have initial values (not fallback)
     expect(sessionStarts[0]!.data.isFallback).toBe(false);
 
-    // Second is fallback
-    expect(sessionStarts[1]!.data.isFallback).toBe(true);
+    // ATTEMPT_START is NOT emitted for fallbacks (only for retries)
+    const attemptStarts = collector.getEventsOfType(EventType.ATTEMPT_START);
+    expect(attemptStarts.length).toBe(0);
+
+    // Verify fallback happened via FALLBACK_START event (triggers onStart callback)
+    const fallbackStarts = collector.getEventsOfType(EventType.FALLBACK_START);
+    expect(fallbackStarts.length).toBe(1);
   });
 
   it("should call onFallback callback with correct index and reason", async () => {
@@ -867,9 +869,9 @@ describe("Lifecycle: Fallback Flow", () => {
    * LIFECYCLE BEHAVIOR: Fallback after retries exhausted
    *
    * When all retries are exhausted on the primary stream, L0 should:
-   * 1. Emit RETRY_ATTEMPT for each retry
-   * 2. After exhausting retries, emit FALLBACK_START
-   * 3. Then emit SESSION_START for the fallback stream
+   * 1. Emit SESSION_START once at the beginning (anchor for entire session)
+   * 2. Emit RETRY_ATTEMPT for each retry
+   * 3. After exhausting retries, emit FALLBACK_START
    *
    * Python port note: This test verifies the retry->fallback transition.
    * The exact behavior depends on the guardrail returning recoverable=true
@@ -907,9 +909,9 @@ describe("Lifecycle: Fallback Flow", () => {
     const fallbackStart = types.indexOf(EventType.FALLBACK_START);
     expect(fallbackStart).toBeGreaterThan(-1);
 
-    // Should have session starts (at least 2: primary + fallback)
+    // SESSION_START is emitted only once (anchor for entire session)
     const sessionStarts = collector.getEventsOfType(EventType.SESSION_START);
-    expect(sessionStarts.length).toBeGreaterThanOrEqual(2);
+    expect(sessionStarts.length).toBe(1);
 
     // Primary should have been tried multiple times
     expect(primaryAttempts).toBeGreaterThan(1);
@@ -1740,8 +1742,10 @@ describe("Lifecycle: Combined Complex Flows", () => {
       // Consume stream
     }
 
-    // onStart should be called first (for each attempt)
+    // onStart should be called at the beginning (initial attempt) and for fallback attempt
     expect(callOrder[0]).toBe("onStart");
+    // onStart is called twice: once for initial, once for fallback
+    expect(callOrder.filter((c) => c === "onStart").length).toBe(2);
 
     // onComplete should be called last
     expect(callOrder[callOrder.length - 1]).toBe("onComplete");
@@ -1749,11 +1753,11 @@ describe("Lifecycle: Combined Complex Flows", () => {
     // Checkpoints should come during streaming
     expect(callOrder.includes("onCheckpoint")).toBe(true);
 
-    // onFallback should come before the fallback's onStart
+    // onFallback should come after first onStart
     const fallbackIndex = callOrder.indexOf("onFallback");
-    const lastOnStartIndex = callOrder.lastIndexOf("onStart");
+    const onStartIndex = callOrder.indexOf("onStart");
     if (fallbackIndex !== -1) {
-      expect(fallbackIndex).toBeLessThan(lastOnStartIndex);
+      expect(fallbackIndex).toBeGreaterThan(onStartIndex);
     }
   });
 

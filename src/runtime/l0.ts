@@ -371,6 +371,13 @@ export async function l0<TOutput = unknown>(
     let overlapBuffer = "";
     let overlapResolved = false;
 
+    // Emit SESSION_START once at the beginning of the session (anchor for entire session)
+    dispatcher.emit(EventType.SESSION_START, {
+      attempt: 1,
+      isRetry: false,
+      isFallback: false,
+    });
+
     // Try primary stream first, then fallbacks if exhausted
     while (fallbackIndex < allStreams.length) {
       const currentStreamFactory = allStreams[fallbackIndex]!;
@@ -386,15 +393,6 @@ export async function l0<TOutput = unknown>(
       while (retryAttempt <= modelRetryLimit) {
         // Transition to init state at start of each attempt
         stateMachine.transition(RuntimeStates.INIT);
-
-        // Emit SESSION_START event (callback wrappers handle legacy onStart)
-        const isRetry = retryAttempt > 0 || isRetryAttempt;
-        const isFallback = fallbackIndex > 0;
-        dispatcher.emit(EventType.SESSION_START, {
-          attempt: retryAttempt + 1,
-          isRetry,
-          isFallback,
-        });
 
         try {
           // Reset state for retry (but preserve checkpoint if continuation enabled)
@@ -1285,6 +1283,12 @@ export async function l0<TOutput = unknown>(
               });
               retryAttempt++;
               state.modelRetryCount++;
+              // Emit ATTEMPT_START for onStart callback (retry attempt)
+              dispatcher.emit(EventType.ATTEMPT_START, {
+                attempt: retryAttempt + 1,
+                isRetry: true,
+                isFallback: fallbackIndex > 0,
+              });
               continue;
             }
 
@@ -1330,6 +1334,12 @@ export async function l0<TOutput = unknown>(
               monitor?.recordRetry(false);
               retryAttempt++;
               state.modelRetryCount++;
+              // Emit ATTEMPT_START for onStart callback (retry attempt)
+              dispatcher.emit(EventType.ATTEMPT_START, {
+                attempt: retryAttempt + 1,
+                isRetry: true,
+                isFallback: fallbackIndex > 0,
+              });
               continue;
             }
           }
@@ -1602,6 +1612,13 @@ export async function l0<TOutput = unknown>(
               isModelIssue: !isNetError,
             });
 
+            // Emit ATTEMPT_START for onStart callback (retry attempt)
+            dispatcher.emit(EventType.ATTEMPT_START, {
+              attempt: retryAttempt + 1,
+              isRetry: true,
+              isFallback: fallbackIndex > 0,
+            });
+
             // Record retry and wait
             await retryManager.recordRetry(categorized, decision);
             continue;
@@ -1651,6 +1668,7 @@ export async function l0<TOutput = unknown>(
           });
 
           // Emit FALLBACK_START event
+          // Note: onStart callback is triggered by FALLBACK_START via callback-wrappers
           dispatcher.emit(EventType.FALLBACK_START, {
             fromIndex: fallbackIndex - 1,
             toIndex: fallbackIndex,

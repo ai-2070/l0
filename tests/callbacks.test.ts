@@ -377,8 +377,9 @@ describe("onStart callback", () => {
     expect(onStart).toHaveBeenCalledWith(1, false, false); // attempt 1, not retry, not fallback
   });
 
-  it("should call onStart on retry with correct flags", async () => {
+  it("should call onStart for each attempt including retries", async () => {
     const onStart = vi.fn();
+    const onRetry = vi.fn();
     let attemptCount = 0;
 
     const rule: GuardrailRule = {
@@ -416,19 +417,25 @@ describe("onStart callback", () => {
       guardrails: [rule],
       retry: { attempts: 2 },
       onStart,
+      onRetry,
     });
 
     for await (const _ of result.stream) {
       // Consume stream
     }
 
+    // onStart is called for initial attempt and retry attempt
     expect(onStart).toHaveBeenCalledTimes(2);
     expect(onStart.mock.calls[0]).toEqual([1, false, false]); // First attempt
     expect(onStart.mock.calls[1]).toEqual([2, true, false]); // Retry attempt
+
+    // onRetry is called for the retry attempt
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it("should call onStart on fallback with correct flags", async () => {
+  it("should call onStart for each attempt including fallback", async () => {
     const onStart = vi.fn();
+    const onFallback = vi.fn();
 
     const failRule: GuardrailRule = {
       name: "fail-primary",
@@ -453,15 +460,20 @@ describe("onStart callback", () => {
       guardrails: [failRule],
       retry: { attempts: 1 },
       onStart,
+      onFallback,
     });
 
     for await (const _ of result.stream) {
       // Consume stream
     }
 
+    // onStart is called for initial attempt and fallback attempt
     expect(onStart).toHaveBeenCalledTimes(2);
     expect(onStart.mock.calls[0]).toEqual([1, false, false]); // Primary
-    expect(onStart.mock.calls[1]![2]).toBe(true); // Fallback flag is true
+    expect(onStart.mock.calls[1]).toEqual([1, false, true]); // Fallback
+
+    // onFallback is called when switching to fallback
+    expect(onFallback).toHaveBeenCalledTimes(1);
   });
 
   it("should not crash runtime when onStart throws", async () => {
