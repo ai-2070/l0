@@ -2914,13 +2914,13 @@ L0 provides subpath exports for reduced bundle sizes. Most applications should u
 
 | Import                  | Size  | Gzipped | Description                                      |
 | ----------------------- | ----- | ------- | ------------------------------------------------ |
-| `@ai2070/l0` (full)     | 182KB | 53KB    | Everything                                       |
-| `@ai2070/l0/core`       | 62KB  | 18KB    | Runtime + retry + errors                         |
-| `@ai2070/l0/structured` | 53KB  | 15KB    | Structured output                                |
-| `@ai2070/l0/consensus`  | 63KB  | 19KB    | Multi-model consensus                            |
-| `@ai2070/l0/parallel`   | 49KB  | 14KB    | Parallel/race operations                         |
-| `@ai2070/l0/window`     | 54KB  | 15KB    | Document chunking                                |
-| `@ai2070/l0/guardrails` | 17KB  | 5KB     | Validation rules                                 |
+| `@ai2070/l0` (full)     | 191KB | 56KB    | Everything                                       |
+| `@ai2070/l0/core`       | 71KB  | 21KB    | Runtime + retry + errors                         |
+| `@ai2070/l0/structured` | 61KB  | 18KB    | Structured output                                |
+| `@ai2070/l0/consensus`  | 72KB  | 21KB    | Multi-model consensus                            |
+| `@ai2070/l0/parallel`   | 58KB  | 17KB    | Parallel/race operations                         |
+| `@ai2070/l0/window`     | 62KB  | 18KB    | Document chunking                                |
+| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules                                 |
 | `@ai2070/l0/monitoring` | 27KB  | 7KB     | OTel/Sentry                                      |
 | `@ai2070/l0/drift`      | 4KB   | 2KB     | Drift detection                                  |
 | `@ai2070/l0/openai`     | —     | —       | OpenAI SDK adapter                               |

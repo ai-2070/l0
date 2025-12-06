@@ -18,9 +18,9 @@ npm install ai @ai-sdk/openai
 
 | Import                  | Size  | Gzipped | Description              |
 | ----------------------- | ----- | ------- | ------------------------ |
-| `@ai2070/l0` (full)     | 182KB | 53KB    | Everything               |
-| `@ai2070/l0/core`       | 62KB  | 18KB    | Runtime + retry + errors |
-| `@ai2070/l0/guardrails` | 17KB  | 5KB     | Validation rules         |
+| `@ai2070/l0` (full)     | 191KB | 56KB    | Everything               |
+| `@ai2070/l0/core`       | 71KB  | 21KB    | Runtime + retry + errors |
+| `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
 
 Use subpath imports for smaller bundles.
 
