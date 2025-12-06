@@ -228,7 +228,6 @@ export type {
   CheckpointSavedEvent,
   // Resume events
   ResumeStartEvent,
-  ResumeEndEvent,
   // Retry events
   RetryStartEvent,
   RetryAttemptEvent,
@@ -249,9 +248,6 @@ export type {
   StructuredAutoCorrectEndEvent,
   // Continuation events
   ContinuationStartEvent,
-  ContinuationEndEvent,
-  ContinuationDeduplicationStartEvent,
-  ContinuationDeduplicationEndEvent,
   // Tool events
   ToolRequestedEvent,
   ToolStartEvent,

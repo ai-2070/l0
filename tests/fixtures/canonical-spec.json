@@ -8,11 +8,26 @@
       "description": "Enhanced error class with recovery context",
       "properties": {
         "name": { "type": "string", "value": "L0Error" },
-        "message": { "type": "string", "description": "Human-readable error message" },
-        "code": { "type": "L0ErrorCode", "description": "Error code for programmatic handling" },
-        "category": { "type": "ErrorCategory", "description": "Computed from code via getErrorCategory()" },
-        "timestamp": { "type": "number", "description": "Unix timestamp when error occurred" },
-        "context": { "type": "L0ErrorContext", "description": "Recovery context information" }
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "code": {
+          "type": "L0ErrorCode",
+          "description": "Error code for programmatic handling"
+        },
+        "category": {
+          "type": "ErrorCategory",
+          "description": "Computed from code via getErrorCategory()"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Unix timestamp when error occurred"
+        },
+        "context": {
+          "type": "L0ErrorContext",
+          "description": "Recovery context information"
+        }
       },
       "computedProperties": {
         "hasCheckpoint": {
@@ -92,14 +107,46 @@
       "description": "Context passed to L0Error constructor",
       "shape": {
         "code": { "type": "L0ErrorCode", "required": true },
-        "checkpoint": { "type": "string", "required": false, "description": "Current checkpoint content for recovery" },
-        "tokenCount": { "type": "number", "required": false, "description": "Tokens processed before error" },
-        "contentLength": { "type": "number", "required": false, "description": "Accumulated content length" },
-        "modelRetryCount": { "type": "number", "required": false, "description": "Model retry attempts made" },
-        "networkRetryCount": { "type": "number", "required": false, "description": "Network retries (don't count toward limit)" },
-        "fallbackIndex": { "type": "number", "required": false, "description": "Current fallback index (0 = primary)" },
-        "metadata": { "type": "Record<string, unknown>", "required": false, "description": "Additional internal context" },
-        "context": { "type": "Record<string, unknown>", "required": false, "description": "User-provided context" }
+        "checkpoint": {
+          "type": "string",
+          "required": false,
+          "description": "Current checkpoint content for recovery"
+        },
+        "tokenCount": {
+          "type": "number",
+          "required": false,
+          "description": "Tokens processed before error"
+        },
+        "contentLength": {
+          "type": "number",
+          "required": false,
+          "description": "Accumulated content length"
+        },
+        "modelRetryCount": {
+          "type": "number",
+          "required": false,
+          "description": "Model retry attempts made"
+        },
+        "networkRetryCount": {
+          "type": "number",
+          "required": false,
+          "description": "Network retries (don't count toward limit)"
+        },
+        "fallbackIndex": {
+          "type": "number",
+          "required": false,
+          "description": "Current fallback index (0 = primary)"
+        },
+        "metadata": {
+          "type": "Record<string, unknown>",
+          "required": false,
+          "description": "Additional internal context"
+        },
+        "context": {
+          "type": "Record<string, unknown>",
+          "required": false,
+          "description": "User-provided context"
+        }
       }
     }
   },
@@ -110,8 +157,14 @@
       "baseShape": {
         "type": { "type": "EventType", "description": "Event type identifier" },
         "ts": { "type": "number", "description": "Unix timestamp" },
-        "streamId": { "type": "string", "description": "UUID v7 for session correlation" },
-        "context": { "type": "Record<string, unknown>", "description": "User-provided context (deeply cloned, immutable)" }
+        "streamId": {
+          "type": "string",
+          "description": "UUID v7 for session correlation"
+        },
+        "context": {
+          "type": "Record<string, unknown>",
+          "description": "User-provided context (deeply cloned, immutable)"
+        }
       },
       "events": {
         "SESSION_START": {
@@ -122,6 +175,50 @@
             "isFallback": "boolean (always false)"
           }
         },
+        "STREAM_INIT": {
+          "description": "Emitted when stream iteration begins",
+          "additionalFields": {}
+        },
+        "ADAPTER_WRAP_START": {
+          "description": "Emitted when adapter detection/wrapping starts",
+          "additionalFields": {
+            "streamType": "string (typeof stream)"
+          }
+        },
+        "ADAPTER_DETECTED": {
+          "description": "Emitted when an adapter is matched to the stream",
+          "additionalFields": {
+            "adapterId": "string"
+          }
+        },
+        "ADAPTER_WRAP_END": {
+          "description": "Emitted when adapter wrapping completes",
+          "additionalFields": {
+            "adapterId": "string",
+            "success": "boolean"
+          }
+        },
+        "TIMEOUT_START": {
+          "description": "Emitted when a timeout timer starts",
+          "additionalFields": {
+            "timeoutType": "'initial' | 'inter'",
+            "configuredMs": "number"
+          }
+        },
+        "TIMEOUT_RESET": {
+          "description": "Emitted when inter-token timeout is reset",
+          "additionalFields": {
+            "configuredMs": "number"
+          }
+        },
+        "TIMEOUT_TRIGGERED": {
+          "description": "Emitted when timeout fires",
+          "additionalFields": {
+            "timeoutType": "'initial' | 'inter'",
+            "elapsedMs": "number",
+            "configuredMs": "number"
+          }
+        },
         "ATTEMPT_START": {
           "description": "Emitted for retry attempts only (not initial, not fallbacks)",
           "additionalFields": {
@@ -130,11 +227,10 @@
             "isFallback": "boolean (always false)"
           }
         },
-        "FALLBACK_START": {
-          "description": "Emitted when switching to fallback stream",
+        "RETRY_START": {
+          "description": "Emitted when retry loop begins",
           "additionalFields": {
-            "fromIndex": "number (previous stream index)",
-            "toIndex": "number (new stream index)"
+            "maxAttempts": "number"
           }
         },
         "RETRY_ATTEMPT": {
@@ -144,6 +240,102 @@
             "maxAttempts": "number",
             "reason": "string",
             "delayMs": "number"
+          }
+        },
+        "RETRY_END": {
+          "description": "Emitted when retry loop completes successfully",
+          "additionalFields": {
+            "attempt": "number",
+            "success": "boolean (always true)"
+          }
+        },
+        "RETRY_GIVE_UP": {
+          "description": "Emitted when all retry attempts exhausted",
+          "additionalFields": {
+            "attempt": "number",
+            "maxAttempts": "number",
+            "reason": "string"
+          }
+        },
+        "FALLBACK_START": {
+          "description": "Emitted when switching to fallback stream",
+          "additionalFields": {
+            "fromIndex": "number (previous stream index)",
+            "toIndex": "number (new stream index)"
+          }
+        },
+        "FALLBACK_MODEL_SELECTED": {
+          "description": "Emitted when a fallback model is selected",
+          "additionalFields": {
+            "index": "number",
+            "reason": "string"
+          }
+        },
+        "FALLBACK_END": {
+          "description": "Emitted when fallback sequence completes",
+          "additionalFields": {
+            "success": "boolean",
+            "finalIndex": "number"
+          }
+        },
+        "CONTINUATION_START": {
+          "description": "Emitted when continuation from checkpoint begins",
+          "additionalFields": {
+            "checkpoint": "string",
+            "tokenCount": "number"
+          }
+        },
+        "CHECKPOINT_SAVED": {
+          "description": "Emitted when checkpoint is saved",
+          "additionalFields": {
+            "checkpoint": "string",
+            "tokenCount": "number"
+          }
+        },
+        "RESUME_START": {
+          "description": "Emitted when resuming from checkpoint",
+          "additionalFields": {
+            "checkpoint": "string",
+            "tokenCount": "number"
+          }
+        },
+        "GUARDRAIL_PHASE_START": {
+          "description": "Emitted when guardrail phase begins",
+          "additionalFields": {
+            "phase": "'pre' | 'post'",
+            "ruleCount": "number"
+          }
+        },
+        "GUARDRAIL_RULE_START": {
+          "description": "Emitted before each guardrail rule evaluation",
+          "additionalFields": {
+            "index": "number",
+            "ruleId": "string"
+          }
+        },
+        "GUARDRAIL_RULE_RESULT": {
+          "description": "Emitted after guardrail rule evaluation",
+          "additionalFields": {
+            "index": "number",
+            "ruleId": "string",
+            "passed": "boolean",
+            "violation": "GuardrailViolation | undefined"
+          }
+        },
+        "GUARDRAIL_RULE_END": {
+          "description": "Emitted after guardrail rule completes",
+          "additionalFields": {
+            "index": "number",
+            "ruleId": "string",
+            "passed": "boolean"
+          }
+        },
+        "GUARDRAIL_PHASE_END": {
+          "description": "Emitted when guardrail phase completes",
+          "additionalFields": {
+            "phase": "'pre' | 'post'",
+            "passed": "boolean",
+            "violations": "GuardrailViolation[]"
           }
         },
         "ERROR": {
@@ -164,42 +356,11 @@
             "state": "L0State | undefined"
           }
         },
-        "CHECKPOINT_SAVED": {
-          "description": "Emitted when checkpoint is saved",
-          "additionalFields": {
-            "checkpoint": "string",
-            "tokenCount": "number"
-          }
-        },
-        "RESUME_START": {
-          "description": "Emitted when resuming from checkpoint",
-          "additionalFields": {
-            "checkpoint": "string",
-            "tokenCount": "number"
-          }
-        },
         "ABORT_COMPLETED": {
           "description": "Emitted when stream abort completes",
           "additionalFields": {
             "tokenCount": "number",
             "contentLength": "number"
-          }
-        },
-        "GUARDRAIL_RULE_RESULT": {
-          "description": "Emitted after guardrail rule evaluation",
-          "additionalFields": {
-            "index": "number",
-            "ruleId": "string",
-            "passed": "boolean",
-            "violation": "GuardrailViolation | undefined"
-          }
-        },
-        "TIMEOUT_TRIGGERED": {
-          "description": "Emitted when timeout fires",
-          "additionalFields": {
-            "timeoutType": "'initial' | 'inter'",
-            "elapsedMs": "number",
-            "configuredMs": "number"
           }
         }
       }
@@ -339,22 +500,40 @@
     "description": "Network error classification for retry decisions",
     "types": {
       "connection_dropped": {
-        "detection": ["connection dropped", "connection closed", "connection lost", "econnreset", "broken pipe"],
+        "detection": [
+          "connection dropped",
+          "connection closed",
+          "connection lost",
+          "econnreset",
+          "broken pipe"
+        ],
         "retryable": true,
         "countsTowardLimit": false
       },
       "fetch_error": {
-        "detection": ["TypeError with 'fetch'", "failed to fetch", "network request failed"],
+        "detection": [
+          "TypeError with 'fetch'",
+          "failed to fetch",
+          "network request failed"
+        ],
         "retryable": true,
         "countsTowardLimit": false
       },
       "econnreset": {
-        "detection": ["econnreset", "connection reset by peer", "code: ECONNRESET"],
+        "detection": [
+          "econnreset",
+          "connection reset by peer",
+          "code: ECONNRESET"
+        ],
         "retryable": true,
         "countsTowardLimit": false
       },
       "econnrefused": {
-        "detection": ["econnrefused", "connection refused", "code: ECONNREFUSED"],
+        "detection": [
+          "econnrefused",
+          "connection refused",
+          "code: ECONNREFUSED"
+        ],
         "retryable": true,
         "countsTowardLimit": false
       },

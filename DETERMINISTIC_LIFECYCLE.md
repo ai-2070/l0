@@ -206,19 +206,67 @@ These parameters use 0-based indexing for array/iteration compatibility:
 
 The following `EventType` values are emitted during the lifecycle:
 
-| Event Type              | Description                              |
-| ----------------------- | ---------------------------------------- |
-| `SESSION_START`         | Session started (once per session)       |
-| `ATTEMPT_START`         | New attempt started (retry)              |
-| `COMPLETE`              | Stream completed successfully            |
-| `ERROR`                 | Error occurred                           |
-| `RETRY_ATTEMPT`         | Retry is being attempted                 |
-| `FALLBACK_START`        | Switching to fallback stream             |
-| `RESUME_START`          | Resuming from checkpoint                 |
-| `CHECKPOINT_SAVED`      | Checkpoint was saved                     |
-| `ABORT_COMPLETED`       | Stream was aborted                       |
-| `TIMEOUT_TRIGGERED`     | Timeout occurred                         |
-| `GUARDRAIL_RULE_RESULT` | Guardrail check completed                |
+### Session & Stream Events
+
+| Event Type              | Description                                      |
+| ----------------------- | ------------------------------------------------ |
+| `SESSION_START`         | Session started (once per session)               |
+| `STREAM_INIT`           | Stream initialization started                    |
+| `COMPLETE`              | Stream completed successfully                    |
+| `ERROR`                 | Error occurred                                   |
+| `ABORT_COMPLETED`       | Stream was aborted                               |
+
+### Adapter Events
+
+| Event Type              | Description                                      |
+| ----------------------- | ------------------------------------------------ |
+| `ADAPTER_WRAP_START`    | Adapter wrapping started                         |
+| `ADAPTER_DETECTED`      | Adapter detected (includes adapter name)         |
+| `ADAPTER_WRAP_END`      | Adapter wrapping completed                       |
+
+### Timeout Events
+
+| Event Type              | Description                                      |
+| ----------------------- | ------------------------------------------------ |
+| `TIMEOUT_START`         | Timeout timer started (initial or inter-token)   |
+| `TIMEOUT_RESET`         | Timeout timer reset after token received         |
+| `TIMEOUT_TRIGGERED`     | Timeout occurred                                 |
+
+### Retry Events
+
+| Event Type              | Description                                      |
+| ----------------------- | ------------------------------------------------ |
+| `RETRY_START`           | Retry sequence starting                          |
+| `RETRY_ATTEMPT`         | Individual retry attempt (precedes ATTEMPT_START)|
+| `ATTEMPT_START`         | New attempt started (retry)                      |
+| `RETRY_END`             | Retry succeeded (includes success: true)         |
+| `RETRY_GIVE_UP`         | All retries exhausted                            |
+
+### Fallback Events
+
+| Event Type                | Description                                    |
+| ------------------------- | ---------------------------------------------- |
+| `FALLBACK_START`          | Switching to fallback stream                   |
+| `FALLBACK_MODEL_SELECTED` | Fallback model selected (includes index)       |
+| `FALLBACK_END`            | Fallback completed (includes success)          |
+
+### Continuation Events
+
+| Event Type              | Description                                      |
+| ----------------------- | ------------------------------------------------ |
+| `CONTINUATION_START`    | Continuing from checkpoint                       |
+| `CHECKPOINT_SAVED`      | Checkpoint was saved                             |
+| `RESUME_START`          | Resuming from checkpoint                         |
+
+### Guardrail Events
+
+| Event Type                | Description                                    |
+| ------------------------- | ---------------------------------------------- |
+| `GUARDRAIL_PHASE_START`   | Guardrail phase starting                       |
+| `GUARDRAIL_RULE_START`    | Individual rule starting                       |
+| `GUARDRAIL_RULE_END`      | Individual rule completed                      |
+| `GUARDRAIL_PHASE_END`     | Guardrail phase completed                      |
+| `GUARDRAIL_RULE_RESULT`   | Rule evaluation result (includes passed/failed)|
 
 ## Implementation Notes
 
@@ -246,14 +294,20 @@ The runtime uses a state machine with these states:
 
 ### Test Coverage
 
-Comprehensive lifecycle tests are in `tests/lifecycle.test.ts` with 44 passing tests covering:
+Comprehensive lifecycle tests are in `tests/lifecycle.test.ts` with 78+ passing tests covering:
 - Normal successful flow (6 tests)
-- Retry flow (5 tests)
+- Retry flow (7 tests)
 - Fallback flow (5 tests)
 - Error flow (6 tests)
 - Checkpoint and continuation flow (8 tests)
 - Abort flow (4 tests)
-- Timeout flow (1 test + 3 skipped for timing sensitivity)
+- Timeout flow (3 tests + 3 skipped for timing sensitivity)
 - Guardrail violation flow (3 tests)
+- Guardrail phase events (6 tests)
+- Continuation events (4 tests)
+- Stream initialization events (2 tests)
+- Adapter events (3 tests)
+- Retry lifecycle events (5 tests)
+- Fallback lifecycle events (4 tests)
 - Combined complex flows (3 tests)
-- Event timestamp ordering (3 tests)
+- Event timestamp ordering (7 tests)
