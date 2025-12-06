@@ -15,6 +15,27 @@ import type {
   EventType,
 } from "../types/observability";
 
+/**
+ * Deep clone and freeze an object to ensure complete immutability.
+ * Handles nested objects and arrays.
+ */
+function deepCloneAndFreeze<T>(obj: T): T {
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    const cloned = obj.map((item) => deepCloneAndFreeze(item)) as T;
+    return Object.freeze(cloned);
+  }
+
+  const cloned: Record<string, unknown> = {};
+  for (const key of Object.keys(obj)) {
+    cloned[key] = deepCloneAndFreeze((obj as Record<string, unknown>)[key]);
+  }
+  return Object.freeze(cloned) as T;
+}
+
 export class EventDispatcher {
   private handlers: L0EventHandler[] = [];
   private readonly streamId: string;
@@ -22,7 +43,7 @@ export class EventDispatcher {
 
   constructor(context: Record<string, unknown> = {}) {
     this.streamId = uuidv7();
-    this._context = Object.freeze({ ...context }); // Immutable
+    this._context = deepCloneAndFreeze(context);
   }
 
   /**
