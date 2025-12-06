@@ -1893,4 +1893,155 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
       expect(context.userId).toBe("user-456");
     }
   });
+
+  it("should include user context in retry events", async () => {
+    const collector = createEventCollector();
+    let attemptCount = 0;
+
+    const forceRetryRule: GuardrailRule = {
+      name: "force-retry",
+      check: (ctx: GuardrailContext) => {
+        if (attemptCount < 2) {
+          return {
+            rule: "force-retry",
+            severity: "error" as const,
+            message: "Forcing retry",
+            recoverable: true,
+          };
+        }
+        return null;
+      },
+    };
+
+    const result = await l0({
+      stream: () => {
+        attemptCount++;
+        return createTokenStream(["test"]);
+      },
+      guardrails: [forceRetryRule],
+      retry: { attempts: 3 },
+      context: {
+        requestId: "retry-req-123",
+        traceId: "trace-abc",
+      },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    // Check RETRY_ATTEMPT events have context
+    const retryEvents = collector.getEventsOfType("RETRY_ATTEMPT");
+    expect(retryEvents.length).toBeGreaterThan(0);
+    for (const event of retryEvents) {
+      const context = event.data.context as Record<string, unknown>;
+      expect(context.requestId).toBe("retry-req-123");
+      expect(context.traceId).toBe("trace-abc");
+    }
+
+    // Check ATTEMPT_START events have context
+    const attemptStarts = collector.getEventsOfType("ATTEMPT_START");
+    for (const event of attemptStarts) {
+      const context = event.data.context as Record<string, unknown>;
+      expect(context.requestId).toBe("retry-req-123");
+      expect(context.traceId).toBe("trace-abc");
+    }
+  });
+
+  it("should include user context in fallback events", async () => {
+    const collector = createEventCollector();
+
+    const failRule: GuardrailRule = {
+      name: "always-fail",
+      check: () => ({
+        rule: "always-fail",
+        severity: "error" as const,
+        message: "Always fails",
+        recoverable: false,
+      }),
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["primary"]),
+      fallbackStreams: [() => createTokenStream(["fallback"])],
+      guardrails: [failRule],
+      retry: { attempts: 1 },
+      context: {
+        requestId: "fallback-req-456",
+        environment: "test",
+      },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    // Check FALLBACK_START events have context
+    const fallbackStarts = collector.getEventsOfType("FALLBACK_START");
+    expect(fallbackStarts.length).toBeGreaterThan(0);
+    for (const event of fallbackStarts) {
+      const context = event.data.context as Record<string, unknown>;
+      expect(context.requestId).toBe("fallback-req-456");
+      expect(context.environment).toBe("test");
+    }
+  });
+
+  it("should include user context in error events", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createFailingStream(0),
+      fallbackStreams: [() => createTokenStream(["fallback"])],
+      retry: { attempts: 1 },
+      context: {
+        requestId: "error-req-789",
+        source: "api",
+      },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    // Check ERROR events have context
+    const errorEvents = collector.getEventsOfType("ERROR");
+    expect(errorEvents.length).toBeGreaterThan(0);
+    for (const event of errorEvents) {
+      const context = event.data.context as Record<string, unknown>;
+      expect(context.requestId).toBe("error-req-789");
+      expect(context.source).toBe("api");
+    }
+  });
+
+  it("should preserve context immutability", async () => {
+    const collector = createEventCollector();
+    const originalContext = {
+      requestId: "immutable-123",
+      nested: { value: "original" },
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      context: originalContext,
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    // Verify context in events matches original
+    const obsEvents = collector.events.filter((e) => e.data.context);
+    expect(obsEvents.length).toBeGreaterThan(0);
+
+    const eventContext = obsEvents[0].data.context as Record<string, unknown>;
+    expect(eventContext.requestId).toBe("immutable-123");
+
+    // Modifying original shouldn't affect emitted events
+    originalContext.requestId = "modified";
+    expect(eventContext.requestId).toBe("immutable-123");
+  });
 });
