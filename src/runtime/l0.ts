@@ -319,6 +319,30 @@ export async function l0<TOutput = unknown>(
           rules: processedGuardrails,
           stopOnFatal: true,
           enableStreaming: true,
+          onPhaseStart: (contextSize, ruleCount) => {
+            dispatcher.emit(EventType.GUARDRAIL_PHASE_START, {
+              contextSize,
+              ruleCount,
+            });
+          },
+          onPhaseEnd: (ruleCount, violationCount) => {
+            dispatcher.emit(EventType.GUARDRAIL_PHASE_END, {
+              ruleCount,
+              violationCount,
+            });
+          },
+          onRuleStart: (index, ruleId) => {
+            dispatcher.emit(EventType.GUARDRAIL_RULE_START, {
+              index,
+              ruleId,
+            });
+          },
+          onRuleEnd: (index, ruleId) => {
+            dispatcher.emit(EventType.GUARDRAIL_RULE_END, {
+              index,
+              ruleId,
+            });
+          },
         })
       : null;
 
@@ -456,6 +480,12 @@ export async function l0<TOutput = unknown>(
               // Reset overlap matching state for the new continuation
               overlapBuffer = "";
               overlapResolved = false;
+
+              // Emit CONTINUATION_START event
+              dispatcher.emit(EventType.CONTINUATION_START, {
+                checkpoint: checkpointForContinuation,
+                tokenCount: state.tokenCount,
+              });
 
               // Emit RESUME_START event (callback wrappers handle legacy onResume)
               dispatcher.emit(EventType.RESUME_START, {
@@ -1784,6 +1814,12 @@ export async function l0<TOutput = unknown>(
               // Reset overlap matching state for the new continuation
               overlapBuffer = "";
               overlapResolved = false;
+
+              // Emit CONTINUATION_START event
+              dispatcher.emit(EventType.CONTINUATION_START, {
+                checkpoint: checkpointForContinuation,
+                tokenCount: state.tokenCount,
+              });
 
               // Emit RESUME_START event (callback wrappers handle legacy onResume)
               dispatcher.emit(EventType.RESUME_START, {
