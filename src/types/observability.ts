@@ -146,15 +146,12 @@ export const DriftEvents = {
 
 /** Checkpoint events */
 export const CheckpointEvents = {
-  CHECKPOINT_START: "CHECKPOINT_START",
   CHECKPOINT_SAVED: "CHECKPOINT_SAVED",
-  CHECKPOINT_END: "CHECKPOINT_END",
 } as const;
 
 /** Resume events */
 export const ResumeEvents = {
   RESUME_START: "RESUME_START",
-  RESUME_END: "RESUME_END",
 } as const;
 
 /** Retry events */
@@ -190,7 +187,6 @@ export const StructuredEvents = {
 /** Continuation events */
 export const ContinuationEvents = {
   CONTINUATION_START: "CONTINUATION_START",
-  CONTINUATION_END: "CONTINUATION_END",
   CONTINUATION_DEDUPLICATION_START: "CONTINUATION_DEDUPLICATION_START",
   CONTINUATION_DEDUPLICATION_END: "CONTINUATION_DEDUPLICATION_END",
   /** Alias for CONTINUATION_DEDUPLICATION_START (Python compat) */
@@ -537,20 +533,10 @@ export interface DriftCheckSkippedEvent extends L0ObservabilityEvent {
 // Checkpoint Events
 // ============================================================================
 
-export interface CheckpointStartEvent extends L0ObservabilityEvent {
-  type: "CHECKPOINT_START";
-  checkpointLength: number;
-}
-
 export interface CheckpointSavedEvent extends L0ObservabilityEvent {
   type: "CHECKPOINT_SAVED";
   checkpoint: string;
   tokenCount: number;
-}
-
-export interface CheckpointEndEvent extends L0ObservabilityEvent {
-  type: "CHECKPOINT_END";
-  valid: boolean;
 }
 
 // ============================================================================
@@ -562,13 +548,6 @@ export interface ResumeStartEvent extends L0ObservabilityEvent {
   checkpoint: string;
   stateHash?: string;
   tokenCount: number;
-}
-
-export interface ResumeEndEvent extends L0ObservabilityEvent {
-  type: "RESUME_END";
-  checkpoint: string;
-  durationMs: number;
-  success: boolean;
 }
 
 // ============================================================================
@@ -729,12 +708,6 @@ export interface ContinuationStartEvent extends L0ObservabilityEvent {
   tokenCount: number;
 }
 
-export interface ContinuationEndEvent extends L0ObservabilityEvent {
-  type: "CONTINUATION_END";
-  durationMs: number;
-  success: boolean;
-}
-
 export interface ContinuationDeduplicationStartEvent extends L0ObservabilityEvent {
   type: "CONTINUATION_DEDUPLICATION_START";
   overlapLength: number;
@@ -871,12 +844,9 @@ export type L0Event =
   | DriftCheckEndEvent
   | DriftCheckSkippedEvent
   // Checkpoint
-  | CheckpointStartEvent
   | CheckpointSavedEvent
-  | CheckpointEndEvent
   // Resume
   | ResumeStartEvent
-  | ResumeEndEvent
   // Retry
   | RetryStartEvent
   | RetryAttemptEvent
@@ -900,7 +870,6 @@ export type L0Event =
   | StructuredAutoCorrectEndEvent
   // Continuation
   | ContinuationStartEvent
-  | ContinuationEndEvent
   | ContinuationDeduplicationStartEvent
   | ContinuationDeduplicationEndEvent
   | DeduplicationStartEvent
