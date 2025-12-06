@@ -2840,7 +2840,7 @@ describe("Lifecycle: Fallback Lifecycle Events", () => {
     const collector = createEventCollector();
 
     const result = await l0({
-      stream: createFailingStream("Primary failed"),
+      stream: createFailingStream([]),
       fallbackStreams: [createTokenStream(["fallback"])],
       retry: { attempts: 1 },
       onEvent: collector.handler,
@@ -2860,7 +2860,7 @@ describe("Lifecycle: Fallback Lifecycle Events", () => {
     const collector = createEventCollector();
 
     const result = await l0({
-      stream: createFailingStream("Primary failed"),
+      stream: createFailingStream([]),
       fallbackStreams: [createTokenStream(["fallback"])],
       retry: { attempts: 1 },
       onEvent: collector.handler,
@@ -2881,7 +2881,7 @@ describe("Lifecycle: Fallback Lifecycle Events", () => {
     const collector = createEventCollector();
 
     const result = await l0({
-      stream: createFailingStream("Primary failed"),
+      stream: createFailingStream([]),
       fallbackStreams: [createTokenStream(["fallback", " ", "success"])],
       retry: { attempts: 1 },
       onEvent: collector.handler,
@@ -2899,7 +2899,7 @@ describe("Lifecycle: Fallback Lifecycle Events", () => {
     const collector = createEventCollector();
 
     const result = await l0({
-      stream: createFailingStream("Primary failed"),
+      stream: createFailingStream([]),
       fallbackStreams: [createTokenStream(["fallback"])],
       retry: { attempts: 1 },
       onEvent: collector.handler,
