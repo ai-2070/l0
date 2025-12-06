@@ -50,7 +50,13 @@ export class GuardrailEngine {
     const violations: GuardrailViolation[] = [];
     const timestamp = Date.now();
 
+    // Emit phase start callback
+    if (this.config.onPhaseStart) {
+      this.config.onPhaseStart(context.content.length, this.rules.length);
+    }
+
     // Execute each rule
+    let ruleIndex = 0;
     for (const rule of this.rules) {
       // Skip streaming rules if not enabled or not streaming check
       if (
@@ -64,6 +70,11 @@ export class GuardrailEngine {
       // Skip non-streaming rules if streaming check
       if (!rule.streaming && !context.completed) {
         continue;
+      }
+
+      // Emit rule start callback
+      if (this.config.onRuleStart) {
+        this.config.onRuleStart(ruleIndex, rule.name);
       }
 
       try {
@@ -89,6 +100,11 @@ export class GuardrailEngine {
           ]);
         }
 
+        // Emit rule end callback
+        if (this.config.onRuleEnd) {
+          this.config.onRuleEnd(ruleIndex, rule.name);
+        }
+
         // Stop on fatal if configured
         if (
           this.config.stopOnFatal &&
@@ -105,7 +121,19 @@ export class GuardrailEngine {
           recoverable: true,
           timestamp,
         });
+
+        // Emit rule end callback even on error
+        if (this.config.onRuleEnd) {
+          this.config.onRuleEnd(ruleIndex, rule.name);
+        }
       }
+
+      ruleIndex++;
+    }
+
+    // Emit phase end callback
+    if (this.config.onPhaseEnd) {
+      this.config.onPhaseEnd(this.rules.length, violations.length);
     }
 
     // Update state

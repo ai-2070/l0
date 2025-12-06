@@ -152,7 +152,6 @@ export const CheckpointEvents = {
 /** Resume events */
 export const ResumeEvents = {
   RESUME_START: "RESUME_START",
-  RESUME_END: "RESUME_END",
 } as const;
 
 /** Retry events */
@@ -188,9 +187,6 @@ export const StructuredEvents = {
 /** Continuation events */
 export const ContinuationEvents = {
   CONTINUATION_START: "CONTINUATION_START",
-  CONTINUATION_END: "CONTINUATION_END",
-  CONTINUATION_DEDUPLICATION_START: "CONTINUATION_DEDUPLICATION_START",
-  CONTINUATION_DEDUPLICATION_END: "CONTINUATION_DEDUPLICATION_END",
 } as const;
 
 /** Tool use events */
@@ -548,13 +544,6 @@ export interface ResumeStartEvent extends L0ObservabilityEvent {
   tokenCount: number;
 }
 
-export interface ResumeEndEvent extends L0ObservabilityEvent {
-  type: "RESUME_END";
-  checkpoint: string;
-  durationMs: number;
-  success: boolean;
-}
-
 // ============================================================================
 // Retry Events
 // ============================================================================
@@ -713,23 +702,6 @@ export interface ContinuationStartEvent extends L0ObservabilityEvent {
   tokenCount: number;
 }
 
-export interface ContinuationEndEvent extends L0ObservabilityEvent {
-  type: "CONTINUATION_END";
-  durationMs: number;
-  success: boolean;
-}
-
-export interface ContinuationDeduplicationStartEvent extends L0ObservabilityEvent {
-  type: "CONTINUATION_DEDUPLICATION_START";
-  overlapLength: number;
-}
-
-export interface ContinuationDeduplicationEndEvent extends L0ObservabilityEvent {
-  type: "CONTINUATION_DEDUPLICATION_END";
-  durationMs: number;
-  deduplicatedLength: number;
-}
-
 // ============================================================================
 // Tool Events
 // ============================================================================
@@ -845,7 +817,6 @@ export type L0Event =
   | CheckpointSavedEvent
   // Resume
   | ResumeStartEvent
-  | ResumeEndEvent
   // Retry
   | RetryStartEvent
   | RetryAttemptEvent
@@ -869,9 +840,6 @@ export type L0Event =
   | StructuredAutoCorrectEndEvent
   // Continuation
   | ContinuationStartEvent
-  | ContinuationEndEvent
-  | ContinuationDeduplicationStartEvent
-  | ContinuationDeduplicationEndEvent
   // Tool
   | ToolRequestedEvent
   | ToolStartEvent

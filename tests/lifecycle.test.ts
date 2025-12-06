@@ -1224,12 +1224,11 @@ describe("Lifecycle: Checkpoint and Continuation Flow", () => {
     }
 
     const resumes = collector.getEventsOfType(EventType.RESUME_START);
-    if (resumes.length > 0) {
-      const resumeEvent = resumes[0]!;
-      expect(typeof resumeEvent.data.checkpoint).toBe("string");
-      expect((resumeEvent.data.checkpoint as string).length).toBeGreaterThan(0);
-      expect(typeof resumeEvent.data.tokenCount).toBe("number");
-    }
+    expect(resumes.length).toBeGreaterThan(0);
+    const resumeEvent = resumes[0]!;
+    expect(typeof resumeEvent.data.checkpoint).toBe("string");
+    expect((resumeEvent.data.checkpoint as string).length).toBeGreaterThan(0);
+    expect(typeof resumeEvent.data.tokenCount).toBe("number");
   });
 
   it("should call onResume callback with checkpoint content", async () => {
@@ -1859,12 +1858,11 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
 
     // Get all observability events (those with streamId)
     const obsEvents = collector.events.filter((e) => e.data.streamId);
+    expect(obsEvents.length).toBeGreaterThan(0);
 
-    if (obsEvents.length > 0) {
-      const streamId = obsEvents[0]!.data.streamId;
-      for (const event of obsEvents) {
-        expect(event.data.streamId).toBe(streamId);
-      }
+    const streamId = obsEvents[0]!.data.streamId;
+    for (const event of obsEvents) {
+      expect(event.data.streamId).toBe(streamId);
     }
   });
 
@@ -2087,5 +2085,837 @@ describe("Lifecycle: Event Timestamp Ordering", () => {
     expect(() => {
       (items as unknown[]).push(4);
     }).toThrow();
+  });
+});
+
+// ============================================================================
+// Guardrail Phase Events Tests
+// ============================================================================
+
+describe("Lifecycle: Guardrail Phase Events", () => {
+  it("should emit GUARDRAIL_PHASE_START and GUARDRAIL_PHASE_END when guardrails are configured", async () => {
+    const collector = createEventCollector();
+
+    const simpleRule: GuardrailRule = {
+      name: "simple-check",
+      check: () => [], // No violations
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["hello", " ", "world"]),
+      guardrails: [simpleRule],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const phaseStarts = collector.getEventsOfType(
+      EventType.GUARDRAIL_PHASE_START,
+    );
+    const phaseEnds = collector.getEventsOfType(EventType.GUARDRAIL_PHASE_END);
+
+    expect(phaseStarts.length).toBeGreaterThan(0);
+    expect(phaseEnds.length).toBeGreaterThan(0);
+    expect(phaseStarts.length).toBe(phaseEnds.length);
+  });
+
+  it("should include contextSize and ruleCount in GUARDRAIL_PHASE_START", async () => {
+    const collector = createEventCollector();
+
+    const rule1: GuardrailRule = {
+      name: "rule-1",
+      check: () => [],
+    };
+    const rule2: GuardrailRule = {
+      name: "rule-2",
+      check: () => [],
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["test", " ", "content"]),
+      guardrails: [rule1, rule2],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const phaseStarts = collector.getEventsOfType(
+      EventType.GUARDRAIL_PHASE_START,
+    );
+    expect(phaseStarts.length).toBeGreaterThan(0);
+
+    const firstStart = phaseStarts[0]!;
+    expect(typeof firstStart.data.contextSize).toBe("number");
+    expect(firstStart.data.ruleCount).toBe(2);
+  });
+
+  it("should include ruleCount and violationCount in GUARDRAIL_PHASE_END", async () => {
+    const collector = createEventCollector();
+
+    const violatingRule: GuardrailRule = {
+      name: "violating-rule",
+      check: (ctx) => {
+        if (ctx.content.includes("bad")) {
+          return [
+            {
+              rule: "violating-rule",
+              severity: "warning",
+              message: "Bad content",
+              recoverable: true,
+            },
+          ];
+        }
+        return [];
+      },
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["this", " ", "is", " ", "bad"]),
+      guardrails: [violatingRule],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const phaseEnds = collector.getEventsOfType(EventType.GUARDRAIL_PHASE_END);
+    expect(phaseEnds.length).toBeGreaterThan(0);
+
+    // Find a phase end with violations
+    const withViolations = phaseEnds.find(
+      (e) => (e.data.violationCount as number) > 0,
+    );
+    if (withViolations) {
+      expect(withViolations.data.ruleCount).toBe(1);
+      expect(typeof withViolations.data.violationCount).toBe("number");
+    }
+  });
+
+  it("should emit GUARDRAIL_RULE_START and GUARDRAIL_RULE_END for each rule", async () => {
+    const collector = createEventCollector();
+
+    const rule1: GuardrailRule = {
+      name: "rule-alpha",
+      check: () => [],
+    };
+    const rule2: GuardrailRule = {
+      name: "rule-beta",
+      check: () => [],
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      guardrails: [rule1, rule2],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const ruleStarts = collector.getEventsOfType(
+      EventType.GUARDRAIL_RULE_START,
+    );
+    const ruleEnds = collector.getEventsOfType(EventType.GUARDRAIL_RULE_END);
+
+    expect(ruleStarts.length).toBeGreaterThan(0);
+    expect(ruleEnds.length).toBeGreaterThan(0);
+    expect(ruleStarts.length).toBe(ruleEnds.length);
+  });
+
+  it("should include index and ruleId in GUARDRAIL_RULE_START/END", async () => {
+    const collector = createEventCollector();
+
+    const namedRule: GuardrailRule = {
+      name: "named-rule-123",
+      check: () => [],
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      guardrails: [namedRule],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const ruleStarts = collector.getEventsOfType(
+      EventType.GUARDRAIL_RULE_START,
+    );
+    expect(ruleStarts.length).toBeGreaterThan(0);
+
+    const firstRuleStart = ruleStarts[0]!;
+    expect(firstRuleStart.data.index).toBe(0);
+    expect(firstRuleStart.data.ruleId).toBe("named-rule-123");
+
+    const ruleEnds = collector.getEventsOfType(EventType.GUARDRAIL_RULE_END);
+    expect(ruleEnds.length).toBeGreaterThan(0);
+
+    const firstRuleEnd = ruleEnds[0]!;
+    expect(firstRuleEnd.data.index).toBe(0);
+    expect(firstRuleEnd.data.ruleId).toBe("named-rule-123");
+  });
+
+  it("should emit phase events in correct order: PHASE_START -> RULE_START -> RULE_END -> PHASE_END", async () => {
+    const collector = createEventCollector();
+
+    const simpleRule: GuardrailRule = {
+      name: "order-test-rule",
+      check: () => [],
+    };
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      guardrails: [simpleRule],
+      checkIntervals: { guardrails: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    // Get just the guardrail-related events in order
+    const guardrailEvents = collector.events
+      .filter((e) =>
+        [
+          EventType.GUARDRAIL_PHASE_START,
+          EventType.GUARDRAIL_PHASE_END,
+          EventType.GUARDRAIL_RULE_START,
+          EventType.GUARDRAIL_RULE_END,
+        ].includes(e.type as EventType),
+      )
+      .map((e) => e.type);
+
+    // Should have at least one complete phase cycle
+    expect(guardrailEvents.length).toBeGreaterThanOrEqual(4);
+
+    // Find first complete sequence
+    const phaseStartIdx = guardrailEvents.indexOf(
+      EventType.GUARDRAIL_PHASE_START,
+    );
+    expect(phaseStartIdx).toBeGreaterThanOrEqual(0);
+
+    // After PHASE_START, we should see RULE_START
+    const ruleStartIdx = guardrailEvents.indexOf(
+      EventType.GUARDRAIL_RULE_START,
+      phaseStartIdx,
+    );
+    expect(ruleStartIdx).toBeGreaterThan(phaseStartIdx);
+
+    // After RULE_START, we should see RULE_END
+    const ruleEndIdx = guardrailEvents.indexOf(
+      EventType.GUARDRAIL_RULE_END,
+      ruleStartIdx,
+    );
+    expect(ruleEndIdx).toBeGreaterThan(ruleStartIdx);
+
+    // After RULE_END, we should see PHASE_END
+    const phaseEndIdx = guardrailEvents.indexOf(
+      EventType.GUARDRAIL_PHASE_END,
+      ruleEndIdx,
+    );
+    expect(phaseEndIdx).toBeGreaterThan(ruleEndIdx);
+  });
+});
+
+// ============================================================================
+// Continuation Start Events Tests
+// ============================================================================
+
+describe("Lifecycle: Continuation Events", () => {
+  it("should emit CONTINUATION_START before RESUME_START when continuing from checkpoint", async () => {
+    const collector = createEventCollector();
+
+    // Primary generates tokens then fails
+    const primaryStream = async function* (): AsyncGenerator<L0Event> {
+      for (let i = 0; i < 12; i++) {
+        yield { type: "token", value: `t${i}-`, timestamp: Date.now() };
+      }
+      yield {
+        type: "error",
+        error: new Error("Failed"),
+        timestamp: Date.now(),
+      };
+    };
+
+    const result = await l0({
+      stream: () => primaryStream(),
+      fallbackStreams: [createTokenStream(["continued"])],
+      retry: { attempts: 1 },
+      continueFromLastKnownGoodToken: true,
+      checkIntervals: { checkpoint: 5 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const continuationStarts = collector.getEventsOfType(
+      EventType.CONTINUATION_START,
+    );
+    const resumeStarts = collector.getEventsOfType(EventType.RESUME_START);
+
+    expect(continuationStarts.length).toBeGreaterThan(0);
+    expect(resumeStarts.length).toBeGreaterThan(0);
+
+    // CONTINUATION_START should come before RESUME_START
+    const types = collector.getEventTypes();
+    const contIdx = types.indexOf(EventType.CONTINUATION_START);
+    const resumeIdx = types.indexOf(EventType.RESUME_START);
+    expect(contIdx).toBeLessThan(resumeIdx);
+  });
+
+  it("should include checkpoint and tokenCount in CONTINUATION_START event", async () => {
+    const collector = createEventCollector();
+
+    const primaryStream = async function* (): AsyncGenerator<L0Event> {
+      yield { type: "token", value: "check", timestamp: Date.now() };
+      yield { type: "token", value: "point", timestamp: Date.now() };
+      yield { type: "token", value: "data", timestamp: Date.now() };
+      yield { type: "token", value: "here", timestamp: Date.now() };
+      yield { type: "token", value: "now", timestamp: Date.now() };
+      yield { type: "token", value: "fail", timestamp: Date.now() };
+      yield { type: "error", error: new Error("Fail"), timestamp: Date.now() };
+    };
+
+    const result = await l0({
+      stream: () => primaryStream(),
+      fallbackStreams: [createTokenStream(["ok"])],
+      retry: { attempts: 1 },
+      continueFromLastKnownGoodToken: true,
+      checkIntervals: { checkpoint: 3 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const continuationStarts = collector.getEventsOfType(
+      EventType.CONTINUATION_START,
+    );
+    expect(continuationStarts.length).toBeGreaterThan(0);
+    const contEvent = continuationStarts[0]!;
+    expect(typeof contEvent.data.checkpoint).toBe("string");
+    expect((contEvent.data.checkpoint as string).length).toBeGreaterThan(0);
+    expect(typeof contEvent.data.tokenCount).toBe("number");
+  });
+
+  it("should emit CONTINUATION_START on retry with checkpoint", async () => {
+    const collector = createEventCollector();
+    let attempts = 0;
+
+    const streamFactory = () => {
+      attempts++;
+      return (async function* (): AsyncGenerator<L0Event> {
+        for (let i = 0; i < 10; i++) {
+          yield { type: "token", value: `t${i}-`, timestamp: Date.now() };
+        }
+        if (attempts < 2) {
+          yield {
+            type: "error",
+            error: new Error("Retry needed"),
+            timestamp: Date.now(),
+          };
+        }
+        // Stream ends naturally on second attempt
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      continueFromLastKnownGoodToken: true,
+      checkIntervals: { checkpoint: 3 },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const continuationStarts = collector.getEventsOfType(
+      EventType.CONTINUATION_START,
+    );
+    expect(continuationStarts.length).toBeGreaterThan(0);
+  });
+
+  it("should emit CONTINUATION_START after FALLBACK_START in fallback+continuation flow", async () => {
+    const collector = createEventCollector();
+
+    const primaryStream = async function* (): AsyncGenerator<L0Event> {
+      for (let i = 0; i < 10; i++) {
+        yield { type: "token", value: `t${i}-`, timestamp: Date.now() };
+      }
+      yield {
+        type: "error",
+        error: new Error("Primary failed"),
+        timestamp: Date.now(),
+      };
+    };
+
+    const result = await l0({
+      stream: () => primaryStream(),
+      fallbackStreams: [createTokenStream(["fallback", " ", "success"])],
+      retry: { attempts: 1 },
+      continueFromLastKnownGoodToken: true,
+      checkIntervals: { checkpoint: 3 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const types = collector.getEventTypes();
+    const fallbackIdx = types.indexOf(EventType.FALLBACK_START);
+    const contIdx = types.indexOf(EventType.CONTINUATION_START);
+
+    expect(fallbackIdx).toBeGreaterThanOrEqual(0);
+    expect(contIdx).toBeGreaterThanOrEqual(0);
+    expect(fallbackIdx).toBeLessThan(contIdx);
+  });
+});
+
+// ============================================================================
+// Stream Initialization Events Tests
+// ============================================================================
+
+describe("Lifecycle: Stream Initialization Events", () => {
+  it("should emit STREAM_INIT at start of streaming", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello", " ", "world"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const streamInits = collector.getEventsOfType(EventType.STREAM_INIT);
+    expect(streamInits.length).toBeGreaterThan(0);
+  });
+
+  it("should emit STREAM_INIT before tokens are yielded", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const types = collector.getEventTypes();
+    const streamInitIdx = types.indexOf(EventType.STREAM_INIT);
+    expect(streamInitIdx).toBeGreaterThanOrEqual(0);
+    // STREAM_INIT should come early in the sequence (after SESSION_START)
+    expect(streamInitIdx).toBeLessThan(5);
+  });
+});
+
+// ============================================================================
+// Adapter Events Tests
+// ============================================================================
+
+describe("Lifecycle: Adapter Events", () => {
+  it("should emit ADAPTER_WRAP_START and ADAPTER_WRAP_END", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const wrapStarts = collector.getEventsOfType(EventType.ADAPTER_WRAP_START);
+    const wrapEnds = collector.getEventsOfType(EventType.ADAPTER_WRAP_END);
+
+    expect(wrapStarts.length).toBeGreaterThan(0);
+    expect(wrapEnds.length).toBeGreaterThan(0);
+  });
+
+  it("should emit ADAPTER_DETECTED with adapter name", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const adapterDetected = collector.getEventsOfType(
+      EventType.ADAPTER_DETECTED,
+    );
+    expect(adapterDetected.length).toBeGreaterThan(0);
+    expect(typeof adapterDetected[0]!.data.adapter).toBe("string");
+  });
+
+  it("should emit adapter events in order: WRAP_START -> DETECTED -> WRAP_END", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["test"]),
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const types = collector.getEventTypes();
+    const wrapStartIdx = types.indexOf(EventType.ADAPTER_WRAP_START);
+    const detectedIdx = types.indexOf(EventType.ADAPTER_DETECTED);
+    const wrapEndIdx = types.indexOf(EventType.ADAPTER_WRAP_END);
+
+    expect(wrapStartIdx).toBeGreaterThanOrEqual(0);
+    expect(detectedIdx).toBeGreaterThanOrEqual(0);
+    expect(wrapEndIdx).toBeGreaterThanOrEqual(0);
+
+    expect(wrapStartIdx).toBeLessThan(detectedIdx);
+    expect(detectedIdx).toBeLessThan(wrapEndIdx);
+  });
+});
+
+// ============================================================================
+// Timeout Events Tests
+// ============================================================================
+
+describe("Lifecycle: Timeout Events", () => {
+  it("should emit TIMEOUT_START when timeout is configured", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello"]),
+      timeout: { initialToken: 5000, interToken: 2000 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const timeoutStarts = collector.getEventsOfType(EventType.TIMEOUT_START);
+    expect(timeoutStarts.length).toBeGreaterThan(0);
+  });
+
+  it("should include timeout type in TIMEOUT_START event", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["hello"]),
+      timeout: { initialToken: 5000 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const timeoutStarts = collector.getEventsOfType(EventType.TIMEOUT_START);
+    expect(timeoutStarts.length).toBeGreaterThan(0);
+    expect(timeoutStarts[0]!.data.timeoutType).toBeDefined();
+  });
+
+  it("should emit TIMEOUT_RESET after each token", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createTokenStream(["a", "b", "c"]),
+      timeout: { interToken: 5000 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const timeoutResets = collector.getEventsOfType(EventType.TIMEOUT_RESET);
+    // Should have at least one reset per token
+    expect(timeoutResets.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ============================================================================
+// Retry Lifecycle Events Tests
+// ============================================================================
+
+describe("Lifecycle: Retry Lifecycle Events", () => {
+  it("should emit RETRY_START when retry begins", async () => {
+    const collector = createEventCollector();
+    let attempts = 0;
+
+    const streamFactory = () => {
+      attempts++;
+      return (async function* (): AsyncGenerator<L0Event> {
+        if (attempts < 2) {
+          yield {
+            type: "error",
+            error: new Error("Retry needed"),
+            timestamp: Date.now(),
+          };
+        } else {
+          yield { type: "token", value: "success", timestamp: Date.now() };
+        }
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryStarts = collector.getEventsOfType(EventType.RETRY_START);
+    expect(retryStarts.length).toBeGreaterThan(0);
+  });
+
+  it("should include attempt and maxAttempts in RETRY_START", async () => {
+    const collector = createEventCollector();
+    let attempts = 0;
+
+    const streamFactory = () => {
+      attempts++;
+      return (async function* (): AsyncGenerator<L0Event> {
+        if (attempts < 2) {
+          yield {
+            type: "error",
+            error: new Error("Retry"),
+            timestamp: Date.now(),
+          };
+        } else {
+          yield { type: "token", value: "ok", timestamp: Date.now() };
+        }
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      retry: { attempts: 3, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryStarts = collector.getEventsOfType(EventType.RETRY_START);
+    expect(retryStarts.length).toBeGreaterThan(0);
+    expect(typeof retryStarts[0]!.data.attempt).toBe("number");
+    expect(typeof retryStarts[0]!.data.maxAttempts).toBe("number");
+  });
+
+  it("should emit RETRY_END after successful retry", async () => {
+    const collector = createEventCollector();
+    let attempts = 0;
+
+    const streamFactory = () => {
+      attempts++;
+      return (async function* (): AsyncGenerator<L0Event> {
+        if (attempts < 2) {
+          yield {
+            type: "error",
+            error: new Error("Retry"),
+            timestamp: Date.now(),
+          };
+        } else {
+          yield { type: "token", value: "ok", timestamp: Date.now() };
+        }
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryEnds = collector.getEventsOfType(EventType.RETRY_END);
+    expect(retryEnds.length).toBeGreaterThan(0);
+    expect(retryEnds[0]!.data.success).toBe(true);
+  });
+
+  it("should emit RETRY_GIVE_UP when retries exhausted", async () => {
+    const collector = createEventCollector();
+
+    const streamFactory = () => {
+      return (async function* (): AsyncGenerator<L0Event> {
+        yield {
+          type: "error",
+          error: new Error("Always fails"),
+          timestamp: Date.now(),
+        };
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryGiveUps = collector.getEventsOfType(EventType.RETRY_GIVE_UP);
+    expect(retryGiveUps.length).toBeGreaterThan(0);
+  });
+
+  it("should include attempts count in RETRY_GIVE_UP", async () => {
+    const collector = createEventCollector();
+
+    const streamFactory = () => {
+      return (async function* (): AsyncGenerator<L0Event> {
+        yield {
+          type: "error",
+          error: new Error("Always fails"),
+          timestamp: Date.now(),
+        };
+      })();
+    };
+
+    const result = await l0({
+      stream: streamFactory,
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 2, retryOn: ["unknown"] },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const retryGiveUps = collector.getEventsOfType(EventType.RETRY_GIVE_UP);
+    expect(retryGiveUps.length).toBeGreaterThan(0);
+    expect(typeof retryGiveUps[0]!.data.attempt).toBe("number");
+    expect(typeof retryGiveUps[0]!.data.maxAttempts).toBe("number");
+  });
+});
+
+// ============================================================================
+// Fallback Lifecycle Events Tests
+// ============================================================================
+
+describe("Lifecycle: Fallback Lifecycle Events", () => {
+  it("should emit FALLBACK_MODEL_SELECTED when fallback is chosen", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createFailingStream("Primary failed"),
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const modelSelected = collector.getEventsOfType(
+      EventType.FALLBACK_MODEL_SELECTED,
+    );
+    expect(modelSelected.length).toBeGreaterThan(0);
+  });
+
+  it("should include model index in FALLBACK_MODEL_SELECTED", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createFailingStream("Primary failed"),
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const modelSelected = collector.getEventsOfType(
+      EventType.FALLBACK_MODEL_SELECTED,
+    );
+    expect(modelSelected.length).toBeGreaterThan(0);
+    expect(typeof modelSelected[0]!.data.index).toBe("number");
+  });
+
+  it("should emit FALLBACK_END after fallback completes", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createFailingStream("Primary failed"),
+      fallbackStreams: [createTokenStream(["fallback", " ", "success"])],
+      retry: { attempts: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const fallbackEnds = collector.getEventsOfType(EventType.FALLBACK_END);
+    expect(fallbackEnds.length).toBeGreaterThan(0);
+  });
+
+  it("should emit FALLBACK_END after FALLBACK_START", async () => {
+    const collector = createEventCollector();
+
+    const result = await l0({
+      stream: createFailingStream("Primary failed"),
+      fallbackStreams: [createTokenStream(["fallback"])],
+      retry: { attempts: 1 },
+      onEvent: collector.handler,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const types = collector.getEventTypes();
+    const fallbackStartIdx = types.indexOf(EventType.FALLBACK_START);
+    const fallbackEndIdx = types.indexOf(EventType.FALLBACK_END);
+
+    expect(fallbackStartIdx).toBeGreaterThanOrEqual(0);
+    expect(fallbackEndIdx).toBeGreaterThanOrEqual(0);
+    expect(fallbackStartIdx).toBeLessThan(fallbackEndIdx);
   });
 });

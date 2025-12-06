@@ -1493,11 +1493,7 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 
 ```typescript
 { type: "CONTINUATION_START", ts, checkpoint, tokenCount }
-{ type: "CONTINUATION_END", ts, success, durationMs }
-
-// Deduplication (when resuming)
-{ type: "DEDUPLICATION_START", ts, overlapSize }
-{ type: "DEDUPLICATION_END", ts, removed, durationMs }
+{ type: "RESUME_START", ts, checkpoint, tokenCount }
 ```
 
 ### Event Reference
@@ -1505,21 +1501,18 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 | Phase        | Events                                                                        | Purpose                        |
 | ------------ | ----------------------------------------------------------------------------- | ------------------------------ |
 | Session      | `SESSION_START` → `STREAM_INIT` → `STREAM_READY`                              | Stream initialization          |
-| Adapter      | `ADAPTER_DETECTED` → `ADAPTER_WRAP_START` → `ADAPTER_WRAP_END`                | Provider detection, transforms |
+| Adapter      | `ADAPTER_WRAP_START` → `ADAPTER_DETECTED` → `ADAPTER_WRAP_END`                | Provider detection, transforms |
 | Timeout      | `TIMEOUT_START` → `TIMEOUT_RESET` / `TIMEOUT_TRIGGERED`                       | Timer lifecycle                |
-| Network      | `NETWORK_ERROR` → `NETWORK_RECOVERY` / `CONNECTION_*`                         | Connection lifecycle           |
 | Abort        | `ABORT_REQUESTED` → `ABORT_COMPLETED`                                         | Cancellation lifecycle         |
 | Tool         | `TOOL_REQUESTED` → `TOOL_START` → `TOOL_RESULT/ERROR` → `TOOL_COMPLETED`      | Tool execution lifecycle       |
 | Guardrail    | `PHASE_START` → `RULE_START` → `RULE_RESULT` → `RULE_END` → `PHASE_END`       | Per-rule timing, callbacks     |
-| Drift        | `CHECK_START` → `CHECK_RESULT` → `CHECK_END`                                  | Drift analysis lifecycle       |
-| Checkpoint   | `START` → `END` → `SAVED`                                                     | State persistence              |
-| Resume       | `RESUME_START` → `RESUME_END`                                                 | Resume from checkpoint         |
-| Retry        | `START` → `ATTEMPT` → `END` / `GIVE_UP`                                       | Retry loop observability       |
-| Fallback     | `START` → `MODEL_SELECTED` → `END`                                            | Model switching lifecycle      |
+| Checkpoint   | `CHECKPOINT_SAVED`                                                            | State persistence              |
+| Continuation | `CONTINUATION_START` → `RESUME_START`                                         | Resume from checkpoint         |
+| Retry        | `RETRY_START` → `RETRY_ATTEMPT` → `RETRY_END` / `RETRY_GIVE_UP`               | Retry loop observability       |
+| Fallback     | `FALLBACK_START` → `FALLBACK_MODEL_SELECTED` → `FALLBACK_END`                 | Model switching lifecycle      |
 | Structured   | `PARSE_*` → `SCHEMA_VALIDATION_*` → `AUTO_CORRECT_*`                          | Schema validation, repair      |
-| Continuation | `CONTINUATION_START` → `DEDUPLICATION_*` → `CONTINUATION_END`                 | Resume from checkpoint         |
 | Consensus    | `START` → `STREAM_*` → `ANALYSIS` → `RESOLUTION` → `END`                      | Multi-model coordination       |
-| Completion   | `FINALIZATION_START` → `FINALIZATION_END` → `SESSION_SUMMARY` → `SESSION_END` | Clean shutdown, replay         |
+| Completion   | `COMPLETE` / `ERROR` → `SESSION_END`                                          | Clean shutdown                 |
 
 See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for recording and replay.
 
