@@ -1,0 +1,262 @@
+{
+  "$schema": "./lifecycle-scenarios.schema.json",
+  "version": "1.0.0",
+  "description": "Canonical lifecycle event sequences for L0 runtime. Used to reconcile TypeScript and Python implementations. Note: Token events are yielded from the stream (lowercase 'token'), not emitted as observability events.",
+  "scenarios": [
+    {
+      "id": "normal-success",
+      "name": "Normal Successful Flow",
+      "description": "Simple stream completion without errors, retries, or fallbacks",
+      "config": {
+        "tokens": ["Hello", " ", "World"],
+        "retry": { "attempts": 1 },
+        "context": { "requestId": "test-123" }
+      },
+      "expectedObservabilityEvents": [
+        {
+          "type": "SESSION_START",
+          "assertions": {
+            "attempt": 1,
+            "isRetry": false,
+            "isFallback": false,
+            "context.requestId": "test-123"
+          }
+        },
+        {
+          "type": "COMPLETE",
+          "assertions": {
+            "tokenCount": 3,
+            "contentLength": 11,
+            "context.requestId": "test-123"
+          }
+        }
+      ],
+      "expectedCallbacks": {
+        "onStart": [{ "args": [1, false, false] }],
+        "onComplete": [
+          { "state.content": "Hello World", "state.tokenCount": 3 }
+        ]
+      },
+      "invariants": [
+        "SESSION_START emitted exactly once",
+        "COMPLETE is final observability event",
+        "Token count matches tokens array length"
+      ]
+    },
+    {
+      "id": "retry-on-guardrail",
+      "name": "Retry Flow on Guardrail Violation",
+      "description": "First attempt fails guardrail, second succeeds",
+      "config": {
+        "attempts": [
+          { "tokens": ["bad-content"], "guardrailFails": true },
+          { "tokens": ["good-content"], "guardrailFails": false }
+        ],
+        "retry": { "attempts": 2 },
+        "context": { "requestId": "retry-123" }
+      },
+      "expectedObservabilityEvents": [
+        {
+          "type": "SESSION_START",
+          "assertions": {
+            "attempt": 1,
+            "isRetry": false,
+            "isFallback": false
+          },
+          "note": "SESSION_START emitted exactly ONCE at beginning"
+        },
+        {
+          "type": "GUARDRAIL_RULE_RESULT",
+          "assertions": { "passed": false }
+        },
+        {
+          "type": "RETRY_ATTEMPT",
+          "assertions": {
+            "attempt": 1,
+            "context.requestId": "retry-123"
+          },
+          "note": "attempt=1 means this is retry #1 (ATTEMPT_START.attempt will be 2)"
+        },
+        {
+          "type": "ATTEMPT_START",
+          "assertions": {
+            "attempt": 2,
+            "isRetry": true,
+            "isFallback": false
+          },
+          "note": "ATTEMPT_START emitted for retries (not SESSION_START)"
+        },
+        {
+          "type": "COMPLETE",
+          "assertions": { "tokenCount": 1 }
+        }
+      ],
+      "expectedCallbacks": {
+        "onStart": [
+          { "args": [1, false, false], "note": "Initial attempt" },
+          { "args": [2, true, false], "note": "Retry attempt" }
+        ],
+        "onRetry": [{ "args": [2, "Guardrail violation"] }],
+        "onComplete": [{ "state.content": "good-content" }]
+      },
+      "invariants": [
+        "SESSION_START emitted exactly once (not on retry)",
+        "ATTEMPT_START emitted for each retry",
+        "RETRY_ATTEMPT precedes ATTEMPT_START",
+        "onStart called twice (initial + retry)"
+      ]
+    },
+    {
+      "id": "fallback-after-retries-exhausted",
+      "name": "Fallback Flow After Retries Exhausted",
+      "description": "Primary stream fails all retries, falls back to secondary",
+      "config": {
+        "primaryAttempts": [
+          { "tokens": ["fail-1"], "error": true },
+          { "tokens": ["fail-2"], "error": true }
+        ],
+        "fallbackStreams": [{ "tokens": ["fallback-success"] }],
+        "retry": { "attempts": 1 },
+        "context": { "requestId": "fallback-456" }
+      },
+      "expectedObservabilityEvents": [
+        {
+          "type": "SESSION_START",
+          "assertions": {
+            "attempt": 1,
+            "isRetry": false,
+            "isFallback": false
+          }
+        },
+        {
+          "type": "ERROR",
+          "assertions": { "recoveryStrategy": "retry" }
+        },
+        {
+          "type": "RETRY_ATTEMPT",
+          "assertions": { "attempt": 1 },
+          "note": "attempt=1 means this is retry #1 (not overall attempt #2)"
+        },
+        {
+          "type": "ATTEMPT_START",
+          "assertions": { "isRetry": true }
+        },
+        {
+          "type": "ERROR",
+          "assertions": { "recoveryStrategy": "fallback" }
+        },
+        {
+          "type": "FALLBACK_START",
+          "assertions": {
+            "fromIndex": 0,
+            "toIndex": 1,
+            "context.requestId": "fallback-456"
+          },
+          "note": "FALLBACK_START (not ATTEMPT_START) for fallback streams"
+        },
+        {
+          "type": "COMPLETE",
+          "assertions": { "tokenCount": 1 }
+        }
+      ],
+      "expectedCallbacks": {
+        "onStart": [
+          { "args": [1, false, false], "note": "Initial" },
+          { "args": [2, true, false], "note": "Retry" },
+          { "args": [1, false, true], "note": "Fallback (attempt resets to 1)" }
+        ],
+        "onRetry": [{ "args": [2, "Stream error"] }],
+        "onFallback": [{ "args": [0, "Retries exhausted"] }],
+        "onComplete": [{ "state.content": "fallback-success" }]
+      },
+      "invariants": [
+        "SESSION_START emitted exactly once",
+        "ATTEMPT_START for retries only (not fallbacks)",
+        "FALLBACK_START for fallback transitions",
+        "Fallback resets attempt counter to 1"
+      ]
+    },
+    {
+      "id": "error-context-propagation",
+      "name": "Error Event Context Propagation",
+      "description": "Verify user context appears in all observability events",
+      "config": {
+        "tokens": [],
+        "streamError": { "message": "Network failure" },
+        "fallbackStreams": [{ "tokens": ["recovered"] }],
+        "context": {
+          "requestId": "error-ctx-404",
+          "userId": "user-xyz",
+          "nested": { "traceId": "trace-abc" }
+        }
+      },
+      "expectedObservabilityEvents": [
+        {
+          "type": "SESSION_START",
+          "assertions": {
+            "context.requestId": "error-ctx-404",
+            "context.userId": "user-xyz",
+            "context.nested.traceId": "trace-abc"
+          }
+        },
+        {
+          "type": "ERROR",
+          "assertions": {
+            "context.requestId": "error-ctx-404",
+            "context.userId": "user-xyz",
+            "context.nested.traceId": "trace-abc"
+          }
+        },
+        {
+          "type": "FALLBACK_START",
+          "assertions": {
+            "context.requestId": "error-ctx-404"
+          }
+        },
+        {
+          "type": "COMPLETE",
+          "assertions": {
+            "context.requestId": "error-ctx-404"
+          }
+        }
+      ],
+      "invariants": [
+        "Context propagated to all observability events",
+        "Nested context preserved correctly",
+        "Context is deeply cloned (immutable)"
+      ]
+    }
+  ],
+  "eventTypeReference": {
+    "SESSION_START": "Emitted exactly ONCE at session start (anchor event for entire session)",
+    "ATTEMPT_START": "Emitted for retry attempts only (not for fallbacks or initial attempt)",
+    "FALLBACK_START": "Emitted when switching to fallback stream (includes fromIndex/toIndex)",
+    "RETRY_ATTEMPT": "Emitted before ATTEMPT_START when a retry is triggered",
+    "CHECKPOINT_SAVED": "Checkpoint saved for continuation (includes tokenCount, checkpoint content)",
+    "RESUME_START": "Resuming from checkpoint after fallback/retry",
+    "ERROR": "Error occurred (includes recoveryStrategy: retry|fallback|halt)",
+    "COMPLETE": "Stream completed successfully (includes tokenCount, contentLength, state)",
+    "ABORT_COMPLETED": "Stream was aborted (includes tokenCount, contentLength)",
+    "GUARDRAIL_RULE_RESULT": "Guardrail rule evaluation result (includes passed, ruleId, violation)"
+  },
+  "callbackReference": {
+    "onStart": "(attempt: number, isRetry: boolean, isFallback: boolean) => void",
+    "onComplete": "(state: L0State) => void",
+    "onError": "(error: Error, willRetry: boolean, willFallback: boolean) => void",
+    "onRetry": "(attempt: number, reason: string) => void",
+    "onFallback": "(index: number, reason: string) => void",
+    "onCheckpoint": "(checkpoint: string, tokenCount: number) => void",
+    "onResume": "(checkpoint: string, tokenCount: number) => void",
+    "onAbort": "(tokenCount: number, contentLength: number) => void"
+  },
+  "criticalInvariants": [
+    "SESSION_START is emitted exactly ONCE per session (anchor event)",
+    "ATTEMPT_START is only emitted for retries, never for fallbacks or initial attempt",
+    "FALLBACK_START is emitted when switching streams, not ATTEMPT_START",
+    "RETRY_ATTEMPT always precedes ATTEMPT_START",
+    "Event timestamps are monotonically increasing",
+    "streamId is consistent across all events in a session",
+    "User context is propagated to all observability events",
+    "User context is deeply cloned and immutable"
+  ]
+}
