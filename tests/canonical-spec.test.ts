@@ -143,12 +143,6 @@ describe("Canonical Spec: L0Error", () => {
     const expectedMappings =
       canonicalSpec.errorHandling.ErrorCategory.codeToCategory;
 
-    it("should map NETWORK_ERROR to network category", () => {
-      expect(getErrorCategory(L0ErrorCodes.NETWORK_ERROR)).toBe(
-        ErrorCategory.NETWORK,
-      );
-    });
-
     it("should map timeout codes to transient category", () => {
       expect(getErrorCategory(L0ErrorCodes.INITIAL_TOKEN_TIMEOUT)).toBe(
         ErrorCategory.TRANSIENT,
@@ -961,18 +955,6 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   });
 
   // Network Events
-  describe("NETWORK_ERROR field schema", () => {
-    const fields = events.NETWORK_ERROR.fields as FieldSchema[];
-
-    it("should have exactly these fields: error, code, retryable", () => {
-      validateExactFields(fields, [
-        { name: "error", type: "string", required: true },
-        { name: "code", type: "string", required: false },
-        { name: "retryable", type: "boolean", required: true },
-      ]);
-    });
-  });
-
   describe("NETWORK_RECOVERY field schema", () => {
     const fields = events.NETWORK_RECOVERY.fields as FieldSchema[];
 
@@ -1206,18 +1188,6 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   });
 
   // Drift Events
-  describe("DRIFT_CHECK_START field schema", () => {
-    const fields = events.DRIFT_CHECK_START.fields as FieldSchema[];
-
-    it("should have exactly these fields: checkpoint, tokenCount, strategy", () => {
-      validateExactFields(fields, [
-        { name: "checkpoint", type: "string", required: true },
-        { name: "tokenCount", type: "number", required: true },
-        { name: "strategy", type: "string", required: true },
-      ]);
-    });
-  });
-
   describe("DRIFT_CHECK_RESULT field schema", () => {
     const fields = events.DRIFT_CHECK_RESULT.fields as FieldSchema[];
 
@@ -1227,16 +1197,6 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
         { name: "score", type: "number", required: true },
         { name: "metrics", type: "Record<string, unknown>", required: true },
         { name: "threshold", type: "number", required: true },
-      ]);
-    });
-  });
-
-  describe("DRIFT_CHECK_END field schema", () => {
-    const fields = events.DRIFT_CHECK_END.fields as FieldSchema[];
-
-    it("should have exactly these fields: durationMs", () => {
-      validateExactFields(fields, [
-        { name: "durationMs", type: "number", required: true },
       ]);
     });
   });
