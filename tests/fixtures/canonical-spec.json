@@ -71,7 +71,7 @@
         "FATAL_GUARDRAIL_VIOLATION": "Non-recoverable guardrail violation (halts)",
         "INVALID_STREAM": "Stream result not iterable and no adapter matched",
         "ALL_STREAMS_EXHAUSTED": "Primary and all fallback streams failed",
-
+        "NETWORK_ERROR": "Network connectivity issue",
         "DRIFT_DETECTED": "Semantic drift detected in output",
         "ADAPTER_NOT_FOUND": "No adapter found for stream type",
         "FEATURE_NOT_ENABLED": "Feature requires explicit opt-in"
@@ -88,6 +88,7 @@
         "internal": "L0 internal errors (invalid stream, adapter not found)"
       },
       "codeToCategory": {
+        "NETWORK_ERROR": "network",
         "INITIAL_TOKEN_TIMEOUT": "transient",
         "INTER_TOKEN_TIMEOUT": "transient",
         "GUARDRAIL_VIOLATION": "content",
@@ -353,6 +354,29 @@
               "type": "number",
               "required": true,
               "description": "Configured timeout in milliseconds"
+            }
+          ]
+        },
+        "NETWORK_ERROR": {
+          "description": "Emitted when a network error occurs",
+          "fields": [
+            {
+              "name": "error",
+              "type": "string",
+              "required": true,
+              "description": "Error message"
+            },
+            {
+              "name": "code",
+              "type": "string",
+              "required": false,
+              "description": "Error code if available"
+            },
+            {
+              "name": "retryable",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether the error is retryable"
             }
           ]
         },

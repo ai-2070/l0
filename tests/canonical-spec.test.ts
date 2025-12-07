@@ -84,8 +84,8 @@ describe("Canonical Spec: L0Error", () => {
     });
 
     it("should include context for user-provided data", () => {
-      const error = new L0Error("Timeout error", {
-        code: L0ErrorCodes.INITIAL_TOKEN_TIMEOUT,
+      const error = new L0Error("Network error", {
+        code: L0ErrorCodes.NETWORK_ERROR,
         context: {
           requestId: "req-456",
           userId: "user-789",
@@ -142,6 +142,12 @@ describe("Canonical Spec: L0Error", () => {
   describe("Error code to category mapping", () => {
     const expectedMappings =
       canonicalSpec.errorHandling.ErrorCategory.codeToCategory;
+
+    it("should map NETWORK_ERROR to network category", () => {
+      expect(getErrorCategory(L0ErrorCodes.NETWORK_ERROR)).toBe(
+        ErrorCategory.NETWORK,
+      );
+    });
 
     it("should map timeout codes to transient category", () => {
       expect(getErrorCategory(L0ErrorCodes.INITIAL_TOKEN_TIMEOUT)).toBe(
@@ -955,6 +961,18 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   });
 
   // Network Events
+  describe("NETWORK_ERROR field schema", () => {
+    const fields = events.NETWORK_ERROR.fields as FieldSchema[];
+
+    it("should have exactly these fields: error, code, retryable", () => {
+      validateExactFields(fields, [
+        { name: "error", type: "string", required: true },
+        { name: "code", type: "string", required: false },
+        { name: "retryable", type: "boolean", required: true },
+      ]);
+    });
+  });
+
   describe("NETWORK_RECOVERY field schema", () => {
     const fields = events.NETWORK_RECOVERY.fields as FieldSchema[];
 
