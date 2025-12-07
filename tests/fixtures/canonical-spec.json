@@ -485,14 +485,21 @@
                 "type": "number",
                 "description": "Total tokens processed"
               },
-              "contentLength": {
-                "type": "number",
-                "description": "Length of content string"
-              },
               "checkpoint": {
                 "type": "string",
-                "required": false,
-                "description": "Last checkpoint if continuation enabled"
+                "description": "Last checkpoint content"
+              },
+              "modelRetryCount": {
+                "type": "number",
+                "description": "Model retry attempts made"
+              },
+              "networkRetryCount": {
+                "type": "number",
+                "description": "Network retry attempts made"
+              },
+              "fallbackIndex": {
+                "type": "number",
+                "description": "Current fallback stream index (0 = primary)"
               }
             }
           }

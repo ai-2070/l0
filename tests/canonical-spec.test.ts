@@ -405,6 +405,32 @@ describe("Canonical Spec: Callback Parameter Schemas", () => {
     expect(param.description.length).toBeGreaterThan(0);
   }
 
+  /**
+   * Validates that a callback has exactly the specified parameters (no more, no less)
+   */
+  function validateExactParameters(
+    params: ParameterSchema[],
+    expectedParams: Array<{ name: string; type: string }>,
+  ) {
+    // Must have exact count
+    expect(params.length).toBe(expectedParams.length);
+
+    // Each expected param must exist with correct type
+    for (const expected of expectedParams) {
+      const param = params.find((p) => p.name === expected.name);
+      expect(param, `Missing parameter: ${expected.name}`).toBeDefined();
+      expect(param!.type).toBe(expected.type);
+    }
+
+    // No extra params allowed
+    const expectedNames = expectedParams.map((p) => p.name);
+    for (const param of params) {
+      expect(expectedNames, `Unexpected parameter: ${param.name}`).toContain(
+        param.name,
+      );
+    }
+  }
+
   describe("All callbacks have parameter schemas", () => {
     const callbackNames = Object.keys(callbacks);
 
@@ -421,251 +447,184 @@ describe("Canonical Spec: Callback Parameter Schemas", () => {
   describe("onStart parameter schema", () => {
     const params = callbacks.onStart.parameters as ParameterSchema[];
 
-    it("should have exactly 3 parameters", () => {
-      expect(params.length).toBe(3);
+    it("should have exactly these parameters: attempt, isRetry, isFallback", () => {
+      validateExactParameters(params, [
+        { name: "attempt", type: "number" },
+        { name: "isRetry", type: "boolean" },
+        { name: "isFallback", type: "boolean" },
+      ]);
     });
 
-    it("should define attempt as required number", () => {
-      const param = params.find((p) => p.name === "attempt");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("number");
-      expect(param!.required).toBe(true);
-    });
-
-    it("should define isRetry as required boolean", () => {
-      const param = params.find((p) => p.name === "isRetry");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("boolean");
-      expect(param!.required).toBe(true);
-    });
-
-    it("should define isFallback as required boolean", () => {
-      const param = params.find((p) => p.name === "isFallback");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("boolean");
-      expect(param!.required).toBe(true);
+    it("all parameters should be required", () => {
+      for (const param of params) {
+        expect(param.required, `${param.name} should be required`).toBe(true);
+      }
     });
   });
 
   describe("onComplete parameter schema", () => {
     const params = callbacks.onComplete.parameters as ParameterSchema[];
 
-    it("should have exactly 1 parameter", () => {
-      expect(params.length).toBe(1);
+    it("should have exactly these parameters: state", () => {
+      validateExactParameters(params, [{ name: "state", type: "L0State" }]);
     });
 
-    it("should define state as required L0State with shape", () => {
+    it("state should have required shape properties", () => {
       const param = params.find((p) => p.name === "state");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("L0State");
-      expect(param!.required).toBe(true);
       expect(param!.shape).toBeDefined();
       expect(param!.shape!.content).toBeDefined();
       expect(param!.shape!.tokenCount).toBeDefined();
-      expect(param!.shape!.contentLength).toBeDefined();
+      expect(param!.shape!.checkpoint).toBeDefined();
     });
   });
 
   describe("onError parameter schema", () => {
     const params = callbacks.onError.parameters as ParameterSchema[];
 
-    it("should have exactly 3 parameters", () => {
-      expect(params.length).toBe(3);
+    it("should have exactly these parameters: error, willRetry, willFallback", () => {
+      validateExactParameters(params, [
+        { name: "error", type: "L0Error" },
+        { name: "willRetry", type: "boolean" },
+        { name: "willFallback", type: "boolean" },
+      ]);
     });
 
-    it("should define error as required L0Error with shape", () => {
+    it("error should have required shape properties", () => {
       const param = params.find((p) => p.name === "error");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("L0Error");
-      expect(param!.required).toBe(true);
       expect(param!.shape).toBeDefined();
       expect(param!.shape!.message).toBeDefined();
       expect(param!.shape!.code).toBeDefined();
       expect(param!.shape!.category).toBeDefined();
     });
 
-    it("should define willRetry as required boolean", () => {
-      const param = params.find((p) => p.name === "willRetry");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("boolean");
-      expect(param!.required).toBe(true);
-    });
-
-    it("should define willFallback as required boolean", () => {
-      const param = params.find((p) => p.name === "willFallback");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("boolean");
-      expect(param!.required).toBe(true);
+    it("all parameters should be required", () => {
+      for (const param of params) {
+        expect(param.required, `${param.name} should be required`).toBe(true);
+      }
     });
   });
 
   describe("onRetry parameter schema", () => {
     const params = callbacks.onRetry.parameters as ParameterSchema[];
 
-    it("should have exactly 2 parameters", () => {
-      expect(params.length).toBe(2);
+    it("should have exactly these parameters: attempt, reason", () => {
+      validateExactParameters(params, [
+        { name: "attempt", type: "number" },
+        { name: "reason", type: "string" },
+      ]);
     });
 
-    it("should define attempt as required number", () => {
-      const param = params.find((p) => p.name === "attempt");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("number");
-      expect(param!.required).toBe(true);
-    });
-
-    it("should define reason as required string", () => {
-      const param = params.find((p) => p.name === "reason");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("string");
-      expect(param!.required).toBe(true);
+    it("all parameters should be required", () => {
+      for (const param of params) {
+        expect(param.required, `${param.name} should be required`).toBe(true);
+      }
     });
   });
 
   describe("onFallback parameter schema", () => {
     const params = callbacks.onFallback.parameters as ParameterSchema[];
 
-    it("should have exactly 2 parameters", () => {
-      expect(params.length).toBe(2);
+    it("should have exactly these parameters: index, reason", () => {
+      validateExactParameters(params, [
+        { name: "index", type: "number" },
+        { name: "reason", type: "string" },
+      ]);
     });
 
-    it("should define index as required number", () => {
-      const param = params.find((p) => p.name === "index");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("number");
-      expect(param!.required).toBe(true);
-    });
-
-    it("should define reason as required string", () => {
-      const param = params.find((p) => p.name === "reason");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("string");
-      expect(param!.required).toBe(true);
+    it("all parameters should be required", () => {
+      for (const param of params) {
+        expect(param.required, `${param.name} should be required`).toBe(true);
+      }
     });
   });
 
   describe("onCheckpoint parameter schema", () => {
     const params = callbacks.onCheckpoint.parameters as ParameterSchema[];
 
-    it("should have exactly 2 parameters", () => {
-      expect(params.length).toBe(2);
+    it("should have exactly these parameters: checkpoint, tokenCount", () => {
+      validateExactParameters(params, [
+        { name: "checkpoint", type: "string" },
+        { name: "tokenCount", type: "number" },
+      ]);
     });
 
-    it("should define checkpoint as required string", () => {
-      const param = params.find((p) => p.name === "checkpoint");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("string");
-      expect(param!.required).toBe(true);
-    });
-
-    it("should define tokenCount as required number", () => {
-      const param = params.find((p) => p.name === "tokenCount");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("number");
-      expect(param!.required).toBe(true);
+    it("all parameters should be required", () => {
+      for (const param of params) {
+        expect(param.required, `${param.name} should be required`).toBe(true);
+      }
     });
   });
 
   describe("onResume parameter schema", () => {
     const params = callbacks.onResume.parameters as ParameterSchema[];
 
-    it("should have exactly 2 parameters", () => {
-      expect(params.length).toBe(2);
+    it("should have exactly these parameters: checkpoint, tokenCount", () => {
+      validateExactParameters(params, [
+        { name: "checkpoint", type: "string" },
+        { name: "tokenCount", type: "number" },
+      ]);
     });
 
-    it("should define checkpoint as required string", () => {
-      const param = params.find((p) => p.name === "checkpoint");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("string");
-      expect(param!.required).toBe(true);
-    });
-
-    it("should define tokenCount as required number", () => {
-      const param = params.find((p) => p.name === "tokenCount");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("number");
-      expect(param!.required).toBe(true);
+    it("all parameters should be required", () => {
+      for (const param of params) {
+        expect(param.required, `${param.name} should be required`).toBe(true);
+      }
     });
   });
 
   describe("onAbort parameter schema", () => {
     const params = callbacks.onAbort.parameters as ParameterSchema[];
 
-    it("should have exactly 2 parameters", () => {
-      expect(params.length).toBe(2);
+    it("should have exactly these parameters: tokenCount, contentLength", () => {
+      validateExactParameters(params, [
+        { name: "tokenCount", type: "number" },
+        { name: "contentLength", type: "number" },
+      ]);
     });
 
-    it("should define tokenCount as required number", () => {
-      const param = params.find((p) => p.name === "tokenCount");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("number");
-      expect(param!.required).toBe(true);
-    });
-
-    it("should define contentLength as required number", () => {
-      const param = params.find((p) => p.name === "contentLength");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("number");
-      expect(param!.required).toBe(true);
+    it("all parameters should be required", () => {
+      for (const param of params) {
+        expect(param.required, `${param.name} should be required`).toBe(true);
+      }
     });
   });
 
   describe("onTimeout parameter schema", () => {
     const params = callbacks.onTimeout.parameters as ParameterSchema[];
 
-    it("should have exactly 2 parameters", () => {
-      expect(params.length).toBe(2);
+    it("should have exactly these parameters: type, elapsedMs", () => {
+      validateExactParameters(params, [
+        { name: "type", type: "string" },
+        { name: "elapsedMs", type: "number" },
+      ]);
     });
 
-    it("should define type as required string with enum", () => {
+    it("type should have enum constraint", () => {
       const param = params.find((p) => p.name === "type");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("string");
-      expect(param!.required).toBe(true);
       expect(param!.enum).toBeDefined();
       expect(param!.enum).toContain("initial");
       expect(param!.enum).toContain("inter");
+      expect(param!.enum!.length).toBe(2); // Only these two values allowed
     });
 
-    it("should define elapsedMs as required number", () => {
-      const param = params.find((p) => p.name === "elapsedMs");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("number");
-      expect(param!.required).toBe(true);
+    it("all parameters should be required", () => {
+      for (const param of params) {
+        expect(param.required, `${param.name} should be required`).toBe(true);
+      }
     });
   });
 
   describe("onViolation parameter schema", () => {
     const params = callbacks.onViolation.parameters as ParameterSchema[];
 
-    it("should have exactly 1 parameter", () => {
-      expect(params.length).toBe(1);
+    it("should have exactly these parameters: violation", () => {
+      validateExactParameters(params, [
+        { name: "violation", type: "GuardrailViolation" },
+      ]);
     });
 
-    it("should define violation as required GuardrailViolation with shape", () => {
+    it("violation should have required shape properties", () => {
       const param = params.find((p) => p.name === "violation");
-      expect(param).toBeDefined();
-      validateParameterSchema(param!);
-      expect(param!.type).toBe("GuardrailViolation");
-      expect(param!.required).toBe(true);
       expect(param!.shape).toBeDefined();
       expect(param!.shape!.ruleId).toBeDefined();
       expect(param!.shape!.message).toBeDefined();
