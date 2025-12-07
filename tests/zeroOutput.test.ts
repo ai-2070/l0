@@ -3,7 +3,6 @@ import {
   isZeroOutput,
   isNoiseOnly,
   validateZeroOutput,
-  validateInstantOutput,
   zeroOutputRule,
   ZeroOutputGuardrail,
 } from "../src/guardrails/zeroOutput";
@@ -160,80 +159,6 @@ describe("Zero Output Guardrail", () => {
     });
   });
 
-  describe("validateInstantOutput", () => {
-    it("should return empty array for incomplete context", () => {
-      const context: GuardrailContext = {
-        content: "test",
-        completed: false,
-        tokenCount: 2,
-      };
-
-      const violations = validateInstantOutput(context);
-      expect(violations).toHaveLength(0);
-    });
-
-    it("should return empty array without timing metadata", () => {
-      const context: GuardrailContext = {
-        content: "test",
-        completed: true,
-        tokenCount: 2,
-      };
-
-      const violations = validateInstantOutput(context);
-      expect(violations).toHaveLength(0);
-    });
-
-    it("should detect instant output with minimal tokens", () => {
-      const now = Date.now();
-      const context: GuardrailContext = {
-        content: "Hi",
-        completed: true,
-        tokenCount: 2,
-        metadata: {
-          startTime: now,
-          endTime: now + 50, // 50ms - less than 100ms threshold
-        },
-      };
-
-      const violations = validateInstantOutput(context);
-      expect(violations).toHaveLength(1);
-      expect(violations[0]!.rule).toBe("zero-output");
-      expect(violations[0]!.message).toContain("instantly");
-    });
-
-    it("should not flag output with reasonable duration", () => {
-      const now = Date.now();
-      const context: GuardrailContext = {
-        content: "Hello world",
-        completed: true,
-        tokenCount: 10,
-        metadata: {
-          startTime: now,
-          endTime: now + 500, // 500ms
-        },
-      };
-
-      const violations = validateInstantOutput(context);
-      expect(violations).toHaveLength(0);
-    });
-
-    it("should not flag instant output with many tokens", () => {
-      const now = Date.now();
-      const context: GuardrailContext = {
-        content: "Hello world this is a test",
-        completed: true,
-        tokenCount: 10, // >= 5 tokens threshold
-        metadata: {
-          startTime: now,
-          endTime: now + 50,
-        },
-      };
-
-      const violations = validateInstantOutput(context);
-      expect(violations).toHaveLength(0);
-    });
-  });
-
   describe("zeroOutputRule", () => {
     it("should create a valid guardrail rule", () => {
       const rule = zeroOutputRule();
@@ -246,23 +171,17 @@ describe("Zero Output Guardrail", () => {
       expect(typeof rule.check).toBe("function");
     });
 
-    it("should combine zero output and instant output checks", () => {
+    it("should detect zero output", () => {
       const rule = zeroOutputRule();
-      const now = Date.now();
 
       const context: GuardrailContext = {
         content: "",
         completed: true,
         tokenCount: 2,
-        metadata: {
-          startTime: now,
-          endTime: now + 50,
-        },
       };
 
       const violations = rule.check(context);
-      // Should have violations from both validateZeroOutput and validateInstantOutput
-      expect(violations.length).toBeGreaterThanOrEqual(2);
+      expect(violations.length).toBeGreaterThanOrEqual(1);
     });
 
     it("should return empty array for valid content", () => {
