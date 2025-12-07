@@ -738,12 +738,15 @@ Helper to create structured output with a simple object schema.
 import { structuredObject } from "@ai2070/l0";
 import { z } from "zod";
 
-const result = await structuredObject({
-  amount: z.number(),
-  approved: z.boolean()
-}, {
-  stream: () => streamText({ model, prompt })
-});
+const result = await structuredObject(
+  {
+    amount: z.number(),
+    approved: z.boolean(),
+  },
+  {
+    stream: () => streamText({ model, prompt }),
+  },
+);
 ```
 
 ### structuredArray(itemSchema, options)
@@ -754,10 +757,9 @@ Helper to create structured output with an array schema.
 import { structuredArray } from "@ai2070/l0";
 import { z } from "zod";
 
-const result = await structuredArray(
-  z.object({ name: z.string() }),
-  { stream: () => streamText({ model, prompt }) }
-);
+const result = await structuredArray(z.object({ name: z.string() }), {
+  stream: () => streamText({ model, prompt }),
+});
 ```
 
 ### structuredStream(options)
@@ -770,12 +772,12 @@ import { z } from "zod";
 
 const { stream, result, abort } = await structuredStream({
   schema: z.object({ name: z.string() }),
-  stream: () => streamText({ model, prompt })
+  stream: () => streamText({ model, prompt }),
 });
 
 // Stream tokens in real-time
 for await (const event of stream) {
-  if (event.type === 'token') {
+  if (event.type === "token") {
     console.log(event.value);
   }
 }
@@ -789,15 +791,15 @@ console.log(validated.data);
 
 ```typescript
 import {
-  minimalStructured,    // { autoCorrect: false, retry: { attempts: 1 } }
+  minimalStructured, // { autoCorrect: false, retry: { attempts: 1 } }
   recommendedStructured, // { autoCorrect: true, retry: { attempts: 2 } }
-  strictStructured,      // { autoCorrect: true, strictMode: true, retry: { attempts: 3 } }
+  strictStructured, // { autoCorrect: true, strictMode: true, retry: { attempts: 3 } }
 } from "@ai2070/l0";
 
 const result = await structured({
   schema,
   stream,
-  ...recommendedStructured
+  ...recommendedStructured,
 });
 ```
 
@@ -815,10 +817,12 @@ registerEffectSchemaAdapter({
 });
 
 // Wrap Effect Schema for use with structured()
-const schema = wrapEffectSchema(S.Struct({
-  name: S.String,
-  age: S.Number
-}));
+const schema = wrapEffectSchema(
+  S.Struct({
+    name: S.String,
+    age: S.Number,
+  }),
+);
 
 const result = await structured({ schema, stream });
 ```
@@ -826,7 +830,11 @@ const result = await structured({ schema, stream });
 ### JSON Schema Support
 
 ```typescript
-import { registerJSONSchemaAdapter, wrapJSONSchema, createSimpleJSONSchemaAdapter } from "@ai2070/l0";
+import {
+  registerJSONSchemaAdapter,
+  wrapJSONSchema,
+  createSimpleJSONSchemaAdapter,
+} from "@ai2070/l0";
 
 // Register with your preferred validator (e.g., Ajv)
 registerJSONSchemaAdapter(createSimpleJSONSchemaAdapter(ajvValidate));
@@ -836,9 +844,9 @@ const schema = wrapJSONSchema({
   type: "object",
   properties: {
     name: { type: "string" },
-    age: { type: "number" }
+    age: { type: "number" },
   },
-  required: ["name", "age"]
+  required: ["name", "age"],
 });
 
 const result = await structured({ schema, stream });
@@ -960,23 +968,23 @@ import {
 
 ```typescript
 import {
-  minimalGuardrails,     // jsonRule, zeroOutputRule
+  minimalGuardrails, // jsonRule, zeroOutputRule
   recommendedGuardrails, // jsonRule, markdownRule, zeroOutputRule, patternRule
-  strictGuardrails,      // jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule
-  jsonOnlyGuardrails,    // jsonRule, zeroOutputRule
-  markdownOnlyGuardrails,// markdownRule, zeroOutputRule
-  latexOnlyGuardrails,   // latexRule, zeroOutputRule
+  strictGuardrails, // jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule
+  jsonOnlyGuardrails, // jsonRule, zeroOutputRule
+  markdownOnlyGuardrails, // markdownRule, zeroOutputRule
+  latexOnlyGuardrails, // latexRule, zeroOutputRule
 } from "@ai2070/l0";
 ```
 
-| Preset                   | Rules Included                                               |
-| ------------------------ | ------------------------------------------------------------ |
-| `minimalGuardrails`      | `jsonRule`, `zeroOutputRule`                                 |
-| `recommendedGuardrails`  | `jsonRule`, `markdownRule`, `zeroOutputRule`, `patternRule`  |
+| Preset                   | Rules Included                                                           |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `minimalGuardrails`      | `jsonRule`, `zeroOutputRule`                                             |
+| `recommendedGuardrails`  | `jsonRule`, `markdownRule`, `zeroOutputRule`, `patternRule`              |
 | `strictGuardrails`       | `jsonRule`, `markdownRule`, `latexRule`, `patternRule`, `zeroOutputRule` |
-| `jsonOnlyGuardrails`     | `jsonRule`, `zeroOutputRule`                                 |
-| `markdownOnlyGuardrails` | `markdownRule`, `zeroOutputRule`                             |
-| `latexOnlyGuardrails`    | `latexRule`, `zeroOutputRule`                                |
+| `jsonOnlyGuardrails`     | `jsonRule`, `zeroOutputRule`                                             |
+| `markdownOnlyGuardrails` | `markdownRule`, `zeroOutputRule`                                         |
+| `latexOnlyGuardrails`    | `latexRule`, `zeroOutputRule`                                            |
 
 ### Custom Guardrails
 
@@ -1028,19 +1036,19 @@ const result = engine.check({
 
 ```typescript
 import {
-  minimalRetry,      // { attempts: 2, maxRetries: 4, backoff: "linear" }
-  recommendedRetry,  // { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
-  strictRetry,       // { attempts: 3, maxRetries: 6, backoff: "full-jitter" }
-  exponentialRetry,  // { attempts: 4, maxRetries: 8, backoff: "exponential" }
+  minimalRetry, // { attempts: 2, maxRetries: 4, backoff: "linear" }
+  recommendedRetry, // { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
+  strictRetry, // { attempts: 3, maxRetries: 6, backoff: "full-jitter" }
+  exponentialRetry, // { attempts: 4, maxRetries: 8, backoff: "exponential" }
 } from "@ai2070/l0";
 ```
 
-| Preset            | attempts | maxRetries | backoff         | baseDelay | maxDelay |
-| ----------------- | -------- | ---------- | --------------- | --------- | -------- |
-| `minimalRetry`    | 2        | 4          | `linear`        | 1000ms    | 10000ms  |
-| `recommendedRetry`| 3        | 6          | `fixed-jitter`  | 1000ms    | 10000ms  |
-| `strictRetry`     | 3        | 6          | `full-jitter`   | 1000ms    | 10000ms  |
-| `exponentialRetry`| 4        | 8          | `exponential`   | 1000ms    | 10000ms  |
+| Preset             | attempts | maxRetries | backoff        | baseDelay | maxDelay |
+| ------------------ | -------- | ---------- | -------------- | --------- | -------- |
+| `minimalRetry`     | 2        | 4          | `linear`       | 1000ms    | 10000ms  |
+| `recommendedRetry` | 3        | 6          | `fixed-jitter` | 1000ms    | 10000ms  |
+| `strictRetry`      | 3        | 6          | `full-jitter`  | 1000ms    | 10000ms  |
+| `exponentialRetry` | 4        | 8          | `exponential`  | 1000ms    | 10000ms  |
 
 ### Centralized Defaults
 
@@ -1130,12 +1138,12 @@ shouldRetry = defaultDecision && shouldRetry(...)
 
 **What this means:**
 
-| Default Decision | shouldRetry Returns | Final Result | Explanation                  |
-| ---------------- | --------------------- | ------------ | ---------------------------- |
-| `true`           | `true`                | **Retry**    | Both agree to retry          |
-| `true`           | `false`               | **No retry** | User vetoed the retry        |
-| `false`          | `true`                | **No retry** | User cannot force retry      |
-| `false`          | `false`               | **No retry** | Both agree not to retry      |
+| Default Decision | shouldRetry Returns | Final Result | Explanation             |
+| ---------------- | ------------------- | ------------ | ----------------------- |
+| `true`           | `true`              | **Retry**    | Both agree to retry     |
+| `true`           | `false`             | **No retry** | User vetoed the retry   |
+| `false`          | `true`              | **No retry** | User cannot force retry |
+| `false`          | `false`             | **No retry** | Both agree not to retry |
 
 #### Permitted vs Forbidden
 
@@ -1173,11 +1181,11 @@ shouldRetry = defaultDecision && shouldRetry(...)
 
 #### Events Emitted
 
-| Event             | When                         | Key Fields                                      |
-| ----------------- | ---------------------------- | ----------------------------------------------- |
-| `RETRY_FN_START`  | Before calling shouldRetry | `attempt`, `category`, `defaultShouldRetry`     |
-| `RETRY_FN_RESULT` | After callback returns       | `userResult`, `finalShouldRetry`, `durationMs`  |
-| `RETRY_FN_ERROR`  | If callback throws           | `error`, `finalShouldRetry` (always false)      |
+| Event             | When                       | Key Fields                                     |
+| ----------------- | -------------------------- | ---------------------------------------------- |
+| `RETRY_FN_START`  | Before calling shouldRetry | `attempt`, `category`, `defaultShouldRetry`    |
+| `RETRY_FN_RESULT` | After callback returns     | `userResult`, `finalShouldRetry`, `durationMs` |
+| `RETRY_FN_ERROR`  | If callback throws         | `error`, `finalShouldRetry` (always false)     |
 
 #### Example: Conditional Veto Based on Content
 
@@ -2360,13 +2368,13 @@ interface L0DataPayload {
 
   // Optional metadata about the content
   metadata?: {
-    width?: number;      // For images/video
-    height?: number;     // For images/video
-    duration?: number;   // For audio/video (seconds)
-    size?: number;       // File size in bytes
-    filename?: string;   // Original filename
-    seed?: number;       // Generation seed
-    model?: string;      // Model used for generation
+    width?: number; // For images/video
+    height?: number; // For images/video
+    duration?: number; // For audio/video (seconds)
+    size?: number; // File size in bytes
+    filename?: string; // Original filename
+    seed?: number; // Generation seed
+    model?: string; // Model used for generation
     [key: string]: unknown;
   };
 }
@@ -2378,11 +2386,11 @@ Progress information for long-running operations.
 
 ```typescript
 interface L0Progress {
-  percent?: number;    // Progress percentage (0-100)
-  step?: number;       // Current step number
+  percent?: number; // Progress percentage (0-100)
+  step?: number; // Current step number
   totalSteps?: number; // Total steps
-  message?: string;    // Status message
-  eta?: number;        // Estimated time remaining in ms
+  message?: string; // Status message
+  eta?: number; // Estimated time remaining in ms
 }
 ```
 
@@ -2394,26 +2402,26 @@ L0 observability events (via `onEvent`) include structured metadata for error ha
 
 Classifies what went wrong when an error occurs.
 
-| Value | Description |
-|-------|-------------|
-| `network` | Connection drops, DNS errors, SSL failures, fetch errors |
-| `model` | Model refused, content filter triggered, malformed response |
-| `tool` | Tool execution failed |
-| `timeout` | Initial token or inter-token timeout exceeded |
-| `abort` | User-initiated or signal-triggered abort |
-| `zero_output` | Empty response from model |
-| `unknown` | Unclassified error |
+| Value         | Description                                                 |
+| ------------- | ----------------------------------------------------------- |
+| `network`     | Connection drops, DNS errors, SSL failures, fetch errors    |
+| `model`       | Model refused, content filter triggered, malformed response |
+| `tool`        | Tool execution failed                                       |
+| `timeout`     | Initial token or inter-token timeout exceeded               |
+| `abort`       | User-initiated or signal-triggered abort                    |
+| `zero_output` | Empty response from model                                   |
+| `unknown`     | Unclassified error                                          |
 
 #### RecoveryStrategy
 
 What L0 decided to do after a failure.
 
-| Value | Description |
-|-------|-------------|
-| `retry` | Will retry the same stream |
-| `fallback` | Will try the next fallback stream |
+| Value      | Description                             |
+| ---------- | --------------------------------------- |
+| `retry`    | Will retry the same stream              |
+| `fallback` | Will try the next fallback stream       |
 | `continue` | Will continue despite error (non-fatal) |
-| `halt` | Will stop, no recovery possible |
+| `halt`     | Will stop, no recovery possible         |
 
 #### RecoveryPolicy
 
@@ -2421,12 +2429,12 @@ Policy configuration that determined the recovery strategy.
 
 ```typescript
 interface RecoveryPolicy {
-  retryEnabled: boolean;    // Whether retry is enabled in config
+  retryEnabled: boolean; // Whether retry is enabled in config
   fallbackEnabled: boolean; // Whether fallback streams are configured
-  maxRetries: number;       // Maximum retry attempts configured
-  maxFallbacks: number;     // Maximum fallback streams configured
-  attempt: number;          // Current retry attempt (1-based)
-  fallbackIndex: number;    // Current fallback index (0-based)
+  maxRetries: number; // Maximum retry attempts configured
+  maxFallbacks: number; // Maximum fallback streams configured
+  attempt: number; // Current retry attempt (1-based)
+  fallbackIndex: number; // Current fallback index (0-based)
   retriesRemaining: number; // Retries left before fallback/halt
   fallbacksRemaining: number; // Fallbacks left before halt
 }
@@ -2436,22 +2444,23 @@ interface RecoveryPolicy {
 
 Complete mapping of L0 error codes to failure types, categories, and retry behavior.
 
-| Error Code | FailureType | Category | Counts Toward Limit | Description |
-|------------|-------------|----------|---------------------|-------------|
-| `NETWORK_ERROR` | `network` | `network` | No | Connection drops, DNS, SSL, fetch errors |
-| `INITIAL_TOKEN_TIMEOUT` | `timeout` | `transient` | No | No first token within timeout |
-| `INTER_TOKEN_TIMEOUT` | `timeout` | `transient` | No | Gap between tokens exceeded threshold |
-| `ZERO_OUTPUT` | `zero_output` | `content` | Yes | Model returned empty response |
-| `GUARDRAIL_VIOLATION` | `model` | `content` | Yes | Recoverable guardrail rule violated |
-| `FATAL_GUARDRAIL_VIOLATION` | `model` | `content` | Yes | Fatal guardrail, no retry |
-| `DRIFT_DETECTED` | `model` | `content` | Yes | Output drifted from expected pattern |
-| `STREAM_ABORTED` | `abort` | `provider` | N/A | User or signal aborted stream |
-| `ALL_STREAMS_EXHAUSTED` | `unknown` | `provider` | N/A | All retries and fallbacks failed |
-| `INVALID_STREAM` | `unknown` | `internal` | N/A | Stream factory returned invalid object |
-| `ADAPTER_NOT_FOUND` | `unknown` | `internal` | N/A | No adapter found for stream type |
-| `FEATURE_NOT_ENABLED` | `unknown` | `internal` | N/A | Feature requires explicit enablement |
+| Error Code                  | FailureType   | Category    | Counts Toward Limit | Description                              |
+| --------------------------- | ------------- | ----------- | ------------------- | ---------------------------------------- |
+| `NETWORK_ERROR`             | `network`     | `network`   | No                  | Connection drops, DNS, SSL, fetch errors |
+| `INITIAL_TOKEN_TIMEOUT`     | `timeout`     | `transient` | No                  | No first token within timeout            |
+| `INTER_TOKEN_TIMEOUT`       | `timeout`     | `transient` | No                  | Gap between tokens exceeded threshold    |
+| `ZERO_OUTPUT`               | `zero_output` | `content`   | Yes                 | Model returned empty response            |
+| `GUARDRAIL_VIOLATION`       | `model`       | `content`   | Yes                 | Recoverable guardrail rule violated      |
+| `FATAL_GUARDRAIL_VIOLATION` | `model`       | `content`   | Yes                 | Fatal guardrail, no retry                |
+| `DRIFT_DETECTED`            | `model`       | `content`   | Yes                 | Output drifted from expected pattern     |
+| `STREAM_ABORTED`            | `abort`       | `provider`  | N/A                 | User or signal aborted stream            |
+| `ALL_STREAMS_EXHAUSTED`     | `unknown`     | `provider`  | N/A                 | All retries and fallbacks failed         |
+| `INVALID_STREAM`            | `unknown`     | `internal`  | N/A                 | Stream factory returned invalid object   |
+| `ADAPTER_NOT_FOUND`         | `unknown`     | `internal`  | N/A                 | No adapter found for stream type         |
+| `FEATURE_NOT_ENABLED`       | `unknown`     | `internal`  | N/A                 | Feature requires explicit enablement     |
 
 **Category Behavior:**
+
 - `network` / `transient`: Retry indefinitely with backoff, doesn't count toward retry limit
 - `content` / `model`: Counts toward retry limit, may trigger fallback
 - `provider` / `internal`: Usually fatal, no automatic retry
@@ -2463,9 +2472,9 @@ const result = await l0({
   stream: () => streamText({ model, prompt }),
   onEvent: (event) => {
     if (event.type === "ERROR") {
-      console.log(`Failure: ${event.failureType}`);        // "network" | "timeout" | ...
-      console.log(`Recovery: ${event.recoveryStrategy}`);  // "retry" | "fallback" | ...
-      console.log(`Policy:`, event.policy);                // { retryEnabled, attempt, ... }
+      console.log(`Failure: ${event.failureType}`); // "network" | "timeout" | ...
+      console.log(`Recovery: ${event.recoveryStrategy}`); // "retry" | "fallback" | ...
+      console.log(`Policy:`, event.policy); // { retryEnabled, attempt, ... }
     }
   },
 });
@@ -2580,6 +2589,7 @@ interface L0Adapter<StreamType = unknown, Options = unknown> {
 ```
 
 **Adapter Rules:**
+
 - MUST yield events in exact order received
 - MUST include timestamp on every event
 - MUST convert errors to `{ type: "error" }` events (never throw)
@@ -2743,23 +2753,23 @@ interface ConsensusResult<T> {
 
 Types of auto-corrections that can be applied to structured output.
 
-```typescript
+````typescript
 type CorrectionType =
-  | "close_brace"           // Add missing closing brace
-  | "close_bracket"         // Add missing closing bracket
+  | "close_brace" // Add missing closing brace
+  | "close_bracket" // Add missing closing bracket
   | "remove_trailing_comma" // Remove trailing commas
-  | "strip_markdown_fence"  // Remove ```json fences
-  | "strip_json_prefix"     // Remove "json:" prefix
-  | "remove_prefix_text"    // Remove text before JSON
-  | "remove_suffix_text"    // Remove text after JSON
-  | "fix_quotes"            // Fix quote issues
-  | "remove_comments"       // Remove comments from JSON
-  | "escape_control_chars"  // Escape control characters
-  | "fill_missing_fields"   // Fill missing required fields
+  | "strip_markdown_fence" // Remove ```json fences
+  | "strip_json_prefix" // Remove "json:" prefix
+  | "remove_prefix_text" // Remove text before JSON
+  | "remove_suffix_text" // Remove text after JSON
+  | "fix_quotes" // Fix quote issues
+  | "remove_comments" // Remove comments from JSON
+  | "escape_control_chars" // Escape control characters
+  | "fill_missing_fields" // Fill missing required fields
   | "remove_unknown_fields" // Remove unknown fields (strict mode)
-  | "coerce_types"          // Coerce types to match schema
-  | "extract_json";         // Extract JSON from surrounding text
-```
+  | "coerce_types" // Coerce types to match schema
+  | "extract_json"; // Extract JSON from surrounding text
+````
 
 ### BackoffStrategy
 
@@ -2797,25 +2807,25 @@ Error classification enum for routing and handling decisions. Defined in `src/ty
 
 ```typescript
 enum ErrorCategory {
-  NETWORK = "network",     // Network/connection failures - retry forever with backoff
+  NETWORK = "network", // Network/connection failures - retry forever with backoff
   TRANSIENT = "transient", // Transient errors (429, 503, timeouts) - retry forever with backoff
-  MODEL = "model",         // Model-side errors (bad response) - counts toward retry limit
-  CONTENT = "content",     // Content errors (guardrails, drift) - counts toward retry limit
-  PROVIDER = "provider",   // Provider/API errors - may retry depending on status
-  FATAL = "fatal",         // Fatal errors - don't retry (auth failures, invalid config)
-  INTERNAL = "internal",   // Internal errors (bugs) - don't retry
+  MODEL = "model", // Model-side errors (bad response) - counts toward retry limit
+  CONTENT = "content", // Content errors (guardrails, drift) - counts toward retry limit
+  PROVIDER = "provider", // Provider/API errors - may retry depending on status
+  FATAL = "fatal", // Fatal errors - don't retry (auth failures, invalid config)
+  INTERNAL = "internal", // Internal errors (bugs) - don't retry
 }
 ```
 
-| Category    | Retry Behavior                             | Counts Toward Limit |
-| ----------- | ------------------------------------------ | ------------------- |
-| `NETWORK`   | Retry indefinitely with backoff            | No                  |
-| `TRANSIENT` | Retry indefinitely with backoff            | No                  |
-| `MODEL`     | Retry up to `attempts` limit               | Yes                 |
-| `CONTENT`   | Retry up to `attempts` limit               | Yes                 |
-| `PROVIDER`  | May retry depending on status code         | Depends             |
-| `FATAL`     | Never retry                                | N/A                 |
-| `INTERNAL`  | Never retry                                | N/A                 |
+| Category    | Retry Behavior                     | Counts Toward Limit |
+| ----------- | ---------------------------------- | ------------------- |
+| `NETWORK`   | Retry indefinitely with backoff    | No                  |
+| `TRANSIENT` | Retry indefinitely with backoff    | No                  |
+| `MODEL`     | Retry up to `attempts` limit       | Yes                 |
+| `CONTENT`   | Retry up to `attempts` limit       | Yes                 |
+| `PROVIDER`  | May retry depending on status code | Depends             |
+| `FATAL`     | Never retry                        | N/A                 |
+| `INTERNAL`  | Never retry                        | N/A                 |
 
 ### RuntimeState
 

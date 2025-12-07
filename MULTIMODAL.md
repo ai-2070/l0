@@ -231,30 +231,30 @@ const fluxAdapter: L0Adapter<FluxStream> = {
 
 ### Stream Conversion Helpers
 
-| Function                                 | Description                                      |
-| ---------------------------------------- | ------------------------------------------------ |
-| `toL0Events(stream, extractText)`        | Convert text-only stream to L0Events             |
-| `toL0EventsWithMessages(stream, handlers)` | Convert stream with text and messages          |
-| `toMultimodalL0Events(stream, handlers)` | Convert multimodal stream with all extractors    |
+| Function                                   | Description                                   |
+| ------------------------------------------ | --------------------------------------------- |
+| `toL0Events(stream, extractText)`          | Convert text-only stream to L0Events          |
+| `toL0EventsWithMessages(stream, handlers)` | Convert stream with text and messages         |
+| `toMultimodalL0Events(stream, handlers)`   | Convert multimodal stream with all extractors |
 
 ### Event Creation Helpers
 
-| Function                                 | Description                               |
-| ---------------------------------------- | ----------------------------------------- |
-| `createAdapterTokenEvent(value)`         | Create token event with text              |
-| `createAdapterMessageEvent(value, role?)` | Create message event                     |
-| `createAdapterDataEvent(payload)`        | Create data event with full payload       |
-| `createAdapterProgressEvent(progress)`   | Create progress event                     |
-| `createAdapterDoneEvent()`               | Create complete event                     |
-| `createAdapterErrorEvent(err)`           | Create error event (wraps non-Error)      |
+| Function                                  | Description                          |
+| ----------------------------------------- | ------------------------------------ |
+| `createAdapterTokenEvent(value)`          | Create token event with text         |
+| `createAdapterMessageEvent(value, role?)` | Create message event                 |
+| `createAdapterDataEvent(payload)`         | Create data event with full payload  |
+| `createAdapterProgressEvent(progress)`    | Create progress event                |
+| `createAdapterDoneEvent()`                | Create complete event                |
+| `createAdapterErrorEvent(err)`            | Create error event (wraps non-Error) |
 
 ### Convenience Helpers
 
-| Function                                 | Description                               |
-| ---------------------------------------- | ----------------------------------------- |
-| `createImageEvent(options)`              | Create image data event                   |
-| `createAudioEvent(options)`              | Create audio data event                   |
-| `createJsonDataEvent(data, metadata?)`   | Create JSON data event                    |
+| Function                               | Description             |
+| -------------------------------------- | ----------------------- |
+| `createImageEvent(options)`            | Create image data event |
+| `createAudioEvent(options)`            | Create audio data event |
+| `createJsonDataEvent(data, metadata?)` | Create JSON data event  |
 
 ### createImageEvent Options
 

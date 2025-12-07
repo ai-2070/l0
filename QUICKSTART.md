@@ -199,14 +199,14 @@ import {
 
 **Preset contents:**
 
-| Preset        | Rules                                        |
-| ------------- | -------------------------------------------- |
-| minimal       | jsonRule, zeroOutputRule                     |
-| recommended   | jsonRule, markdownRule, zeroOutputRule, patternRule |
-| strict        | jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule |
-| jsonOnly      | jsonRule, zeroOutputRule                     |
-| markdownOnly  | markdownRule, zeroOutputRule                 |
-| latexOnly     | latexRule, zeroOutputRule                    |
+| Preset       | Rules                                                          |
+| ------------ | -------------------------------------------------------------- |
+| minimal      | jsonRule, zeroOutputRule                                       |
+| recommended  | jsonRule, markdownRule, zeroOutputRule, patternRule            |
+| strict       | jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule |
+| jsonOnly     | jsonRule, zeroOutputRule                                       |
+| markdownOnly | markdownRule, zeroOutputRule                                   |
+| latexOnly    | latexRule, zeroOutputRule                                      |
 
 ### Retry
 

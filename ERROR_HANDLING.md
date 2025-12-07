@@ -261,20 +261,20 @@ interface ErrorEvent extends L0ObservabilityEvent {
 
 L0 uses specific error codes for programmatic handling:
 
-| Code                        | Description                                       | Category    |
-| --------------------------- | ------------------------------------------------- | ----------- |
-| `STREAM_ABORTED`            | Stream was aborted (user cancellation or timeout) | PROVIDER    |
-| `INITIAL_TOKEN_TIMEOUT`     | First token didn't arrive in time                 | TRANSIENT   |
-| `INTER_TOKEN_TIMEOUT`       | Gap between tokens exceeded limit                 | TRANSIENT   |
-| `ZERO_OUTPUT`               | Stream produced no meaningful output              | CONTENT     |
-| `GUARDRAIL_VIOLATION`       | Content violated a guardrail rule                 | CONTENT     |
-| `FATAL_GUARDRAIL_VIOLATION` | Content violated a fatal guardrail                | CONTENT     |
-| `INVALID_STREAM`            | Stream factory returned invalid stream            | INTERNAL    |
-| `ALL_STREAMS_EXHAUSTED`     | All streams (primary + fallbacks) failed          | PROVIDER    |
-| `NETWORK_ERROR`             | Network-level failure                             | NETWORK     |
-| `DRIFT_DETECTED`            | Output drifted from expected behavior             | CONTENT     |
-| `ADAPTER_NOT_FOUND`         | Named adapter not found in registry               | INTERNAL    |
-| `FEATURE_NOT_ENABLED`       | Feature requires explicit enablement              | INTERNAL    |
+| Code                        | Description                                       | Category  |
+| --------------------------- | ------------------------------------------------- | --------- |
+| `STREAM_ABORTED`            | Stream was aborted (user cancellation or timeout) | PROVIDER  |
+| `INITIAL_TOKEN_TIMEOUT`     | First token didn't arrive in time                 | TRANSIENT |
+| `INTER_TOKEN_TIMEOUT`       | Gap between tokens exceeded limit                 | TRANSIENT |
+| `ZERO_OUTPUT`               | Stream produced no meaningful output              | CONTENT   |
+| `GUARDRAIL_VIOLATION`       | Content violated a guardrail rule                 | CONTENT   |
+| `FATAL_GUARDRAIL_VIOLATION` | Content violated a fatal guardrail                | CONTENT   |
+| `INVALID_STREAM`            | Stream factory returned invalid stream            | INTERNAL  |
+| `ALL_STREAMS_EXHAUSTED`     | All streams (primary + fallbacks) failed          | PROVIDER  |
+| `NETWORK_ERROR`             | Network-level failure                             | NETWORK   |
+| `DRIFT_DETECTED`            | Output drifted from expected behavior             | CONTENT   |
+| `ADAPTER_NOT_FOUND`         | Named adapter not found in registry               | INTERNAL  |
+| `FEATURE_NOT_ENABLED`       | Feature requires explicit enablement              | INTERNAL  |
 
 ### L0ErrorCodes Constant
 

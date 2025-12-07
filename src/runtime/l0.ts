@@ -15,6 +15,7 @@ import { normalizeStreamEvent } from "./events";
 import { detectOverlap } from "../utils/tokens";
 import {
   isNetworkError,
+  analyzeNetworkError,
   L0Error,
   ErrorCategory,
   L0ErrorCodes,
@@ -1629,9 +1630,15 @@ export async function l0<TOutput = unknown>(
             }
           }
 
-          // Record network error in monitoring
+          // Record network error in monitoring and emit NETWORK_ERROR event
           const isNetError = isNetworkError(err);
           if (isNetError) {
+            const networkAnalysis = analyzeNetworkError(err);
+            dispatcher.emit(EventType.NETWORK_ERROR, {
+              error: err.message,
+              code: networkAnalysis.type,
+              retryable: networkAnalysis.retryable,
+            });
             monitor?.recordNetworkError(
               err,
               decision.shouldRetry,

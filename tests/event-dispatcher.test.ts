@@ -455,4 +455,73 @@ describe("EventDispatcher", () => {
       expect(dispatcher.getContext()).toEqual({});
     });
   });
+
+  // ============================================================================
+  // Context Propagation Tests (Invariant: context-propagated)
+  // ============================================================================
+  describe("context-propagated invariant", () => {
+    it("should include context in every emitted event", async () => {
+      const userContext = { requestId: "req-123", userId: "user-456" };
+      const dispatcher = new EventDispatcher(userContext);
+      const events: Array<{ type: string; context: unknown }> = [];
+
+      dispatcher.onEvent((event) => {
+        events.push({ type: event.type, context: event.context });
+      });
+
+      // Emit multiple different event types
+      dispatcher.emit(EventType.SESSION_START);
+      dispatcher.emit(EventType.TOKEN, { content: "hello" });
+      dispatcher.emit(EventType.COMPLETE, { tokenCount: 1 });
+
+      await Promise.resolve();
+
+      expect(events.length).toBe(3);
+      for (const event of events) {
+        expect(event.context).toEqual(userContext);
+      }
+    });
+
+    it("should include empty context when none provided", async () => {
+      const dispatcher = new EventDispatcher();
+      const events: Array<{ type: string; context: unknown }> = [];
+
+      dispatcher.onEvent((event) => {
+        events.push({ type: event.type, context: event.context });
+      });
+
+      dispatcher.emit(EventType.SESSION_START);
+      dispatcher.emit(EventType.COMPLETE);
+
+      await Promise.resolve();
+
+      for (const event of events) {
+        expect(event.context).toEqual({});
+      }
+    });
+
+    it("should deep clone context to prevent mutation affecting events", async () => {
+      const userContext = { requestId: "req-123", nested: { key: "original" } };
+      const dispatcher = new EventDispatcher(userContext);
+      const events: Array<{ context: Record<string, unknown> }> = [];
+
+      dispatcher.onEvent((event) => {
+        events.push({ context: event.context as Record<string, unknown> });
+      });
+
+      dispatcher.emit(EventType.SESSION_START);
+
+      await Promise.resolve();
+
+      // Mutate original context after creation
+      userContext.requestId = "mutated";
+      userContext.nested.key = "mutated";
+
+      // Events should still have original values (frozen copy)
+      expect(events[0].context.requestId).toBe("req-123");
+      expect((events[0].context.nested as Record<string, unknown>).key).toBe(
+        "original",
+      );
+    });
+  });
 });

@@ -38,14 +38,14 @@ console.log(result.data.age); // number
 
 ## Features
 
-| Feature              | Description                                               |
-| -------------------- | --------------------------------------------------------- |
-| Schema validation    | Zod, Effect Schema, and JSON Schema support               |
-| Auto-correction      | Fixes trailing commas, missing braces, markdown fences    |
-| Retry on failure     | Automatic retry when validation fails                     |
-| Fallback models      | Try cheaper models if primary fails                       |
-| Type safety          | Full TypeScript inference from schema                     |
-| Helper functions     | `structuredObject`, `structuredArray` for common patterns |
+| Feature           | Description                                               |
+| ----------------- | --------------------------------------------------------- |
+| Schema validation | Zod, Effect Schema, and JSON Schema support               |
+| Auto-correction   | Fixes trailing commas, missing braces, markdown fences    |
+| Retry on failure  | Automatic retry when validation fails                     |
+| Fallback models   | Try cheaper models if primary fails                       |
+| Type safety       | Full TypeScript inference from schema                     |
+| Helper functions  | `structuredObject`, `structuredArray` for common patterns |
 
 ---
 
@@ -146,16 +146,16 @@ const result = await structuredArray(z.object({ name: z.string() }), {
 
 Automatically fixes common LLM JSON issues:
 
-| Issue              | Example               | Fixed               |
-| ------------------ | --------------------- | ------------------- |
-| Missing brace      | `{"name": "Alice"`    | `{"name": "Alice"}` |
-| Missing bracket    | `[1, 2, 3`            | `[1, 2, 3]`         |
-| Trailing comma     | `{"a": 1,}`           | `{"a": 1}`          |
-| Markdown fence     | ` ```json {...} ``` ` | `{...}`             |
-| Text prefix        | `Sure! {"a": 1}`      | `{"a": 1}`          |
-| Single quotes      | `{'a': 1}`            | `{"a": 1}`          |
-| Comments           | `{"a": 1 /* comment */}` | `{"a": 1}`       |
-| Control characters | Unescaped newlines    | Escaped properly    |
+| Issue              | Example                  | Fixed               |
+| ------------------ | ------------------------ | ------------------- |
+| Missing brace      | `{"name": "Alice"`       | `{"name": "Alice"}` |
+| Missing bracket    | `[1, 2, 3`               | `[1, 2, 3]`         |
+| Trailing comma     | `{"a": 1,}`              | `{"a": 1}`          |
+| Markdown fence     | ` ```json {...} ``` `    | `{...}`             |
+| Text prefix        | `Sure! {"a": 1}`         | `{"a": 1}`          |
+| Single quotes      | `{'a': 1}`               | `{"a": 1}`          |
+| Comments           | `{"a": 1 /* comment */}` | `{"a": 1}`          |
+| Control characters | Unescaped newlines       | Escaped properly    |
 
 ### Correction Types
 
@@ -227,7 +227,8 @@ import {
 // Register the adapter once at app startup
 registerEffectSchemaAdapter({
   decodeUnknownSync: (schema, data) => Schema.decodeUnknownSync(schema)(data),
-  decodeUnknownEither: (schema, data) => Schema.decodeUnknownEither(schema)(data),
+  decodeUnknownEither: (schema, data) =>
+    Schema.decodeUnknownEither(schema)(data),
   formatError: (error) => error.message,
 });
 
@@ -276,7 +277,8 @@ registerJSONSchemaAdapter({
       })),
     };
   },
-  formatErrors: (errors) => errors.map((e) => `${e.path}: ${e.message}`).join(", "),
+  formatErrors: (errors) =>
+    errors.map((e) => `${e.path}: ${e.message}`).join(", "),
 });
 
 // Define your schema
@@ -488,11 +490,11 @@ const result = await structured({
 
 ### Preset Details
 
-| Preset        | autoCorrect | strictMode | attempts | backoff       |
-| ------------- | ----------- | ---------- | -------- | ------------- |
-| minimal       | false       | false      | 1        | fixed         |
-| recommended   | true        | false      | 2        | fixed-jitter  |
-| strict        | true        | true       | 3        | fixed-jitter  |
+| Preset      | autoCorrect | strictMode | attempts | backoff      |
+| ----------- | ----------- | ---------- | -------- | ------------ |
+| minimal     | false       | false      | 1        | fixed        |
+| recommended | true        | false      | 2        | fixed-jitter |
+| strict      | true        | true       | 3        | fixed-jitter |
 
 ---
 

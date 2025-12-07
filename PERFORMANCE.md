@@ -154,6 +154,7 @@ retry: {
 ```
 
 Available retry reasons:
+
 - `zero_output` - No tokens received
 - `guardrail_violation` - Guardrail check failed
 - `drift` - Content drift detected
@@ -193,15 +194,15 @@ retry: {
 
 L0 categorizes errors for retry decision-making:
 
-| Category | Description | Counts Toward Limit |
-| -------- | ----------- | ------------------- |
-| `NETWORK` | Network/connection failures | No (retries forever with backoff) |
-| `TRANSIENT` | Rate limits (429), 503, timeouts | No (retries forever with backoff) |
-| `MODEL` | Model-side errors (bad response) | Yes |
-| `CONTENT` | Guardrails, drift | Yes |
-| `PROVIDER` | API errors (may retry based on status) | Depends |
-| `FATAL` | Auth failures, invalid config | No retry |
-| `INTERNAL` | Internal bugs | No retry |
+| Category    | Description                            | Counts Toward Limit               |
+| ----------- | -------------------------------------- | --------------------------------- |
+| `NETWORK`   | Network/connection failures            | No (retries forever with backoff) |
+| `TRANSIENT` | Rate limits (429), 503, timeouts       | No (retries forever with backoff) |
+| `MODEL`     | Model-side errors (bad response)       | Yes                               |
+| `CONTENT`   | Guardrails, drift                      | Yes                               |
+| `PROVIDER`  | API errors (may retry based on status) | Depends                           |
+| `FATAL`     | Auth failures, invalid config          | No retry                          |
+| `INTERNAL`  | Internal bugs                          | No retry                          |
 
 ---
 
@@ -224,6 +225,7 @@ const result = await l0({
 ```
 
 **Performance Warning:** Both guardrails and drift detection scan the accumulated content at each check interval. For very long outputs (multi-MB), this becomes O(n) per check. Consider:
+
 - Increasing intervals for long-form content
 - Using streaming-optimized guardrail rules that only check the delta
 - Setting a maximum content length before disabling checks
@@ -234,6 +236,7 @@ const result = await l0({
 - Higher intervals = lower CPU, delayed detection
 
 **Recommendations:**
+
 - For simple delta-only rules: 1-5 tokens
 - For rules that scan full content: 10-20 tokens
 - For very long outputs: 50+ tokens
@@ -459,13 +462,14 @@ L0 exports default retry configuration values:
 import { RETRY_DEFAULTS } from "@ai2070/l0";
 
 RETRY_DEFAULTS = {
-  attempts: 3,           // Maximum model failure retries
-  maxRetries: 6,         // Absolute maximum across all error types
-  baseDelay: 1000,       // Base delay in ms
-  maxDelay: 10000,       // Maximum delay cap in ms
+  attempts: 3, // Maximum model failure retries
+  maxRetries: 6, // Absolute maximum across all error types
+  baseDelay: 1000, // Base delay in ms
+  maxDelay: 10000, // Maximum delay cap in ms
   networkMaxDelay: 30000, // Max delay for network error suggestions
   backoff: "fixed-jitter", // Default backoff strategy
-  retryOn: [             // Default retry reasons
+  retryOn: [
+    // Default retry reasons
     "zero_output",
     "guardrail_violation",
     "drift",

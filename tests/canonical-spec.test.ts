@@ -1206,18 +1206,6 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   });
 
   // Drift Events
-  describe("DRIFT_CHECK_START field schema", () => {
-    const fields = events.DRIFT_CHECK_START.fields as FieldSchema[];
-
-    it("should have exactly these fields: checkpoint, tokenCount, strategy", () => {
-      validateExactFields(fields, [
-        { name: "checkpoint", type: "string", required: true },
-        { name: "tokenCount", type: "number", required: true },
-        { name: "strategy", type: "string", required: true },
-      ]);
-    });
-  });
-
   describe("DRIFT_CHECK_RESULT field schema", () => {
     const fields = events.DRIFT_CHECK_RESULT.fields as FieldSchema[];
 
@@ -1227,16 +1215,6 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
         { name: "score", type: "number", required: true },
         { name: "metrics", type: "Record<string, unknown>", required: true },
         { name: "threshold", type: "number", required: true },
-      ]);
-    });
-  });
-
-  describe("DRIFT_CHECK_END field schema", () => {
-    const fields = events.DRIFT_CHECK_END.fields as FieldSchema[];
-
-    it("should have exactly these fields: durationMs", () => {
-      validateExactFields(fields, [
-        { name: "durationMs", type: "number", required: true },
       ]);
     });
   });

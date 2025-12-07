@@ -28,7 +28,7 @@
 > It makes reliable AI systems impossible to build on top of raw provider streams.
 >
 > **L0 is the deterministic execution substrate that fixes the transport -
-with guardrails designed for the streaming layer itself: stream-neutral, pattern-based, loop-safe, and timing-aware.**
+> with guardrails designed for the streaming layer itself: stream-neutral, pattern-based, loop-safe, and timing-aware.**
 
 L0 adds deterministic execution, fallbacks, retries, network protection, guardrails, drift detection, and tool tracking to any LLM stream - turning raw model output into production-grade behavior.
 
@@ -528,28 +528,34 @@ console.log(result.data.name); // string - typed via generic
 ### Helper Functions
 
 ```typescript
-import { structuredObject, structuredArray, structuredStream } from "@ai2070/l0";
+import {
+  structuredObject,
+  structuredArray,
+  structuredStream,
+} from "@ai2070/l0";
 
 // Quick object schema
-const result = await structuredObject({
-  name: z.string(),
-  age: z.number()
-}, { stream });
+const result = await structuredObject(
+  {
+    name: z.string(),
+    age: z.number(),
+  },
+  { stream },
+);
 
 // Quick array schema
-const result = await structuredArray(
-  z.object({ name: z.string() }),
-  { stream }
-);
+const result = await structuredArray(z.object({ name: z.string() }), {
+  stream,
+});
 
 // Streaming with end validation
 const { stream, result, abort } = await structuredStream({
   schema,
-  stream: () => streamText({ model, prompt })
+  stream: () => streamText({ model, prompt }),
 });
 
 for await (const event of stream) {
-  if (event.type === 'token') console.log(event.value);
+  if (event.type === "token") console.log(event.value);
 }
 const validated = await result;
 ```
@@ -557,7 +563,11 @@ const validated = await result;
 ### Structured Output Presets
 
 ```typescript
-import { minimalStructured, recommendedStructured, strictStructured } from "@ai2070/l0";
+import {
+  minimalStructured,
+  recommendedStructured,
+  strictStructured,
+} from "@ai2070/l0";
 
 // minimalStructured:     { autoCorrect: false, retry: { attempts: 1 } }
 // recommendedStructured: { autoCorrect: true, retry: { attempts: 2 } }
@@ -566,7 +576,7 @@ import { minimalStructured, recommendedStructured, strictStructured } from "@ai2
 const result = await structured({
   schema,
   stream,
-  ...recommendedStructured
+  ...recommendedStructured,
 });
 ```
 
@@ -794,20 +804,20 @@ const result = await l0({
 
 ```typescript
 import {
-  minimalGuardrails,      // jsonRule, zeroOutputRule
-  recommendedGuardrails,  // jsonRule, markdownRule, zeroOutputRule, patternRule
-  strictGuardrails,       // jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule
-  jsonOnlyGuardrails,     // jsonRule, zeroOutputRule
+  minimalGuardrails, // jsonRule, zeroOutputRule
+  recommendedGuardrails, // jsonRule, markdownRule, zeroOutputRule, patternRule
+  strictGuardrails, // jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule
+  jsonOnlyGuardrails, // jsonRule, zeroOutputRule
   markdownOnlyGuardrails, // markdownRule, zeroOutputRule
-  latexOnlyGuardrails,    // latexRule, zeroOutputRule
+  latexOnlyGuardrails, // latexRule, zeroOutputRule
 } from "@ai2070/l0";
 ```
 
-| Preset                   | Rules Included                                               |
-| ------------------------ | ------------------------------------------------------------ |
-| `minimalGuardrails`      | `jsonRule`, `zeroOutputRule`                                 |
-| `recommendedGuardrails`  | `jsonRule`, `markdownRule`, `zeroOutputRule`, `patternRule`  |
-| `strictGuardrails`       | `jsonRule`, `markdownRule`, `latexRule`, `patternRule`, `zeroOutputRule` |
+| Preset                  | Rules Included                                                           |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `minimalGuardrails`     | `jsonRule`, `zeroOutputRule`                                             |
+| `recommendedGuardrails` | `jsonRule`, `markdownRule`, `zeroOutputRule`, `patternRule`              |
+| `strictGuardrails`      | `jsonRule`, `markdownRule`, `latexRule`, `patternRule`, `zeroOutputRule` |
 
 ### Fast/Slow Path Execution
 
@@ -933,14 +943,18 @@ import { createPool } from "@ai2070/l0";
 const pool = createPool(3); // Max 3 concurrent operations
 
 // Add operations dynamically
-const result1 = pool.execute({ stream: () => streamText({ model, prompt: "Task 1" }) });
-const result2 = pool.execute({ stream: () => streamText({ model, prompt: "Task 2" }) });
+const result1 = pool.execute({
+  stream: () => streamText({ model, prompt: "Task 1" }),
+});
+const result2 = pool.execute({
+  stream: () => streamText({ model, prompt: "Task 2" }),
+});
 
 // Wait for all operations to complete
 await pool.drain();
 
 // Pool methods
-pool.getQueueLength();   // Pending operations
+pool.getQueueLength(); // Pending operations
 pool.getActiveWorkers(); // Currently executing
 ```
 
@@ -1337,41 +1351,71 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Stream Initialization Events
 
 ```typescript
-{ type: "SESSION_START", ts, sessionId }  // anchor for entire session
-{ type: "STREAM_INIT", ts, model, provider }  // before contacting provider
-{ type: "STREAM_READY", ts }  // connection established, ready to emit
+{
+  type: ("SESSION_START", ts, sessionId);
+} // anchor for entire session
+{
+  type: ("STREAM_INIT", ts, model, provider);
+} // before contacting provider
+{
+  type: ("STREAM_READY", ts);
+} // connection established, ready to emit
 ```
 
 ### Adapter Events
 
 ```typescript
-{ type: "ADAPTER_DETECTED", ts, adapter, provider, version }
-{ type: "ADAPTER_WRAP_START", ts, adapter }
-{ type: "ADAPTER_WRAP_END", ts, adapter, durationMs }
+{
+  type: ("ADAPTER_DETECTED", ts, adapter, provider, version);
+}
+{
+  type: ("ADAPTER_WRAP_START", ts, adapter);
+}
+{
+  type: ("ADAPTER_WRAP_END", ts, adapter, durationMs);
+}
 ```
 
 ### Timeout Events
 
 ```typescript
-{ type: "TIMEOUT_START", ts, type, durationMs }  // type: initial|inter-token
-{ type: "TIMEOUT_RESET", ts, type, tokenIndex }  // timer reset on token
-{ type: "TIMEOUT_TRIGGERED", ts, type, elapsed }  // before error event
+{
+  type: ("TIMEOUT_START", ts, type, durationMs);
+} // type: initial|inter-token
+{
+  type: ("TIMEOUT_RESET", ts, type, tokenIndex);
+} // timer reset on token
+{
+  type: ("TIMEOUT_TRIGGERED", ts, type, elapsed);
+} // before error event
 ```
 
 ### Network Events
 
 ```typescript
-{ type: "NETWORK_ERROR", ts, error, code, retryable }
-{ type: "NETWORK_RECOVERY", ts, attemptCount, durationMs }
-{ type: "CONNECTION_DROPPED", ts, reason }
-{ type: "CONNECTION_RESTORED", ts, durationMs }
+{
+  type: ("NETWORK_ERROR", ts, error, code, retryable);
+}
+{
+  type: ("NETWORK_RECOVERY", ts, attemptCount, durationMs);
+}
+{
+  type: ("CONNECTION_DROPPED", ts, reason);
+}
+{
+  type: ("CONNECTION_RESTORED", ts, durationMs);
+}
 ```
 
 ### Abort Events
 
 ```typescript
-{ type: "ABORT_REQUESTED", ts, source }  // source: user|timeout|error
-{ type: "ABORT_COMPLETED", ts, resourcesFreed }
+{
+  type: ("ABORT_REQUESTED", ts, source);
+} // source: user|timeout|error
+{
+  type: ("ABORT_COMPLETED", ts, resourcesFreed);
+}
 ```
 
 ### Tool Events
@@ -1405,71 +1449,140 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Drift Events
 
 ```typescript
-{ type: "DRIFT_CHECK_START", ts, checkpoint, tokenCount, strategy }
-{ type: "DRIFT_CHECK_RESULT", ts, detected, score, metrics, threshold }
-{ type: "DRIFT_CHECK_END", ts, durationMs }
-{ type: "DRIFT_CHECK_SKIPPED", ts, reason }  // when drift disabled
+{
+  type: ("DRIFT_CHECK_START", ts, checkpoint, tokenCount, strategy);
+}
+{
+  type: ("DRIFT_CHECK_RESULT", ts, detected, score, metrics, threshold);
+}
+{
+  type: ("DRIFT_CHECK_END", ts, durationMs);
+}
+{
+  type: ("DRIFT_CHECK_SKIPPED", ts, reason);
+} // when drift disabled
 ```
 
 ### Checkpoint Events
 
 ```typescript
-{ type: "CHECKPOINT_SAVED", ts, checkpoint, tokenCount }
+{
+  type: ("CHECKPOINT_SAVED", ts, checkpoint, tokenCount);
+}
 ```
 
 ### Resume Events
 
 ```typescript
-{ type: "RESUME_START", ts, checkpoint, stateHash, tokenCount }
-{ type: "RESUME_END", ts, checkpoint, durationMs, success }
+{
+  type: ("RESUME_START", ts, checkpoint, stateHash, tokenCount);
+}
+{
+  type: ("RESUME_END", ts, checkpoint, durationMs, success);
+}
 ```
 
 ### Retry Events
 
 ```typescript
-{ type: "RETRY_START", ts, attempt, maxAttempts }
-{ type: "RETRY_ATTEMPT", ts, index, reason, countsTowardLimit, isNetwork, isModelIssue }
-{ type: "RETRY_END", ts, attempt, success, durationMs }
-{ type: "RETRY_GIVE_UP", ts, attempts, lastError }  // exhausted
+{
+  type: ("RETRY_START", ts, attempt, maxAttempts);
+}
+{
+  type: ("RETRY_ATTEMPT",
+    ts,
+    index,
+    reason,
+    countsTowardLimit,
+    isNetwork,
+    isModelIssue);
+}
+{
+  type: ("RETRY_END", ts, attempt, success, durationMs);
+}
+{
+  type: ("RETRY_GIVE_UP", ts, attempts, lastError);
+} // exhausted
 ```
 
 ### Fallback Events
 
 ```typescript
-{ type: "FALLBACK_START", ts, from, to, reason }
-{ type: "FALLBACK_MODEL_SELECTED", ts, index, model }
-{ type: "FALLBACK_END", ts, index, durationMs }
+{
+  type: ("FALLBACK_START", ts, from, to, reason);
+}
+{
+  type: ("FALLBACK_MODEL_SELECTED", ts, index, model);
+}
+{
+  type: ("FALLBACK_END", ts, index, durationMs);
+}
 ```
 
 ### Completion Events
 
 ```typescript
-{ type: "FINALIZATION_START", ts }  // tokens done, closing session
-{ type: "FINALIZATION_END", ts, durationMs }  // all workers closed
+{
+  type: ("FINALIZATION_START", ts);
+} // tokens done, closing session
+{
+  type: ("FINALIZATION_END", ts, durationMs);
+} // all workers closed
 
 // Final session summary for replay
-{ type: "SESSION_SUMMARY", ts, tokenCount, startTs, endTs, driftDetected,
-  guardrailViolations, fallbackDepth, retryCount, checkpointsCreated }
+{
+  type: ("SESSION_SUMMARY",
+    ts,
+    tokenCount,
+    startTs,
+    endTs,
+    driftDetected,
+    guardrailViolations,
+    fallbackDepth,
+    retryCount,
+    checkpointsCreated);
+}
 
-{ type: "SESSION_END", ts }  // hard end-of-stream marker
+{
+  type: ("SESSION_END", ts);
+} // hard end-of-stream marker
 ```
 
 ### Consensus Events
 
 ```typescript
-{ type: "CONSENSUS_START", ts }
+{
+  type: ("CONSENSUS_START", ts);
+}
 
 // Per-stream lifecycle
-{ type: "CONSENSUS_STREAM_START", ts, streamIndex, model }
-{ type: "CONSENSUS_STREAM_END", ts, streamIndex, durationMs, status }
-{ type: "CONSENSUS_OUTPUT_COLLECTED", ts, streamIndex, length, hasErrors }
+{
+  type: ("CONSENSUS_STREAM_START", ts, streamIndex, model);
+}
+{
+  type: ("CONSENSUS_STREAM_END", ts, streamIndex, durationMs, status);
+}
+{
+  type: ("CONSENSUS_OUTPUT_COLLECTED", ts, streamIndex, length, hasErrors);
+}
 
 // Analysis and resolution
-{ type: "CONSENSUS_ANALYSIS", ts, agreementRatio, disagreements, strategy,
-  similarityMatrix, averageSimilarity }
-{ type: "CONSENSUS_RESOLUTION", ts, method, finalSelection, confidence }  // method: vote|merge|best|fail
+{
+  type: ("CONSENSUS_ANALYSIS",
+    ts,
+    agreementRatio,
+    disagreements,
+    strategy,
+    similarityMatrix,
+    averageSimilarity);
+}
+{
+  type: ("CONSENSUS_RESOLUTION", ts, method, finalSelection, confidence);
+} // method: vote|merge|best|fail
 
-{ type: "CONSENSUS_END", ts, status, confidence, durationMs }
+{
+  type: ("CONSENSUS_END", ts, status, confidence, durationMs);
+}
 ```
 
 ### Structured Output Events
@@ -1492,27 +1605,31 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 ### Continuation Events
 
 ```typescript
-{ type: "CONTINUATION_START", ts, checkpoint, tokenCount }
-{ type: "RESUME_START", ts, checkpoint, tokenCount }
+{
+  type: ("CONTINUATION_START", ts, checkpoint, tokenCount);
+}
+{
+  type: ("RESUME_START", ts, checkpoint, tokenCount);
+}
 ```
 
 ### Event Reference
 
-| Phase        | Events                                                                        | Purpose                        |
-| ------------ | ----------------------------------------------------------------------------- | ------------------------------ |
-| Session      | `SESSION_START` → `STREAM_INIT` → `STREAM_READY`                              | Stream initialization          |
-| Adapter      | `ADAPTER_WRAP_START` → `ADAPTER_DETECTED` → `ADAPTER_WRAP_END`                | Provider detection, transforms |
-| Timeout      | `TIMEOUT_START` → `TIMEOUT_RESET` / `TIMEOUT_TRIGGERED`                       | Timer lifecycle                |
-| Abort        | `ABORT_REQUESTED` → `ABORT_COMPLETED`                                         | Cancellation lifecycle         |
-| Tool         | `TOOL_REQUESTED` → `TOOL_START` → `TOOL_RESULT/ERROR` → `TOOL_COMPLETED`      | Tool execution lifecycle       |
-| Guardrail    | `PHASE_START` → `RULE_START` → `RULE_RESULT` → `RULE_END` → `PHASE_END`       | Per-rule timing, callbacks     |
-| Checkpoint   | `CHECKPOINT_SAVED`                                                            | State persistence              |
-| Continuation | `CONTINUATION_START` → `RESUME_START`                                         | Resume from checkpoint         |
-| Retry        | `RETRY_START` → `RETRY_ATTEMPT` → `RETRY_END` / `RETRY_GIVE_UP`               | Retry loop observability       |
-| Fallback     | `FALLBACK_START` → `FALLBACK_MODEL_SELECTED` → `FALLBACK_END`                 | Model switching lifecycle      |
-| Structured   | `PARSE_*` → `SCHEMA_VALIDATION_*` → `AUTO_CORRECT_*`                          | Schema validation, repair      |
-| Consensus    | `START` → `STREAM_*` → `ANALYSIS` → `RESOLUTION` → `END`                      | Multi-model coordination       |
-| Completion   | `COMPLETE` / `ERROR` → `SESSION_END`                                          | Clean shutdown                 |
+| Phase        | Events                                                                   | Purpose                        |
+| ------------ | ------------------------------------------------------------------------ | ------------------------------ |
+| Session      | `SESSION_START` → `STREAM_INIT` → `STREAM_READY`                         | Stream initialization          |
+| Adapter      | `ADAPTER_WRAP_START` → `ADAPTER_DETECTED` → `ADAPTER_WRAP_END`           | Provider detection, transforms |
+| Timeout      | `TIMEOUT_START` → `TIMEOUT_RESET` / `TIMEOUT_TRIGGERED`                  | Timer lifecycle                |
+| Abort        | `ABORT_REQUESTED` → `ABORT_COMPLETED`                                    | Cancellation lifecycle         |
+| Tool         | `TOOL_REQUESTED` → `TOOL_START` → `TOOL_RESULT/ERROR` → `TOOL_COMPLETED` | Tool execution lifecycle       |
+| Guardrail    | `PHASE_START` → `RULE_START` → `RULE_RESULT` → `RULE_END` → `PHASE_END`  | Per-rule timing, callbacks     |
+| Checkpoint   | `CHECKPOINT_SAVED`                                                       | State persistence              |
+| Continuation | `CONTINUATION_START` → `RESUME_START`                                    | Resume from checkpoint         |
+| Retry        | `RETRY_START` → `RETRY_ATTEMPT` → `RETRY_END` / `RETRY_GIVE_UP`          | Retry loop observability       |
+| Fallback     | `FALLBACK_START` → `FALLBACK_MODEL_SELECTED` → `FALLBACK_END`            | Model switching lifecycle      |
+| Structured   | `PARSE_*` → `SCHEMA_VALIDATION_*` → `AUTO_CORRECT_*`                     | Schema validation, repair      |
+| Consensus    | `START` → `STREAM_*` → `ANALYSIS` → `RESOLUTION` → `END`                 | Multi-model coordination       |
+| Completion   | `COMPLETE` / `ERROR` → `SESSION_END`                                     | Clean shutdown                 |
 
 See [EVENT_SOURCING.md](./EVENT_SOURCING.md) for recording and replay.
 
@@ -1674,16 +1791,21 @@ const result = await l0({
 ### Event Handler Utilities
 
 ```typescript
-import { EventType, combineEvents, filterEvents, excludeEvents } from "@ai2070/l0";
+import {
+  EventType,
+  combineEvents,
+  filterEvents,
+  excludeEvents,
+} from "@ai2070/l0";
 
 // Combine multiple handlers
-onEvent: combineEvents(handler1, handler2, handler3)
+onEvent: combineEvents(handler1, handler2, handler3);
 
 // Filter to specific events
-onEvent: filterEvents([EventType.ERROR, EventType.RETRY_ATTEMPT], errorHandler)
+onEvent: filterEvents([EventType.ERROR, EventType.RETRY_ATTEMPT], errorHandler);
 
 // Exclude noisy events
-onEvent: excludeEvents([EventType.TOKEN], logHandler)
+onEvent: excludeEvents([EventType.TOKEN], logHandler);
 ```
 
 See [MONITORING.md](./MONITORING.md) for complete integration guides.
@@ -1759,23 +1881,23 @@ Every major reliability feature in L0 has dedicated test suites:
 
 ## Documentation
 
-| Guide                                                          | Description                        |
-| -------------------------------------------------------------- | ---------------------------------- |
-| [QUICKSTART.md](./QUICKSTART.md)                               | 5-minute getting started           |
-| [API.md](./API.md)                                             | Complete API reference             |
-| [GUARDRAILS.md](./GUARDRAILS.md)                               | Guardrails and validation          |
-| [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md)                 | Structured output guide            |
-| [CONSENSUS.md](./CONSENSUS.md)                                 | Multi-generation consensus         |
-| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md)                   | Document chunking guide            |
-| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)                       | Network error handling             |
-| [ERROR_HANDLING.md](./ERROR_HANDLING.md)                       | Error handling guide               |
-| [PERFORMANCE.md](./PERFORMANCE.md)                             | Performance tuning                 |
-| [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Interceptors and parallel ops      |
-| [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics              |
-| [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails        |
-| [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers                 |
-| [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md)                     | Build your own adapters            |
-| [MULTIMODAL.md](./MULTIMODAL.md)                               | Image/audio/video support          |
+| Guide                                                          | Description                   |
+| -------------------------------------------------------------- | ----------------------------- |
+| [QUICKSTART.md](./QUICKSTART.md)                               | 5-minute getting started      |
+| [API.md](./API.md)                                             | Complete API reference        |
+| [GUARDRAILS.md](./GUARDRAILS.md)                               | Guardrails and validation     |
+| [STRUCTURED_OUTPUT.md](./STRUCTURED_OUTPUT.md)                 | Structured output guide       |
+| [CONSENSUS.md](./CONSENSUS.md)                                 | Multi-generation consensus    |
+| [DOCUMENT_WINDOWS.md](./DOCUMENT_WINDOWS.md)                   | Document chunking guide       |
+| [NETWORK_ERRORS.md](./NETWORK_ERRORS.md)                       | Network error handling        |
+| [ERROR_HANDLING.md](./ERROR_HANDLING.md)                       | Error handling guide          |
+| [PERFORMANCE.md](./PERFORMANCE.md)                             | Performance tuning            |
+| [INTERCEPTORS_AND_PARALLEL.md](./INTERCEPTORS_AND_PARALLEL.md) | Interceptors and parallel ops |
+| [MONITORING.md](./MONITORING.md)                               | Telemetry and metrics         |
+| [EVENT_SOURCING.md](./EVENT_SOURCING.md)                       | Record/replay, audit trails   |
+| [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers            |
+| [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md)                     | Build your own adapters       |
+| [MULTIMODAL.md](./MULTIMODAL.md)                               | Image/audio/video support     |
 
 ---
 

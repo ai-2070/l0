@@ -262,7 +262,8 @@ const result = await l0WithWindow({
     enabled: true,
     strategy: "adjacent", // "adjacent" | "overlap" | "full"
     maxAttempts: 2,
-    onRestore: (from, to) => console.log(`Restored from chunk ${from} to ${to}`),
+    onRestore: (from, to) =>
+      console.log(`Restored from chunk ${from} to ${to}`),
   },
 });
 ```
@@ -497,17 +498,17 @@ const window = createWindow(document, {
   strategy: "paragraph",
 });
 
-const results = await window.processAll(
-  (chunk) => ({
-    stream: () => streamText({ model, prompt: chunk.content }),
-    retry: { attempts: 3 },
-  }),
-);
+const results = await window.processAll((chunk) => ({
+  stream: () => streamText({ model, prompt: chunk.content }),
+  retry: { attempts: 3 },
+}));
 
 // Handle failures
 const stats = getProcessingStats(results);
 if (stats.failed > 0) {
-  console.warn(`${stats.failed} chunks failed (${stats.successRate}% success rate)`);
+  console.warn(
+    `${stats.failed} chunks failed (${stats.successRate}% success rate)`,
+  );
 }
 
 // Get merged output

@@ -727,29 +727,6 @@
             }
           ]
         },
-        "DRIFT_CHECK_START": {
-          "description": "Emitted when drift check begins",
-          "fields": [
-            {
-              "name": "checkpoint",
-              "type": "string",
-              "required": true,
-              "description": "Checkpoint content"
-            },
-            {
-              "name": "tokenCount",
-              "type": "number",
-              "required": true,
-              "description": "Tokens at checkpoint"
-            },
-            {
-              "name": "strategy",
-              "type": "string",
-              "required": true,
-              "description": "Drift detection strategy"
-            }
-          ]
-        },
         "DRIFT_CHECK_RESULT": {
           "description": "Emitted with drift check results",
           "fields": [
@@ -776,17 +753,6 @@
               "type": "number",
               "required": true,
               "description": "Detection threshold"
-            }
-          ]
-        },
-        "DRIFT_CHECK_END": {
-          "description": "Emitted when drift check completes",
-          "fields": [
-            {
-              "name": "durationMs",
-              "type": "number",
-              "required": true,
-              "description": "Check duration in milliseconds"
             }
           ]
         },
@@ -1654,37 +1620,6 @@
           "required": false,
           "description": "Actual type or value received"
         }
-      }
-    },
-    "validationErrorCodes": {
-      "description": "All possible tool call validation error codes",
-      "values": {
-        "MISSING_REQUIRED_ARGUMENT": "Required argument not provided",
-        "INVALID_ARGUMENT_TYPE": "Argument type does not match schema",
-        "INVALID_ENUM_VALUE": "Value not in allowed enum options",
-        "PATTERN_MISMATCH": "String does not match required pattern",
-        "VALUE_OUT_OF_RANGE": "Numeric value outside min/max bounds",
-        "ARRAY_LENGTH_INVALID": "Array length violates minItems/maxItems",
-        "UNEXPECTED_ARGUMENT": "Unknown argument when additionalProperties is false",
-        "INVALID_JSON": "Arguments are not valid JSON",
-        "UNKNOWN_TOOL": "Tool name not found in available tools"
-      }
-    },
-    "validationBehavior": {
-      "description": "How validation errors are handled",
-      "onInvalidToolCall": {
-        "action": "reject",
-        "description": "Invalid tool calls are rejected before execution",
-        "emitsEvent": "TOOL_CALL_VALIDATION_ERROR",
-        "retriable": false,
-        "notes": [
-          "Validation errors are considered programmer errors, not transient",
-          "No retry or fallback is attempted for validation failures"
-        ]
-      },
-      "validationTiming": {
-        "when": "before-execution",
-        "description": "Schema validation occurs before tool execution begins"
       }
     },
     "schemaFormats": {

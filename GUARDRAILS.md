@@ -118,16 +118,16 @@ customPatternRule([/forbidden/i, /blocked/i], "Custom violation", "error");
 
 **Built-in patterns:**
 
-| Category              | Examples                                    |
-| --------------------- | ------------------------------------------- |
-| Meta commentary       | "As an AI...", "I'm an AI assistant"        |
-| Hedging               | "Sure!", "Certainly!", "Of course!"         |
-| Refusal               | "I cannot provide...", "I'm not able to..." |
-| Instruction leak      | `[SYSTEM]`, `<\|im_start\|>`                |
-| Placeholders          | `[INSERT ...]`, `{{placeholder}}`           |
-| Format collapse       | "Here is the...", "Let me..."               |
-| Repetition            | Same sentence repeated 3+ times             |
-| First/last duplicate  | First and last sentences identical          |
+| Category             | Examples                                    |
+| -------------------- | ------------------------------------------- |
+| Meta commentary      | "As an AI...", "I'm an AI assistant"        |
+| Hedging              | "Sure!", "Certainly!", "Of course!"         |
+| Refusal              | "I cannot provide...", "I'm not able to..." |
+| Instruction leak     | `[SYSTEM]`, `<\|im_start\|>`                |
+| Placeholders         | `[INSERT ...]`, `{{placeholder}}`           |
+| Format collapse      | "Here is the...", "Let me..."               |
+| Repetition           | Same sentence repeated 3+ times             |
+| First/last duplicate | First and last sentences identical          |
 
 ---
 
@@ -285,30 +285,18 @@ engine.getAllViolations(); // All violations
 Low-level analysis utilities available from the guardrails submodule:
 
 ````typescript
-import {
-  analyzeJsonStructure,
-  looksLikeJson,
-} from "@ai2070/l0/guardrails";
+import { analyzeJsonStructure, looksLikeJson } from "@ai2070/l0/guardrails";
 
 import {
   analyzeMarkdownStructure,
   looksLikeMarkdown,
 } from "@ai2070/l0/guardrails";
 
-import {
-  analyzeLatexStructure,
-  looksLikeLatex,
-} from "@ai2070/l0/guardrails";
+import { analyzeLatexStructure, looksLikeLatex } from "@ai2070/l0/guardrails";
 
-import {
-  isZeroOutput,
-  isNoiseOnly,
-} from "@ai2070/l0/guardrails";
+import { isZeroOutput, isNoiseOnly } from "@ai2070/l0/guardrails";
 
-import {
-  findBadPatterns,
-  BAD_PATTERNS,
-} from "@ai2070/l0/guardrails";
+import { findBadPatterns, BAD_PATTERNS } from "@ai2070/l0/guardrails";
 
 // JSON analysis
 const json = analyzeJsonStructure('{"a": 1');
