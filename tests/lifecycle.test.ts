@@ -1066,6 +1066,33 @@ describe("Lifecycle: Error Flow", () => {
     expect(policy!.fallbackEnabled).toBeDefined();
     expect(policy!.maxRetries).toBeDefined();
   });
+
+  it("should emit NETWORK_ERROR event on network error", async () => {
+    const collector = createEventCollector();
+
+    // Create a stream that fails with a network-like error
+    const networkError = new Error("Connection reset by peer");
+    (networkError as any).code = "ECONNRESET";
+
+    const result = await l0({
+      stream: createFailingStream(["some-content"], networkError),
+      fallbackStreams: [createTokenStream(["ok-content"])],
+      retry: { attempts: 0 },
+      onEvent: collector.handler,
+      detectZeroTokens: false,
+    });
+
+    for await (const _ of result.stream) {
+      // Consume stream
+    }
+
+    const networkErrors = collector.getEventsOfType(EventType.NETWORK_ERROR);
+    expect(networkErrors.length).toBeGreaterThan(0);
+
+    const networkErrorEvent = networkErrors[0]!;
+    expect(networkErrorEvent.data.error).toBeDefined();
+    expect(typeof networkErrorEvent.data.retryable).toBe("boolean");
+  });
 });
 
 // ============================================================================
