@@ -327,24 +327,28 @@ export async function l0<TOutput = unknown>(
               tokenCount,
             });
           },
-          onPhaseEnd: (phase, passed, violations) => {
+          onPhaseEnd: (phase, passed, violations, durationMs) => {
             dispatcher.emit(EventType.GUARDRAIL_PHASE_END, {
               phase,
               passed,
               violations,
+              durationMs,
             });
           },
-          onRuleStart: (index, ruleId) => {
+          onRuleStart: (index, ruleId, callbackId) => {
             dispatcher.emit(EventType.GUARDRAIL_RULE_START, {
               index,
               ruleId,
+              callbackId,
             });
           },
-          onRuleEnd: (index, ruleId, passed) => {
+          onRuleEnd: (index, ruleId, passed, callbackId, durationMs) => {
             dispatcher.emit(EventType.GUARDRAIL_RULE_END, {
               index,
               ruleId,
               passed,
+              callbackId,
+              durationMs,
             });
           },
         })
@@ -641,7 +645,6 @@ export async function l0<TOutput = unknown>(
           });
           dispatcher.emit(EventType.ADAPTER_WRAP_END, {
             adapterId: detectedAdapterName,
-            success: true,
           });
           dispatcher.emit(EventType.STREAM_READY, {});
 
@@ -783,7 +786,9 @@ export async function l0<TOutput = unknown>(
                 // Switch from initial to inter-token timeout
                 const interTimeout = processedTimeout.interToken ?? 10000;
                 dispatcher.emit(EventType.TIMEOUT_RESET, {
+                  timeoutType: "inter",
                   configuredMs: interTimeout,
+                  tokenIndex: state.tokenCount,
                 });
               }
 

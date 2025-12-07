@@ -201,17 +201,24 @@ export interface GuardrailConfig {
     phase: "pre" | "post",
     passed: boolean,
     violations: GuardrailViolation[],
+    durationMs: number,
   ) => void;
 
   /**
    * Callback when a rule starts
    */
-  onRuleStart?: (index: number, ruleId: string) => void;
+  onRuleStart?: (index: number, ruleId: string, callbackId: string) => void;
 
   /**
    * Callback when a rule ends
    */
-  onRuleEnd?: (index: number, ruleId: string, passed: boolean) => void;
+  onRuleEnd?: (
+    index: number,
+    ruleId: string,
+    passed: boolean,
+    callbackId: string,
+    durationMs: number,
+  ) => void;
 }
 
 /**

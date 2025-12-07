@@ -42,6 +42,13 @@ export class GuardrailEngine {
   }
 
   /**
+   * Generate a unique callback ID
+   */
+  private generateCallbackId(): string {
+    return `cb_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  }
+
+  /**
    * Execute all rules against context
    * @param context - Guardrail context
    * @returns Guardrail result
@@ -50,6 +57,7 @@ export class GuardrailEngine {
     const violations: GuardrailViolation[] = [];
     const timestamp = Date.now();
     const phase = context.completed ? "post" : "pre";
+    const phaseStartTime = Date.now();
 
     // Emit phase start callback
     if (this.config.onPhaseStart) {
@@ -73,9 +81,12 @@ export class GuardrailEngine {
         continue;
       }
 
+      const callbackId = this.generateCallbackId();
+      const ruleStartTime = Date.now();
+
       // Emit rule start callback
       if (this.config.onRuleStart) {
-        this.config.onRuleStart(ruleIndex, rule.name);
+        this.config.onRuleStart(ruleIndex, rule.name, callbackId);
       }
 
       try {
@@ -101,12 +112,16 @@ export class GuardrailEngine {
           ]);
         }
 
+        const ruleDurationMs = Date.now() - ruleStartTime;
+
         // Emit rule end callback with passed status
         if (this.config.onRuleEnd) {
           this.config.onRuleEnd(
             ruleIndex,
             rule.name,
             ruleViolations.length === 0,
+            callbackId,
+            ruleDurationMs,
           );
         }
 
@@ -127,18 +142,33 @@ export class GuardrailEngine {
           timestamp,
         });
 
+        const ruleDurationMs = Date.now() - ruleStartTime;
+
         // Emit rule end callback even on error (passed = false)
         if (this.config.onRuleEnd) {
-          this.config.onRuleEnd(ruleIndex, rule.name, false);
+          this.config.onRuleEnd(
+            ruleIndex,
+            rule.name,
+            false,
+            callbackId,
+            ruleDurationMs,
+          );
         }
       }
 
       ruleIndex++;
     }
 
+    const phaseDurationMs = Date.now() - phaseStartTime;
+
     // Emit phase end callback with passed status and violations
     if (this.config.onPhaseEnd) {
-      this.config.onPhaseEnd(phase, violations.length === 0, violations);
+      this.config.onPhaseEnd(
+        phase,
+        violations.length === 0,
+        violations,
+        phaseDurationMs,
+      );
     }
 
     // Update state
