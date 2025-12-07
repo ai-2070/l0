@@ -320,16 +320,18 @@ export async function l0<TOutput = unknown>(
           rules: processedGuardrails,
           stopOnFatal: true,
           enableStreaming: true,
-          onPhaseStart: (contextSize, ruleCount) => {
+          onPhaseStart: (phase, ruleCount, tokenCount) => {
             dispatcher.emit(EventType.GUARDRAIL_PHASE_START, {
-              contextSize,
+              phase,
               ruleCount,
+              tokenCount,
             });
           },
-          onPhaseEnd: (ruleCount, violationCount) => {
+          onPhaseEnd: (phase, passed, violations) => {
             dispatcher.emit(EventType.GUARDRAIL_PHASE_END, {
-              ruleCount,
-              violationCount,
+              phase,
+              passed,
+              violations,
             });
           },
           onRuleStart: (index, ruleId) => {
@@ -338,10 +340,11 @@ export async function l0<TOutput = unknown>(
               ruleId,
             });
           },
-          onRuleEnd: (index, ruleId) => {
+          onRuleEnd: (index, ruleId, passed) => {
             dispatcher.emit(EventType.GUARDRAIL_RULE_END, {
               index,
               ruleId,
+              passed,
             });
           },
         })
@@ -549,7 +552,9 @@ export async function l0<TOutput = unknown>(
           let sourceStream: AsyncIterable<any>;
           let detectedAdapterName: string | undefined;
 
-          dispatcher.emit(EventType.ADAPTER_WRAP_START, {});
+          dispatcher.emit(EventType.ADAPTER_WRAP_START, {
+            streamType: typeof streamResult,
+          });
 
           // 1. Explicit adapter (highest priority)
           if (processedOptions.adapter) {
@@ -632,9 +637,12 @@ export async function l0<TOutput = unknown>(
           }
 
           dispatcher.emit(EventType.ADAPTER_DETECTED, {
-            adapter: detectedAdapterName,
+            adapterId: detectedAdapterName,
           });
-          dispatcher.emit(EventType.ADAPTER_WRAP_END, {});
+          dispatcher.emit(EventType.ADAPTER_WRAP_END, {
+            adapterId: detectedAdapterName,
+            success: true,
+          });
           dispatcher.emit(EventType.STREAM_READY, {});
 
           // Track timing
@@ -660,8 +668,8 @@ export async function l0<TOutput = unknown>(
 
           if (!signal?.aborted) {
             dispatcher.emit(EventType.TIMEOUT_START, {
-              timeoutType: "initial_token",
-              durationMs: initialTimeout,
+              timeoutType: "initial",
+              configuredMs: initialTimeout,
             });
             initialTimeoutId = setTimeout(() => {
               initialTimeoutReached = true;
@@ -775,8 +783,7 @@ export async function l0<TOutput = unknown>(
                 // Switch from initial to inter-token timeout
                 const interTimeout = processedTimeout.interToken ?? 10000;
                 dispatcher.emit(EventType.TIMEOUT_RESET, {
-                  timeoutType: "inter_token",
-                  durationMs: interTimeout,
+                  configuredMs: interTimeout,
                 });
               }
 

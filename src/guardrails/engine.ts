@@ -49,10 +49,11 @@ export class GuardrailEngine {
   check(context: GuardrailContext): GuardrailResult {
     const violations: GuardrailViolation[] = [];
     const timestamp = Date.now();
+    const phase = context.completed ? "post" : "pre";
 
     // Emit phase start callback
     if (this.config.onPhaseStart) {
-      this.config.onPhaseStart(context.content.length, this.rules.length);
+      this.config.onPhaseStart(phase, this.rules.length, context.tokenCount);
     }
 
     // Execute each rule
@@ -100,9 +101,13 @@ export class GuardrailEngine {
           ]);
         }
 
-        // Emit rule end callback
+        // Emit rule end callback with passed status
         if (this.config.onRuleEnd) {
-          this.config.onRuleEnd(ruleIndex, rule.name);
+          this.config.onRuleEnd(
+            ruleIndex,
+            rule.name,
+            ruleViolations.length === 0,
+          );
         }
 
         // Stop on fatal if configured
@@ -122,18 +127,18 @@ export class GuardrailEngine {
           timestamp,
         });
 
-        // Emit rule end callback even on error
+        // Emit rule end callback even on error (passed = false)
         if (this.config.onRuleEnd) {
-          this.config.onRuleEnd(ruleIndex, rule.name);
+          this.config.onRuleEnd(ruleIndex, rule.name, false);
         }
       }
 
       ruleIndex++;
     }
 
-    // Emit phase end callback
+    // Emit phase end callback with passed status and violations
     if (this.config.onPhaseEnd) {
-      this.config.onPhaseEnd(this.rules.length, violations.length);
+      this.config.onPhaseEnd(phase, violations.length === 0, violations);
     }
 
     // Update state
