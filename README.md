@@ -40,7 +40,7 @@ npm install @ai2070/l0
 
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
-L0 includes 2,600+ tests covering all major reliability features.
+L0 includes 3,000+ tests covering all major reliability features.
 
 ```
    Any AI Stream                    L0 Layer                         Your App
@@ -107,7 +107,7 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 | **⚡ Tiny & Explicit**                           | 21KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
-| **🧪 Battle-Tested**                             | 2,600+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
+| **🧪 Battle-Tested**                             | 3,000+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
 ## Quick Start
 
@@ -280,7 +280,7 @@ for await (const event of result.stream) {
 | [Event Sourcing](#event-sourcing)                                     | Record/replay streams for testing and audit trails              |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
 | [Monitoring](#monitoring)                                             | Built-in OTel and Sentry integrations                           |
-| [Testing](#testing)                                                   | 2,600+ tests covering all features and SDK adapters             |
+| [Testing](#testing)                                                   | 3,000+ tests covering all features and SDK adapters             |
 
 ---
 
@@ -1820,7 +1820,7 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 
 | Category          | Tests  | Description                      |
 | ----------------- | ------ | -------------------------------- |
-| Unit Tests        | 2,600+ | Fast, mocked, no API calls       |
+| Unit Tests        | 3,000+ | Fast, mocked, no API calls       |
 | Integration Tests | 250+   | Real API calls, all SDK adapters |
 
 ```bash
