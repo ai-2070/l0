@@ -470,14 +470,14 @@ removeAnsi("\x1b[31mRed\x1b[0m"); // "Red"
 
 ### Context
 
-| Function                                     | Description                    |
-| -------------------------------------------- | ------------------------------ |
-| `formatContext(content, options)`            | Wrap content with delimiters   |
-| `formatMultipleContexts(items, options)`     | Format multiple contexts       |
-| `formatDocument(content, metadata, options)` | Format document with metadata  |
-| `formatInstructions(instructions, options)`  | Format system instructions     |
-| `escapeDelimiters(content, delimiter)`       | Escape delimiters for safety   |
-| `unescapeDelimiters(content, delimiter)`     | Unescape delimiters            |
+| Function                                     | Description                   |
+| -------------------------------------------- | ----------------------------- |
+| `formatContext(content, options)`            | Wrap content with delimiters  |
+| `formatMultipleContexts(items, options)`     | Format multiple contexts      |
+| `formatDocument(content, metadata, options)` | Format document with metadata |
+| `formatInstructions(instructions, options)`  | Format system instructions    |
+| `escapeDelimiters(content, delimiter)`       | Escape delimiters for safety  |
+| `unescapeDelimiters(content, delimiter)`     | Unescape delimiters           |
 
 ### Memory
 

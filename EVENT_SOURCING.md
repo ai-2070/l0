@@ -103,18 +103,18 @@ type L0RecordedEvent =
 
 ### Event Descriptions
 
-| Event          | Description                                            |
-| -------------- | ------------------------------------------------------ |
-| `START`        | Stream execution started with serialized options       |
-| `TOKEN`        | Token received from LLM stream                         |
-| `CHECKPOINT`   | Checkpoint saved for continuation support              |
-| `GUARDRAIL`    | Guardrail evaluation result (stored, not recomputed)   |
-| `DRIFT`        | Drift detection result (stored, not recomputed)        |
-| `RETRY`        | Retry triggered with reason and attempt count          |
-| `FALLBACK`     | Fallback to next stream in chain                       |
-| `CONTINUATION` | Resumed from checkpoint after failure                  |
-| `COMPLETE`     | Stream completed successfully                          |
-| `ERROR`        | Stream failed with error, failure type, and recovery   |
+| Event          | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `START`        | Stream execution started with serialized options     |
+| `TOKEN`        | Token received from LLM stream                       |
+| `CHECKPOINT`   | Checkpoint saved for continuation support            |
+| `GUARDRAIL`    | Guardrail evaluation result (stored, not recomputed) |
+| `DRIFT`        | Drift detection result (stored, not recomputed)      |
+| `RETRY`        | Retry triggered with reason and attempt count        |
+| `FALLBACK`     | Fallback to next stream in chain                     |
+| `CONTINUATION` | Resumed from checkpoint after failure                |
+| `COMPLETE`     | Stream completed successfully                        |
+| `ERROR`        | Stream failed with error, failure type, and recovery |
 
 ### Serialized Options
 
@@ -833,7 +833,10 @@ class MyEventStore extends BaseEventStoreWithSnapshots {
   async getSnapshot(streamId: string): Promise<L0Snapshot | null>;
 
   // Default implementation provided
-  async getSnapshotBefore(streamId: string, seq: number): Promise<L0Snapshot | null>;
+  async getSnapshotBefore(
+    streamId: string,
+    seq: number,
+  ): Promise<L0Snapshot | null>;
 }
 ```
 

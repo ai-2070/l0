@@ -106,7 +106,7 @@ authInterceptor(getAuth: () => Record<string, any> | Promise<Record<string, any>
 Enables detailed timing tracking:
 
 ```typescript
-timingInterceptor()
+timingInterceptor();
 
 // Sets monitoring.enabled = true, monitoring.includeTimings = true
 // Generates a sessionId and tracks start time
@@ -440,12 +440,12 @@ console.log("Active workers:", pool.getActiveWorkers());
 
 ### OperationPool Methods
 
-| Method              | Description                              |
-| ------------------- | ---------------------------------------- |
-| `execute(options)`  | Add operation to pool, returns Promise   |
-| `drain()`           | Wait for all operations to complete      |
-| `getQueueLength()`  | Get number of queued operations          |
-| `getActiveWorkers()`| Get number of currently active workers   |
+| Method               | Description                            |
+| -------------------- | -------------------------------------- |
+| `execute(options)`   | Add operation to pool, returns Promise |
+| `drain()`            | Wait for all operations to complete    |
+| `getQueueLength()`   | Get number of queued operations        |
+| `getActiveWorkers()` | Get number of currently active workers |
 
 ---
 
@@ -501,7 +501,10 @@ const result = await l0({
   stream: async () =>
     race([
       { stream: () => streamText({ model: openai("gpt-5-mini"), prompt }) },
-      { stream: () => streamText({ model: anthropic("claude-3-haiku"), prompt }) },
+      {
+        stream: () =>
+          streamText({ model: anthropic("claude-3-haiku"), prompt }),
+      },
     ]),
   fallbackStreams: [
     () => streamText({ model: openai("gpt-5-mini"), prompt }),

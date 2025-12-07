@@ -695,26 +695,26 @@ monitor.reset();
 
 ### L0Monitor Methods
 
-| Method                           | Description                                          |
-| -------------------------------- | ---------------------------------------------------- |
-| `start()`                        | Record stream start time                             |
-| `complete()`                     | Record stream completion, calculate final metrics    |
-| `recordToken(timestamp?)`        | Record a token received                              |
-| `recordNetworkError(err, retried, delay?)` | Record a network error                      |
-| `recordRetry(isNetworkError)`    | Record a retry attempt                               |
-| `recordGuardrailViolations(violations)` | Record guardrail violations                   |
-| `recordDrift(detected, types)`   | Record drift detection result                        |
-| `recordContinuation(enabled, used, content?)` | Record continuation usage               |
-| `logEvent(event)`                | Log custom event to metadata                         |
-| `getTelemetry()`                 | Get current telemetry (live reference)               |
-| `toJSON()`                       | Export telemetry as JSON string                      |
-| `export()`                       | Alias for getTelemetry()                             |
-| `getSummary()`                   | Get high-level summary statistics                    |
-| `getNetworkErrorBreakdown()`     | Get errors grouped by type                           |
-| `hasNetworkErrors()`             | Check if any network errors occurred                 |
-| `hasViolations()`                | Check if any guardrail violations occurred           |
-| `getMostCommonNetworkError()`    | Get the most frequent network error type             |
-| `reset()`                        | Reset telemetry for new execution                    |
+| Method                                        | Description                                       |
+| --------------------------------------------- | ------------------------------------------------- |
+| `start()`                                     | Record stream start time                          |
+| `complete()`                                  | Record stream completion, calculate final metrics |
+| `recordToken(timestamp?)`                     | Record a token received                           |
+| `recordNetworkError(err, retried, delay?)`    | Record a network error                            |
+| `recordRetry(isNetworkError)`                 | Record a retry attempt                            |
+| `recordGuardrailViolations(violations)`       | Record guardrail violations                       |
+| `recordDrift(detected, types)`                | Record drift detection result                     |
+| `recordContinuation(enabled, used, content?)` | Record continuation usage                         |
+| `logEvent(event)`                             | Log custom event to metadata                      |
+| `getTelemetry()`                              | Get current telemetry (live reference)            |
+| `toJSON()`                                    | Export telemetry as JSON string                   |
+| `export()`                                    | Alias for getTelemetry()                          |
+| `getSummary()`                                | Get high-level summary statistics                 |
+| `getNetworkErrorBreakdown()`                  | Get errors grouped by type                        |
+| `hasNetworkErrors()`                          | Check if any network errors occurred              |
+| `hasViolations()`                             | Check if any guardrail violations occurred        |
+| `getMostCommonNetworkError()`                 | Get the most frequent network error type          |
+| `reset()`                                     | Reset telemetry for new execution                 |
 
 ### Custom Metrics
 
@@ -1075,19 +1075,19 @@ sentry.completeExecution(result.telemetry);
 
 ### L0Sentry Methods
 
-| Method                                    | Description                          |
-| ----------------------------------------- | ------------------------------------ |
-| `startExecution(name?, metadata?)`        | Start tracking execution, returns span finish fn |
-| `startStream()`                           | Record stream start breadcrumb       |
-| `recordToken(token?)`                     | Record token breadcrumb (if enabled) |
-| `recordFirstToken(ttft)`                  | Record first token with TTFT         |
-| `recordNetworkError(error, type, retried)` | Record network error                |
-| `recordRetry(attempt, reason, isNetwork)` | Record retry attempt                 |
-| `recordGuardrailViolations(violations)`   | Record guardrail violations          |
-| `recordDrift(detected, types)`            | Record drift detection               |
-| `completeStream(tokenCount)`              | Record stream completion             |
-| `completeExecution(telemetry)`            | Complete execution with telemetry    |
-| `recordFailure(error, telemetry?)`        | Record execution failure             |
+| Method                                     | Description                                      |
+| ------------------------------------------ | ------------------------------------------------ |
+| `startExecution(name?, metadata?)`         | Start tracking execution, returns span finish fn |
+| `startStream()`                            | Record stream start breadcrumb                   |
+| `recordToken(token?)`                      | Record token breadcrumb (if enabled)             |
+| `recordFirstToken(ttft)`                   | Record first token with TTFT                     |
+| `recordNetworkError(error, type, retried)` | Record network error                             |
+| `recordRetry(attempt, reason, isNetwork)`  | Record retry attempt                             |
+| `recordGuardrailViolations(violations)`    | Record guardrail violations                      |
+| `recordDrift(detected, types)`             | Record drift detection                           |
+| `completeStream(tokenCount)`               | Record stream completion                         |
+| `completeExecution(telemetry)`             | Complete execution with telemetry                |
+| `recordFailure(error, telemetry?)`         | Record execution failure                         |
 
 ### Error Handling
 
@@ -1274,18 +1274,18 @@ SemanticAttributes.L0_TOKENS_PER_SECOND; // "l0.tokens_per_second"
 
 ### L0OpenTelemetry Methods
 
-| Method                              | Description                                     |
-| ----------------------------------- | ----------------------------------------------- |
-| `traceStream(name, fn, attrs?)`     | Trace an L0 stream operation                    |
-| `recordTelemetry(telemetry, span?)` | Record telemetry from completed operation       |
-| `recordToken(span?, content?)`      | Record token span event                         |
-| `recordRetry(reason, attempt, span?)` | Record retry span event                       |
-| `recordNetworkError(error, type, span?)` | Record network error span event            |
-| `recordGuardrailViolation(violation, span?)` | Record violation span event            |
-| `recordDrift(type, confidence, span?)` | Record drift span event                      |
-| `createSpan(name, attrs?)`          | Create a child span                             |
-| `connectMonitor(monitor)`           | Connect to L0Monitor for auto recording         |
-| `getActiveStreams()`                | Get current active stream count                 |
+| Method                                       | Description                               |
+| -------------------------------------------- | ----------------------------------------- |
+| `traceStream(name, fn, attrs?)`              | Trace an L0 stream operation              |
+| `recordTelemetry(telemetry, span?)`          | Record telemetry from completed operation |
+| `recordToken(span?, content?)`               | Record token span event                   |
+| `recordRetry(reason, attempt, span?)`        | Record retry span event                   |
+| `recordNetworkError(error, type, span?)`     | Record network error span event           |
+| `recordGuardrailViolation(violation, span?)` | Record violation span event               |
+| `recordDrift(type, confidence, span?)`       | Record drift span event                   |
+| `createSpan(name, attrs?)`                   | Create a child span                       |
+| `connectMonitor(monitor)`                    | Connect to L0Monitor for auto recording   |
+| `getActiveStreams()`                         | Get current active stream count           |
 
 ### Manual Tracing
 
@@ -1362,7 +1362,7 @@ Trace: l0.stream (1.5s)
 ├── Events:
 │   ├── retry { retry.reason: "rate_limit", retry.attempt: 1 } (t=100ms)
 │   ├── guardrail_violation { guardrail.rule: "json", guardrail.severity: "warning" } (t=800ms)
-│   └── ... 
+│   └── ...
 └── Status: OK
 ```
 
