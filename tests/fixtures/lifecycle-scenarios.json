@@ -263,7 +263,11 @@
     "onFallback": "(index: number, reason: string) => void",
     "onCheckpoint": "(checkpoint: string, tokenCount: number) => void",
     "onResume": "(checkpoint: string, tokenCount: number) => void",
-    "onAbort": "(tokenCount: number, contentLength: number) => void"
+    "onAbort": "(tokenCount: number, contentLength: number) => void",
+    "onTimeout": "(type: 'initial' | 'inter', elapsedMs: number) => void",
+    "onViolation": "(violation: GuardrailViolation) => void",
+    "onDrift": "(types: string[], confidence?: number) => void",
+    "onToolCall": "(toolName: string, toolCallId: string, args: Record<string, unknown>) => void"
   },
   "criticalInvariants": [
     "SESSION_START is emitted exactly ONCE per session (anchor event)",
