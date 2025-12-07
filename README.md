@@ -40,7 +40,7 @@ npm install @ai2070/l0
 
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
-L0 includes 2,600+ tests covering all major reliability features.
+L0 includes 3,000+ tests covering all major reliability features.
 
 ```
    Any AI Stream                    L0 Layer                         Your App
@@ -107,7 +107,7 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 | **⚡ Tiny & Explicit**                           | 21KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
-| **🧪 Battle-Tested**                             | 2,600+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
+| **🧪 Battle-Tested**                             | 3,000+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
 ## Quick Start
 
@@ -280,7 +280,7 @@ for await (const event of result.stream) {
 | [Event Sourcing](#event-sourcing)                                     | Record/replay streams for testing and audit trails              |
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
 | [Monitoring](#monitoring)                                             | Built-in OTel and Sentry integrations                           |
-| [Testing](#testing)                                                   | 2,600+ tests covering all features and SDK adapters             |
+| [Testing](#testing)                                                   | 3,000+ tests covering all features and SDK adapters             |
 
 ---
 
@@ -1366,13 +1366,13 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 
 ```typescript
 {
-  type: ("ADAPTER_DETECTED", ts, adapter, provider, version);
+  type: ("ADAPTER_WRAP_START", ts, streamType, adapterId?);
 }
 {
-  type: ("ADAPTER_WRAP_START", ts, adapter);
+  type: ("ADAPTER_DETECTED", ts, adapterId);
 }
 {
-  type: ("ADAPTER_WRAP_END", ts, adapter, durationMs);
+  type: ("ADAPTER_WRAP_END", ts, adapterId);
 }
 ```
 
@@ -1380,13 +1380,13 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 
 ```typescript
 {
-  type: ("TIMEOUT_START", ts, type, durationMs);
-} // type: initial|inter-token
+  type: ("TIMEOUT_START", ts, timeoutType, configuredMs);
+} // timeoutType: initial|inter
 {
-  type: ("TIMEOUT_RESET", ts, type, tokenIndex);
+  type: ("TIMEOUT_RESET", ts, timeoutType, configuredMs, tokenIndex);
 } // timer reset on token
 {
-  type: ("TIMEOUT_TRIGGERED", ts, type, elapsed);
+  type: ("TIMEOUT_TRIGGERED", ts, timeoutType, elapsedMs, configuredMs);
 } // before error event
 ```
 
@@ -1394,7 +1394,7 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 
 ```typescript
 {
-  type: ("NETWORK_ERROR", ts, error, code, retryable);
+  type: ("NETWORK_ERROR", ts, error, code, willRetry);
 }
 {
   type: ("NETWORK_RECOVERY", ts, attemptCount, durationMs);
@@ -1433,13 +1433,13 @@ L0 emits structured lifecycle events for every phase of execution. These events 
 
 ```typescript
 // Phase boundary events
-{ type: "GUARDRAIL_PHASE_START", ts, callbackId, contextSize, ruleCount }
-{ type: "GUARDRAIL_PHASE_END", ts, callbackId, ruleCount, durationMs }
+{ type: "GUARDRAIL_PHASE_START", ts, phase, ruleCount }  // phase: pre|post
+{ type: "GUARDRAIL_PHASE_END", ts, phase, passed, violations, durationMs }
 
 // Per-rule lifecycle
 { type: "GUARDRAIL_RULE_START", ts, index, ruleId, callbackId }
-{ type: "GUARDRAIL_RULE_RESULT", ts, index, ruleId, callbackId, result }
-{ type: "GUARDRAIL_RULE_END", ts, index, ruleId, callbackId, durationMs }
+{ type: "GUARDRAIL_RULE_RESULT", ts, index, ruleId, passed, violation? }
+{ type: "GUARDRAIL_RULE_END", ts, index, ruleId, passed, callbackId, durationMs }
 
 // Callback lifecycle (for async/external guardrails)
 { type: "GUARDRAIL_CALLBACK_START", ts, callbackId, index, ruleId }
@@ -1820,7 +1820,7 @@ L0 ships with **comprehensive test coverage** across all core reliability system
 
 | Category          | Tests  | Description                      |
 | ----------------- | ------ | -------------------------------- |
-| Unit Tests        | 2,600+ | Fast, mocked, no API calls       |
+| Unit Tests        | 3,000+ | Fast, mocked, no API calls       |
 | Integration Tests | 250+   | Real API calls, all SDK adapters |
 
 ```bash

@@ -188,22 +188,37 @@ export interface GuardrailConfig {
   /**
    * Callback when guardrail phase starts
    */
-  onPhaseStart?: (contextSize: number, ruleCount: number) => void;
+  onPhaseStart?: (
+    phase: "pre" | "post",
+    ruleCount: number,
+    tokenCount: number,
+  ) => void;
 
   /**
    * Callback when guardrail phase ends
    */
-  onPhaseEnd?: (ruleCount: number, violationCount: number) => void;
+  onPhaseEnd?: (
+    phase: "pre" | "post",
+    passed: boolean,
+    violations: GuardrailViolation[],
+    durationMs: number,
+  ) => void;
 
   /**
    * Callback when a rule starts
    */
-  onRuleStart?: (index: number, ruleId: string) => void;
+  onRuleStart?: (index: number, ruleId: string, callbackId: string) => void;
 
   /**
    * Callback when a rule ends
    */
-  onRuleEnd?: (index: number, ruleId: string) => void;
+  onRuleEnd?: (
+    index: number,
+    ruleId: string,
+    passed: boolean,
+    callbackId: string,
+    durationMs: number,
+  ) => void;
 }
 
 /**

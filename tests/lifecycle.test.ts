@@ -2177,11 +2177,12 @@ describe("Lifecycle: Guardrail Phase Events", () => {
     expect(phaseStarts.length).toBeGreaterThan(0);
 
     const firstStart = phaseStarts[0]!;
-    expect(typeof firstStart.data.contextSize).toBe("number");
+    // Canonical spec requires: phase, ruleCount
+    expect(firstStart.data.phase).toMatch(/^(pre|post)$/);
     expect(firstStart.data.ruleCount).toBe(2);
   });
 
-  it("should include ruleCount and violationCount in GUARDRAIL_PHASE_END", async () => {
+  it("should include phase, passed, and violations in GUARDRAIL_PHASE_END", async () => {
     const collector = createEventCollector();
 
     const violatingRule: GuardrailRule = {
@@ -2215,13 +2216,17 @@ describe("Lifecycle: Guardrail Phase Events", () => {
     const phaseEnds = collector.getEventsOfType(EventType.GUARDRAIL_PHASE_END);
     expect(phaseEnds.length).toBeGreaterThan(0);
 
+    // Canonical spec requires: phase, passed, violations
     // Find a phase end with violations
     const withViolations = phaseEnds.find(
-      (e) => (e.data.violationCount as number) > 0,
+      (e) =>
+        Array.isArray(e.data.violations) &&
+        (e.data.violations as unknown[]).length > 0,
     );
     expect(withViolations).toBeDefined();
-    expect(withViolations!.data.ruleCount).toBe(1);
-    expect(typeof withViolations!.data.violationCount).toBe("number");
+    expect(withViolations!.data.phase).toMatch(/^(pre|post)$/);
+    expect(withViolations!.data.passed).toBe(false);
+    expect(Array.isArray(withViolations!.data.violations)).toBe(true);
   });
 
   it("should emit GUARDRAIL_RULE_START and GUARDRAIL_RULE_END for each rule", async () => {
@@ -2597,7 +2602,8 @@ describe("Lifecycle: Adapter Events", () => {
       EventType.ADAPTER_DETECTED,
     );
     expect(adapterDetected.length).toBeGreaterThan(0);
-    expect(typeof adapterDetected[0]!.data.adapter).toBe("string");
+    // Canonical spec requires: adapterId (not adapter)
+    expect(typeof adapterDetected[0]!.data.adapterId).toBe("string");
   });
 
   it("should emit adapter events in order: WRAP_START -> DETECTED -> WRAP_END", async () => {

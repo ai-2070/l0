@@ -882,9 +882,10 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   describe("ADAPTER_WRAP_START field schema", () => {
     const fields = events.ADAPTER_WRAP_START.fields as FieldSchema[];
 
-    it("should have exactly these fields: streamType", () => {
+    it("should have exactly these fields: streamType, adapterId?", () => {
       validateExactFields(fields, [
         { name: "streamType", type: "string", required: true },
+        { name: "adapterId", type: "string", required: false },
       ]);
     });
   });
@@ -902,10 +903,9 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   describe("ADAPTER_WRAP_END field schema", () => {
     const fields = events.ADAPTER_WRAP_END.fields as FieldSchema[];
 
-    it("should have exactly these fields: adapterId, success", () => {
+    it("should have exactly these fields: adapterId", () => {
       validateExactFields(fields, [
         { name: "adapterId", type: "string", required: true },
-        { name: "success", type: "boolean", required: true },
       ]);
     });
   });
@@ -933,10 +933,20 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   describe("TIMEOUT_RESET field schema", () => {
     const fields = events.TIMEOUT_RESET.fields as FieldSchema[];
 
-    it("should have exactly these fields: configuredMs", () => {
+    it("should have exactly these fields: timeoutType, configuredMs, tokenIndex", () => {
       validateExactFields(fields, [
+        { name: "timeoutType", type: "string", required: true },
         { name: "configuredMs", type: "number", required: true },
+        { name: "tokenIndex", type: "number", required: true },
       ]);
+    });
+
+    it("timeoutType should have enum constraint", () => {
+      const field = fields.find((f) => f.name === "timeoutType");
+      expect(field!.enum).toBeDefined();
+      expect(field!.enum).toContain("initial");
+      expect(field!.enum).toContain("inter");
+      expect(field!.enum!.length).toBe(2);
     });
   });
 
@@ -1125,10 +1135,11 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   describe("GUARDRAIL_RULE_START field schema", () => {
     const fields = events.GUARDRAIL_RULE_START.fields as FieldSchema[];
 
-    it("should have exactly these fields: index, ruleId", () => {
+    it("should have exactly these fields: index, ruleId, callbackId", () => {
       validateExactFields(fields, [
         { name: "index", type: "number", required: true },
         { name: "ruleId", type: "string", required: true },
+        { name: "callbackId", type: "string", required: true },
       ]);
     });
   });
@@ -1149,11 +1160,13 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   describe("GUARDRAIL_RULE_END field schema", () => {
     const fields = events.GUARDRAIL_RULE_END.fields as FieldSchema[];
 
-    it("should have exactly these fields: index, ruleId, passed", () => {
+    it("should have exactly these fields: index, ruleId, passed, callbackId, durationMs", () => {
       validateExactFields(fields, [
         { name: "index", type: "number", required: true },
         { name: "ruleId", type: "string", required: true },
         { name: "passed", type: "boolean", required: true },
+        { name: "callbackId", type: "string", required: true },
+        { name: "durationMs", type: "number", required: true },
       ]);
     });
   });
@@ -1161,11 +1174,12 @@ describe("Canonical Spec: Observability Event Field Schemas", () => {
   describe("GUARDRAIL_PHASE_END field schema", () => {
     const fields = events.GUARDRAIL_PHASE_END.fields as FieldSchema[];
 
-    it("should have exactly these fields: phase, passed, violations", () => {
+    it("should have exactly these fields: phase, passed, violations, durationMs", () => {
       validateExactFields(fields, [
         { name: "phase", type: "string", required: true },
         { name: "passed", type: "boolean", required: true },
         { name: "violations", type: "GuardrailViolation[]", required: true },
+        { name: "durationMs", type: "number", required: true },
       ]);
     });
 

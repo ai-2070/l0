@@ -273,6 +273,12 @@
               "type": "string",
               "required": true,
               "description": "typeof stream"
+            },
+            {
+              "name": "adapterId",
+              "type": "string",
+              "required": false,
+              "description": "Adapter identifier if known at start"
             }
           ]
         },
@@ -295,12 +301,6 @@
               "type": "string",
               "required": true,
               "description": "Adapter identifier"
-            },
-            {
-              "name": "success",
-              "type": "boolean",
-              "required": true,
-              "description": "Whether wrapping succeeded"
             }
           ]
         },
@@ -326,10 +326,23 @@
           "description": "Emitted when inter-token timeout is reset",
           "fields": [
             {
+              "name": "timeoutType",
+              "type": "string",
+              "required": true,
+              "enum": ["initial", "inter"],
+              "description": "Type of timeout being reset"
+            },
+            {
               "name": "configuredMs",
               "type": "number",
               "required": true,
               "description": "Configured timeout in milliseconds"
+            },
+            {
+              "name": "tokenIndex",
+              "type": "number",
+              "required": true,
+              "description": "Index of token that triggered reset"
             }
           ]
         },
@@ -584,6 +597,12 @@
               "type": "string",
               "required": true,
               "description": "Rule identifier"
+            },
+            {
+              "name": "callbackId",
+              "type": "string",
+              "required": true,
+              "description": "Unique callback identifier for correlation"
             }
           ]
         },
@@ -636,6 +655,18 @@
               "type": "boolean",
               "required": true,
               "description": "Whether the rule passed"
+            },
+            {
+              "name": "callbackId",
+              "type": "string",
+              "required": true,
+              "description": "Unique callback identifier for correlation"
+            },
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Rule evaluation duration in milliseconds"
             }
           ]
         },
@@ -660,6 +691,12 @@
               "type": "GuardrailViolation[]",
               "required": true,
               "description": "List of violations"
+            },
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Phase evaluation duration in milliseconds"
             }
           ]
         },
