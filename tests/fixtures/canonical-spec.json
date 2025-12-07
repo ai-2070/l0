@@ -693,6 +693,50 @@
         ],
         "triggeredBy": ["GUARDRAIL_RULE_RESULT (when passed=false)"],
         "notes": ["Called for each guardrail violation"]
+      },
+      "onDrift": {
+        "signature": "(types: string[], confidence?: number) => void",
+        "parameters": [
+          {
+            "name": "types",
+            "type": "string[]",
+            "required": true,
+            "description": "Array of detected drift type identifiers"
+          },
+          {
+            "name": "confidence",
+            "type": "number",
+            "required": false,
+            "description": "Confidence score of the drift detection (0-1)"
+          }
+        ],
+        "triggeredBy": ["DRIFT_DETECTED"],
+        "notes": ["Called when semantic drift is detected in output"]
+      },
+      "onToolCall": {
+        "signature": "(toolName: string, toolCallId: string, args: Record<string, unknown>) => void",
+        "parameters": [
+          {
+            "name": "toolName",
+            "type": "string",
+            "required": true,
+            "description": "Name of the tool being called"
+          },
+          {
+            "name": "toolCallId",
+            "type": "string",
+            "required": true,
+            "description": "Unique identifier for the tool call"
+          },
+          {
+            "name": "args",
+            "type": "Record<string, unknown>",
+            "required": true,
+            "description": "Arguments passed to the tool"
+          }
+        ],
+        "triggeredBy": ["TOOL_CALL"],
+        "notes": ["Called when a tool call is detected in the stream"]
       }
     }
   },

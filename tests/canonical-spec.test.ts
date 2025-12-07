@@ -631,6 +631,42 @@ describe("Canonical Spec: Callback Parameter Schemas", () => {
       expect(param!.shape!.severity).toBeDefined();
     });
   });
+
+  describe("onDrift parameter schema", () => {
+    const params = callbacks.onDrift.parameters as ParameterSchema[];
+
+    it("should have exactly these parameters: types, confidence", () => {
+      validateExactParameters(params, [
+        { name: "types", type: "string[]" },
+        { name: "confidence", type: "number" },
+      ]);
+    });
+
+    it("types should be required, confidence should be optional", () => {
+      const typesParam = params.find((p) => p.name === "types");
+      const confidenceParam = params.find((p) => p.name === "confidence");
+      expect(typesParam!.required).toBe(true);
+      expect(confidenceParam!.required).toBe(false);
+    });
+  });
+
+  describe("onToolCall parameter schema", () => {
+    const params = callbacks.onToolCall.parameters as ParameterSchema[];
+
+    it("should have exactly these parameters: toolName, toolCallId, args", () => {
+      validateExactParameters(params, [
+        { name: "toolName", type: "string" },
+        { name: "toolCallId", type: "string" },
+        { name: "args", type: "Record<string, unknown>" },
+      ]);
+    });
+
+    it("all parameters should be required", () => {
+      for (const param of params) {
+        expect(param.required, `${param.name} should be required`).toBe(true);
+      }
+    });
+  });
 });
 
 // ============================================================================

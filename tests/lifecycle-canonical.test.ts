@@ -936,6 +936,30 @@ describe("Callback Parameter Runtime Validation", () => {
         "(tokenCount: number, contentLength: number) => void",
       );
     });
+
+    it("onTimeout signature should match: (type: 'initial' | 'inter', elapsedMs: number) => void", () => {
+      expect(callbackSpec.onTimeout).toBe(
+        "(type: 'initial' | 'inter', elapsedMs: number) => void",
+      );
+    });
+
+    it("onViolation signature should match: (violation: GuardrailViolation) => void", () => {
+      expect(callbackSpec.onViolation).toBe(
+        "(violation: GuardrailViolation) => void",
+      );
+    });
+
+    it("onDrift signature should match: (types: string[], confidence?: number) => void", () => {
+      expect(callbackSpec.onDrift).toBe(
+        "(types: string[], confidence?: number) => void",
+      );
+    });
+
+    it("onToolCall signature should match: (toolName: string, toolCallId: string, args: Record<string, unknown>) => void", () => {
+      expect(callbackSpec.onToolCall).toBe(
+        "(toolName: string, toolCallId: string, args: Record<string, unknown>) => void",
+      );
+    });
   });
 });
 
