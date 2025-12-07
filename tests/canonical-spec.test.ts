@@ -84,8 +84,8 @@ describe("Canonical Spec: L0Error", () => {
     });
 
     it("should include context for user-provided data", () => {
-      const error = new L0Error("Network error", {
-        code: L0ErrorCodes.NETWORK_ERROR,
+      const error = new L0Error("Timeout error", {
+        code: L0ErrorCodes.INITIAL_TOKEN_TIMEOUT,
         context: {
           requestId: "req-456",
           userId: "user-789",
