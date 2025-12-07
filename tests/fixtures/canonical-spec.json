@@ -155,213 +155,1034 @@
     "observabilityEvents": {
       "description": "Events emitted via EventDispatcher for monitoring/observability",
       "baseShape": {
-        "type": { "type": "EventType", "description": "Event type identifier" },
-        "ts": { "type": "number", "description": "Unix timestamp" },
+        "type": {
+          "type": "EventType",
+          "description": "Event type identifier",
+          "required": true
+        },
+        "ts": {
+          "type": "number",
+          "description": "Unix timestamp",
+          "required": true
+        },
         "streamId": {
           "type": "string",
-          "description": "UUID v7 for session correlation"
+          "description": "UUID v7 for session correlation",
+          "required": true
         },
         "context": {
           "type": "Record<string, unknown>",
-          "description": "User-provided context (deeply cloned, immutable)"
+          "description": "User-provided context (deeply cloned, immutable)",
+          "required": false
         }
       },
       "events": {
         "SESSION_START": {
           "description": "Emitted exactly ONCE at session start (anchor event)",
-          "additionalFields": {
-            "attempt": "number (always 1)",
-            "isRetry": "boolean (always false)",
-            "isFallback": "boolean (always false)"
-          }
+          "fields": [
+            {
+              "name": "attempt",
+              "type": "number",
+              "required": true,
+              "description": "Always 1 for session start"
+            },
+            {
+              "name": "isRetry",
+              "type": "boolean",
+              "required": true,
+              "description": "Always false for session start"
+            },
+            {
+              "name": "isFallback",
+              "type": "boolean",
+              "required": true,
+              "description": "Always false for session start"
+            }
+          ]
         },
         "STREAM_INIT": {
           "description": "Emitted when stream iteration begins",
-          "additionalFields": {}
+          "fields": []
+        },
+        "STREAM_READY": {
+          "description": "Emitted when connection is established and ready to emit",
+          "fields": []
+        },
+        "SESSION_END": {
+          "description": "Hard end-of-stream marker",
+          "fields": []
+        },
+        "SESSION_SUMMARY": {
+          "description": "Final session summary for replay",
+          "fields": [
+            {
+              "name": "tokenCount",
+              "type": "number",
+              "required": true,
+              "description": "Total tokens processed"
+            },
+            {
+              "name": "startTs",
+              "type": "number",
+              "required": true,
+              "description": "Session start timestamp"
+            },
+            {
+              "name": "endTs",
+              "type": "number",
+              "required": true,
+              "description": "Session end timestamp"
+            },
+            {
+              "name": "driftDetected",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether drift was detected"
+            },
+            {
+              "name": "guardrailViolations",
+              "type": "number",
+              "required": true,
+              "description": "Count of guardrail violations"
+            },
+            {
+              "name": "fallbackDepth",
+              "type": "number",
+              "required": true,
+              "description": "Maximum fallback index used"
+            },
+            {
+              "name": "retryCount",
+              "type": "number",
+              "required": true,
+              "description": "Total retry attempts"
+            },
+            {
+              "name": "checkpointsCreated",
+              "type": "number",
+              "required": true,
+              "description": "Number of checkpoints saved"
+            }
+          ]
         },
         "ADAPTER_WRAP_START": {
           "description": "Emitted when adapter detection/wrapping starts",
-          "additionalFields": {
-            "streamType": "string (typeof stream)"
-          }
+          "fields": [
+            {
+              "name": "streamType",
+              "type": "string",
+              "required": true,
+              "description": "typeof stream"
+            }
+          ]
         },
         "ADAPTER_DETECTED": {
           "description": "Emitted when an adapter is matched to the stream",
-          "additionalFields": {
-            "adapterId": "string"
-          }
+          "fields": [
+            {
+              "name": "adapterId",
+              "type": "string",
+              "required": true,
+              "description": "Adapter identifier"
+            }
+          ]
         },
         "ADAPTER_WRAP_END": {
           "description": "Emitted when adapter wrapping completes",
-          "additionalFields": {
-            "adapterId": "string",
-            "success": "boolean"
-          }
+          "fields": [
+            {
+              "name": "adapterId",
+              "type": "string",
+              "required": true,
+              "description": "Adapter identifier"
+            },
+            {
+              "name": "success",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether wrapping succeeded"
+            }
+          ]
         },
         "TIMEOUT_START": {
           "description": "Emitted when a timeout timer starts",
-          "additionalFields": {
-            "timeoutType": "'initial' | 'inter'",
-            "configuredMs": "number"
-          }
+          "fields": [
+            {
+              "name": "timeoutType",
+              "type": "string",
+              "required": true,
+              "enum": ["initial", "inter"],
+              "description": "Type of timeout"
+            },
+            {
+              "name": "configuredMs",
+              "type": "number",
+              "required": true,
+              "description": "Configured timeout in milliseconds"
+            }
+          ]
         },
         "TIMEOUT_RESET": {
           "description": "Emitted when inter-token timeout is reset",
-          "additionalFields": {
-            "configuredMs": "number"
-          }
+          "fields": [
+            {
+              "name": "configuredMs",
+              "type": "number",
+              "required": true,
+              "description": "Configured timeout in milliseconds"
+            }
+          ]
         },
         "TIMEOUT_TRIGGERED": {
           "description": "Emitted when timeout fires",
-          "additionalFields": {
-            "timeoutType": "'initial' | 'inter'",
-            "elapsedMs": "number",
-            "configuredMs": "number"
-          }
+          "fields": [
+            {
+              "name": "timeoutType",
+              "type": "string",
+              "required": true,
+              "enum": ["initial", "inter"],
+              "description": "Type of timeout"
+            },
+            {
+              "name": "elapsedMs",
+              "type": "number",
+              "required": true,
+              "description": "Time elapsed before timeout"
+            },
+            {
+              "name": "configuredMs",
+              "type": "number",
+              "required": true,
+              "description": "Configured timeout in milliseconds"
+            }
+          ]
         },
-        "ATTEMPT_START": {
-          "description": "Emitted for retry attempts only (not initial, not fallbacks)",
-          "additionalFields": {
-            "attempt": "number (2+)",
-            "isRetry": "boolean (always true)",
-            "isFallback": "boolean (always false)"
-          }
+        "NETWORK_ERROR": {
+          "description": "Emitted when a network error occurs",
+          "fields": [
+            {
+              "name": "error",
+              "type": "string",
+              "required": true,
+              "description": "Error message"
+            },
+            {
+              "name": "code",
+              "type": "string",
+              "required": false,
+              "description": "Error code if available"
+            },
+            {
+              "name": "retryable",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether the error is retryable"
+            }
+          ]
         },
-        "RETRY_START": {
-          "description": "Emitted when retry loop begins",
-          "additionalFields": {
-            "maxAttempts": "number"
-          }
+        "NETWORK_RECOVERY": {
+          "description": "Emitted when network recovers after error",
+          "fields": [
+            {
+              "name": "attemptCount",
+              "type": "number",
+              "required": true,
+              "description": "Number of recovery attempts"
+            },
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Time to recover in milliseconds"
+            }
+          ]
         },
-        "RETRY_ATTEMPT": {
-          "description": "Emitted before ATTEMPT_START when retry is triggered",
-          "additionalFields": {
-            "attempt": "number",
-            "maxAttempts": "number",
-            "reason": "string",
-            "delayMs": "number"
-          }
+        "CONNECTION_DROPPED": {
+          "description": "Emitted when connection is dropped",
+          "fields": [
+            {
+              "name": "reason",
+              "type": "string",
+              "required": true,
+              "description": "Reason for connection drop"
+            }
+          ]
         },
-        "RETRY_END": {
-          "description": "Emitted when retry loop completes successfully",
-          "additionalFields": {
-            "attempt": "number",
-            "success": "boolean (always true)"
-          }
+        "CONNECTION_RESTORED": {
+          "description": "Emitted when connection is restored",
+          "fields": [
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Time connection was down in milliseconds"
+            }
+          ]
         },
-        "RETRY_GIVE_UP": {
-          "description": "Emitted when all retry attempts exhausted",
-          "additionalFields": {
-            "attempt": "number",
-            "maxAttempts": "number",
-            "reason": "string"
-          }
-        },
-        "FALLBACK_START": {
-          "description": "Emitted when switching to fallback stream",
-          "additionalFields": {
-            "fromIndex": "number (previous stream index)",
-            "toIndex": "number (new stream index)"
-          }
-        },
-        "FALLBACK_MODEL_SELECTED": {
-          "description": "Emitted when a fallback model is selected",
-          "additionalFields": {
-            "index": "number",
-            "reason": "string"
-          }
-        },
-        "FALLBACK_END": {
-          "description": "Emitted when fallback sequence completes",
-          "additionalFields": {
-            "success": "boolean",
-            "finalIndex": "number"
-          }
-        },
-        "CONTINUATION_START": {
-          "description": "Emitted when continuation from checkpoint begins",
-          "additionalFields": {
-            "checkpoint": "string",
-            "tokenCount": "number"
-          }
-        },
-        "CHECKPOINT_SAVED": {
-          "description": "Emitted when checkpoint is saved",
-          "additionalFields": {
-            "checkpoint": "string",
-            "tokenCount": "number"
-          }
-        },
-        "RESUME_START": {
-          "description": "Emitted when resuming from checkpoint",
-          "additionalFields": {
-            "checkpoint": "string",
-            "tokenCount": "number"
-          }
-        },
-        "GUARDRAIL_PHASE_START": {
-          "description": "Emitted when guardrail phase begins",
-          "additionalFields": {
-            "phase": "'pre' | 'post'",
-            "ruleCount": "number"
-          }
-        },
-        "GUARDRAIL_RULE_START": {
-          "description": "Emitted before each guardrail rule evaluation",
-          "additionalFields": {
-            "index": "number",
-            "ruleId": "string"
-          }
-        },
-        "GUARDRAIL_RULE_RESULT": {
-          "description": "Emitted after guardrail rule evaluation",
-          "additionalFields": {
-            "index": "number",
-            "ruleId": "string",
-            "passed": "boolean",
-            "violation": "GuardrailViolation | undefined"
-          }
-        },
-        "GUARDRAIL_RULE_END": {
-          "description": "Emitted after guardrail rule completes",
-          "additionalFields": {
-            "index": "number",
-            "ruleId": "string",
-            "passed": "boolean"
-          }
-        },
-        "GUARDRAIL_PHASE_END": {
-          "description": "Emitted when guardrail phase completes",
-          "additionalFields": {
-            "phase": "'pre' | 'post'",
-            "passed": "boolean",
-            "violations": "GuardrailViolation[]"
-          }
-        },
-        "ERROR": {
-          "description": "Emitted when error occurs",
-          "additionalFields": {
-            "error": "string (error message)",
-            "errorCode": "string | undefined",
-            "failureType": "FailureType",
-            "recoveryStrategy": "RecoveryStrategy",
-            "policy": "RecoveryPolicy"
-          }
-        },
-        "COMPLETE": {
-          "description": "Emitted on successful completion",
-          "additionalFields": {
-            "tokenCount": "number",
-            "contentLength": "number",
-            "state": "L0State | undefined"
-          }
+        "ABORT_REQUESTED": {
+          "description": "Emitted when abort is requested",
+          "fields": [
+            {
+              "name": "source",
+              "type": "string",
+              "required": true,
+              "enum": ["user", "timeout", "error"],
+              "description": "Source of abort request"
+            }
+          ]
         },
         "ABORT_COMPLETED": {
           "description": "Emitted when stream abort completes",
-          "additionalFields": {
-            "tokenCount": "number",
-            "contentLength": "number"
-          }
+          "fields": [
+            {
+              "name": "tokenCount",
+              "type": "number",
+              "required": true,
+              "description": "Tokens processed before abort"
+            },
+            {
+              "name": "contentLength",
+              "type": "number",
+              "required": true,
+              "description": "Content length at abort"
+            }
+          ]
+        },
+        "TOOL_REQUESTED": {
+          "description": "Emitted when model requests tool execution",
+          "fields": [
+            {
+              "name": "toolName",
+              "type": "string",
+              "required": true,
+              "description": "Name of the tool"
+            },
+            {
+              "name": "toolCallId",
+              "type": "string",
+              "required": true,
+              "description": "Unique tool call identifier"
+            },
+            {
+              "name": "arguments",
+              "type": "Record<string, unknown>",
+              "required": true,
+              "description": "Tool arguments"
+            }
+          ]
+        },
+        "TOOL_START": {
+          "description": "Emitted when tool execution starts",
+          "fields": [
+            {
+              "name": "toolCallId",
+              "type": "string",
+              "required": true,
+              "description": "Unique tool call identifier"
+            },
+            {
+              "name": "toolName",
+              "type": "string",
+              "required": true,
+              "description": "Name of the tool"
+            }
+          ]
+        },
+        "TOOL_RESULT": {
+          "description": "Emitted when tool execution returns a result",
+          "fields": [
+            {
+              "name": "toolCallId",
+              "type": "string",
+              "required": true,
+              "description": "Unique tool call identifier"
+            },
+            {
+              "name": "result",
+              "type": "unknown",
+              "required": true,
+              "description": "Tool execution result"
+            },
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Execution duration in milliseconds"
+            }
+          ]
+        },
+        "TOOL_ERROR": {
+          "description": "Emitted when tool execution fails",
+          "fields": [
+            {
+              "name": "toolCallId",
+              "type": "string",
+              "required": true,
+              "description": "Unique tool call identifier"
+            },
+            {
+              "name": "error",
+              "type": "string",
+              "required": true,
+              "description": "Error message"
+            },
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Execution duration in milliseconds"
+            }
+          ]
+        },
+        "TOOL_COMPLETED": {
+          "description": "Emitted when tool execution completes (success or error)",
+          "fields": [
+            {
+              "name": "toolCallId",
+              "type": "string",
+              "required": true,
+              "description": "Unique tool call identifier"
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "required": true,
+              "enum": ["success", "error"],
+              "description": "Completion status"
+            }
+          ]
+        },
+        "GUARDRAIL_PHASE_START": {
+          "description": "Emitted when guardrail phase begins",
+          "fields": [
+            {
+              "name": "phase",
+              "type": "string",
+              "required": true,
+              "enum": ["pre", "post"],
+              "description": "Guardrail phase"
+            },
+            {
+              "name": "ruleCount",
+              "type": "number",
+              "required": true,
+              "description": "Number of rules to evaluate"
+            }
+          ]
+        },
+        "GUARDRAIL_RULE_START": {
+          "description": "Emitted before each guardrail rule evaluation",
+          "fields": [
+            {
+              "name": "index",
+              "type": "number",
+              "required": true,
+              "description": "Rule index"
+            },
+            {
+              "name": "ruleId",
+              "type": "string",
+              "required": true,
+              "description": "Rule identifier"
+            }
+          ]
+        },
+        "GUARDRAIL_RULE_RESULT": {
+          "description": "Emitted after guardrail rule evaluation",
+          "fields": [
+            {
+              "name": "index",
+              "type": "number",
+              "required": true,
+              "description": "Rule index"
+            },
+            {
+              "name": "ruleId",
+              "type": "string",
+              "required": true,
+              "description": "Rule identifier"
+            },
+            {
+              "name": "passed",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether the rule passed"
+            },
+            {
+              "name": "violation",
+              "type": "GuardrailViolation",
+              "required": false,
+              "description": "Violation details if failed"
+            }
+          ]
+        },
+        "GUARDRAIL_RULE_END": {
+          "description": "Emitted after guardrail rule completes",
+          "fields": [
+            {
+              "name": "index",
+              "type": "number",
+              "required": true,
+              "description": "Rule index"
+            },
+            {
+              "name": "ruleId",
+              "type": "string",
+              "required": true,
+              "description": "Rule identifier"
+            },
+            {
+              "name": "passed",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether the rule passed"
+            }
+          ]
+        },
+        "GUARDRAIL_PHASE_END": {
+          "description": "Emitted when guardrail phase completes",
+          "fields": [
+            {
+              "name": "phase",
+              "type": "string",
+              "required": true,
+              "enum": ["pre", "post"],
+              "description": "Guardrail phase"
+            },
+            {
+              "name": "passed",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether all rules passed"
+            },
+            {
+              "name": "violations",
+              "type": "GuardrailViolation[]",
+              "required": true,
+              "description": "List of violations"
+            }
+          ]
+        },
+        "GUARDRAIL_CALLBACK_START": {
+          "description": "Emitted when async guardrail callback starts",
+          "fields": [
+            {
+              "name": "callbackId",
+              "type": "string",
+              "required": true,
+              "description": "Callback identifier"
+            },
+            {
+              "name": "index",
+              "type": "number",
+              "required": true,
+              "description": "Rule index"
+            },
+            {
+              "name": "ruleId",
+              "type": "string",
+              "required": true,
+              "description": "Rule identifier"
+            }
+          ]
+        },
+        "GUARDRAIL_CALLBACK_END": {
+          "description": "Emitted when async guardrail callback completes",
+          "fields": [
+            {
+              "name": "callbackId",
+              "type": "string",
+              "required": true,
+              "description": "Callback identifier"
+            },
+            {
+              "name": "index",
+              "type": "number",
+              "required": true,
+              "description": "Rule index"
+            },
+            {
+              "name": "ruleId",
+              "type": "string",
+              "required": true,
+              "description": "Rule identifier"
+            },
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Callback duration in milliseconds"
+            },
+            {
+              "name": "success",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether callback succeeded"
+            },
+            {
+              "name": "error",
+              "type": "string",
+              "required": false,
+              "description": "Error message if failed"
+            }
+          ]
+        },
+        "DRIFT_CHECK_START": {
+          "description": "Emitted when drift check begins",
+          "fields": [
+            {
+              "name": "checkpoint",
+              "type": "string",
+              "required": true,
+              "description": "Checkpoint content"
+            },
+            {
+              "name": "tokenCount",
+              "type": "number",
+              "required": true,
+              "description": "Tokens at checkpoint"
+            },
+            {
+              "name": "strategy",
+              "type": "string",
+              "required": true,
+              "description": "Drift detection strategy"
+            }
+          ]
+        },
+        "DRIFT_CHECK_RESULT": {
+          "description": "Emitted with drift check results",
+          "fields": [
+            {
+              "name": "detected",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether drift was detected"
+            },
+            {
+              "name": "score",
+              "type": "number",
+              "required": true,
+              "description": "Drift score"
+            },
+            {
+              "name": "metrics",
+              "type": "Record<string, unknown>",
+              "required": true,
+              "description": "Drift metrics"
+            },
+            {
+              "name": "threshold",
+              "type": "number",
+              "required": true,
+              "description": "Detection threshold"
+            }
+          ]
+        },
+        "DRIFT_CHECK_END": {
+          "description": "Emitted when drift check completes",
+          "fields": [
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Check duration in milliseconds"
+            }
+          ]
+        },
+        "DRIFT_CHECK_SKIPPED": {
+          "description": "Emitted when drift check is skipped",
+          "fields": [
+            {
+              "name": "reason",
+              "type": "string",
+              "required": true,
+              "description": "Reason for skipping"
+            }
+          ]
+        },
+        "CHECKPOINT_SAVED": {
+          "description": "Emitted when checkpoint is saved",
+          "fields": [
+            {
+              "name": "checkpoint",
+              "type": "string",
+              "required": true,
+              "description": "Checkpoint content"
+            },
+            {
+              "name": "tokenCount",
+              "type": "number",
+              "required": true,
+              "description": "Tokens at checkpoint"
+            }
+          ]
+        },
+        "RESUME_START": {
+          "description": "Emitted when resuming from checkpoint",
+          "fields": [
+            {
+              "name": "checkpoint",
+              "type": "string",
+              "required": true,
+              "description": "Checkpoint content"
+            },
+            {
+              "name": "tokenCount",
+              "type": "number",
+              "required": true,
+              "description": "Tokens at checkpoint"
+            }
+          ]
+        },
+
+        "CONTINUATION_START": {
+          "description": "Emitted when continuation from checkpoint begins",
+          "fields": [
+            {
+              "name": "checkpoint",
+              "type": "string",
+              "required": true,
+              "description": "Checkpoint content"
+            },
+            {
+              "name": "tokenCount",
+              "type": "number",
+              "required": true,
+              "description": "Tokens at checkpoint"
+            }
+          ]
+        },
+        "ATTEMPT_START": {
+          "description": "Emitted for retry attempts only (not initial, not fallbacks)",
+          "fields": [
+            {
+              "name": "attempt",
+              "type": "number",
+              "required": true,
+              "description": "Attempt number (2+)"
+            },
+            {
+              "name": "isRetry",
+              "type": "boolean",
+              "required": true,
+              "description": "Always true for retry attempts"
+            },
+            {
+              "name": "isFallback",
+              "type": "boolean",
+              "required": true,
+              "description": "Always false for retry attempts"
+            }
+          ]
+        },
+        "RETRY_START": {
+          "description": "Emitted when retry loop begins",
+          "fields": [
+            {
+              "name": "maxAttempts",
+              "type": "number",
+              "required": true,
+              "description": "Maximum retry attempts"
+            }
+          ]
+        },
+        "RETRY_ATTEMPT": {
+          "description": "Emitted before ATTEMPT_START when retry is triggered",
+          "fields": [
+            {
+              "name": "attempt",
+              "type": "number",
+              "required": true,
+              "description": "Current attempt number"
+            },
+            {
+              "name": "maxAttempts",
+              "type": "number",
+              "required": true,
+              "description": "Maximum retry attempts"
+            },
+            {
+              "name": "reason",
+              "type": "string",
+              "required": true,
+              "description": "Reason for retry"
+            },
+            {
+              "name": "delayMs",
+              "type": "number",
+              "required": true,
+              "description": "Delay before retry in milliseconds"
+            }
+          ]
+        },
+        "RETRY_END": {
+          "description": "Emitted when retry loop completes successfully",
+          "fields": [
+            {
+              "name": "attempt",
+              "type": "number",
+              "required": true,
+              "description": "Final attempt number"
+            },
+            {
+              "name": "success",
+              "type": "boolean",
+              "required": true,
+              "description": "Always true for successful completion"
+            }
+          ]
+        },
+        "RETRY_GIVE_UP": {
+          "description": "Emitted when all retry attempts exhausted",
+          "fields": [
+            {
+              "name": "attempt",
+              "type": "number",
+              "required": true,
+              "description": "Final attempt number"
+            },
+            {
+              "name": "maxAttempts",
+              "type": "number",
+              "required": true,
+              "description": "Maximum retry attempts"
+            },
+            {
+              "name": "reason",
+              "type": "string",
+              "required": true,
+              "description": "Reason for giving up"
+            }
+          ]
+        },
+        "FALLBACK_START": {
+          "description": "Emitted when switching to fallback stream",
+          "fields": [
+            {
+              "name": "fromIndex",
+              "type": "number",
+              "required": true,
+              "description": "Previous stream index"
+            },
+            {
+              "name": "toIndex",
+              "type": "number",
+              "required": true,
+              "description": "New stream index"
+            }
+          ]
+        },
+        "FALLBACK_MODEL_SELECTED": {
+          "description": "Emitted when a fallback model is selected",
+          "fields": [
+            {
+              "name": "index",
+              "type": "number",
+              "required": true,
+              "description": "Fallback index"
+            },
+            {
+              "name": "reason",
+              "type": "string",
+              "required": true,
+              "description": "Reason for fallback"
+            }
+          ]
+        },
+        "FALLBACK_END": {
+          "description": "Emitted when fallback sequence completes",
+          "fields": [
+            {
+              "name": "success",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether fallback succeeded"
+            },
+            {
+              "name": "finalIndex",
+              "type": "number",
+              "required": true,
+              "description": "Final fallback index used"
+            }
+          ]
+        },
+
+        "ERROR": {
+          "description": "Emitted when error occurs",
+          "fields": [
+            {
+              "name": "error",
+              "type": "string",
+              "required": true,
+              "description": "Error message"
+            },
+            {
+              "name": "errorCode",
+              "type": "string",
+              "required": false,
+              "description": "Error code if available"
+            },
+            {
+              "name": "failureType",
+              "type": "FailureType",
+              "required": true,
+              "description": "Classification of failure"
+            },
+            {
+              "name": "recoveryStrategy",
+              "type": "RecoveryStrategy",
+              "required": true,
+              "description": "How L0 will recover"
+            },
+            {
+              "name": "policy",
+              "type": "RecoveryPolicy",
+              "required": true,
+              "description": "Recovery policy configuration"
+            }
+          ]
+        },
+        "COMPLETE": {
+          "description": "Emitted on successful completion",
+          "fields": [
+            {
+              "name": "tokenCount",
+              "type": "number",
+              "required": true,
+              "description": "Total tokens processed"
+            },
+            {
+              "name": "contentLength",
+              "type": "number",
+              "required": true,
+              "description": "Total content length"
+            },
+            {
+              "name": "state",
+              "type": "L0State",
+              "required": false,
+              "description": "Final L0 state"
+            }
+          ]
+        },
+        "STRUCTURED_PARSE_START": {
+          "description": "Emitted when structured output parsing begins",
+          "fields": [
+            {
+              "name": "contentLength",
+              "type": "number",
+              "required": true,
+              "description": "Content length to parse"
+            }
+          ]
+        },
+        "STRUCTURED_PARSE_END": {
+          "description": "Emitted when structured output parsing completes",
+          "fields": [
+            {
+              "name": "success",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether parsing succeeded"
+            },
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Parse duration in milliseconds"
+            }
+          ]
+        },
+        "STRUCTURED_PARSE_ERROR": {
+          "description": "Emitted when structured output parsing fails",
+          "fields": [
+            {
+              "name": "error",
+              "type": "string",
+              "required": true,
+              "description": "Error message"
+            },
+            {
+              "name": "contentPreview",
+              "type": "string",
+              "required": false,
+              "description": "Preview of content that failed to parse"
+            }
+          ]
+        },
+        "STRUCTURED_VALIDATION_START": {
+          "description": "Emitted when schema validation begins",
+          "fields": [
+            {
+              "name": "schemaName",
+              "type": "string",
+              "required": false,
+              "description": "Schema name if available"
+            }
+          ]
+        },
+        "STRUCTURED_VALIDATION_END": {
+          "description": "Emitted when schema validation completes",
+          "fields": [
+            {
+              "name": "valid",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether validation passed"
+            },
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Validation duration in milliseconds"
+            }
+          ]
+        },
+        "STRUCTURED_VALIDATION_ERROR": {
+          "description": "Emitted when schema validation fails",
+          "fields": [
+            {
+              "name": "errors",
+              "type": "string[]",
+              "required": true,
+              "description": "Validation errors"
+            }
+          ]
+        },
+        "STRUCTURED_AUTO_CORRECT_START": {
+          "description": "Emitted when auto-correction begins",
+          "fields": [
+            {
+              "name": "errorCount",
+              "type": "number",
+              "required": true,
+              "description": "Number of errors to correct"
+            }
+          ]
+        },
+        "STRUCTURED_AUTO_CORRECT_END": {
+          "description": "Emitted when auto-correction completes",
+          "fields": [
+            {
+              "name": "success",
+              "type": "boolean",
+              "required": true,
+              "description": "Whether corrections succeeded"
+            },
+            {
+              "name": "correctionsMade",
+              "type": "number",
+              "required": true,
+              "description": "Number of corrections made"
+            },
+            {
+              "name": "durationMs",
+              "type": "number",
+              "required": true,
+              "description": "Correction duration in milliseconds"
+            }
+          ]
         }
       }
     },

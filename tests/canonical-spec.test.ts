@@ -670,6 +670,775 @@ describe("Canonical Spec: Callback Parameter Schemas", () => {
 });
 
 // ============================================================================
+// Observability Event Field Schema Tests
+// ============================================================================
+
+describe("Canonical Spec: Observability Event Field Schemas", () => {
+  const events = canonicalSpec.monitoring.observabilityEvents.events;
+  const baseShape = canonicalSpec.monitoring.observabilityEvents.baseShape;
+
+  // Helper to validate event field schema structure
+  interface FieldSchema {
+    name: string;
+    type: string;
+    required: boolean;
+    description: string;
+    enum?: string[];
+  }
+
+  function validateFieldSchema(field: FieldSchema) {
+    expect(field.name).toBeDefined();
+    expect(typeof field.name).toBe("string");
+    expect(field.name.length).toBeGreaterThan(0);
+
+    expect(field.type).toBeDefined();
+    expect(typeof field.type).toBe("string");
+
+    expect(typeof field.required).toBe("boolean");
+
+    expect(field.description).toBeDefined();
+    expect(typeof field.description).toBe("string");
+    expect(field.description.length).toBeGreaterThan(0);
+  }
+
+  /**
+   * Validates that an event has exactly the specified fields (no more, no less)
+   */
+  function validateExactFields(
+    fields: FieldSchema[],
+    expectedFields: Array<{ name: string; type: string; required?: boolean }>,
+  ) {
+    // Must have exact count
+    expect(fields.length).toBe(expectedFields.length);
+
+    // Each expected field must exist with correct type
+    for (const expected of expectedFields) {
+      const field = fields.find((f) => f.name === expected.name);
+      expect(field, `Missing field: ${expected.name}`).toBeDefined();
+      expect(field!.type).toBe(expected.type);
+      if (expected.required !== undefined) {
+        expect(field!.required).toBe(expected.required);
+      }
+    }
+
+    // No extra fields allowed
+    const expectedNames = expectedFields.map((f) => f.name);
+    for (const field of fields) {
+      expect(expectedNames, `Unexpected field: ${field.name}`).toContain(
+        field.name,
+      );
+    }
+  }
+
+  describe("Base shape fields", () => {
+    it("should have required base fields: type, ts, streamId", () => {
+      expect(baseShape.type).toBeDefined();
+      expect(baseShape.type.required).toBe(true);
+      expect(baseShape.type.type).toBe("EventType");
+
+      expect(baseShape.ts).toBeDefined();
+      expect(baseShape.ts.required).toBe(true);
+      expect(baseShape.ts.type).toBe("number");
+
+      expect(baseShape.streamId).toBeDefined();
+      expect(baseShape.streamId.required).toBe(true);
+      expect(baseShape.streamId.type).toBe("string");
+    });
+
+    it("should have optional context field", () => {
+      expect(baseShape.context).toBeDefined();
+      expect(baseShape.context.required).toBe(false);
+      expect(baseShape.context.type).toBe("Record<string, unknown>");
+    });
+  });
+
+  describe("All events have fields array", () => {
+    const eventNames = Object.keys(events);
+
+    for (const name of eventNames) {
+      it(`${name} should have fields array`, () => {
+        const event = events[name as keyof typeof events];
+        expect(event.fields).toBeDefined();
+        expect(Array.isArray(event.fields)).toBe(true);
+      });
+    }
+  });
+
+  // Session Events
+  describe("SESSION_START field schema", () => {
+    const fields = events.SESSION_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: attempt, isRetry, isFallback", () => {
+      validateExactFields(fields, [
+        { name: "attempt", type: "number", required: true },
+        { name: "isRetry", type: "boolean", required: true },
+        { name: "isFallback", type: "boolean", required: true },
+      ]);
+    });
+
+    it("all fields should have valid schema", () => {
+      for (const field of fields) {
+        validateFieldSchema(field);
+      }
+    });
+  });
+
+  describe("STREAM_INIT field schema", () => {
+    const fields = events.STREAM_INIT.fields as FieldSchema[];
+
+    it("should have no additional fields", () => {
+      validateExactFields(fields, []);
+    });
+  });
+
+  describe("STREAM_READY field schema", () => {
+    const fields = events.STREAM_READY.fields as FieldSchema[];
+
+    it("should have no additional fields", () => {
+      validateExactFields(fields, []);
+    });
+  });
+
+  describe("SESSION_END field schema", () => {
+    const fields = events.SESSION_END.fields as FieldSchema[];
+
+    it("should have no additional fields", () => {
+      validateExactFields(fields, []);
+    });
+  });
+
+  describe("SESSION_SUMMARY field schema", () => {
+    const fields = events.SESSION_SUMMARY.fields as FieldSchema[];
+
+    it("should have exactly these fields", () => {
+      validateExactFields(fields, [
+        { name: "tokenCount", type: "number", required: true },
+        { name: "startTs", type: "number", required: true },
+        { name: "endTs", type: "number", required: true },
+        { name: "driftDetected", type: "boolean", required: true },
+        { name: "guardrailViolations", type: "number", required: true },
+        { name: "fallbackDepth", type: "number", required: true },
+        { name: "retryCount", type: "number", required: true },
+        { name: "checkpointsCreated", type: "number", required: true },
+      ]);
+    });
+  });
+
+  // Adapter Events
+  describe("ADAPTER_WRAP_START field schema", () => {
+    const fields = events.ADAPTER_WRAP_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: streamType", () => {
+      validateExactFields(fields, [
+        { name: "streamType", type: "string", required: true },
+      ]);
+    });
+  });
+
+  describe("ADAPTER_DETECTED field schema", () => {
+    const fields = events.ADAPTER_DETECTED.fields as FieldSchema[];
+
+    it("should have exactly these fields: adapterId", () => {
+      validateExactFields(fields, [
+        { name: "adapterId", type: "string", required: true },
+      ]);
+    });
+  });
+
+  describe("ADAPTER_WRAP_END field schema", () => {
+    const fields = events.ADAPTER_WRAP_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: adapterId, success", () => {
+      validateExactFields(fields, [
+        { name: "adapterId", type: "string", required: true },
+        { name: "success", type: "boolean", required: true },
+      ]);
+    });
+  });
+
+  // Timeout Events
+  describe("TIMEOUT_START field schema", () => {
+    const fields = events.TIMEOUT_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: timeoutType, configuredMs", () => {
+      validateExactFields(fields, [
+        { name: "timeoutType", type: "string", required: true },
+        { name: "configuredMs", type: "number", required: true },
+      ]);
+    });
+
+    it("timeoutType should have enum constraint", () => {
+      const field = fields.find((f) => f.name === "timeoutType");
+      expect(field!.enum).toBeDefined();
+      expect(field!.enum).toContain("initial");
+      expect(field!.enum).toContain("inter");
+      expect(field!.enum!.length).toBe(2);
+    });
+  });
+
+  describe("TIMEOUT_RESET field schema", () => {
+    const fields = events.TIMEOUT_RESET.fields as FieldSchema[];
+
+    it("should have exactly these fields: configuredMs", () => {
+      validateExactFields(fields, [
+        { name: "configuredMs", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("TIMEOUT_TRIGGERED field schema", () => {
+    const fields = events.TIMEOUT_TRIGGERED.fields as FieldSchema[];
+
+    it("should have exactly these fields: timeoutType, elapsedMs, configuredMs", () => {
+      validateExactFields(fields, [
+        { name: "timeoutType", type: "string", required: true },
+        { name: "elapsedMs", type: "number", required: true },
+        { name: "configuredMs", type: "number", required: true },
+      ]);
+    });
+
+    it("timeoutType should have enum constraint", () => {
+      const field = fields.find((f) => f.name === "timeoutType");
+      expect(field!.enum).toBeDefined();
+      expect(field!.enum).toContain("initial");
+      expect(field!.enum).toContain("inter");
+      expect(field!.enum!.length).toBe(2);
+    });
+  });
+
+  // Network Events
+  describe("NETWORK_ERROR field schema", () => {
+    const fields = events.NETWORK_ERROR.fields as FieldSchema[];
+
+    it("should have exactly these fields: error, code, retryable", () => {
+      validateExactFields(fields, [
+        { name: "error", type: "string", required: true },
+        { name: "code", type: "string", required: false },
+        { name: "retryable", type: "boolean", required: true },
+      ]);
+    });
+  });
+
+  describe("NETWORK_RECOVERY field schema", () => {
+    const fields = events.NETWORK_RECOVERY.fields as FieldSchema[];
+
+    it("should have exactly these fields: attemptCount, durationMs", () => {
+      validateExactFields(fields, [
+        { name: "attemptCount", type: "number", required: true },
+        { name: "durationMs", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("CONNECTION_DROPPED field schema", () => {
+    const fields = events.CONNECTION_DROPPED.fields as FieldSchema[];
+
+    it("should have exactly these fields: reason", () => {
+      validateExactFields(fields, [
+        { name: "reason", type: "string", required: true },
+      ]);
+    });
+  });
+
+  describe("CONNECTION_RESTORED field schema", () => {
+    const fields = events.CONNECTION_RESTORED.fields as FieldSchema[];
+
+    it("should have exactly these fields: durationMs", () => {
+      validateExactFields(fields, [
+        { name: "durationMs", type: "number", required: true },
+      ]);
+    });
+  });
+
+  // Abort Events
+  describe("ABORT_REQUESTED field schema", () => {
+    const fields = events.ABORT_REQUESTED.fields as FieldSchema[];
+
+    it("should have exactly these fields: source", () => {
+      validateExactFields(fields, [
+        { name: "source", type: "string", required: true },
+      ]);
+    });
+
+    it("source should have enum constraint", () => {
+      const field = fields.find((f) => f.name === "source");
+      expect(field!.enum).toBeDefined();
+      expect(field!.enum).toContain("user");
+      expect(field!.enum).toContain("timeout");
+      expect(field!.enum).toContain("error");
+      expect(field!.enum!.length).toBe(3);
+    });
+  });
+
+  describe("ABORT_COMPLETED field schema", () => {
+    const fields = events.ABORT_COMPLETED.fields as FieldSchema[];
+
+    it("should have exactly these fields: tokenCount, contentLength", () => {
+      validateExactFields(fields, [
+        { name: "tokenCount", type: "number", required: true },
+        { name: "contentLength", type: "number", required: true },
+      ]);
+    });
+  });
+
+  // Tool Events
+  describe("TOOL_REQUESTED field schema", () => {
+    const fields = events.TOOL_REQUESTED.fields as FieldSchema[];
+
+    it("should have exactly these fields: toolName, toolCallId, arguments", () => {
+      validateExactFields(fields, [
+        { name: "toolName", type: "string", required: true },
+        { name: "toolCallId", type: "string", required: true },
+        { name: "arguments", type: "Record<string, unknown>", required: true },
+      ]);
+    });
+  });
+
+  describe("TOOL_START field schema", () => {
+    const fields = events.TOOL_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: toolCallId, toolName", () => {
+      validateExactFields(fields, [
+        { name: "toolCallId", type: "string", required: true },
+        { name: "toolName", type: "string", required: true },
+      ]);
+    });
+  });
+
+  describe("TOOL_RESULT field schema", () => {
+    const fields = events.TOOL_RESULT.fields as FieldSchema[];
+
+    it("should have exactly these fields: toolCallId, result, durationMs", () => {
+      validateExactFields(fields, [
+        { name: "toolCallId", type: "string", required: true },
+        { name: "result", type: "unknown", required: true },
+        { name: "durationMs", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("TOOL_ERROR field schema", () => {
+    const fields = events.TOOL_ERROR.fields as FieldSchema[];
+
+    it("should have exactly these fields: toolCallId, error, durationMs", () => {
+      validateExactFields(fields, [
+        { name: "toolCallId", type: "string", required: true },
+        { name: "error", type: "string", required: true },
+        { name: "durationMs", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("TOOL_COMPLETED field schema", () => {
+    const fields = events.TOOL_COMPLETED.fields as FieldSchema[];
+
+    it("should have exactly these fields: toolCallId, status", () => {
+      validateExactFields(fields, [
+        { name: "toolCallId", type: "string", required: true },
+        { name: "status", type: "string", required: true },
+      ]);
+    });
+
+    it("status should have enum constraint", () => {
+      const field = fields.find((f) => f.name === "status");
+      expect(field!.enum).toBeDefined();
+      expect(field!.enum).toContain("success");
+      expect(field!.enum).toContain("error");
+      expect(field!.enum!.length).toBe(2);
+    });
+  });
+
+  // Guardrail Events
+  describe("GUARDRAIL_PHASE_START field schema", () => {
+    const fields = events.GUARDRAIL_PHASE_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: phase, ruleCount", () => {
+      validateExactFields(fields, [
+        { name: "phase", type: "string", required: true },
+        { name: "ruleCount", type: "number", required: true },
+      ]);
+    });
+
+    it("phase should have enum constraint", () => {
+      const field = fields.find((f) => f.name === "phase");
+      expect(field!.enum).toBeDefined();
+      expect(field!.enum).toContain("pre");
+      expect(field!.enum).toContain("post");
+      expect(field!.enum!.length).toBe(2);
+    });
+  });
+
+  describe("GUARDRAIL_RULE_START field schema", () => {
+    const fields = events.GUARDRAIL_RULE_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: index, ruleId", () => {
+      validateExactFields(fields, [
+        { name: "index", type: "number", required: true },
+        { name: "ruleId", type: "string", required: true },
+      ]);
+    });
+  });
+
+  describe("GUARDRAIL_RULE_RESULT field schema", () => {
+    const fields = events.GUARDRAIL_RULE_RESULT.fields as FieldSchema[];
+
+    it("should have exactly these fields: index, ruleId, passed, violation", () => {
+      validateExactFields(fields, [
+        { name: "index", type: "number", required: true },
+        { name: "ruleId", type: "string", required: true },
+        { name: "passed", type: "boolean", required: true },
+        { name: "violation", type: "GuardrailViolation", required: false },
+      ]);
+    });
+  });
+
+  describe("GUARDRAIL_RULE_END field schema", () => {
+    const fields = events.GUARDRAIL_RULE_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: index, ruleId, passed", () => {
+      validateExactFields(fields, [
+        { name: "index", type: "number", required: true },
+        { name: "ruleId", type: "string", required: true },
+        { name: "passed", type: "boolean", required: true },
+      ]);
+    });
+  });
+
+  describe("GUARDRAIL_PHASE_END field schema", () => {
+    const fields = events.GUARDRAIL_PHASE_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: phase, passed, violations", () => {
+      validateExactFields(fields, [
+        { name: "phase", type: "string", required: true },
+        { name: "passed", type: "boolean", required: true },
+        { name: "violations", type: "GuardrailViolation[]", required: true },
+      ]);
+    });
+
+    it("phase should have enum constraint", () => {
+      const field = fields.find((f) => f.name === "phase");
+      expect(field!.enum).toBeDefined();
+      expect(field!.enum).toContain("pre");
+      expect(field!.enum).toContain("post");
+      expect(field!.enum!.length).toBe(2);
+    });
+  });
+
+  describe("GUARDRAIL_CALLBACK_START field schema", () => {
+    const fields = events.GUARDRAIL_CALLBACK_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: callbackId, index, ruleId", () => {
+      validateExactFields(fields, [
+        { name: "callbackId", type: "string", required: true },
+        { name: "index", type: "number", required: true },
+        { name: "ruleId", type: "string", required: true },
+      ]);
+    });
+  });
+
+  describe("GUARDRAIL_CALLBACK_END field schema", () => {
+    const fields = events.GUARDRAIL_CALLBACK_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: callbackId, index, ruleId, durationMs, success, error", () => {
+      validateExactFields(fields, [
+        { name: "callbackId", type: "string", required: true },
+        { name: "index", type: "number", required: true },
+        { name: "ruleId", type: "string", required: true },
+        { name: "durationMs", type: "number", required: true },
+        { name: "success", type: "boolean", required: true },
+        { name: "error", type: "string", required: false },
+      ]);
+    });
+  });
+
+  // Drift Events
+  describe("DRIFT_CHECK_START field schema", () => {
+    const fields = events.DRIFT_CHECK_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: checkpoint, tokenCount, strategy", () => {
+      validateExactFields(fields, [
+        { name: "checkpoint", type: "string", required: true },
+        { name: "tokenCount", type: "number", required: true },
+        { name: "strategy", type: "string", required: true },
+      ]);
+    });
+  });
+
+  describe("DRIFT_CHECK_RESULT field schema", () => {
+    const fields = events.DRIFT_CHECK_RESULT.fields as FieldSchema[];
+
+    it("should have exactly these fields: detected, score, metrics, threshold", () => {
+      validateExactFields(fields, [
+        { name: "detected", type: "boolean", required: true },
+        { name: "score", type: "number", required: true },
+        { name: "metrics", type: "Record<string, unknown>", required: true },
+        { name: "threshold", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("DRIFT_CHECK_END field schema", () => {
+    const fields = events.DRIFT_CHECK_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: durationMs", () => {
+      validateExactFields(fields, [
+        { name: "durationMs", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("DRIFT_CHECK_SKIPPED field schema", () => {
+    const fields = events.DRIFT_CHECK_SKIPPED.fields as FieldSchema[];
+
+    it("should have exactly these fields: reason", () => {
+      validateExactFields(fields, [
+        { name: "reason", type: "string", required: true },
+      ]);
+    });
+  });
+
+  // Checkpoint/Resume Events
+  describe("CHECKPOINT_SAVED field schema", () => {
+    const fields = events.CHECKPOINT_SAVED.fields as FieldSchema[];
+
+    it("should have exactly these fields: checkpoint, tokenCount", () => {
+      validateExactFields(fields, [
+        { name: "checkpoint", type: "string", required: true },
+        { name: "tokenCount", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("RESUME_START field schema", () => {
+    const fields = events.RESUME_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: checkpoint, tokenCount", () => {
+      validateExactFields(fields, [
+        { name: "checkpoint", type: "string", required: true },
+        { name: "tokenCount", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("CONTINUATION_START field schema", () => {
+    const fields = events.CONTINUATION_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: checkpoint, tokenCount", () => {
+      validateExactFields(fields, [
+        { name: "checkpoint", type: "string", required: true },
+        { name: "tokenCount", type: "number", required: true },
+      ]);
+    });
+  });
+
+  // Retry Events
+  describe("ATTEMPT_START field schema", () => {
+    const fields = events.ATTEMPT_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: attempt, isRetry, isFallback", () => {
+      validateExactFields(fields, [
+        { name: "attempt", type: "number", required: true },
+        { name: "isRetry", type: "boolean", required: true },
+        { name: "isFallback", type: "boolean", required: true },
+      ]);
+    });
+  });
+
+  describe("RETRY_START field schema", () => {
+    const fields = events.RETRY_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: maxAttempts", () => {
+      validateExactFields(fields, [
+        { name: "maxAttempts", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("RETRY_ATTEMPT field schema", () => {
+    const fields = events.RETRY_ATTEMPT.fields as FieldSchema[];
+
+    it("should have exactly these fields: attempt, maxAttempts, reason, delayMs", () => {
+      validateExactFields(fields, [
+        { name: "attempt", type: "number", required: true },
+        { name: "maxAttempts", type: "number", required: true },
+        { name: "reason", type: "string", required: true },
+        { name: "delayMs", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("RETRY_END field schema", () => {
+    const fields = events.RETRY_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: attempt, success", () => {
+      validateExactFields(fields, [
+        { name: "attempt", type: "number", required: true },
+        { name: "success", type: "boolean", required: true },
+      ]);
+    });
+  });
+
+  describe("RETRY_GIVE_UP field schema", () => {
+    const fields = events.RETRY_GIVE_UP.fields as FieldSchema[];
+
+    it("should have exactly these fields: attempt, maxAttempts, reason", () => {
+      validateExactFields(fields, [
+        { name: "attempt", type: "number", required: true },
+        { name: "maxAttempts", type: "number", required: true },
+        { name: "reason", type: "string", required: true },
+      ]);
+    });
+  });
+
+  // Fallback Events
+  describe("FALLBACK_START field schema", () => {
+    const fields = events.FALLBACK_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: fromIndex, toIndex", () => {
+      validateExactFields(fields, [
+        { name: "fromIndex", type: "number", required: true },
+        { name: "toIndex", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("FALLBACK_MODEL_SELECTED field schema", () => {
+    const fields = events.FALLBACK_MODEL_SELECTED.fields as FieldSchema[];
+
+    it("should have exactly these fields: index, reason", () => {
+      validateExactFields(fields, [
+        { name: "index", type: "number", required: true },
+        { name: "reason", type: "string", required: true },
+      ]);
+    });
+  });
+
+  describe("FALLBACK_END field schema", () => {
+    const fields = events.FALLBACK_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: success, finalIndex", () => {
+      validateExactFields(fields, [
+        { name: "success", type: "boolean", required: true },
+        { name: "finalIndex", type: "number", required: true },
+      ]);
+    });
+  });
+
+  // Completion Events
+  describe("ERROR field schema", () => {
+    const fields = events.ERROR.fields as FieldSchema[];
+
+    it("should have exactly these fields: error, errorCode, failureType, recoveryStrategy, policy", () => {
+      validateExactFields(fields, [
+        { name: "error", type: "string", required: true },
+        { name: "errorCode", type: "string", required: false },
+        { name: "failureType", type: "FailureType", required: true },
+        { name: "recoveryStrategy", type: "RecoveryStrategy", required: true },
+        { name: "policy", type: "RecoveryPolicy", required: true },
+      ]);
+    });
+  });
+
+  describe("COMPLETE field schema", () => {
+    const fields = events.COMPLETE.fields as FieldSchema[];
+
+    it("should have exactly these fields: tokenCount, contentLength, state", () => {
+      validateExactFields(fields, [
+        { name: "tokenCount", type: "number", required: true },
+        { name: "contentLength", type: "number", required: true },
+        { name: "state", type: "L0State", required: false },
+      ]);
+    });
+  });
+
+  // Structured Output Events
+  describe("STRUCTURED_PARSE_START field schema", () => {
+    const fields = events.STRUCTURED_PARSE_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: contentLength", () => {
+      validateExactFields(fields, [
+        { name: "contentLength", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("STRUCTURED_PARSE_END field schema", () => {
+    const fields = events.STRUCTURED_PARSE_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: success, durationMs", () => {
+      validateExactFields(fields, [
+        { name: "success", type: "boolean", required: true },
+        { name: "durationMs", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("STRUCTURED_PARSE_ERROR field schema", () => {
+    const fields = events.STRUCTURED_PARSE_ERROR.fields as FieldSchema[];
+
+    it("should have exactly these fields: error, contentPreview", () => {
+      validateExactFields(fields, [
+        { name: "error", type: "string", required: true },
+        { name: "contentPreview", type: "string", required: false },
+      ]);
+    });
+  });
+
+  describe("STRUCTURED_VALIDATION_START field schema", () => {
+    const fields = events.STRUCTURED_VALIDATION_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: schemaName", () => {
+      validateExactFields(fields, [
+        { name: "schemaName", type: "string", required: false },
+      ]);
+    });
+  });
+
+  describe("STRUCTURED_VALIDATION_END field schema", () => {
+    const fields = events.STRUCTURED_VALIDATION_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: valid, durationMs", () => {
+      validateExactFields(fields, [
+        { name: "valid", type: "boolean", required: true },
+        { name: "durationMs", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("STRUCTURED_VALIDATION_ERROR field schema", () => {
+    const fields = events.STRUCTURED_VALIDATION_ERROR.fields as FieldSchema[];
+
+    it("should have exactly these fields: errors", () => {
+      validateExactFields(fields, [
+        { name: "errors", type: "string[]", required: true },
+      ]);
+    });
+  });
+
+  describe("STRUCTURED_AUTO_CORRECT_START field schema", () => {
+    const fields = events.STRUCTURED_AUTO_CORRECT_START.fields as FieldSchema[];
+
+    it("should have exactly these fields: errorCount", () => {
+      validateExactFields(fields, [
+        { name: "errorCount", type: "number", required: true },
+      ]);
+    });
+  });
+
+  describe("STRUCTURED_AUTO_CORRECT_END field schema", () => {
+    const fields = events.STRUCTURED_AUTO_CORRECT_END.fields as FieldSchema[];
+
+    it("should have exactly these fields: success, correctionsMade, durationMs", () => {
+      validateExactFields(fields, [
+        { name: "success", type: "boolean", required: true },
+        { name: "correctionsMade", type: "number", required: true },
+        { name: "durationMs", type: "number", required: true },
+      ]);
+    });
+  });
+});
+
+// ============================================================================
 // Lifecycle Invariants Tests
 // ============================================================================
 
