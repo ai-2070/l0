@@ -371,6 +371,60 @@ describe("Canonical Spec: Callbacks", () => {
   it("should document onFallback callback triggers", () => {
     expect(callbacks.onFallback.triggeredBy).toContain("FALLBACK_START");
   });
+
+  it("should document onCheckpoint callback triggers", () => {
+    expect(callbacks.onCheckpoint.triggeredBy).toContain("CHECKPOINT_SAVED");
+  });
+
+  it("should document onResume callback triggers", () => {
+    expect(callbacks.onResume.triggeredBy).toContain("RESUME_START");
+  });
+
+  it("should document onAbort callback triggers", () => {
+    expect(callbacks.onAbort.triggeredBy).toContain("ABORT_COMPLETED");
+  });
+
+  it("should document onTimeout callback triggers", () => {
+    expect(callbacks.onTimeout.triggeredBy).toContain("TIMEOUT_TRIGGERED");
+  });
+
+  it("should document onViolation callback triggers", () => {
+    expect(callbacks.onViolation.triggeredBy.length).toBeGreaterThan(0);
+  });
+
+  it("should document onDrift callback triggers", () => {
+    expect(callbacks.onDrift.triggeredBy).toContain("DRIFT_CHECK_RESULT");
+  });
+
+  it("should document onToolCall callback triggers", () => {
+    expect(callbacks.onToolCall.triggeredBy).toContain("TOOL_REQUESTED");
+  });
+
+  describe("triggeredBy references valid events", () => {
+    const events = canonicalSpec.monitoring.observabilityEvents.events;
+    const validEventTypes = Object.keys(events);
+
+    const callbackNames = Object.keys(callbacks);
+
+    for (const callbackName of callbackNames) {
+      const callback = callbacks[callbackName as keyof typeof callbacks];
+
+      it(`${callbackName}.triggeredBy should reference valid events`, () => {
+        expect(callback.triggeredBy).toBeDefined();
+        expect(Array.isArray(callback.triggeredBy)).toBe(true);
+        expect(callback.triggeredBy.length).toBeGreaterThan(0);
+
+        for (const trigger of callback.triggeredBy) {
+          // Handle special case like "GUARDRAIL_RULE_RESULT (when passed=false)"
+          const baseTrigger = trigger.split(" ")[0];
+          expect(
+            validEventTypes,
+            `${callbackName}.triggeredBy contains invalid event: ${trigger}`,
+          ).toContain(baseTrigger);
+        }
+      });
+    }
+  });
 });
 
 // ============================================================================

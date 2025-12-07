@@ -1531,8 +1531,10 @@
             "description": "Confidence score of the drift detection (0-1)"
           }
         ],
-        "triggeredBy": ["DRIFT_DETECTED"],
-        "notes": ["Called when semantic drift is detected in output"]
+        "triggeredBy": ["DRIFT_CHECK_RESULT"],
+        "notes": [
+          "Called when semantic drift is detected in output (when detected=true)"
+        ]
       },
       "onToolCall": {
         "signature": "(toolName: string, toolCallId: string, args: Record<string, unknown>) => void",
@@ -1556,7 +1558,7 @@
             "description": "Arguments passed to the tool"
           }
         ],
-        "triggeredBy": ["TOOL_CALL"],
+        "triggeredBy": ["TOOL_REQUESTED"],
         "notes": ["Called when a tool call is detected in the stream"]
       }
     }
