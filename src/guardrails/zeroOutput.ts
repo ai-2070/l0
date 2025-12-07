@@ -112,44 +112,6 @@ export function validateZeroOutput(
 }
 
 /**
- * Check if output was instantaneous (possible error indicator)
- * @param context - Guardrail context
- * @returns Array of violations
- */
-export function validateInstantOutput(
-  context: GuardrailContext,
-): GuardrailViolation[] {
-  const { completed, tokenCount, metadata } = context;
-  const violations: GuardrailViolation[] = [];
-
-  // Only check if complete
-  if (!completed) {
-    return violations;
-  }
-
-  // Check metadata for timing if available
-  const startTime = metadata?.startTime;
-  const endTime = metadata?.endTime;
-
-  if (startTime && endTime) {
-    const duration = endTime - startTime;
-
-    // If completed in less than 100ms with few tokens, suspicious
-    if (duration < 100 && tokenCount < 5) {
-      violations.push({
-        rule: "zero-output",
-        message: `Stream completed instantly (${duration}ms) with minimal output`,
-        severity: "error",
-        recoverable: false,
-        suggestion: "Retry - possible network or transport failure",
-      });
-    }
-  }
-
-  return violations;
-}
-
-/**
  * Create zero output detection guardrail rule
  */
 export function zeroOutputRule(): GuardrailRule {
@@ -160,15 +122,7 @@ export function zeroOutputRule(): GuardrailRule {
     severity: "error",
     recoverable: false, // Zero output is a transport issue, not model issue
     check: (context: GuardrailContext) => {
-      const violations: GuardrailViolation[] = [];
-
-      // Check for zero output
-      violations.push(...validateZeroOutput(context));
-
-      // Check for instant completion
-      violations.push(...validateInstantOutput(context));
-
-      return violations;
+      return validateZeroOutput(context);
     },
   };
 }
