@@ -1622,37 +1622,6 @@
         }
       }
     },
-    "validationErrorCodes": {
-      "description": "All possible tool call validation error codes",
-      "values": {
-        "MISSING_REQUIRED_ARGUMENT": "Required argument not provided",
-        "INVALID_ARGUMENT_TYPE": "Argument type does not match schema",
-        "INVALID_ENUM_VALUE": "Value not in allowed enum options",
-        "PATTERN_MISMATCH": "String does not match required pattern",
-        "VALUE_OUT_OF_RANGE": "Numeric value outside min/max bounds",
-        "ARRAY_LENGTH_INVALID": "Array length violates minItems/maxItems",
-        "UNEXPECTED_ARGUMENT": "Unknown argument when additionalProperties is false",
-        "INVALID_JSON": "Arguments are not valid JSON",
-        "UNKNOWN_TOOL": "Tool name not found in available tools"
-      }
-    },
-    "validationBehavior": {
-      "description": "How validation errors are handled",
-      "onInvalidToolCall": {
-        "action": "reject",
-        "description": "Invalid tool calls are rejected before execution",
-        "emitsEvent": "TOOL_CALL_VALIDATION_ERROR",
-        "retriable": false,
-        "notes": [
-          "Validation errors are considered programmer errors, not transient",
-          "No retry or fallback is attempted for validation failures"
-        ]
-      },
-      "validationTiming": {
-        "when": "before-execution",
-        "description": "Schema validation occurs before tool execution begins"
-      }
-    },
     "schemaFormats": {
       "description": "Supported schema formats for tool definitions",
       "formats": {
