@@ -89,7 +89,7 @@ L0 includes 3,000+ tests covering all major reliability features.
 | **⚡ Tiny & Explicit**                           | 21KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
-| **🚀 Nvidia Blackwell-Ready**                           | Optimized for 100,000+ tokens/s streaming. Ready for next-gen GPU inference speeds.                             |
+| **🚀 Nvidia Blackwell-Ready**                           | Optimized for 1000+ tokens/s streaming. Ready for next-gen GPU inference speeds.                             |
 | **🧪 Battle-Tested**                             | 3,000+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
 > **Know what you're doing?** [Skip the tutorial](./ADVANCED.md)
