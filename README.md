@@ -90,6 +90,8 @@ L0 includes 3,000+ tests covering all major reliability features.
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
 | **🧪 Battle-Tested**                             | 3,000+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
+> **Know what you're doing?** [Skip the tutorial](./ADVANCED.md)
+
 ## Quick Start
 
 ### With Vercel AI SDK: Minimal Usage
