@@ -334,7 +334,7 @@ console.log(result.output); // French translation of summary
 - **Streaming-first** - Built for real-time token delivery
 - **Signals, not rewrites** - Guardrails detect issues, don't modify output
 - **Model-agnostic** - Works with any model
-- **Zero dependencies** - Only peer dependency is the Vercel AI SDK, the OpenAI SDK, or Mastra AI
+- **Zero dependencies** - Only (optional) peer dependency is the Vercel AI SDK, the OpenAI SDK, or Mastra AI
 
 ---
 
