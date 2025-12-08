@@ -14,6 +14,13 @@
  * - L0 + Full Stack: All features enabled
  */
 
+// Type declarations for Node.js globals used in benchmarks
+declare const global: { gc?: () => void };
+declare const process: {
+  memoryUsage: () => { heapUsed: number };
+  hrtime: { bigint: () => bigint };
+};
+
 import { describe, it, expect, beforeEach } from "vitest";
 import { l0 } from "../src/runtime/l0";
 import { jsonRule, markdownRule, zeroOutputRule } from "../src/guardrails";
@@ -446,7 +453,7 @@ function formatReport(report: BenchmarkReport): string {
   );
 
   // Other scenarios
-  for (const [name, data] of report.scenarios) {
+  for (const [name, data] of Array.from(report.scenarios.entries())) {
     if (name === "Baseline") continue;
 
     const overhead =
