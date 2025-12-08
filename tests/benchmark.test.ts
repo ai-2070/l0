@@ -938,7 +938,7 @@ describe("L0 Performance Benchmarks", () => {
       const avgSecond =
         secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
 
-      // Allow up to 100% growth (memory can vary significantly between runs)
+      // Allow up to 200% growth (memory can vary significantly between runs)
       expect(avgSecond).toBeLessThan(avgFirst * 3);
     });
   });
