@@ -275,6 +275,8 @@ export function validateJsonParseable(
  */
 export function jsonRule(): GuardrailRule {
   // Incremental state for O(1) streaming checks
+  // Note: State is reset when content is empty or shorter than processed length
+  // to handle new streams, aborted streams, or rule reuse
   let incrementalState: IncrementalJsonState | null = null;
   let lastProcessedLength = 0;
 
@@ -290,7 +292,17 @@ export function jsonRule(): GuardrailRule {
 
       // Only check if content looks like JSON
       if (!looksLikeJson(content)) {
+        // Reset state when content doesn't look like JSON (new stream starting)
+        incrementalState = null;
+        lastProcessedLength = 0;
         return violations;
+      }
+
+      // Reset state if content is shorter than what we've processed
+      // (indicates a new stream or aborted stream being reused)
+      if (content.length < lastProcessedLength) {
+        incrementalState = null;
+        lastProcessedLength = 0;
       }
 
       if (completed) {
