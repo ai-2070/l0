@@ -239,6 +239,55 @@ for await (const event of result.stream) {
 }
 ```
 
+### Structured Output with Zod
+
+```typescript
+import { structured } from "@ai2070/l0";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+
+const schema = z.object({
+  name: z.string(),
+  age: z.number(),
+  occupation: z.string(),
+});
+
+const result = await structured({
+  schema,
+  stream: () =>
+    streamText({
+      model: openai("gpt-4o-mini"),
+      prompt: "Generate a fictional person as JSON with name, age, and occupation",
+    }),
+  autoCorrect: true, // Fix trailing commas, missing braces, markdown fences
+});
+
+console.log(result.data); // { name: "Alice", age: 32, occupation: "Engineer" }
+```
+
+### Lifecycle Events
+
+```typescript
+import { l0 } from "@ai2070/l0";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const result = await l0({
+  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
+
+  onEvent: (event) => {
+    if (event.type === "token") process.stdout.write(event.value || "");
+    if (event.type === "error") console.error("Error:", event.error);
+    if (event.type === "complete") console.log("\nDone!");
+  },
+});
+
+for await (const _ of result.stream) {
+  // Events already handled by onEvent
+}
+```
+
 ### Fallback Models & Providers
 
 ```typescript
