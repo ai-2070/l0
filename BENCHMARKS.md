@@ -4,20 +4,20 @@ Performance benchmarks measuring L0 overhead on high-throughput streaming.
 
 ## Test Environment
 
-- **CPU**: AMD Ryzen 9 5950X (16 cores, 32 threads)
+- **CPU**: Apple M1 Max (10 cores)
 - **Runtime**: Node.js with Vitest
 - **Methodology**: Mock token streams with zero inter-token delay to measure pure L0 overhead
 
 ## Results
 
-| Scenario                 | Tokens/s | Avg Duration | TTFT    | Overhead |
-| ------------------------ | -------- | ------------ | ------- | -------- |
-| Baseline (raw streaming) | 984,336  | 2.27 ms      | 0.02 ms | -        |
-| L0 Core (no features)    | 334,378  | 6.08 ms      | 0.26 ms | 168%     |
-| L0 + JSON Guardrail      | 171,578  | 11.72 ms     | 0.37 ms | 416%     |
-| L0 + All Guardrails      | 172,569  | 11.75 ms     | 0.19 ms | 417%     |
-| L0 + Drift Detection     | 207,793  | 9.81 ms      | 0.18 ms | 332%     |
-| L0 Full Stack            | 103,878  | 19.27 ms     | 0.14 ms | 748%     |
+| Scenario                 | Tokens/s  | Avg Duration | TTFT    | Overhead |
+| ------------------------ | --------- | ------------ | ------- | -------- |
+| Baseline (raw streaming) | 7,450,842 | 0.27 ms      | 0.00 ms | -        |
+| L0 Core (no features)    | 1,060,625 | 2.00 ms      | 0.03 ms | 647%     |
+| L0 + JSON Guardrail      | 532,412   | 3.81 ms      | 0.06 ms | 1319%    |
+| L0 + All Guardrails      | 376,541   | 5.42 ms      | 0.06 ms | 1920%    |
+| L0 + Drift Detection     | 725,208   | 2.76 ms      | 0.04 ms | 928%     |
+| L0 Full Stack            | 306,968   | 6.52 ms      | 0.06 ms | 2330%    |
 
 **Legend:**
 
@@ -68,12 +68,12 @@ const result = await l0({
 
 ## Blackwell Ready
 
-Even with full guardrails, drift detection, and checkpointing enabled, L0 sustains **100K+ tokens/s** - well above current LLM inference speeds and ready for Nvidia Blackwell's 1000+ tokens/s streaming.
+Even with full guardrails, drift detection, and checkpointing enabled, L0 sustains **300K+ tokens/s** - well above current LLM inference speeds and ready for Nvidia Blackwell's 1000+ tokens/s streaming.
 
 | GPU Generation   | Expected Tokens/s | L0 Headroom |
 | ---------------- | ----------------- | ----------- |
-| Current (H100)   | ~100-200          | 500-1000x   |
-| Blackwell (B200) | ~1000+            | 100x        |
+| Current (H100)   | ~100-200          | 1500-3000x  |
+| Blackwell (B200) | ~1000+            | 300x        |
 
 ## Running Benchmarks
 
