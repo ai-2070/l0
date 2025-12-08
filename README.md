@@ -27,7 +27,7 @@
 > This breaks retries. It breaks supervision. It breaks reproducibility.
 > It makes reliable AI systems impossible to build on top of raw provider streams.
 >
-> **L0 is the deterministic execution substrate that fixes the transport - with guardrails designed specifically for the streaming layer: stream-neutral, pattern-based, loop-safe, and timing-aware.**
+> **L0 is the deterministic execution substrate that fixes the transport - with guardrails designed specifically for the streaming layer: stream-neutral, pattern-based, loop-safe, and timing-aware.**  
 > **The result: production-grade, integrity-preserving, deterministic AI streams you can finally build real systems on.**
 
 It works with **OpenAI**, **Vercel AI SDK**, **Mastra AI**, and **custom adapters**. Supports **multimodal streams**, tool calls, and provides full deterministic replay.
