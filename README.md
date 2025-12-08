@@ -37,6 +37,8 @@ It works with **OpenAI**, **Vercel AI SDK**, **Mastra AI**, and **custom adapter
 npm install @ai2070/l0
 ```
 
+**Also available in Python:** [l0-python](https://github.com/ai-2070/l0-python) with full lifecycle and event signature parity.
+
 _Production-grade reliability. Just pass your stream. L0'll take it from here._
 
 L0 includes 3,000+ tests covering all major reliability features.
