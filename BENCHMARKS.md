@@ -5,7 +5,7 @@ Performance benchmarks measuring L0 overhead on high-throughput streaming.
 ## Test Environment
 
 - **CPU**: Apple M1 Max (10 cores)
-- **Runtime**: Node.js with Vitest
+- **Runtime**: Node.js 22 with Vitest
 - **Methodology**: Mock token streams with zero inter-token delay to measure pure L0 overhead
 
 ## Results
