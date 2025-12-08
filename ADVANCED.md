@@ -4,6 +4,7 @@
 
 | Feature                                                               | Description                                                     |
 | --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [Full Configuration Example](#full-configuration-example)             | Complete example with all available options                     |
 | [Streaming Runtime](#streaming-runtime)                               | Token-by-token normalization, checkpoints, resumable generation |
 | [Retry Logic](#retry-logic)                                           | Smart retries with backoff, network vs model error distinction  |
 | [Network Protection](#network-protection)                             | Auto-recovery from 12+ network failure types                    |
@@ -24,6 +25,91 @@
 | [Error Handling](#error-handling)                                     | Typed errors with categorization and recovery hints             |
 | [Monitoring](#monitoring)                                             | Built-in OTel and Sentry integrations                           |
 | [Testing](#testing)                                                   | 3,000+ tests covering all features and SDK adapters             |
+
+---
+
+## Full Configuration Example
+
+Complete example showing all available options:
+
+```typescript
+import { l0, recommendedGuardrails, recommendedRetry } from "@ai2070/l0";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const result = await l0({
+  // Primary model stream
+  stream: () =>
+    streamText({
+      model: openai("gpt-4o"),
+      prompt,
+    }),
+
+  // Fallback models (tried in order if primary fails)
+  fallbackStreams: [() => streamText({ model: openai("gpt-4o-mini"), prompt })],
+
+  // Guardrails presets:
+  // minimalGuardrails       // jsonRule, zeroOutputRule
+  // recommendedGuardrails   // jsonRule, markdownRule, zeroOutputRule, patternRule
+  // strictGuardrails        // jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule
+  // jsonOnlyGuardrails      // jsonRule, zeroOutputRule
+  // markdownOnlyGuardrails  // markdownRule, zeroOutputRule
+  // latexOnlyGuardrails     // latexRule, zeroOutputRule
+  guardrails: recommendedGuardrails,
+
+  // Retry configuration
+  retry: {
+    attempts: 3, // LLM errors only
+    maxRetries: 6, // Total (LLM + network)
+    baseDelay: 1000,
+    maxDelay: 10000,
+    backoff: "fixed-jitter", // "exponential" | "linear" | "fixed" | "full-jitter"
+  },
+  // Or use presets:
+  // minimalRetry       // { attempts: 2, maxRetries: 4, backoff: "linear" }
+  // recommendedRetry   // { attempts: 3, maxRetries: 6, backoff: "fixed-jitter" }
+  // strictRetry        // { attempts: 3, maxRetries: 6, backoff: "full-jitter" }
+  // exponentialRetry   // { attempts: 4, maxRetries: 8, backoff: "exponential" }
+
+  // Timeout configuration
+  timeout: {
+    initialToken: 5000, // 5s to first token
+    interToken: 10000, // 10s between tokens
+  },
+
+  // Guardrail check intervals
+  checkIntervals: {
+    guardrails: 5, // Check every N tokens
+    drift: 10,
+    checkpoint: 10,
+  },
+
+  // User context (attached to all observability events)
+  context: { requestId: "req_123", userId: "user_456" },
+
+  // Abort signal
+  signal: abortController.signal,
+
+  // Enable telemetry
+  monitoring: { enabled: true },
+
+  // Lifecycle callbacks (all optional)
+  onStart: (attempt, isRetry, isFallback) => {},
+  onComplete: (state) => {},
+  onError: (error, willRetry, willFallback) => {},
+  onViolation: (violation) => {},
+  onRetry: (attempt, reason) => {},
+  onFallback: (index, reason) => {},
+  onToolCall: (toolName, toolCallId, args) => {},
+});
+
+// Read the stream
+for await (const event of result.stream) {
+  if (event.type === "token") {
+    process.stdout.write(event.value);
+  }
+}
+```
 
 ---
 

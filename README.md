@@ -114,7 +114,7 @@ const result = await l0({
 for await (const event of result.stream) {
 ```
 
-### Vercel AI SDK: Expanded
+### Vercel AI SDK: With Reliability
 
 ```typescript
 import { l0, recommendedGuardrails, recommendedRetry } from "@ai2070/l0";
@@ -122,26 +122,10 @@ import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 const result = await l0({
-  // Primary model stream
-  stream: () =>
-    streamText({
-      model: openai("gpt-5-mini"),
-      prompt,
-    }),
-
-  // Optional: Fallback models
-  fallbackStreams: [() => streamText({ model: openai("gpt-5-mini"), prompt })],
-
-  // Optional: Guardrails, default: none
+  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
+  fallbackStreams: [() => streamText({ model: openai("gpt-4o-mini"), prompt })],
   guardrails: recommendedGuardrails,
-  // Other presets:
-  // minimalGuardrails       // jsonRule, zeroOutputRule
-  // recommendedGuardrails   // jsonRule, markdownRule, zeroOutputRule, patternRule
-  // strictGuardrails        // jsonRule, markdownRule, latexRule, patternRule, zeroOutputRule
-  // jsonOnlyGuardrails      // jsonRule, zeroOutputRule
-  // markdownOnlyGuardrails  // markdownRule, zeroOutputRule
-  // latexOnlyGuardrails     // latexRule, zeroOutputRule
-
+  
   // Optional: Retry configuration, default as follows
   retry: {
     attempts: 3, // LLM errors only
@@ -161,42 +145,17 @@ const result = await l0({
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens
   },
-
-  // Optional: Guardrail check intervals, default as follows
-  checkIntervals: {
-    guardrails: 5, // Check every N tokens
-    drift: 10,
-    checkpoint: 10,
-  },
-
-  // Optional: User context (attached to all observability events)
-  context: { requestId: "req_123", userId: "user_456" },
-
-  // Optional: Abort signal
-  signal: abortController.signal,
-
-  // Optional: Enable telemetry
-  monitoring: { enabled: true },
-
-  // Optional: Lifecycle callbacks (all are optional)
-  onStart: (attempt, isRetry, isFallback) => {},
-  onComplete: (state) => {},
-  onError: (error, willRetry, willFallback) => {},
-  onViolation: (violation) => {},
-  onRetry: (attempt, reason) => {},
-  onFallback: (index, reason) => {},
-  onToolCall: (toolName, toolCallId, args) => {},
+  retry: recommendedRetry,
+  timeout: { initialToken: 5000, interToken: 10000 },
+  onError: (error, willRetry) => console.log(`Error: ${error.message}`),
 });
 
-// Read the stream
 for await (const event of result.stream) {
-  if (event.type === "token") {
-    process.stdout.write(event.value);
-  }
+  if (event.type === "token") process.stdout.write(event.value);
 }
 ```
 
-**See Also: [API.md](./API.md) - Complete API reference**
+**See Also: [API.md](./API.md) for all options, [ADVANCED.md](./ADVANCED.md) for full examples**
 
 ### With OpenAI SDK
 
