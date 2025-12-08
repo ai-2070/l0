@@ -59,7 +59,7 @@ L0 includes 3,000+ tests covering all major reliability features.
 
 **Upcoming versions:**
 
-- **1.0.0** - API freeze + Python version
+- **1.0.0** - API freeze
 
 ## Features
 
