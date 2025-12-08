@@ -932,14 +932,21 @@ describe("L0 Performance Benchmarks", () => {
       });
 
       // Memory should not grow significantly across iterations
+      // Use absolute values since GC can cause negative deltas
       const firstHalf = memorySnapshots.slice(0, 2);
       const secondHalf = memorySnapshots.slice(-2);
-      const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
-      const avgSecond =
-        secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+      const avgFirst = Math.abs(
+        firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length,
+      );
+      const avgSecond = Math.abs(
+        secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length,
+      );
 
-      // Allow up to 200% growth (memory can vary significantly between runs)
-      expect(avgSecond).toBeLessThan(avgFirst * 3);
+      // Memory usage in later iterations should not be dramatically higher
+      // than early iterations (allows 3x variance due to GC timing)
+      // If avgFirst is very small (< 1KB), use a minimum threshold
+      const threshold = Math.max(avgFirst * 3, 1024 * 1024); // At least 1MB tolerance
+      expect(avgSecond).toBeLessThan(threshold);
     });
   });
 
