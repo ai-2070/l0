@@ -15,6 +15,7 @@
 | [Guardrails](#guardrails)                                             | JSON, Markdown, LaTeX validation, pattern detection             |
 | [Consensus](#consensus)                                               | Multi-model agreement with voting strategies                    |
 | [Parallel Operations](#parallel-operations)                           | Race, batch, pool patterns for concurrent LLM calls             |
+| [Pipe: Streaming Pipelines](#pipe-streaming-pipelines)                | Chain steps (summarize → translate → format) with state passing |
 | [Type-Safe Generics](#type-safe-generics)                             | Forward output types through all L0 functions                   |
 | [Custom Adapters (BYOA)](#custom-adapters-byoa)                       | Bring your own adapter for any LLM provider                     |
 | [Multimodal Support](#multimodal-support)                             | Image, audio, video generation with progress tracking           |
@@ -698,6 +699,192 @@ await pool.drain();
 // Pool methods
 pool.getQueueLength(); // Pending operations
 pool.getActiveWorkers(); // Currently executing
+```
+
+---
+
+## Pipe: Streaming Pipelines
+
+Chain multiple streaming steps where each step receives the output of the previous:
+
+```typescript
+import { pipe } from "@ai2070/l0";
+
+const result = await pipe(
+  [
+    {
+      name: "summarize",
+      fn: (input) => ({
+        stream: () =>
+          streamText({
+            model: openai("gpt-4o"),
+            prompt: `Summarize this document: ${input}`,
+          }),
+      }),
+    },
+    {
+      name: "translate",
+      fn: (summary) => ({
+        stream: () =>
+          streamText({
+            model: openai("gpt-4o"),
+            prompt: `Translate to French: ${summary}`,
+          }),
+      }),
+    },
+    {
+      name: "format",
+      fn: (translation) => ({
+        stream: () =>
+          streamText({
+            model: openai("gpt-4o"),
+            prompt: `Format as bullet points: ${translation}`,
+          }),
+      }),
+    },
+  ],
+  longDocument, // Initial input
+  { name: "summarize-translate-format" },
+);
+
+console.log(result.output); // Final formatted output
+console.log(result.steps); // Results from each step
+console.log(result.duration); // Total pipeline duration
+```
+
+### Reusable Pipelines
+
+Create pipelines that can be reused with different inputs:
+
+```typescript
+import { createPipeline, createStep } from "@ai2070/l0";
+
+// Create reusable steps
+const summarizeStep = createStep(
+  "summarize",
+  (doc) => `Summarize: ${doc}`,
+  (prompt) => streamText({ model: openai("gpt-4o"), prompt }),
+);
+
+const translateStep = createStep(
+  "translate",
+  (text) => `Translate to Spanish: ${text}`,
+  (prompt) => streamText({ model: openai("gpt-4o"), prompt }),
+);
+
+// Create reusable pipeline
+const pipeline = createPipeline([summarizeStep, translateStep], {
+  name: "doc-processor",
+  stopOnError: true,
+});
+
+// Run multiple times
+const result1 = await pipeline.run(document1);
+const result2 = await pipeline.run(document2);
+
+// Clone and modify
+const extendedPipeline = pipeline.clone().addStep({
+  name: "review",
+  fn: (text) => ({
+    stream: () =>
+      streamText({
+        model: openai("gpt-4o"),
+        prompt: `Review for accuracy: ${text}`,
+      }),
+  }),
+});
+```
+
+### Conditional Steps
+
+Skip steps based on conditions:
+
+```typescript
+const result = await pipe(
+  [
+    {
+      name: "analyze",
+      fn: (input) => ({
+        stream: () => streamText({ model, prompt: `Analyze: ${input}` }),
+      }),
+    },
+    {
+      name: "translate",
+      // Only run if input is not already in English
+      condition: (input) => !input.startsWith("[EN]"),
+      fn: (text) => ({
+        stream: () => streamText({ model, prompt: `Translate: ${text}` }),
+      }),
+    },
+  ],
+  input,
+);
+```
+
+### Transform Step Output
+
+Process step results before passing to the next step:
+
+```typescript
+const result = await pipe(
+  [
+    {
+      name: "extract",
+      fn: (input) => ({
+        stream: () =>
+          streamText({ model, prompt: `Extract key points: ${input}` }),
+      }),
+      // Transform L0 result to custom format
+      transform: (l0Result) => ({
+        points: l0Result.state.content.split("\n"),
+        tokenCount: l0Result.state.tokenCount,
+      }),
+    },
+    {
+      name: "summarize",
+      fn: (extracted) => ({
+        stream: () =>
+          streamText({
+            model,
+            prompt: `Summarize these ${extracted.points.length} points: ${extracted.points.join(", ")}`,
+          }),
+      }),
+    },
+  ],
+  document,
+);
+```
+
+### Pipeline Options
+
+```typescript
+const result = await pipe(steps, input, {
+  name: "my-pipeline",
+  stopOnError: true, // Stop on first error (default: true)
+  timeout: 60000, // 60s timeout for entire pipeline
+  signal: abortController.signal,
+  monitoring: { enabled: true },
+
+  onStart: (input) => console.log("Pipeline started"),
+  onProgress: (step, total) => console.log(`Step ${step}/${total}`),
+  onComplete: (result) => console.log(`Done in ${result.duration}ms`),
+  onError: (error, stepIndex) => console.error(`Step ${stepIndex} failed`),
+});
+```
+
+### Pipeline Presets
+
+```typescript
+import { fastPipeline, reliablePipeline, productionPipeline } from "@ai2070/l0";
+
+// Fast: fail fast, no monitoring
+await pipe(steps, input, { ...fastPipeline });
+
+// Reliable: continue on errors, monitoring enabled
+await pipe(steps, input, { ...reliablePipeline });
+
+// Production: timeouts, monitoring, graceful failures
+await pipe(steps, input, { ...productionPipeline });
 ```
 
 ---
