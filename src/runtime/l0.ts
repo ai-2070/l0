@@ -277,7 +277,6 @@ export async function l0<TOutput = unknown>(
     processedDeduplicateContinuation ?? processedContinueFromCheckpoint;
 
   // Configure check intervals with defaults
-  // Higher defaults for better throughput - benchmarks show 5x improvement at 20 vs 1
   const guardrailCheckInterval = processedCheckIntervals.guardrails ?? 15;
   const driftCheckInterval = processedCheckIntervals.drift ?? 25;
   const checkpointInterval = processedCheckIntervals.checkpoint ?? 20;
