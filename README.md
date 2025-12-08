@@ -27,8 +27,8 @@
 > This breaks retries. It breaks supervision. It breaks reproducibility.
 > It makes reliable AI systems impossible to build on top of raw provider streams.
 >
-> **L0 is the deterministic execution substrate that fixes the transport - with guardrails designed specifically for the streaming layer: stream-neutral, pattern-based, loop-safe, and timing-aware.**  
->  
+> **L0 is the deterministic execution substrate that fixes the transport - with guardrails designed specifically for the streaming layer: stream-neutral, pattern-based, loop-safe, and timing-aware.**
+>
 > **The result: production-grade, integrity-preserving, deterministic AI streams you can finally build real systems on.**
 
 It works with **OpenAI**, **Vercel AI SDK**, **Mastra AI**, and **custom adapters**. Supports **multimodal streams**, tool calls, and provides full deterministic replay.
@@ -89,7 +89,7 @@ L0 includes 3,000+ tests covering all major reliability features.
 | **⚡ Tiny & Explicit**                           | 21KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
-| **🚀 Nvidia Blackwell-Ready**                           | Optimized for 1000+ tokens/s streaming. Ready for next-gen GPU inference speeds.                             |
+| **🚀 Nvidia Blackwell-Ready**                    | Optimized for 1000+ tokens/s streaming. Ready for next-gen GPU inference speeds.                                                                                                                      |
 | **🧪 Battle-Tested**                             | 3,000+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
 > **Know what you're doing?** [Skip the tutorial](./ADVANCED.md)
@@ -126,10 +126,10 @@ import { openai } from "@ai-sdk/openai";
 const result = await l0({
   stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [() => streamText({ model: openai("gpt-4o-mini"), prompt })],
-  
+
   // Optional: Content-agnostic, text-based guardrails
   guardrails: recommendedGuardrails,
-  
+
   // Optional: Retry configuration, default as follows
   retry: {
     attempts: 3, // LLM errors only
@@ -149,7 +149,7 @@ const result = await l0({
     initialToken: 5000, // 5s to first token
     interToken: 10000, // 10s between tokens
   },
-  
+
   onError: (error, willRetry) => console.log(`Error: ${error.message}`),
 });
 
@@ -222,7 +222,8 @@ const result = await structured({
   stream: () =>
     streamText({
       model: openai("gpt-4o-mini"),
-      prompt: "Generate a fictional person as JSON with name, age, and occupation",
+      prompt:
+        "Generate a fictional person as JSON with name, age, and occupation",
     }),
   autoCorrect: true, // Fix trailing commas, missing braces, markdown fences
 });
@@ -364,7 +365,7 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 
 | Guide                                                          | Description                   |
 | -------------------------------------------------------------- | ----------------------------- |
-| [ADVANCED.md](./ADVANCED.md)                               | Advanced usage      |
+| [ADVANCED.md](./ADVANCED.md)                                   | Advanced usage                |
 | [QUICKSTART.md](./QUICKSTART.md)                               | 5-minute getting started      |
 | [API.md](./API.md)                                             | Complete API reference        |
 | [GUARDRAILS.md](./GUARDRAILS.md)                               | Guardrails and validation     |
@@ -387,10 +388,10 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 
 L0 sustains **100K+ tokens/s** with full guardrails, drift detection, and checkpointing - ready for Nvidia Blackwell's 1000+ tokens/s streaming.
 
-| Scenario | Tokens/s | Overhead |
-|----------|----------|----------|
-| Baseline | 984,336 | - |
-| L0 Full Stack | 103,878 | 748% |
+| Scenario      | Tokens/s | Overhead |
+| ------------- | -------- | -------- |
+| Baseline      | 984,336  | -        |
+| L0 Full Stack | 103,878  | 748%     |
 
 See [BENCHMARKS.md](./BENCHMARKS.md) for full results and methodology.
 
