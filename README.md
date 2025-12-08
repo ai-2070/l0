@@ -124,6 +124,8 @@ import { openai } from "@ai-sdk/openai";
 const result = await l0({
   stream: () => streamText({ model: openai("gpt-4o"), prompt }),
   fallbackStreams: [() => streamText({ model: openai("gpt-4o-mini"), prompt })],
+  
+  // Optional: Content-agnostic, text-based guardrails
   guardrails: recommendedGuardrails,
   
   // Optional: Retry configuration, default as follows
