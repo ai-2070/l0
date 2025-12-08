@@ -146,9 +146,6 @@ const result = await l0({
     interToken: 10000, // 10s between tokens
   },
   
-  // Optional
-  retry: recommendedRetry,
-  
   // Optional: Timeout configuration, default as follows
   timeout: {
     initialToken: 5000, // 5s to first token
