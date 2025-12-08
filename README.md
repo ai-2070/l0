@@ -89,6 +89,7 @@ L0 includes 3,000+ tests covering all major reliability features.
 | **⚡ Tiny & Explicit**                           | 21KB gzipped core. Tree-shakeable with subpath exports (`/core`, `/structured`, `/consensus`, `/parallel`, `/window`). No frameworks, no heavy abstractions.                                          |
 | **🔌 Custom Adapters (BYOA)**                    | Bring your own adapter for any LLM provider. Built-in adapters for Vercel AI SDK, OpenAI, and Mastra.                                                                                                 |
 | **🖼️ Multimodal Support**                        | Build adapters for image/audio/video generation (FLUX.2, Stable Diffusion, Veo 3, CSM). Progress tracking, data events, and state management for non-text outputs.                                    |
+| **🚀 Nvidia Blackwell-Ready**                           | Optimized for 100,000+ tokens/s streaming. Ready for next-gen GPU inference speeds.                             |
 | **🧪 Battle-Tested**                             | 3,000+ unit tests and 250+ integration tests validating real streaming, retries, and advanced behavior.                                                                                               |
 
 > **Know what you're doing?** [Skip the tutorial](./ADVANCED.md)
@@ -379,6 +380,30 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 | [FORMATTING.md](./FORMATTING.md)                               | Formatting helpers            |
 | [CUSTOM_ADAPTERS.md](./CUSTOM_ADAPTERS.md)                     | Build your own adapters       |
 | [MULTIMODAL.md](./MULTIMODAL.md)                               | Image/audio/video support     |
+
+---
+
+## Benchmarks
+
+Performance benchmarks measuring L0 overhead on high-throughput streaming (AMD Ryzen 9 5950X):
+
+| Scenario | Tokens/s | Avg Duration | Overhead |
+|----------|----------|--------------|----------|
+| Baseline (raw streaming) | 984,336 | 2.27 ms | - |
+| L0 Core (no features) | 334,378 | 6.08 ms | 168% |
+| L0 + JSON Guardrail | 171,578 | 11.72 ms | 416% |
+| L0 + All Guardrails | 172,569 | 11.75 ms | 417% |
+| L0 + Drift Detection | 207,793 | 9.81 ms | 332% |
+| L0 Full Stack | 103,878 | 19.27 ms | 748% |
+
+**Key optimizations for high-throughput streaming:**
+- Incremental JSON state tracking (O(delta) per token instead of O(content))
+- Sliding window drift detection (500 char default window)
+- Tunable check intervals (guardrails: 15, drift: 25, checkpoint: 20 tokens)
+
+Even with full guardrails, drift detection, and checkpointing enabled, L0 sustains **100K+ tokens/s** - well above current LLM inference speeds and ready for Nvidia Blackwell's 1000+ tokens/s streaming.
+
+Run benchmarks: `npm test -- -t "should generate full benchmark report"`
 
 ---
 
