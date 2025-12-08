@@ -239,6 +239,85 @@ for await (const event of result.stream) {
 }
 ```
 
+### Fallback Models & Providers
+
+```typescript
+import { l0 } from "@ai2070/l0";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
+
+const result = await l0({
+  // Primary model
+  stream: () => streamText({ model: openai("gpt-4o"), prompt }),
+
+  // Fallbacks: tried in order if primary fails (supports both model and provider fallbacks)
+  fallbackStreams: [
+    () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+    () => streamText({ model: anthropic("claude-sonnet-4-20250514"), prompt }),
+  ],
+
+  onFallback: (index, reason) => console.log(`Switched to fallback ${index}`),
+});
+```
+
+### Parallel Execution
+
+```typescript
+import { parallel } from "@ai2070/l0";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const prompts = ["Name a fruit", "Name a color", "Name an animal"];
+
+const results = await parallel(
+  prompts.map((prompt) => ({
+    stream: () => streamText({ model: openai("gpt-4o-mini"), prompt }),
+  })),
+  { concurrency: 3 },
+);
+
+results.results.forEach((r, i) => {
+  console.log(`${prompts[i]}: ${r?.state.content.trim()}`);
+});
+```
+
+### Pipe: Streaming Pipelines
+
+```typescript
+import { pipe } from "@ai2070/l0";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const result = await pipe(
+  [
+    {
+      name: "summarize",
+      fn: (input) => ({
+        stream: () =>
+          streamText({
+            model: openai("gpt-4o"),
+            prompt: `Summarize: ${input}`,
+          }),
+      }),
+    },
+    {
+      name: "translate",
+      fn: (summary) => ({
+        stream: () =>
+          streamText({
+            model: openai("gpt-4o"),
+            prompt: `Translate to French: ${summary}`,
+          }),
+      }),
+    },
+  ],
+  longDocument,
+);
+
+console.log(result.output); // French translation of summary
+```
+
 ## Philosophy
 
 - **No magic** - Everything is explicit and predictable
