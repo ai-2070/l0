@@ -384,19 +384,6 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 
 ---
 
-## Benchmarks
-
-L0 sustains **100K+ tokens/s** with full guardrails, drift detection, and checkpointing - ready for Nvidia Blackwell's 1000+ tokens/s streaming.
-
-| Scenario      | Tokens/s | Overhead |
-| ------------- | -------- | -------- |
-| Baseline      | 984,336  | -        |
-| L0 Full Stack | 103,878  | 748%     |
-
-See [BENCHMARKS.md](./BENCHMARKS.md) for full results and methodology.
-
----
-
 ## Support
 
 L0 is developed and maintained independently. If your company depends on L0 or wants to support ongoing development (including the Python version, website docs, and future tooling), feel free to reach out:
