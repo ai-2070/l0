@@ -21,16 +21,11 @@
   <img src="https://img.shields.io/badge/license-Apache_2.0-green" alt="MIT License">
 </p>
 
-> LLMs produce high-value reasoning over a low-integrity transport layer.
-> Streams stall, drop tokens, reorder events, violate timing guarantees, and expose no deterministic contract.
+> AI models are powerful, but their streaming transport is fundamentally unreliable.
 >
-> This breaks retries. It breaks supervision. It breaks reproducibility.
-> It makes reliable AI systems impossible to build on top of raw provider streams.
+> Streams stall, drop tokens, reorder events, lose structure, and provide no deterministic contract - breaking retries, corrupting state, and making reproducible systems impossible.
 >
-> **L0 is the deterministic execution substrate that fixes the transport -
-> with guardrails designed for the streaming layer itself: stream-neutral, pattern-based, loop-safe, and timing-aware.**
-
-L0 adds deterministic execution, fallbacks, retries, network protection, guardrails, drift detection, and tool tracking to any LLM stream - turning raw model output into production-grade behavior.
+> **L0 is a deterministic execution substrate for AI streaming - adding reliability, retries, fallbacks (model & provider), drift detection, timing guarantees, and full replayability to any provider.**
 
 It works with **OpenAI**, **Vercel AI SDK**, **Mastra AI**, and **custom adapters**. Supports **multimodal streams**, tool calls, and provides full deterministic replay.
 
