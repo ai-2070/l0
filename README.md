@@ -29,8 +29,7 @@
 >
 > **L0 is the deterministic execution substrate that fixes the transport -
 > with guardrails designed for the streaming layer itself: stream-neutral, pattern-based, loop-safe, and timing-aware.**
-
-L0 adds deterministic execution, fallbacks, retries, network protection, guardrails, drift detection, and tool tracking to any LLM stream - turning raw model output into production-grade behavior.
+> The result: production-grade, integrity-preserving, deterministic AI streams you can finally build real systems on.
 
 It works with **OpenAI**, **Vercel AI SDK**, **Mastra AI**, and **custom adapters**. Supports **multimodal streams**, tool calls, and provides full deterministic replay.
 
