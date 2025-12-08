@@ -75,6 +75,14 @@ export interface DriftConfig {
    * Window size for entropy calculation
    */
   entropyWindow?: number;
+
+  /**
+   * Sliding window size for content checks (characters)
+   * Only the last N characters are checked for patterns
+   * Set to 0 for full content scan (slower)
+   * @default 500
+   */
+  slidingWindowSize?: number;
 }
 
 /**
@@ -86,6 +94,8 @@ export class DriftDetector {
     entropy: number[];
     tokens: string[];
     lastContent: string;
+    /** Last window content for efficient delta processing */
+    lastWindowContent: string;
   };
 
   constructor(config: DriftConfig = {}) {
@@ -97,17 +107,34 @@ export class DriftDetector {
       repetitionThreshold: config.repetitionThreshold ?? 3,
       entropyThreshold: config.entropyThreshold ?? 2.5,
       entropyWindow: config.entropyWindow ?? 50,
+      slidingWindowSize: config.slidingWindowSize ?? 500,
     };
 
     this.history = {
       entropy: [],
       tokens: [],
       lastContent: "",
+      lastWindowContent: "",
     };
   }
 
   /**
+   * Get the sliding window of content for efficient pattern matching
+   * @param content - Full content
+   * @returns Last N characters based on slidingWindowSize config
+   */
+  private getWindow(content: string): string {
+    const windowSize = this.config.slidingWindowSize!;
+    if (windowSize <= 0 || content.length <= windowSize) {
+      return content;
+    }
+    return content.slice(-windowSize);
+  }
+
+  /**
    * Check content for drift
+   * Uses sliding window for O(windowSize) instead of O(contentLength) checks
+   *
    * @param content - Current content
    * @param delta - Latest token/delta (optional)
    * @returns Drift detection result
@@ -117,6 +144,10 @@ export class DriftDetector {
     let confidence = 0;
     const details: string[] = [];
 
+    // Use sliding window for efficient pattern matching
+    const windowContent = this.getWindow(content);
+    const lastWindowContent = this.history.lastWindowContent;
+
     // Update history
     if (delta) {
       this.history.tokens.push(delta);
@@ -125,9 +156,9 @@ export class DriftDetector {
       }
     }
 
-    // Check for meta commentary
+    // Check for meta commentary (on window only)
     if (this.config.detectMetaCommentary) {
-      const meta = this.detectMetaCommentary(content);
+      const meta = this.detectMetaCommentary(windowContent);
       if (meta) {
         types.push("meta_commentary");
         confidence = Math.max(confidence, 0.9);
@@ -135,9 +166,9 @@ export class DriftDetector {
       }
     }
 
-    // Check for tone shift
+    // Check for tone shift (comparing windows)
     if (this.config.detectToneShift) {
-      const tone = this.detectToneShift(content, this.history.lastContent);
+      const tone = this.detectToneShift(windowContent, lastWindowContent);
       if (tone) {
         types.push("tone_shift");
         confidence = Math.max(confidence, 0.7);
@@ -145,9 +176,9 @@ export class DriftDetector {
       }
     }
 
-    // Check for repetition
+    // Check for repetition (on window only - most expensive check)
     if (this.config.detectRepetition) {
-      const rep = this.detectRepetition(content);
+      const rep = this.detectRepetition(windowContent);
       if (rep) {
         types.push("repetition");
         confidence = Math.max(confidence, 0.8);
@@ -155,7 +186,7 @@ export class DriftDetector {
       }
     }
 
-    // Check for entropy spike
+    // Check for entropy spike (already O(delta) - no change needed)
     if (this.config.detectEntropySpike && delta) {
       const entropy = this.calculateEntropy(delta);
       this.history.entropy.push(entropy);
@@ -170,29 +201,30 @@ export class DriftDetector {
       }
     }
 
-    // Check for format collapse
+    // Check for format collapse (only checks beginning - already efficient)
     if (this.detectFormatCollapse(content)) {
       types.push("format_collapse");
       confidence = Math.max(confidence, 0.8);
       details.push("Format collapse detected");
     }
 
-    // Check for markdown collapse
-    if (this.detectMarkdownCollapse(content, this.history.lastContent)) {
+    // Check for markdown collapse (comparing windows)
+    if (this.detectMarkdownCollapse(windowContent, lastWindowContent)) {
       types.push("markdown_collapse");
       confidence = Math.max(confidence, 0.7);
       details.push("Markdown formatting collapse detected");
     }
 
-    // Check for excessive hedging
+    // Check for excessive hedging (only checks first line - already efficient)
     if (this.detectExcessiveHedging(content)) {
       types.push("hedging");
       confidence = Math.max(confidence, 0.5);
       details.push("Excessive hedging detected");
     }
 
-    // Update last content
+    // Update history with window content for next comparison
     this.history.lastContent = content;
+    this.history.lastWindowContent = windowContent;
 
     return {
       detected: types.length > 0,
@@ -424,6 +456,7 @@ export class DriftDetector {
       entropy: [],
       tokens: [],
       lastContent: "",
+      lastWindowContent: "",
     };
   }
 

@@ -5,6 +5,7 @@
  * - Adds ts, streamId, context automatically to all events
  * - Calls handlers via microtasks (fire-and-forget)
  * - Never throws from handler failures
+ * - Supports high-performance mode with batching
  */
 
 import { uuidv7 } from "../utils/uuid";
@@ -14,6 +15,39 @@ import type {
   L0EventHandler,
   EventType,
 } from "../types/observability";
+
+/**
+ * Configuration for EventDispatcher
+ */
+export interface EventDispatcherConfig {
+  /**
+   * User context to attach to all events
+   */
+  context?: Record<string, unknown>;
+
+  /**
+   * Enable high-performance mode
+   * - Skips deep cloning of context
+   * - Batches events for reduced overhead
+   * - Use when you control the context and handlers
+   * @default false
+   */
+  highPerformance?: boolean;
+
+  /**
+   * Batch size for high-performance mode
+   * Events are queued and dispatched in batches
+   * Set to 1 to disable batching but keep other optimizations
+   * @default 10
+   */
+  batchSize?: number;
+
+  /**
+   * Maximum delay before flushing batch (ms)
+   * @default 5
+   */
+  batchFlushMs?: number;
+}
 
 /**
  * Deep clone and freeze an object to ensure complete immutability.
@@ -40,10 +74,42 @@ export class EventDispatcher {
   private handlers: L0EventHandler[] = [];
   private readonly streamId: string;
   private readonly _context: Record<string, unknown>;
+  private readonly highPerformance: boolean;
+  private readonly batchSize: number;
+  private readonly batchFlushMs: number;
+  private eventBatch: L0ObservabilityEvent[] = [];
+  private batchTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(context: Record<string, unknown> = {}) {
+  constructor(
+    contextOrConfig: Record<string, unknown> | EventDispatcherConfig = {},
+  ) {
     this.streamId = uuidv7();
-    this._context = deepCloneAndFreeze(context);
+
+    // Handle both old API (context object) and new API (config object)
+    const isConfig =
+      "highPerformance" in contextOrConfig ||
+      "batchSize" in contextOrConfig ||
+      "batchFlushMs" in contextOrConfig ||
+      "context" in contextOrConfig;
+
+    if (isConfig) {
+      const config = contextOrConfig as EventDispatcherConfig;
+      this.highPerformance = config.highPerformance ?? false;
+      this.batchSize = config.batchSize ?? 10;
+      this.batchFlushMs = config.batchFlushMs ?? 5;
+      // In high-perf mode, skip deep clone (caller controls context)
+      this._context = this.highPerformance
+        ? Object.freeze(config.context ?? {})
+        : deepCloneAndFreeze(config.context ?? {});
+    } else {
+      // Legacy API: just a context object
+      this.highPerformance = false;
+      this.batchSize = 10;
+      this.batchFlushMs = 5;
+      this._context = deepCloneAndFreeze(
+        contextOrConfig as Record<string, unknown>,
+      );
+    }
   }
 
   /**
@@ -64,27 +130,29 @@ export class EventDispatcher {
   }
 
   /**
-   * Emit an event to all handlers
-   * - Adds ts, streamId, context automatically
-   * - Calls handlers via microtasks (fire-and-forget)
-   * - Never throws from handler failures
+   * Flush any pending batched events immediately
    */
-  emit<T extends Record<string, unknown>>(
-    type: EventType,
-    payload?: Omit<T, "type" | "ts" | "streamId" | "context">,
-  ): void {
-    // Skip event creation if no handlers registered (zero overhead when observability unused)
-    if (this.handlers.length === 0) return;
+  flush(): void {
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+      this.batchTimeout = null;
+    }
 
-    const event: L0ObservabilityEvent = {
-      type,
-      ts: Date.now(),
-      streamId: this.streamId,
-      context: this._context,
-      ...payload,
-    };
+    if (this.eventBatch.length === 0) return;
 
-    // Fire handlers asynchronously via microtasks
+    const batch = this.eventBatch;
+    this.eventBatch = [];
+
+    // Dispatch all batched events
+    for (const event of batch) {
+      this.dispatchToHandlers(event);
+    }
+  }
+
+  /**
+   * Internal: dispatch a single event to all handlers
+   */
+  private dispatchToHandlers(event: L0ObservabilityEvent): void {
     // Snapshot handlers to avoid issues if handlers modify the list during dispatch
     for (const handler of [...this.handlers]) {
       queueMicrotask(() => {
@@ -102,6 +170,49 @@ export class EventDispatcher {
         }
       });
     }
+  }
+
+  /**
+   * Emit an event to all handlers
+   * - Adds ts, streamId, context automatically
+   * - Calls handlers via microtasks (fire-and-forget)
+   * - Never throws from handler failures
+   * - In high-performance mode, batches events for reduced overhead
+   */
+  emit<T extends Record<string, unknown>>(
+    type: EventType,
+    payload?: Omit<T, "type" | "ts" | "streamId" | "context">,
+  ): void {
+    // Skip event creation if no handlers registered (zero overhead when observability unused)
+    if (this.handlers.length === 0) return;
+
+    const event: L0ObservabilityEvent = {
+      type,
+      ts: Date.now(),
+      streamId: this.streamId,
+      context: this._context,
+      ...payload,
+    };
+
+    // High-performance mode: batch events
+    if (this.highPerformance && this.batchSize > 1) {
+      this.eventBatch.push(event);
+
+      // Flush if batch is full
+      if (this.eventBatch.length >= this.batchSize) {
+        this.flush();
+      } else if (!this.batchTimeout) {
+        // Schedule flush after delay
+        this.batchTimeout = setTimeout(() => {
+          this.batchTimeout = null;
+          this.flush();
+        }, this.batchFlushMs);
+      }
+      return;
+    }
+
+    // Normal mode: dispatch immediately via microtasks
+    this.dispatchToHandlers(event);
   }
 
   /**

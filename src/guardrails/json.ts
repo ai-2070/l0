@@ -8,74 +8,125 @@ import type {
 } from "../types/guardrails";
 
 /**
- * Analyze JSON structure in content
- * @param content - Content to analyze
- * @returns JSON structure analysis
+ * Incremental JSON structure tracker for O(1) per-token updates
+ * Instead of re-scanning the entire content, we track state incrementally
  */
-export function analyzeJsonStructure(content: string): JsonStructure {
-  let openBraces = 0;
-  let closeBraces = 0;
-  let openBrackets = 0;
-  let closeBrackets = 0;
-  let inString = false;
-  let escapeNext = false;
-  const issues: string[] = [];
+export interface IncrementalJsonState {
+  openBraces: number;
+  closeBraces: number;
+  openBrackets: number;
+  closeBrackets: number;
+  inString: boolean;
+  escapeNext: boolean;
+  /** Content length when state was last computed */
+  processedLength: number;
+}
 
-  for (let i = 0; i < content.length; i++) {
-    const char = content[i];
+/**
+ * Create initial incremental JSON state
+ */
+export function createIncrementalJsonState(): IncrementalJsonState {
+  return {
+    openBraces: 0,
+    closeBraces: 0,
+    openBrackets: 0,
+    closeBrackets: 0,
+    inString: false,
+    escapeNext: false,
+    processedLength: 0,
+  };
+}
 
-    if (escapeNext) {
-      escapeNext = false;
+/**
+ * Update JSON state incrementally with new delta content
+ * O(delta.length) instead of O(content.length)
+ * @param state - Current incremental state (mutated in place)
+ * @param delta - New content to process
+ * @returns Updated state
+ */
+export function updateJsonStateIncremental(
+  state: IncrementalJsonState,
+  delta: string,
+): IncrementalJsonState {
+  for (let i = 0; i < delta.length; i++) {
+    const char = delta[i];
+
+    if (state.escapeNext) {
+      state.escapeNext = false;
       continue;
     }
 
     if (char === "\\") {
-      escapeNext = true;
+      state.escapeNext = true;
       continue;
     }
 
     if (char === '"') {
-      inString = !inString;
+      state.inString = !state.inString;
       continue;
     }
 
-    if (!inString) {
-      if (char === "{") openBraces++;
-      if (char === "}") closeBraces++;
-      if (char === "[") openBrackets++;
-      if (char === "]") closeBrackets++;
+    if (!state.inString) {
+      if (char === "{") state.openBraces++;
+      if (char === "}") state.closeBraces++;
+      if (char === "[") state.openBrackets++;
+      if (char === "]") state.closeBrackets++;
     }
   }
 
-  // Check for unclosed string
-  if (inString) {
+  state.processedLength += delta.length;
+  return state;
+}
+
+/**
+ * Convert incremental state to JsonStructure for compatibility
+ */
+export function incrementalStateToStructure(
+  state: IncrementalJsonState,
+): JsonStructure {
+  const issues: string[] = [];
+
+  if (state.inString) {
     issues.push("Unclosed string detected");
   }
 
-  // Check for imbalanced braces
-  if (openBraces !== closeBraces) {
-    issues.push(`Unbalanced braces: ${openBraces} open, ${closeBraces} close`);
+  if (state.openBraces !== state.closeBraces) {
+    issues.push(
+      `Unbalanced braces: ${state.openBraces} open, ${state.closeBraces} close`,
+    );
   }
 
-  // Check for imbalanced brackets
-  if (openBrackets !== closeBrackets) {
+  if (state.openBrackets !== state.closeBrackets) {
     issues.push(
-      `Unbalanced brackets: ${openBrackets} open, ${closeBrackets} close`,
+      `Unbalanced brackets: ${state.openBrackets} open, ${state.closeBrackets} close`,
     );
   }
 
   const isBalanced =
-    openBraces === closeBraces && openBrackets === closeBrackets && !inString;
+    state.openBraces === state.closeBraces &&
+    state.openBrackets === state.closeBrackets &&
+    !state.inString;
 
   return {
-    openBraces,
-    closeBraces,
-    openBrackets,
-    closeBrackets,
-    inString,
+    openBraces: state.openBraces,
+    closeBraces: state.closeBraces,
+    openBrackets: state.openBrackets,
+    closeBrackets: state.closeBrackets,
+    inString: state.inString,
     isBalanced,
     issues,
   };
+}
+
+/**
+ * Analyze JSON structure in content (full scan - use for completion checks)
+ * @param content - Content to analyze
+ * @returns JSON structure analysis
+ */
+export function analyzeJsonStructure(content: string): JsonStructure {
+  const state = createIncrementalJsonState();
+  updateJsonStateIncremental(state, content);
+  return incrementalStateToStructure(state);
 }
 
 /**
@@ -217,8 +268,18 @@ export function validateJsonParseable(
 /**
  * Create JSON structure guardrail rule
  * Checks for balanced braces, brackets, proper structure
+ *
+ * Performance optimized:
+ * - Uses incremental state tracking during streaming (O(delta) per check)
+ * - Only does full content scan at completion
  */
 export function jsonRule(): GuardrailRule {
+  // Incremental state for O(1) streaming checks
+  // Note: State is reset when content is empty or shorter than processed length
+  // to handle new streams, aborted streams, or rule reuse
+  let incrementalState: IncrementalJsonState | null = null;
+  let lastProcessedLength = 0;
+
   return {
     name: "json-structure",
     description: "Validates JSON structure and balance",
@@ -227,16 +288,85 @@ export function jsonRule(): GuardrailRule {
     recoverable: true,
     check: (context: GuardrailContext) => {
       const violations: GuardrailViolation[] = [];
+      const { content, delta, completed } = context;
 
-      // Check structure
-      violations.push(...validateJsonStructure(context));
+      // Only check if content looks like JSON
+      if (!looksLikeJson(content)) {
+        // Reset state when content doesn't look like JSON (new stream starting)
+        incrementalState = null;
+        lastProcessedLength = 0;
+        return violations;
+      }
 
-      // Check for malformed chunks
-      violations.push(...validateJsonChunks(context));
+      // Reset state if content is shorter than what we've processed
+      // (indicates a new stream or aborted stream being reused)
+      if (content.length < lastProcessedLength) {
+        incrementalState = null;
+        lastProcessedLength = 0;
+      }
 
-      // If complete, check parseability
-      if (context.completed) {
+      if (completed) {
+        // Full validation at completion - reset incremental state
+        incrementalState = null;
+        lastProcessedLength = 0;
+
+        // Check structure (full scan is fine at completion)
+        violations.push(...validateJsonStructure(context));
+
+        // Check for malformed chunks
+        violations.push(...validateJsonChunks(context));
+
+        // Check parseability
         violations.push(...validateJsonParseable(context));
+      } else {
+        // Streaming: use incremental state tracking
+        if (!incrementalState) {
+          incrementalState = createIncrementalJsonState();
+          lastProcessedLength = 0;
+        }
+
+        // Only process new content (delta or content beyond what we've seen)
+        if (delta) {
+          // Prefer delta if available - most efficient
+          updateJsonStateIncremental(incrementalState, delta);
+        } else if (content.length > lastProcessedLength) {
+          // Fall back to processing new portion of content
+          const newContent = content.slice(lastProcessedLength);
+          updateJsonStateIncremental(incrementalState, newContent);
+        }
+        lastProcessedLength = content.length;
+
+        // Check for premature closing (more closes than opens) - O(1)
+        if (incrementalState.closeBraces > incrementalState.openBraces) {
+          violations.push({
+            rule: "json-structure",
+            message: `Too many closing braces: ${incrementalState.closeBraces} close, ${incrementalState.openBraces} open`,
+            severity: "error",
+            recoverable: true,
+          });
+        }
+
+        if (incrementalState.closeBrackets > incrementalState.openBrackets) {
+          violations.push({
+            rule: "json-structure",
+            message: `Too many closing brackets: ${incrementalState.closeBrackets} close, ${incrementalState.openBrackets} open`,
+            severity: "error",
+            recoverable: true,
+          });
+        }
+
+        // Only check malformed patterns if we have a delta (avoid full content regex)
+        if (delta) {
+          // Quick delta-only checks for obvious issues
+          if (delta.includes(",,")) {
+            violations.push({
+              rule: "json-chunks",
+              message: "Malformed JSON: Multiple consecutive commas",
+              severity: "error",
+              recoverable: true,
+            });
+          }
+        }
       }
 
       return violations;

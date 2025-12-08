@@ -77,11 +77,11 @@ const result = await l0({
     interToken: 10000, // 10s between tokens
   },
 
-  // Guardrail check intervals
+  // Guardrail check intervals (optimized for high-throughput streaming)
   checkIntervals: {
-    guardrails: 5, // Check every N tokens
-    drift: 10,
-    checkpoint: 10,
+    guardrails: 15, // Check every N tokens
+    drift: 25,
+    checkpoint: 20,
   },
 
   // User context (attached to all observability events)
