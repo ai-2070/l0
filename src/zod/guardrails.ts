@@ -2,11 +2,9 @@
 
 import { z } from "zod4";
 import type {
-  GuardrailRule,
-  GuardrailContext,
   GuardrailViolation,
+  GuardrailContext,
   GuardrailState,
-  GuardrailConfig,
   GuardrailResult,
   JsonStructure,
   MarkdownStructure,
@@ -50,14 +48,12 @@ export const GuardrailContextSchema: z.ZodType<GuardrailContext> = z.object({
 
 /**
  * Guardrail rule schema
- * Note: check function is validated as z.function() - runtime validation only checks it's a function
+ * Note: Contains function properties - no explicit type annotation
  */
-export const GuardrailRuleSchema: z.ZodType<GuardrailRule> = z.object({
+export const GuardrailRuleSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
-  check: z.function() as z.ZodType<
-    (context: GuardrailContext) => GuardrailViolation[]
-  >,
+  check: z.function(),
   streaming: z.boolean().optional(),
   severity: z.enum(["warning", "error", "fatal"]).optional(),
   recoverable: z.boolean().optional(),
@@ -77,41 +73,18 @@ export const GuardrailStateSchema: z.ZodType<GuardrailState> = z.object({
 
 /**
  * Guardrail config schema
+ * Note: Contains function properties - no explicit type annotation
  */
-export const GuardrailConfigSchema: z.ZodType<GuardrailConfig> = z.object({
+export const GuardrailConfigSchema = z.object({
   rules: z.array(GuardrailRuleSchema),
   stopOnFatal: z.boolean().optional(),
   enableStreaming: z.boolean().optional(),
   checkInterval: z.number().optional(),
-  onViolation: z.function().optional() as z.ZodType<
-    ((violation: GuardrailViolation) => void) | undefined
-  >,
-  onPhaseStart: z.function().optional() as z.ZodType<
-    | ((phase: "pre" | "post", ruleCount: number, tokenCount: number) => void)
-    | undefined
-  >,
-  onPhaseEnd: z.function().optional() as z.ZodType<
-    | ((
-        phase: "pre" | "post",
-        passed: boolean,
-        violations: GuardrailViolation[],
-        durationMs: number,
-      ) => void)
-    | undefined
-  >,
-  onRuleStart: z.function().optional() as z.ZodType<
-    ((index: number, ruleId: string, callbackId: string) => void) | undefined
-  >,
-  onRuleEnd: z.function().optional() as z.ZodType<
-    | ((
-        index: number,
-        ruleId: string,
-        passed: boolean,
-        callbackId: string,
-        durationMs: number,
-      ) => void)
-    | undefined
-  >,
+  onViolation: z.function().optional(),
+  onPhaseStart: z.function().optional(),
+  onPhaseEnd: z.function().optional(),
+  onRuleStart: z.function().optional(),
+  onRuleEnd: z.function().optional(),
 });
 
 /**

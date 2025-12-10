@@ -2,22 +2,18 @@
 
 import { z } from "zod4";
 import type {
-  StructuredOptions,
-  StructuredResult,
   StructuredState,
   StructuredTelemetry,
   CorrectionInfo,
   CorrectionType,
   AutoCorrectOptions,
   AutoCorrectResult,
-  StructuredPreset,
 } from "../types/structured";
-import { L0StateSchema, L0TelemetrySchema, RetryOptionsSchema } from "./l0";
 
 /**
  * Correction type schema
  */
-export const CorrectionTypeSchema = z.enum([
+export const CorrectionTypeSchema: z.ZodType<CorrectionType> = z.enum([
   "close_brace",
   "close_bracket",
   "remove_trailing_comma",
@@ -32,71 +28,120 @@ export const CorrectionTypeSchema = z.enum([
   "remove_unknown_fields",
   "coerce_types",
   "extract_json",
-]) satisfies z.ZodType<CorrectionType>;
+]);
 
 /**
  * Correction info schema
  */
-export const CorrectionInfoSchema = z.object({
+export const CorrectionInfoSchema: z.ZodType<CorrectionInfo> = z.object({
   original: z.string(),
   corrected: z.string(),
   corrections: z.array(CorrectionTypeSchema),
   success: z.boolean(),
-}) satisfies z.ZodType<CorrectionInfo>;
+});
 
 /**
  * Auto-correct options schema
  */
-export const AutoCorrectOptionsSchema = z.object({
-  structural: z.boolean().optional(),
-  stripFormatting: z.boolean().optional(),
-  schemaBased: z.boolean().optional(),
-  strict: z.boolean().optional(),
-}) satisfies z.ZodType<AutoCorrectOptions>;
+export const AutoCorrectOptionsSchema: z.ZodType<AutoCorrectOptions> = z.object(
+  {
+    structural: z.boolean().optional(),
+    stripFormatting: z.boolean().optional(),
+    schemaBased: z.boolean().optional(),
+    strict: z.boolean().optional(),
+  },
+);
 
 /**
  * Auto-correct result schema
  */
-export const AutoCorrectResultSchema = z.object({
+export const AutoCorrectResultSchema: z.ZodType<AutoCorrectResult> = z.object({
   corrected: z.string(),
   success: z.boolean(),
   corrections: z.array(CorrectionTypeSchema),
   error: z.instanceof(Error).optional(),
-}) satisfies z.ZodType<AutoCorrectResult>;
+});
 
 /**
  * Structured state schema (extends L0State)
  */
-export const StructuredStateSchema = L0StateSchema.extend({
+export const StructuredStateSchema: z.ZodType<StructuredState> = z.object({
+  // L0State fields
+  content: z.string(),
+  checkpoint: z.string(),
+  tokenCount: z.number(),
+  modelRetryCount: z.number(),
+  networkRetryCount: z.number(),
+  fallbackIndex: z.number(),
+  violations: z.array(z.any()), // GuardrailViolation[]
+  driftDetected: z.boolean(),
+  completed: z.boolean(),
+  firstTokenAt: z.number().optional(),
+  lastTokenAt: z.number().optional(),
+  duration: z.number().optional(),
+  networkErrors: z.array(z.any()),
+  resumed: z.boolean(),
+  resumePoint: z.string().optional(),
+  resumeFrom: z.number().optional(),
+  dataOutputs: z.array(z.any()),
+  lastProgress: z.any().optional(),
+  toolCallStartTimes: z.map(z.string(), z.number()).optional(),
+  toolCallNames: z.map(z.string(), z.string()).optional(),
+  // StructuredState additions
   validationFailures: z.number(),
   autoCorrections: z.number(),
   validationErrors: z.array(z.any()), // z.ZodError instances
-}) satisfies z.ZodType<StructuredState>;
+});
 
 /**
  * Structured telemetry schema (extends L0Telemetry)
  */
-export const StructuredTelemetrySchema = L0TelemetrySchema.extend({
-  structured: z.object({
-    schemaName: z.string().optional(),
-    validationAttempts: z.number(),
-    validationFailures: z.number(),
-    autoCorrections: z.number(),
-    correctionTypes: z.array(z.string()),
-    validationSuccess: z.boolean(),
-    validationTime: z.number().optional(),
-  }),
-}) satisfies z.ZodType<StructuredTelemetry>;
+export const StructuredTelemetrySchema: z.ZodType<StructuredTelemetry> =
+  z.object({
+    // L0Telemetry fields
+    sessionId: z.string(),
+    startTime: z.number(),
+    endTime: z.number().optional(),
+    duration: z.number().optional(),
+    metrics: z.object({
+      timeToFirstToken: z.number().optional(),
+      avgInterTokenTime: z.number().optional(),
+      tokensPerSecond: z.number().optional(),
+      totalTokens: z.number(),
+      totalRetries: z.number(),
+      networkRetryCount: z.number(),
+      modelRetryCount: z.number(),
+    }),
+    network: z.object({
+      errorCount: z.number(),
+      errorsByType: z.record(z.string(), z.number()),
+      errors: z.array(z.any()).optional(),
+    }),
+    guardrails: z.any().optional(),
+    drift: z.any().optional(),
+    continuation: z.any().optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
+    // StructuredTelemetry additions
+    structured: z.object({
+      schemaName: z.string().optional(),
+      validationAttempts: z.number(),
+      validationFailures: z.number(),
+      autoCorrections: z.number(),
+      correctionTypes: z.array(z.string()),
+      validationSuccess: z.boolean(),
+      validationTime: z.number().optional(),
+    }),
+  });
 
 /**
  * Structured options schema
- * Note: schema field is a Zod schema, which can be any z.ZodTypeAny
+ * Note: Contains function properties - no explicit type annotation
  */
 export const StructuredOptionsSchema = z.object({
   schema: z.any(), // z.ZodTypeAny - cannot be validated at runtime
-  stream: z.function().returns(z.any()),
-  fallbackStreams: z.array(z.function().returns(z.any())).optional(),
-  retry: RetryOptionsSchema.optional(),
+  stream: z.function(),
+  fallbackStreams: z.array(z.function()).optional(),
+  retry: z.any().optional(), // RetryOptions has functions
   autoCorrect: z.boolean().optional(),
   strictMode: z.boolean().optional(),
   timeout: z
@@ -110,29 +155,18 @@ export const StructuredOptionsSchema = z.object({
     .object({
       enabled: z.boolean().optional(),
       sampleRate: z.number().optional(),
-      metadata: z.record(z.any()).optional(),
+      metadata: z.record(z.string(), z.any()).optional(),
     })
     .optional(),
   detectZeroTokens: z.boolean().optional(),
-  onValidationError: z
-    .function()
-    .args(z.any(), z.number())
-    .returns(z.void())
-    .optional(),
-  onAutoCorrect: z
-    .function()
-    .args(CorrectionInfoSchema)
-    .returns(z.void())
-    .optional(),
-  onRetry: z
-    .function()
-    .args(z.number(), z.string())
-    .returns(z.void())
-    .optional(),
-}) satisfies z.ZodType<StructuredOptions>;
+  onValidationError: z.function().optional(),
+  onAutoCorrect: z.function().optional(),
+  onRetry: z.function().optional(),
+});
 
 /**
  * Structured result schema
+ * Note: Contains function property (abort) - no explicit type annotation
  */
 export const StructuredResultSchema = z.object({
   data: z.any(),
@@ -142,15 +176,16 @@ export const StructuredResultSchema = z.object({
   state: StructuredStateSchema,
   telemetry: StructuredTelemetrySchema.optional(),
   errors: z.array(z.instanceof(Error)),
-  abort: z.function().returns(z.void()),
-}) satisfies z.ZodType<StructuredResult<unknown>>;
+  abort: z.function(),
+});
 
 /**
  * Structured preset schema
+ * Note: Contains RetryOptions which has functions - no explicit type annotation
  */
 export const StructuredPresetSchema = z.object({
   name: z.string(),
   autoCorrect: z.boolean(),
   strictMode: z.boolean(),
-  retry: RetryOptionsSchema,
-}) satisfies z.ZodType<StructuredPreset>;
+  retry: z.any(), // RetryOptions has functions
+});

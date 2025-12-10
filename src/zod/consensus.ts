@@ -2,7 +2,6 @@
 
 import { z } from "zod4";
 import type {
-  ConsensusOptions,
   ConsensusStrategy,
   ConflictResolution,
   ConsensusResult,
@@ -24,59 +23,55 @@ import { StructuredResultSchema } from "./structured";
 /**
  * Consensus strategy schema
  */
-export const ConsensusStrategySchema = z.enum([
+export const ConsensusStrategySchema: z.ZodType<ConsensusStrategy> = z.enum([
   "majority",
   "unanimous",
   "weighted",
   "best",
-]) satisfies z.ZodType<ConsensusStrategy>;
+]);
 
 /**
  * Conflict resolution schema
  */
-export const ConflictResolutionSchema = z.enum([
+export const ConflictResolutionSchema: z.ZodType<ConflictResolution> = z.enum([
   "vote",
   "merge",
   "fail",
   "best",
-]) satisfies z.ZodType<ConflictResolution>;
+]);
 
 /**
  * Agreement type schema
  */
-export const AgreementTypeSchema = z.enum([
+export const AgreementTypeSchema: z.ZodType<AgreementType> = z.enum([
   "exact",
   "similar",
   "structural",
   "semantic",
-]) satisfies z.ZodType<AgreementType>;
+]);
 
 /**
  * Disagreement severity schema
  */
-export const DisagreementSeveritySchema = z.enum([
-  "minor",
-  "moderate",
-  "major",
-  "critical",
-]) satisfies z.ZodType<DisagreementSeverity>;
+export const DisagreementSeveritySchema: z.ZodType<DisagreementSeverity> =
+  z.enum(["minor", "moderate", "major", "critical"]);
 
 /**
  * Agreement schema
  */
 export const AgreementSchema: z.ZodType<Agreement> = z.object({
-  content: z.unknown().transform((v) => v as string | any),
+  content: z.any(),
   path: z.string().optional(),
   count: z.number(),
   ratio: z.number(),
   indices: z.array(z.number()),
   type: AgreementTypeSchema,
-}) as z.ZodType<Agreement>;
+});
 
 /**
  * Disagreement schema
  */
-export const DisagreementSchema = z.object({
+export const DisagreementSchema: z.ZodType<Disagreement> = z.object({
   path: z.string().optional(),
   values: z.array(
     z.object({
@@ -88,12 +83,12 @@ export const DisagreementSchema = z.object({
   severity: DisagreementSeveritySchema,
   resolution: z.string().optional(),
   resolutionConfidence: z.number().optional(),
-}) satisfies z.ZodType<Disagreement>;
+});
 
 /**
  * Consensus analysis schema
  */
-export const ConsensusAnalysisSchema = z.object({
+export const ConsensusAnalysisSchema: z.ZodType<ConsensusAnalysis> = z.object({
   totalOutputs: z.number(),
   successfulOutputs: z.number(),
   failedOutputs: z.number(),
@@ -107,35 +102,35 @@ export const ConsensusAnalysisSchema = z.object({
   strategy: ConsensusStrategySchema,
   conflictResolution: ConflictResolutionSchema,
   duration: z.number(),
-}) satisfies z.ZodType<ConsensusAnalysis>;
+});
 
 /**
  * Field agreement schema
  */
-export const FieldAgreementSchema = z.object({
+export const FieldAgreementSchema: z.ZodType<FieldAgreement> = z.object({
   path: z.string(),
   value: z.any(),
   agreement: z.number(),
-  votes: z.record(z.number()),
+  votes: z.record(z.string(), z.number()),
   values: z.array(z.any()),
   unanimous: z.boolean(),
   confidence: z.number(),
-}) satisfies z.ZodType<FieldAgreement>;
+});
 
 /**
  * Field consensus schema
  */
-export const FieldConsensusSchema = z.object({
-  fields: z.record(FieldAgreementSchema),
+export const FieldConsensusSchema: z.ZodType<FieldConsensus> = z.object({
+  fields: z.record(z.string(), FieldAgreementSchema),
   overallAgreement: z.number(),
   agreedFields: z.array(z.string()),
   disagreedFields: z.array(z.string()),
-}) satisfies z.ZodType<FieldConsensus>;
+});
 
 /**
  * Consensus output schema
  */
-export const ConsensusOutputSchema = z.object({
+export const ConsensusOutputSchema: z.ZodType<ConsensusOutput> = z.object({
   index: z.number(),
   text: z.string(),
   data: z.any().optional(),
@@ -146,12 +141,12 @@ export const ConsensusOutputSchema = z.object({
   duration: z.number(),
   weight: z.number(),
   similarities: z.array(z.number()).optional(),
-}) satisfies z.ZodType<ConsensusOutput>;
+});
 
 /**
  * Consensus result schema
  */
-export const ConsensusResultSchema = z.object({
+export const ConsensusResultSchema: z.ZodType<ConsensusResult> = z.object({
   consensus: z.any(),
   confidence: z.number(),
   outputs: z.array(ConsensusOutputSchema),
@@ -162,14 +157,15 @@ export const ConsensusResultSchema = z.object({
   fieldConsensus: FieldConsensusSchema.optional(),
   status: z.enum(["success", "partial", "failed"]),
   error: z.instanceof(Error).optional(),
-  metadata: z.record(z.any()).optional(),
-}) satisfies z.ZodType<ConsensusResult>;
+  metadata: z.record(z.string(), z.any()).optional(),
+});
 
 /**
  * Consensus options schema
+ * Note: Contains function properties - no explicit type annotation
  */
 export const ConsensusOptionsSchema = z.object({
-  streams: z.array(z.function().returns(z.any())),
+  streams: z.array(z.function()),
   schema: z.any().optional(),
   strategy: ConsensusStrategySchema.optional(),
   threshold: z.number().optional(),
@@ -182,50 +178,44 @@ export const ConsensusOptionsSchema = z.object({
   monitoring: z
     .object({
       enabled: z.boolean().optional(),
-      metadata: z.record(z.any()).optional(),
+      metadata: z.record(z.string(), z.any()).optional(),
     })
     .optional(),
-  onComplete: z
-    .function()
-    .args(z.array(ConsensusOutputSchema))
-    .returns(z.any())
-    .optional(),
-  onConsensus: z
-    .function()
-    .args(ConsensusResultSchema)
-    .returns(z.any())
-    .optional(),
-  metadata: z.record(z.any()).optional(),
-}) satisfies z.ZodType<ConsensusOptions>;
+  onComplete: z.function().optional(),
+  onConsensus: z.function().optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
 
 /**
  * Text consensus options schema
  */
-export const TextConsensusOptionsSchema = z.object({
-  threshold: z.number(),
-  strategy: ConsensusStrategySchema,
-  resolveConflicts: ConflictResolutionSchema,
-  weights: z.array(z.number()),
-}) satisfies z.ZodType<TextConsensusOptions>;
+export const TextConsensusOptionsSchema: z.ZodType<TextConsensusOptions> =
+  z.object({
+    threshold: z.number(),
+    strategy: ConsensusStrategySchema,
+    resolveConflicts: ConflictResolutionSchema,
+    weights: z.array(z.number()),
+  });
 
 /**
  * Structured consensus options schema
  */
-export const StructuredConsensusOptionsSchema = z.object({
-  schema: z.any(),
-  strategy: ConsensusStrategySchema,
-  resolveConflicts: ConflictResolutionSchema,
-  weights: z.array(z.number()),
-  minimumAgreement: z.number(),
-}) satisfies z.ZodType<StructuredConsensusOptions>;
+export const StructuredConsensusOptionsSchema: z.ZodType<StructuredConsensusOptions> =
+  z.object({
+    schema: z.any(),
+    strategy: ConsensusStrategySchema,
+    resolveConflicts: ConflictResolutionSchema,
+    weights: z.array(z.number()),
+    minimumAgreement: z.number(),
+  });
 
 /**
  * Consensus preset schema
  */
-export const ConsensusPresetSchema = z.object({
+export const ConsensusPresetSchema: z.ZodType<ConsensusPreset> = z.object({
   name: z.string(),
   strategy: ConsensusStrategySchema,
   threshold: z.number(),
   resolveConflicts: ConflictResolutionSchema,
   minimumAgreement: z.number(),
-}) satisfies z.ZodType<ConsensusPreset>;
+});

@@ -7,16 +7,11 @@ import type {
   L0DataPayload,
   L0Progress,
   L0Event,
-  L0Options,
-  L0Adapter,
-  L0Interceptor,
-  L0Result,
   L0State,
   L0Telemetry,
   CategorizedNetworkError,
-  RetryOptions,
 } from "../types/l0";
-import { GuardrailViolationSchema, GuardrailRuleSchema } from "./guardrails";
+import { GuardrailViolationSchema } from "./guardrails";
 import {
   BackoffStrategySchema,
   RetryReasonSchema,
@@ -26,7 +21,7 @@ import {
 /**
  * L0 content type schema
  */
-export const L0ContentTypeSchema = z.enum([
+export const L0ContentTypeSchema: z.ZodType<L0ContentType> = z.enum([
   "text",
   "image",
   "audio",
@@ -34,12 +29,12 @@ export const L0ContentTypeSchema = z.enum([
   "file",
   "json",
   "binary",
-]) satisfies z.ZodType<L0ContentType>;
+]);
 
 /**
  * L0 data payload schema
  */
-export const L0DataPayloadSchema = z.object({
+export const L0DataPayloadSchema: z.ZodType<L0DataPayload> = z.object({
   contentType: L0ContentTypeSchema,
   mimeType: z.string().optional(),
   base64: z.string().optional(),
@@ -58,23 +53,23 @@ export const L0DataPayloadSchema = z.object({
     })
     .catchall(z.unknown())
     .optional(),
-}) satisfies z.ZodType<L0DataPayload>;
+});
 
 /**
  * L0 progress schema
  */
-export const L0ProgressSchema = z.object({
+export const L0ProgressSchema: z.ZodType<L0Progress> = z.object({
   percent: z.number().optional(),
   step: z.number().optional(),
   totalSteps: z.number().optional(),
   message: z.string().optional(),
   eta: z.number().optional(),
-}) satisfies z.ZodType<L0Progress>;
+});
 
 /**
  * L0 event schema
  */
-export const L0EventSchema = z.object({
+export const L0EventSchema: z.ZodType<L0Event> = z.object({
   type: z.enum(["token", "message", "data", "progress", "error", "complete"]),
   value: z.string().optional(),
   role: z.string().optional(),
@@ -91,24 +86,25 @@ export const L0EventSchema = z.object({
     })
     .catchall(z.unknown())
     .optional(),
-}) satisfies z.ZodType<L0Event>;
+});
 
 /**
  * Categorized network error schema
  */
-export const CategorizedNetworkErrorSchema = z.object({
-  type: z.string(),
-  message: z.string(),
-  timestamp: z.number(),
-  retried: z.boolean(),
-  delay: z.number().optional(),
-  attempt: z.number().optional(),
-}) satisfies z.ZodType<CategorizedNetworkError>;
+export const CategorizedNetworkErrorSchema: z.ZodType<CategorizedNetworkError> =
+  z.object({
+    type: z.string(),
+    message: z.string(),
+    timestamp: z.number(),
+    retried: z.boolean(),
+    delay: z.number().optional(),
+    attempt: z.number().optional(),
+  });
 
 /**
  * L0 state schema
  */
-export const L0StateSchema = z.object({
+export const L0StateSchema: z.ZodType<L0State> = z.object({
   content: z.string(),
   checkpoint: z.string(),
   tokenCount: z.number(),
@@ -129,12 +125,12 @@ export const L0StateSchema = z.object({
   lastProgress: L0ProgressSchema.optional(),
   toolCallStartTimes: z.map(z.string(), z.number()).optional(),
   toolCallNames: z.map(z.string(), z.string()).optional(),
-}) satisfies z.ZodType<L0State>;
+});
 
 /**
  * L0 telemetry schema
  */
-export const L0TelemetrySchema = z.object({
+export const L0TelemetrySchema: z.ZodType<L0Telemetry> = z.object({
   sessionId: z.string(),
   startTime: z.number(),
   endTime: z.number().optional(),
@@ -150,7 +146,7 @@ export const L0TelemetrySchema = z.object({
   }),
   network: z.object({
     errorCount: z.number(),
-    errorsByType: z.record(z.number()),
+    errorsByType: z.record(z.string(), z.number()),
     errors: z
       .array(
         z.object({
@@ -166,8 +162,9 @@ export const L0TelemetrySchema = z.object({
   guardrails: z
     .object({
       violationCount: z.number(),
-      violationsByRule: z.record(z.number()),
+      violationsByRule: z.record(z.string(), z.number()),
       violationsByRuleAndSeverity: z.record(
+        z.string(),
         z.object({
           warning: z.number(),
           error: z.number(),
@@ -196,21 +193,23 @@ export const L0TelemetrySchema = z.object({
       continuationCount: z.number().optional(),
     })
     .optional(),
-  metadata: z.record(z.any()).optional(),
-}) satisfies z.ZodType<L0Telemetry>;
+  metadata: z.record(z.string(), z.any()).optional(),
+});
 
 /**
  * Checkpoint validation result schema
  */
-export const CheckpointValidationResultSchema = z.object({
-  skipContinuation: z.boolean(),
-  violations: z.array(GuardrailViolationSchema),
-  driftDetected: z.boolean(),
-  driftTypes: z.array(z.string()),
-}) satisfies z.ZodType<CheckpointValidationResult>;
+export const CheckpointValidationResultSchema: z.ZodType<CheckpointValidationResult> =
+  z.object({
+    skipContinuation: z.boolean(),
+    violations: z.array(GuardrailViolationSchema),
+    driftDetected: z.boolean(),
+    driftTypes: z.array(z.string()),
+  });
 
 /**
  * Retry options schema
+ * Note: Contains function properties - no explicit type annotation to avoid Zod 4 function type issues
  */
 export const RetryOptionsSchema = z.object({
   attempts: z.number().optional(),
@@ -235,59 +234,41 @@ export const RetryOptionsSchema = z.object({
       unknown: z.number().optional(),
     })
     .optional(),
-  calculateDelay: z
-    .function()
-    .args(
-      z.object({
-        attempt: z.number(),
-        totalAttempts: z.number(),
-        category: ErrorCategorySchema,
-        reason: z.string(),
-        error: z.instanceof(Error),
-        defaultDelay: z.number(),
-      }),
-    )
-    .returns(z.union([z.number(), z.undefined()]))
-    .optional(),
-  shouldRetry: z
-    .function()
-    .args(z.instanceof(Error), L0StateSchema, z.number(), ErrorCategorySchema)
-    .returns(z.promise(z.boolean()))
-    .optional(),
-}) satisfies z.ZodType<RetryOptions>;
+  calculateDelay: z.function().optional(),
+  shouldRetry: z.function().optional(),
+});
 
 /**
  * L0 adapter schema
+ * Note: Contains function properties - no explicit type annotation
  */
 export const L0AdapterSchema = z.object({
   name: z.string(),
-  detect: z.function().args(z.unknown()).returns(z.boolean()).optional(),
-  wrap: z.function().args(z.unknown(), z.unknown().optional()).returns(z.any()),
-}) satisfies z.ZodType<L0Adapter>;
+  detect: z.function().optional(),
+  wrap: z.function(),
+});
 
 /**
  * L0 interceptor schema
+ * Note: Contains function properties - no explicit type annotation
  */
 export const L0InterceptorSchema = z.object({
   name: z.string().optional(),
-  before: z.function().args(z.any()).returns(z.any()).optional(),
-  after: z.function().args(z.any()).returns(z.any()).optional(),
-  onError: z
-    .function()
-    .args(z.instanceof(Error), z.any())
-    .returns(z.any())
-    .optional(),
-}) satisfies z.ZodType<L0Interceptor>;
+  before: z.function().optional(),
+  after: z.function().optional(),
+  onError: z.function().optional(),
+});
 
 /**
  * L0 options schema
+ * Note: Contains function properties - no explicit type annotation
  */
 export const L0OptionsSchema = z.object({
   __outputType: z.unknown().optional(),
-  stream: z.function().returns(z.any()),
-  context: z.record(z.unknown()).optional(),
-  fallbackStreams: z.array(z.function().returns(z.any())).optional(),
-  guardrails: z.array(GuardrailRuleSchema).optional(),
+  stream: z.function(),
+  context: z.record(z.string(), z.unknown()).optional(),
+  fallbackStreams: z.array(z.function()).optional(),
+  guardrails: z.array(z.any()).optional(), // GuardrailRule has function, use any
   retry: RetryOptionsSchema.optional(),
   timeout: z
     .object({
@@ -302,7 +283,7 @@ export const L0OptionsSchema = z.object({
       sampleRate: z.number().optional(),
       includeNetworkDetails: z.boolean().optional(),
       includeTimings: z.boolean().optional(),
-      metadata: z.record(z.any()).optional(),
+      metadata: z.record(z.string(), z.any()).optional(),
     })
     .optional(),
   checkIntervals: z
@@ -315,11 +296,7 @@ export const L0OptionsSchema = z.object({
   detectDrift: z.boolean().optional(),
   detectZeroTokens: z.boolean().optional(),
   continueFromLastKnownGoodToken: z.boolean().optional(),
-  buildContinuationPrompt: z
-    .function()
-    .args(z.string())
-    .returns(z.string())
-    .optional(),
+  buildContinuationPrompt: z.function().optional(),
   deduplicateContinuation: z.boolean().optional(),
   deduplicationOptions: z
     .object({
@@ -329,77 +306,34 @@ export const L0OptionsSchema = z.object({
       normalizeWhitespace: z.boolean().optional(),
     })
     .optional(),
-  onStart: z
-    .function()
-    .args(z.number(), z.boolean(), z.boolean())
-    .returns(z.void())
-    .optional(),
-  onComplete: z.function().args(L0StateSchema).returns(z.void()).optional(),
-  onError: z
-    .function()
-    .args(z.instanceof(Error), z.boolean(), z.boolean())
-    .returns(z.void())
-    .optional(),
-  onEvent: z.function().args(z.any()).returns(z.void()).optional(),
-  onViolation: z
-    .function()
-    .args(GuardrailViolationSchema)
-    .returns(z.void())
-    .optional(),
-  onRetry: z
-    .function()
-    .args(z.number(), z.string())
-    .returns(z.void())
-    .optional(),
-  onFallback: z
-    .function()
-    .args(z.number(), z.string())
-    .returns(z.void())
-    .optional(),
-  onResume: z
-    .function()
-    .args(z.string(), z.number())
-    .returns(z.void())
-    .optional(),
-  onCheckpoint: z
-    .function()
-    .args(z.string(), z.number())
-    .returns(z.void())
-    .optional(),
-  onTimeout: z
-    .function()
-    .args(z.enum(["initial", "inter"]), z.number())
-    .returns(z.void())
-    .optional(),
-  onAbort: z
-    .function()
-    .args(z.number(), z.number())
-    .returns(z.void())
-    .optional(),
-  onDrift: z
-    .function()
-    .args(z.array(z.string()), z.number().optional())
-    .returns(z.void())
-    .optional(),
-  onToolCall: z
-    .function()
-    .args(z.string(), z.string(), z.record(z.unknown()))
-    .returns(z.void())
-    .optional(),
+  onStart: z.function().optional(),
+  onComplete: z.function().optional(),
+  onError: z.function().optional(),
+  onEvent: z.function().optional(),
+  onViolation: z.function().optional(),
+  onRetry: z.function().optional(),
+  onFallback: z.function().optional(),
+  onResume: z.function().optional(),
+  onCheckpoint: z.function().optional(),
+  onTimeout: z.function().optional(),
+  onAbort: z.function().optional(),
+  onDrift: z.function().optional(),
+  onToolCall: z.function().optional(),
   interceptors: z.array(L0InterceptorSchema).optional(),
   adapter: z.union([L0AdapterSchema, z.string()]).optional(),
   adapterOptions: z.unknown().optional(),
-}) satisfies z.ZodType<L0Options>;
+});
 
 /**
  * L0 result schema
+ * Note: Contains function properties - no explicit type annotation
  */
 export const L0ResultSchema = z.object({
   __outputType: z.unknown().optional(),
-  stream: z.any(),
+  stream: z.any(), // AsyncIterable can't be validated
   text: z.string().optional(),
   state: L0StateSchema,
   errors: z.array(z.instanceof(Error)),
   telemetry: L0TelemetrySchema.optional(),
-  abort: z.function().returns(z.void()),
-}) satisfies z.ZodType<L0Result>;
+  abort: z.function(),
+});
