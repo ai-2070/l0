@@ -359,6 +359,9 @@ console.log(result.output); // French translation of summary
 
 Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 
+> Most applications should simply use `import { l0 } from "@ai2070/l0"`.
+> Only optimize imports if you're targeting edge runtimes or strict bundle constraints.
+
 ### Zod Validation Schemas
 
 L0 exports Zod 4 schemas for runtime validation of all L0 types:
@@ -377,9 +380,6 @@ if (result.success) {
 ```
 
 Schemas are available for all core types: `L0State`, `L0Event`, `L0Telemetry`, `RetryOptions`, `GuardrailViolation`, `ConsensusResult`, `PipelineResult`, and more.
-
-> Most applications should simply use `import { l0 } from "@ai2070/l0"`.
-> Only optimize imports if you're targeting edge runtimes or strict bundle constraints.
 
 ## Documentation
 
