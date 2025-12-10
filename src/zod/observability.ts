@@ -1,6 +1,6 @@
 // Zod schemas for L0 Observability types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   FailureType,
   RecoveryStrategy,
@@ -337,13 +337,15 @@ export const AbortCompletedEventSchema = L0ObservabilityEventSchema.extend({
 }) satisfies z.ZodType<AbortCompletedEvent>;
 
 // Guardrail events
-export const GuardrailPhaseStartEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("GUARDRAIL_PHASE_START"),
-  callbackId: z.string().optional(),
-  ruleCount: z.number(),
-  tokenCount: z.number(),
-  contextSize: z.number().optional(),
-}) satisfies z.ZodType<GuardrailPhaseStartEvent>;
+export const GuardrailPhaseStartEventSchema = L0ObservabilityEventSchema.extend(
+  {
+    type: z.literal("GUARDRAIL_PHASE_START"),
+    callbackId: z.string().optional(),
+    ruleCount: z.number(),
+    tokenCount: z.number(),
+    contextSize: z.number().optional(),
+  },
+) satisfies z.ZodType<GuardrailPhaseStartEvent>;
 
 export const GuardrailRuleStartEventSchema = L0ObservabilityEventSchema.extend({
   type: z.literal("GUARDRAIL_RULE_START"),
@@ -352,16 +354,18 @@ export const GuardrailRuleStartEventSchema = L0ObservabilityEventSchema.extend({
   callbackId: z.string().optional(),
 }) satisfies z.ZodType<GuardrailRuleStartEvent>;
 
-export const GuardrailRuleResultEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("GUARDRAIL_RULE_RESULT"),
-  index: z.number(),
-  ruleId: z.string(),
-  callbackId: z.string().optional(),
-  passed: z.boolean(),
-  result: z.unknown().optional(),
-  violation: GuardrailViolationSchema.optional(),
-  rule: z.unknown().optional(),
-}) satisfies z.ZodType<GuardrailRuleResultEvent>;
+export const GuardrailRuleResultEventSchema = L0ObservabilityEventSchema.extend(
+  {
+    type: z.literal("GUARDRAIL_RULE_RESULT"),
+    index: z.number(),
+    ruleId: z.string(),
+    callbackId: z.string().optional(),
+    passed: z.boolean(),
+    result: z.unknown().optional(),
+    violation: GuardrailViolationSchema.optional(),
+    rule: z.unknown().optional(),
+  },
+) satisfies z.ZodType<GuardrailRuleResultEvent>;
 
 export const GuardrailRuleEndEventSchema = L0ObservabilityEventSchema.extend({
   type: z.literal("GUARDRAIL_RULE_END"),
@@ -382,24 +386,26 @@ export const GuardrailPhaseEndEventSchema = L0ObservabilityEventSchema.extend({
   shouldHalt: z.boolean(),
 }) satisfies z.ZodType<GuardrailPhaseEndEvent>;
 
-export const GuardrailCallbackStartEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("GUARDRAIL_CALLBACK_START"),
-  callbackId: z.string().optional(),
-  callbackType: z.literal("onViolation"),
-  index: z.number().optional(),
-  ruleId: z.string().optional(),
-}) satisfies z.ZodType<GuardrailCallbackStartEvent>;
+export const GuardrailCallbackStartEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("GUARDRAIL_CALLBACK_START"),
+    callbackId: z.string().optional(),
+    callbackType: z.literal("onViolation"),
+    index: z.number().optional(),
+    ruleId: z.string().optional(),
+  }) satisfies z.ZodType<GuardrailCallbackStartEvent>;
 
-export const GuardrailCallbackEndEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("GUARDRAIL_CALLBACK_END"),
-  callbackId: z.string().optional(),
-  callbackType: z.literal("onViolation"),
-  index: z.number().optional(),
-  ruleId: z.string().optional(),
-  durationMs: z.number(),
-  success: z.boolean().optional(),
-  error: z.string().optional(),
-}) satisfies z.ZodType<GuardrailCallbackEndEvent>;
+export const GuardrailCallbackEndEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("GUARDRAIL_CALLBACK_END"),
+    callbackId: z.string().optional(),
+    callbackType: z.literal("onViolation"),
+    index: z.number().optional(),
+    ruleId: z.string().optional(),
+    durationMs: z.number(),
+    success: z.boolean().optional(),
+    error: z.string().optional(),
+  }) satisfies z.ZodType<GuardrailCallbackEndEvent>;
 
 // Drift events
 export const DriftCheckStartEventSchema = L0ObservabilityEventSchema.extend({
@@ -514,10 +520,11 @@ export const FallbackStartEventSchema = L0ObservabilityEventSchema.extend({
   reason: z.string(),
 }) satisfies z.ZodType<FallbackStartEvent>;
 
-export const FallbackModelSelectedEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("FALLBACK_MODEL_SELECTED"),
-  index: z.number(),
-}) satisfies z.ZodType<FallbackModelSelectedEvent>;
+export const FallbackModelSelectedEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("FALLBACK_MODEL_SELECTED"),
+    index: z.number(),
+  }) satisfies z.ZodType<FallbackModelSelectedEvent>;
 
 export const FallbackEndEventSchema = L0ObservabilityEventSchema.extend({
   type: z.literal("FALLBACK_END"),
@@ -526,10 +533,11 @@ export const FallbackEndEventSchema = L0ObservabilityEventSchema.extend({
 }) satisfies z.ZodType<FallbackEndEvent>;
 
 // Structured events
-export const StructuredParseStartEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("STRUCTURED_PARSE_START"),
-  contentLength: z.number(),
-}) satisfies z.ZodType<StructuredParseStartEvent>;
+export const StructuredParseStartEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("STRUCTURED_PARSE_START"),
+    contentLength: z.number(),
+  }) satisfies z.ZodType<StructuredParseStartEvent>;
 
 export const StructuredParseEndEventSchema = L0ObservabilityEventSchema.extend({
   type: z.literal("STRUCTURED_PARSE_END"),
@@ -537,39 +545,45 @@ export const StructuredParseEndEventSchema = L0ObservabilityEventSchema.extend({
   success: z.boolean(),
 }) satisfies z.ZodType<StructuredParseEndEvent>;
 
-export const StructuredParseErrorEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("STRUCTURED_PARSE_ERROR"),
-  error: z.string(),
-  contentPreview: z.string().optional(),
-}) satisfies z.ZodType<StructuredParseErrorEvent>;
+export const StructuredParseErrorEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("STRUCTURED_PARSE_ERROR"),
+    error: z.string(),
+    contentPreview: z.string().optional(),
+  }) satisfies z.ZodType<StructuredParseErrorEvent>;
 
-export const StructuredValidationStartEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("STRUCTURED_VALIDATION_START"),
-  schemaName: z.string().optional(),
-}) satisfies z.ZodType<StructuredValidationStartEvent>;
+export const StructuredValidationStartEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("STRUCTURED_VALIDATION_START"),
+    schemaName: z.string().optional(),
+  }) satisfies z.ZodType<StructuredValidationStartEvent>;
 
-export const StructuredValidationEndEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("STRUCTURED_VALIDATION_END"),
-  durationMs: z.number(),
-  valid: z.boolean(),
-}) satisfies z.ZodType<StructuredValidationEndEvent>;
+export const StructuredValidationEndEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("STRUCTURED_VALIDATION_END"),
+    durationMs: z.number(),
+    valid: z.boolean(),
+  }) satisfies z.ZodType<StructuredValidationEndEvent>;
 
-export const StructuredValidationErrorEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("STRUCTURED_VALIDATION_ERROR"),
-  errors: z.array(z.string()),
-}) satisfies z.ZodType<StructuredValidationErrorEvent>;
+export const StructuredValidationErrorEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("STRUCTURED_VALIDATION_ERROR"),
+    errors: z.array(z.string()),
+  }) satisfies z.ZodType<StructuredValidationErrorEvent>;
 
-export const StructuredAutoCorrectStartEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("STRUCTURED_AUTO_CORRECT_START"),
-  errorCount: z.number(),
-}) satisfies z.ZodType<StructuredAutoCorrectStartEvent>;
+export const StructuredAutoCorrectStartEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("STRUCTURED_AUTO_CORRECT_START"),
+    errorCount: z.number(),
+  }) satisfies z.ZodType<StructuredAutoCorrectStartEvent>;
 
-export const StructuredAutoCorrectEndEventSchema = L0ObservabilityEventSchema.extend({
-  type: z.literal("STRUCTURED_AUTO_CORRECT_END"),
-  durationMs: z.number(),
-  success: z.boolean(),
-  correctionsMade: z.number(),
-}) satisfies z.ZodType<StructuredAutoCorrectEndEvent>;
+export const StructuredAutoCorrectEndEventSchema =
+  L0ObservabilityEventSchema.extend({
+    type: z.literal("STRUCTURED_AUTO_CORRECT_END"),
+    durationMs: z.number(),
+    success: z.boolean(),
+    correctionsMade: z.number(),
+  }) satisfies z.ZodType<StructuredAutoCorrectEndEvent>;
 
 // Continuation events
 export const ContinuationStartEventSchema = L0ObservabilityEventSchema.extend({

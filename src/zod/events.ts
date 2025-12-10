@@ -1,6 +1,6 @@
 // Zod schemas for L0 Event Sourcing types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   L0RecordedEventType,
   SerializedOptions,
@@ -28,7 +28,11 @@ import type {
 } from "../types/events";
 import { GuardrailViolationSchema } from "./guardrails";
 import { BackoffStrategySchema } from "./retry";
-import { FailureTypeSchema, RecoveryStrategySchema, RecoveryPolicySchema } from "./observability";
+import {
+  FailureTypeSchema,
+  RecoveryStrategySchema,
+  RecoveryPolicySchema,
+} from "./observability";
 
 /**
  * Recorded event type schema

@@ -1,6 +1,6 @@
 // Zod schemas for L0 Window types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   WindowOptions,
   ChunkStrategy,
@@ -103,12 +103,24 @@ export const DocumentWindowSchema = z.object({
   jump: z.function().args(z.number()).returns(DocumentChunkSchema.nullable()),
   reset: z.function().returns(DocumentChunkSchema.nullable()),
   getAllChunks: z.function().returns(z.array(DocumentChunkSchema)),
-  getRange: z.function().args(z.number(), z.number()).returns(z.array(DocumentChunkSchema)),
+  getRange: z
+    .function()
+    .args(z.number(), z.number())
+    .returns(z.array(DocumentChunkSchema)),
   hasNext: z.function().returns(z.boolean()),
   hasPrev: z.function().returns(z.boolean()),
-  processAll: z.function().args(z.any()).returns(z.promise(z.array(WindowProcessResultSchema))),
-  processSequential: z.function().args(z.any()).returns(z.promise(z.array(WindowProcessResultSchema))),
-  processParallel: z.function().args(z.any(), z.any().optional()).returns(z.promise(z.array(WindowProcessResultSchema))),
+  processAll: z
+    .function()
+    .args(z.any())
+    .returns(z.promise(z.array(WindowProcessResultSchema))),
+  processSequential: z
+    .function()
+    .args(z.any())
+    .returns(z.promise(z.array(WindowProcessResultSchema))),
+  processParallel: z
+    .function()
+    .args(z.any(), z.any().optional())
+    .returns(z.promise(z.array(WindowProcessResultSchema))),
   getStats: z.function().returns(WindowStatsSchema),
 }) satisfies z.ZodType<DocumentWindow>;
 
@@ -119,7 +131,11 @@ export const ContextRestorationOptionsSchema = z.object({
   enabled: z.boolean().optional(),
   strategy: ContextRestorationStrategySchema.optional(),
   maxAttempts: z.number().optional(),
-  onRestore: z.function().args(z.number(), z.number()).returns(z.void()).optional(),
+  onRestore: z
+    .function()
+    .args(z.number(), z.number())
+    .returns(z.void())
+    .optional(),
 }) satisfies z.ZodType<ContextRestorationOptions>;
 
 /**

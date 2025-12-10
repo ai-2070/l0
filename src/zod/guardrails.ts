@@ -1,6 +1,6 @@
 // Zod schemas for L0 Guardrail types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   GuardrailRule,
   GuardrailContext,
@@ -20,86 +20,104 @@ import type {
 /**
  * Guardrail violation schema
  */
-export const GuardrailViolationSchema = z.object({
-  rule: z.string(),
-  message: z.string(),
-  severity: z.enum(["warning", "error", "fatal"]),
-  position: z.number().optional(),
-  recoverable: z.boolean(),
-  timestamp: z.number().optional(),
-  context: z.record(z.unknown()).optional(),
-  suggestion: z.string().optional(),
-}) satisfies z.ZodType<GuardrailViolation>;
+export const GuardrailViolationSchema: z.ZodType<GuardrailViolation> = z.object(
+  {
+    rule: z.string(),
+    message: z.string(),
+    severity: z.enum(["warning", "error", "fatal"]),
+    position: z.number().optional(),
+    recoverable: z.boolean(),
+    timestamp: z.number().optional(),
+    context: z.record(z.string(), z.unknown()).optional(),
+    suggestion: z.string().optional(),
+  },
+);
 
 /**
  * Guardrail context schema
  */
-export const GuardrailContextSchema = z.object({
+export const GuardrailContextSchema: z.ZodType<GuardrailContext> = z.object({
   content: z.string(),
   checkpoint: z.string().optional(),
   delta: z.string().optional(),
   tokenCount: z.number(),
   completed: z.boolean(),
-  metadata: z.record(z.any()).optional(),
-  previousViolations: z.array(GuardrailViolationSchema).optional(),
-}) satisfies z.ZodType<GuardrailContext>;
+  metadata: z.record(z.string(), z.any()).optional(),
+  previousViolations: z
+    .array(z.lazy(() => GuardrailViolationSchema))
+    .optional(),
+});
 
 /**
  * Guardrail rule schema
- * Note: check function cannot be validated with zod, using z.function()
+ * Note: check function is validated as z.function() - runtime validation only checks it's a function
  */
-export const GuardrailRuleSchema = z.object({
+export const GuardrailRuleSchema: z.ZodType<GuardrailRule> = z.object({
   name: z.string(),
   description: z.string().optional(),
-  check: z.function().args(GuardrailContextSchema).returns(z.array(GuardrailViolationSchema)),
+  check: z.function() as z.ZodType<
+    (context: GuardrailContext) => GuardrailViolation[]
+  >,
   streaming: z.boolean().optional(),
   severity: z.enum(["warning", "error", "fatal"]).optional(),
   recoverable: z.boolean().optional(),
-}) satisfies z.ZodType<GuardrailRule>;
+});
 
 /**
  * Guardrail state schema
  */
-export const GuardrailStateSchema = z.object({
+export const GuardrailStateSchema: z.ZodType<GuardrailState> = z.object({
   violations: z.array(GuardrailViolationSchema),
   violationsByRule: z.map(z.string(), z.array(GuardrailViolationSchema)),
   hasFatalViolations: z.boolean(),
   hasErrorViolations: z.boolean(),
   violationCount: z.number(),
   lastCheckTime: z.number().optional(),
-}) satisfies z.ZodType<GuardrailState>;
+});
 
 /**
  * Guardrail config schema
  */
-export const GuardrailConfigSchema = z.object({
+export const GuardrailConfigSchema: z.ZodType<GuardrailConfig> = z.object({
   rules: z.array(GuardrailRuleSchema),
   stopOnFatal: z.boolean().optional(),
   enableStreaming: z.boolean().optional(),
   checkInterval: z.number().optional(),
-  onViolation: z.function().args(GuardrailViolationSchema).returns(z.void()).optional(),
-  onPhaseStart: z
-    .function()
-    .args(z.enum(["pre", "post"]), z.number(), z.number())
-    .returns(z.void())
-    .optional(),
-  onPhaseEnd: z
-    .function()
-    .args(z.enum(["pre", "post"]), z.boolean(), z.array(GuardrailViolationSchema), z.number())
-    .returns(z.void())
-    .optional(),
-  onRuleStart: z.function().args(z.number(), z.string(), z.string()).returns(z.void()).optional(),
-  onRuleEnd: z
-    .function()
-    .args(z.number(), z.string(), z.boolean(), z.string(), z.number())
-    .returns(z.void())
-    .optional(),
-}) satisfies z.ZodType<GuardrailConfig>;
+  onViolation: z.function().optional() as z.ZodType<
+    ((violation: GuardrailViolation) => void) | undefined
+  >,
+  onPhaseStart: z.function().optional() as z.ZodType<
+    | ((phase: "pre" | "post", ruleCount: number, tokenCount: number) => void)
+    | undefined
+  >,
+  onPhaseEnd: z.function().optional() as z.ZodType<
+    | ((
+        phase: "pre" | "post",
+        passed: boolean,
+        violations: GuardrailViolation[],
+        durationMs: number,
+      ) => void)
+    | undefined
+  >,
+  onRuleStart: z.function().optional() as z.ZodType<
+    ((index: number, ruleId: string, callbackId: string) => void) | undefined
+  >,
+  onRuleEnd: z.function().optional() as z.ZodType<
+    | ((
+        index: number,
+        ruleId: string,
+        passed: boolean,
+        callbackId: string,
+        durationMs: number,
+      ) => void)
+    | undefined
+  >,
+});
 
 /**
  * Guardrail result schema
  */
-export const GuardrailResultSchema = z.object({
+export const GuardrailResultSchema: z.ZodType<GuardrailResult> = z.object({
   passed: z.boolean(),
   violations: z.array(GuardrailViolationSchema),
   shouldRetry: z.boolean(),
@@ -110,12 +128,12 @@ export const GuardrailResultSchema = z.object({
     errors: z.number(),
     warnings: z.number(),
   }),
-}) satisfies z.ZodType<GuardrailResult>;
+});
 
 /**
  * JSON structure tracking schema
  */
-export const JsonStructureSchema = z.object({
+export const JsonStructureSchema: z.ZodType<JsonStructure> = z.object({
   openBraces: z.number(),
   closeBraces: z.number(),
   openBrackets: z.number(),
@@ -123,67 +141,68 @@ export const JsonStructureSchema = z.object({
   inString: z.boolean(),
   isBalanced: z.boolean(),
   issues: z.array(z.string()),
-}) satisfies z.ZodType<JsonStructure>;
+});
 
 /**
  * Markdown structure tracking schema
  */
-export const MarkdownStructureSchema = z.object({
+export const MarkdownStructureSchema: z.ZodType<MarkdownStructure> = z.object({
   openFences: z.number(),
   fenceLanguages: z.array(z.string()),
   inFence: z.boolean(),
   headers: z.array(z.number()),
   listDepth: z.number(),
   issues: z.array(z.string()),
-}) satisfies z.ZodType<MarkdownStructure>;
+});
 
 /**
  * LaTeX structure tracking schema
  */
-export const LatexStructureSchema = z.object({
+export const LatexStructureSchema: z.ZodType<LatexStructure> = z.object({
   openEnvironments: z.array(z.string()),
   isBalanced: z.boolean(),
   issues: z.array(z.string()),
-}) satisfies z.ZodType<LatexStructure>;
+});
 
 /**
  * Pattern config schema
  */
-export const PatternConfigSchema = z.object({
+export const PatternConfigSchema: z.ZodType<PatternConfig> = z.object({
   patterns: z.array(z.union([z.string(), z.instanceof(RegExp)])),
   isBadPattern: z.boolean(),
   message: z.string().optional(),
   fatal: z.boolean().optional(),
-}) satisfies z.ZodType<PatternConfig>;
+});
 
 /**
  * Drift config schema
  */
-export const DriftConfigSchema = z.object({
+export const DriftConfigSchema: z.ZodType<DriftConfig> = z.object({
   detectToneShift: z.boolean().optional(),
   detectMetaCommentary: z.boolean().optional(),
   detectRepetition: z.boolean().optional(),
   detectEntropySpike: z.boolean().optional(),
   entropyThreshold: z.number().optional(),
   repetitionThreshold: z.number().optional(),
-}) satisfies z.ZodType<DriftConfig>;
+});
 
 /**
  * Function call structure schema
  */
-export const FunctionCallStructureSchema = z.object({
-  name: z.string().optional(),
-  arguments: z.string().optional(),
-  parsedArguments: z.record(z.any()).optional(),
-  isValid: z.boolean(),
-  errors: z.array(z.string()),
-}) satisfies z.ZodType<FunctionCallStructure>;
+export const FunctionCallStructureSchema: z.ZodType<FunctionCallStructure> =
+  z.object({
+    name: z.string().optional(),
+    arguments: z.string().optional(),
+    parsedArguments: z.record(z.string(), z.any()).optional(),
+    isValid: z.boolean(),
+    errors: z.array(z.string()),
+  });
 
 /**
  * Schema validation result schema
  */
-export const SchemaValidationSchema = z.object({
+export const SchemaValidationSchema: z.ZodType<SchemaValidation> = z.object({
   valid: z.boolean(),
   errors: z.array(z.string()),
   parsed: z.any().optional(),
-}) satisfies z.ZodType<SchemaValidation>;
+});

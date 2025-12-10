@@ -1,6 +1,6 @@
 // Zod schemas for L0 Stream types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   StreamEvent,
   StreamNormalizerOptions,
@@ -73,9 +73,12 @@ export const StreamChunkSchema = z.object({
 /**
  * Stream handler schema
  */
-export const StreamHandlerSchema = z.function()
+export const StreamHandlerSchema = z
+  .function()
   .args(StreamChunkSchema)
-  .returns(z.union([z.void(), z.promise(z.void())])) satisfies z.ZodType<StreamHandler>;
+  .returns(
+    z.union([z.void(), z.promise(z.void())]),
+  ) satisfies z.ZodType<StreamHandler>;
 
 /**
  * Stream error type schema

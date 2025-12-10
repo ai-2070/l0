@@ -1,6 +1,6 @@
 // Zod schemas for L0 Structured Output types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   StructuredOptions,
   StructuredResult,
@@ -114,9 +114,21 @@ export const StructuredOptionsSchema = z.object({
     })
     .optional(),
   detectZeroTokens: z.boolean().optional(),
-  onValidationError: z.function().args(z.any(), z.number()).returns(z.void()).optional(),
-  onAutoCorrect: z.function().args(CorrectionInfoSchema).returns(z.void()).optional(),
-  onRetry: z.function().args(z.number(), z.string()).returns(z.void()).optional(),
+  onValidationError: z
+    .function()
+    .args(z.any(), z.number())
+    .returns(z.void())
+    .optional(),
+  onAutoCorrect: z
+    .function()
+    .args(CorrectionInfoSchema)
+    .returns(z.void())
+    .optional(),
+  onRetry: z
+    .function()
+    .args(z.number(), z.string())
+    .returns(z.void())
+    .optional(),
 }) satisfies z.ZodType<StructuredOptions>;
 
 /**

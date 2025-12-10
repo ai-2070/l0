@@ -1,6 +1,6 @@
 // Zod schemas for L0 Pipeline types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   PipelineStep,
   StructuredPipelineStep,
@@ -66,10 +66,26 @@ export const StructuredStepResultSchema = z.object({
 export const PipelineStepSchema = z.object({
   name: z.string(),
   fn: z.function().args(z.any(), StepContextSchema).returns(z.any()),
-  transform: z.function().args(L0ResultSchema, StepContextSchema).returns(z.any()).optional(),
-  condition: z.function().args(z.any(), StepContextSchema).returns(z.any()).optional(),
-  onError: z.function().args(z.instanceof(Error), StepContextSchema).returns(z.any()).optional(),
-  onComplete: z.function().args(StepResultSchema, StepContextSchema).returns(z.any()).optional(),
+  transform: z
+    .function()
+    .args(L0ResultSchema, StepContextSchema)
+    .returns(z.any())
+    .optional(),
+  condition: z
+    .function()
+    .args(z.any(), StepContextSchema)
+    .returns(z.any())
+    .optional(),
+  onError: z
+    .function()
+    .args(z.instanceof(Error), StepContextSchema)
+    .returns(z.any())
+    .optional(),
+  onComplete: z
+    .function()
+    .args(StepResultSchema, StepContextSchema)
+    .returns(z.any())
+    .optional(),
   metadata: z.record(z.any()).optional(),
 }) satisfies z.ZodType<PipelineStep>;
 
@@ -79,9 +95,21 @@ export const PipelineStepSchema = z.object({
 export const StructuredPipelineStepSchema = z.object({
   name: z.string(),
   fn: z.function().args(z.any(), StepContextSchema).returns(z.any()),
-  transform: z.function().args(StructuredResultSchema, StepContextSchema).returns(z.any()).optional(),
-  condition: z.function().args(z.any(), StepContextSchema).returns(z.any()).optional(),
-  onError: z.function().args(z.instanceof(Error), StepContextSchema).returns(z.any()).optional(),
+  transform: z
+    .function()
+    .args(StructuredResultSchema, StepContextSchema)
+    .returns(z.any())
+    .optional(),
+  condition: z
+    .function()
+    .args(z.any(), StepContextSchema)
+    .returns(z.any())
+    .optional(),
+  onError: z
+    .function()
+    .args(z.instanceof(Error), StepContextSchema)
+    .returns(z.any())
+    .optional(),
   onComplete: z
     .function()
     .args(StructuredStepResultSchema, StepContextSchema)
@@ -106,8 +134,16 @@ export const PipelineOptionsSchema = z.object({
     .optional(),
   onStart: z.function().args(z.any()).returns(z.any()).optional(),
   onComplete: z.function().args(z.any()).returns(z.any()).optional(),
-  onError: z.function().args(z.instanceof(Error), z.number()).returns(z.any()).optional(),
-  onProgress: z.function().args(z.number(), z.number()).returns(z.any()).optional(),
+  onError: z
+    .function()
+    .args(z.instanceof(Error), z.number())
+    .returns(z.any())
+    .optional(),
+  onProgress: z
+    .function()
+    .args(z.number(), z.number())
+    .returns(z.any())
+    .optional(),
   metadata: z.record(z.any()).optional(),
 }) satisfies z.ZodType<PipelineOptions>;
 
@@ -155,8 +191,16 @@ export const PipelineBranchSchema = z.object({
 export const StepBuilderOptionsSchema = z.object({
   l0Options: L0OptionsSchema.partial().optional(),
   transform: z.function().args(L0ResultSchema).returns(z.any()).optional(),
-  condition: z.function().args(z.any(), StepContextSchema).returns(z.any()).optional(),
-  onError: z.function().args(z.instanceof(Error), StepContextSchema).returns(z.any()).optional(),
+  condition: z
+    .function()
+    .args(z.any(), StepContextSchema)
+    .returns(z.any())
+    .optional(),
+  onError: z
+    .function()
+    .args(z.instanceof(Error), StepContextSchema)
+    .returns(z.any())
+    .optional(),
   metadata: z.record(z.any()).optional(),
 }) satisfies z.ZodType<StepBuilderOptions>;
 

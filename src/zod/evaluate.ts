@@ -1,6 +1,6 @@
 // Zod schemas for L0 Evaluation types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   EvaluationOptions,
   ComparisonStyle,
@@ -64,9 +64,12 @@ export const DifferenceSeveritySchema = z.enum([
 /**
  * Comparison function schema
  */
-export const ComparisonFunctionSchema = z.function()
+export const ComparisonFunctionSchema = z
+  .function()
   .args(z.any(), z.any())
-  .returns(z.union([z.boolean(), z.number()])) satisfies z.ZodType<ComparisonFunction>;
+  .returns(
+    z.union([z.boolean(), z.number()]),
+  ) satisfies z.ZodType<ComparisonFunction>;
 
 /**
  * Difference schema

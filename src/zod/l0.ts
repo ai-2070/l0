@@ -1,6 +1,6 @@
 // Zod schemas for core L0 types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   CheckpointValidationResult,
   L0ContentType,
@@ -17,7 +17,11 @@ import type {
   RetryOptions,
 } from "../types/l0";
 import { GuardrailViolationSchema, GuardrailRuleSchema } from "./guardrails";
-import { BackoffStrategySchema, RetryReasonSchema, ErrorCategorySchema } from "./retry";
+import {
+  BackoffStrategySchema,
+  RetryReasonSchema,
+  ErrorCategorySchema,
+} from "./retry";
 
 /**
  * L0 content type schema
@@ -155,7 +159,7 @@ export const L0TelemetrySchema = z.object({
           timestamp: z.number(),
           retried: z.boolean(),
           delay: z.number().optional(),
-        })
+        }),
       )
       .optional(),
   }),
@@ -168,7 +172,7 @@ export const L0TelemetrySchema = z.object({
           warning: z.number(),
           error: z.number(),
           fatal: z.number(),
-        })
+        }),
       ),
       violationsBySeverity: z.object({
         warning: z.number(),
@@ -241,7 +245,7 @@ export const RetryOptionsSchema = z.object({
         reason: z.string(),
         error: z.instanceof(Error),
         defaultDelay: z.number(),
-      })
+      }),
     )
     .returns(z.union([z.number(), z.undefined()]))
     .optional(),
@@ -268,7 +272,11 @@ export const L0InterceptorSchema = z.object({
   name: z.string().optional(),
   before: z.function().args(z.any()).returns(z.any()).optional(),
   after: z.function().args(z.any()).returns(z.any()).optional(),
-  onError: z.function().args(z.instanceof(Error), z.any()).returns(z.any()).optional(),
+  onError: z
+    .function()
+    .args(z.instanceof(Error), z.any())
+    .returns(z.any())
+    .optional(),
 }) satisfies z.ZodType<L0Interceptor>;
 
 /**
@@ -307,7 +315,11 @@ export const L0OptionsSchema = z.object({
   detectDrift: z.boolean().optional(),
   detectZeroTokens: z.boolean().optional(),
   continueFromLastKnownGoodToken: z.boolean().optional(),
-  buildContinuationPrompt: z.function().args(z.string()).returns(z.string()).optional(),
+  buildContinuationPrompt: z
+    .function()
+    .args(z.string())
+    .returns(z.string())
+    .optional(),
   deduplicateContinuation: z.boolean().optional(),
   deduplicationOptions: z
     .object({
@@ -317,7 +329,11 @@ export const L0OptionsSchema = z.object({
       normalizeWhitespace: z.boolean().optional(),
     })
     .optional(),
-  onStart: z.function().args(z.number(), z.boolean(), z.boolean()).returns(z.void()).optional(),
+  onStart: z
+    .function()
+    .args(z.number(), z.boolean(), z.boolean())
+    .returns(z.void())
+    .optional(),
   onComplete: z.function().args(L0StateSchema).returns(z.void()).optional(),
   onError: z
     .function()
@@ -325,14 +341,46 @@ export const L0OptionsSchema = z.object({
     .returns(z.void())
     .optional(),
   onEvent: z.function().args(z.any()).returns(z.void()).optional(),
-  onViolation: z.function().args(GuardrailViolationSchema).returns(z.void()).optional(),
-  onRetry: z.function().args(z.number(), z.string()).returns(z.void()).optional(),
-  onFallback: z.function().args(z.number(), z.string()).returns(z.void()).optional(),
-  onResume: z.function().args(z.string(), z.number()).returns(z.void()).optional(),
-  onCheckpoint: z.function().args(z.string(), z.number()).returns(z.void()).optional(),
-  onTimeout: z.function().args(z.enum(["initial", "inter"]), z.number()).returns(z.void()).optional(),
-  onAbort: z.function().args(z.number(), z.number()).returns(z.void()).optional(),
-  onDrift: z.function().args(z.array(z.string()), z.number().optional()).returns(z.void()).optional(),
+  onViolation: z
+    .function()
+    .args(GuardrailViolationSchema)
+    .returns(z.void())
+    .optional(),
+  onRetry: z
+    .function()
+    .args(z.number(), z.string())
+    .returns(z.void())
+    .optional(),
+  onFallback: z
+    .function()
+    .args(z.number(), z.string())
+    .returns(z.void())
+    .optional(),
+  onResume: z
+    .function()
+    .args(z.string(), z.number())
+    .returns(z.void())
+    .optional(),
+  onCheckpoint: z
+    .function()
+    .args(z.string(), z.number())
+    .returns(z.void())
+    .optional(),
+  onTimeout: z
+    .function()
+    .args(z.enum(["initial", "inter"]), z.number())
+    .returns(z.void())
+    .optional(),
+  onAbort: z
+    .function()
+    .args(z.number(), z.number())
+    .returns(z.void())
+    .optional(),
+  onDrift: z
+    .function()
+    .args(z.array(z.string()), z.number().optional())
+    .returns(z.void())
+    .optional(),
   onToolCall: z
     .function()
     .args(z.string(), z.string(), z.record(z.unknown()))

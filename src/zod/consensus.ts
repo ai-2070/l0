@@ -1,6 +1,6 @@
 // Zod schemas for L0 Consensus types
 
-import { z } from "zod";
+import { z } from "zod4";
 import type {
   ConsensusOptions,
   ConsensusStrategy,
