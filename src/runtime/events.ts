@@ -2,6 +2,16 @@
 
 import type { L0Event } from "../types/l0";
 
+// L0 event type set for O(1) lookup
+const L0_EVENT_TYPES = new Set([
+  "token",
+  "message",
+  "data",
+  "progress",
+  "error",
+  "complete",
+]);
+
 /**
  * Normalize a stream event from Vercel AI SDK or other providers
  * into unified L0 event format
@@ -10,6 +20,12 @@ import type { L0Event } from "../types/l0";
  * @returns Normalized L0 event
  */
 export function normalizeStreamEvent(chunk: any): L0Event {
+  // Fast path: check for L0 event format first (most common case in benchmarks)
+  // This avoids the full isL0Event check for the hot path
+  if (chunk && typeof chunk === "object" && L0_EVENT_TYPES.has(chunk.type)) {
+    return chunk;
+  }
+
   // Handle null/undefined
   if (!chunk) {
     return {
@@ -17,11 +33,6 @@ export function normalizeStreamEvent(chunk: any): L0Event {
       error: new Error("Received null or undefined chunk"),
       timestamp: Date.now(),
     };
-  }
-
-  // If already in L0 format
-  if (isL0Event(chunk)) {
-    return chunk;
   }
 
   // Handle Vercel AI SDK format

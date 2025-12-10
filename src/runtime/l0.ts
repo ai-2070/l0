@@ -778,10 +778,13 @@ export async function l0<TOutput = unknown>(
             if (event.type === "token" && event.value) {
               let token = event.value;
 
+              // Cache timestamp once per token to avoid multiple Date.now() calls
+              const tokenTimestamp = Date.now();
+
               // Track first token
               if (!firstTokenReceived) {
                 firstTokenReceived = true;
-                state.firstTokenAt = Date.now();
+                state.firstTokenAt = tokenTimestamp;
                 stateMachine.transition(RuntimeStates.STREAMING);
                 // Switch from initial to inter-token timeout
                 const interTimeout = processedTimeout.interToken ?? 10000;
@@ -862,7 +865,7 @@ export async function l0<TOutput = unknown>(
               // Update state - use buffer for O(n) accumulation
               tokenBuffer.push(token);
               state.tokenCount++;
-              state.lastTokenAt = Date.now();
+              state.lastTokenAt = tokenTimestamp;
 
               // Build content string only when needed (for guardrails/drift checks/checkpoints)
               // This is O(n) total instead of O(n²) from repeated concatenation
@@ -881,7 +884,7 @@ export async function l0<TOutput = unknown>(
               }
 
               // Record token in monitoring
-              monitor?.recordToken(state.lastTokenAt);
+              monitor?.recordToken(tokenTimestamp);
 
               // Update checkpoint periodically (only when continuation is enabled)
               if (needsCheckpoint) {
@@ -958,18 +961,18 @@ export async function l0<TOutput = unknown>(
                 }
               }
 
-              // Emit event
+              // Emit event - reuse cached timestamp
               const l0Event: L0Event = {
                 type: "token",
                 value: token,
-                timestamp: Date.now(),
+                timestamp: tokenTimestamp,
               };
 
               safeInvokeCallback(processedOnEvent, l0Event, monitor, "onEvent");
               yield l0Event;
 
               // Update emission time AFTER yielding for accurate inter-token timeout measurement
-              lastTokenEmissionTime = Date.now();
+              lastTokenEmissionTime = tokenTimestamp;
             } else if (event.type === "message") {
               // Pass through message events (e.g., tool calls, function calls)
               // Preserve all original event properties including role
