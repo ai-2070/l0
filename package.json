@@ -75,6 +75,11 @@
       "types": "./dist/drift.d.ts",
       "import": "./dist/drift.js",
       "default": "./dist/drift.js"
+    },
+    "./zod": {
+      "types": "./dist/zod/index.d.ts",
+      "import": "./dist/zod/index.js",
+      "default": "./dist/zod/index.js"
     }
   },
   "files": [

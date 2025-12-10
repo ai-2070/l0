@@ -355,11 +355,31 @@ console.log(result.output); // French translation of summary
 | `@ai2070/l0/guardrails` | 18KB  | 6KB     | Validation rules         |
 | `@ai2070/l0/monitoring` | 27KB  | 7KB     | OTel/Sentry              |
 | `@ai2070/l0/drift`      | 4KB   | 2KB     | Drift detection          |
+| `@ai2070/l0/zod`        | 12KB  | 4KB     | Zod 4 validation schemas |
 
 Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 
 > Most applications should simply use `import { l0 } from "@ai2070/l0"`.
 > Only optimize imports if you're targeting edge runtimes or strict bundle constraints.
+
+### Zod Validation Schemas
+
+L0 exports Zod 4 schemas for runtime validation of all L0 types:
+
+```typescript
+import { L0StateSchema, L0EventSchema, GuardrailViolationSchema } from "@ai2070/l0/zod";
+
+// Validate runtime data
+const state = L0StateSchema.parse(unknownData);
+
+// Type-safe validation
+const result = L0EventSchema.safeParse(event);
+if (result.success) {
+  console.log(result.data.type);
+}
+```
+
+Schemas are available for all core types: `L0State`, `L0Event`, `L0Telemetry`, `RetryOptions`, `GuardrailViolation`, `ConsensusResult`, `PipelineResult`, and more.
 
 ## Documentation
 
