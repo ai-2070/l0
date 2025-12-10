@@ -41,11 +41,14 @@ export class GuardrailEngine {
     };
   }
 
+  // Counter for generating unique callback IDs without Date.now() overhead
+  private callbackCounter = 0;
+
   /**
    * Generate a unique callback ID
    */
   private generateCallbackId(): string {
-    return `cb_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    return `cb_${++this.callbackCounter}`;
   }
 
   /**
@@ -55,14 +58,20 @@ export class GuardrailEngine {
    */
   check(context: GuardrailContext): GuardrailResult {
     const violations: GuardrailViolation[] = [];
+    // Cache timestamp once for entire check
     const timestamp = Date.now();
     const phase = context.completed ? "post" : "pre";
-    const phaseStartTime = Date.now();
 
     // Emit phase start callback
     if (this.config.onPhaseStart) {
       this.config.onPhaseStart(phase, this.rules.length, context.tokenCount);
     }
+
+    // Build context with previous violations for rules
+    const ruleContext = {
+      ...context,
+      previousViolations: this.state.violations,
+    };
 
     // Execute each rule
     let ruleIndex = 0;
@@ -81,8 +90,10 @@ export class GuardrailEngine {
         continue;
       }
 
-      const callbackId = this.generateCallbackId();
-      const ruleStartTime = Date.now();
+      // Only generate callback ID and track time if callbacks are registered
+      const hasCallbacks = this.config.onRuleStart || this.config.onRuleEnd;
+      const callbackId = hasCallbacks ? this.generateCallbackId() : "";
+      const ruleStartTime = hasCallbacks ? Date.now() : 0;
 
       // Emit rule start callback
       if (this.config.onRuleStart) {
@@ -90,21 +101,18 @@ export class GuardrailEngine {
       }
 
       try {
-        const ruleViolations = rule.check({
-          ...context,
-          previousViolations: this.state.violations,
-        });
+        const ruleViolations = rule.check(ruleContext);
 
-        // Add timestamp to violations
-        for (const violation of ruleViolations) {
-          violations.push({
-            ...violation,
-            timestamp: timestamp,
-          });
-        }
-
-        // Track violations by rule
+        // Add timestamp to violations (only if there are violations)
         if (ruleViolations.length > 0) {
+          for (const violation of ruleViolations) {
+            violations.push({
+              ...violation,
+              timestamp: timestamp,
+            });
+          }
+
+          // Track violations by rule
           const existing = this.state.violationsByRule.get(rule.name) || [];
           this.state.violationsByRule.set(rule.name, [
             ...existing,
@@ -112,10 +120,9 @@ export class GuardrailEngine {
           ]);
         }
 
-        const ruleDurationMs = Date.now() - ruleStartTime;
-
         // Emit rule end callback with passed status
         if (this.config.onRuleEnd) {
+          const ruleDurationMs = Date.now() - ruleStartTime;
           this.config.onRuleEnd(
             ruleIndex,
             rule.name,
@@ -142,10 +149,9 @@ export class GuardrailEngine {
           timestamp,
         });
 
-        const ruleDurationMs = Date.now() - ruleStartTime;
-
         // Emit rule end callback even on error (passed = false)
         if (this.config.onRuleEnd) {
+          const ruleDurationMs = Date.now() - ruleStartTime;
           this.config.onRuleEnd(
             ruleIndex,
             rule.name,
@@ -159,10 +165,9 @@ export class GuardrailEngine {
       ruleIndex++;
     }
 
-    const phaseDurationMs = Date.now() - phaseStartTime;
-
     // Emit phase end callback with passed status and violations
     if (this.config.onPhaseEnd) {
+      const phaseDurationMs = Date.now() - timestamp;
       this.config.onPhaseEnd(
         phase,
         violations.length === 0,
