@@ -8,6 +8,7 @@ import type {
   GuardrailConfig,
   GuardrailResult,
 } from "../types/guardrails";
+import { uuidv7 } from "../utils/uuid";
 
 /**
  * Guardrail engine for executing rules and managing violations
@@ -42,10 +43,10 @@ export class GuardrailEngine {
   }
 
   /**
-   * Generate a unique callback ID
+   * Generate a unique callback ID using UUIDv7
    */
   private generateCallbackId(): string {
-    return `cb_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    return `cb_${uuidv7().replace(/-/g, "").substring(0, 12)}`;
   }
 
   /**
