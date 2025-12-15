@@ -1,4 +1,4 @@
-# L0 — Deterministic Streaming Execution Substrate (DSES) for AI
+# L0: Deterministic Streaming Execution Substrate (DSES) for AI
 
 **A reliability + observability layer for token streams**
 
