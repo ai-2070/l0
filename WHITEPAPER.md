@@ -285,6 +285,6 @@ Violations carry severity (`warning`, `error`, `fatal`) which influences whether
 
 ---
 
-## Appendix C: Event Sourcing Schema (Sketch)
+## Appendix C: Event Sourcing Schema
 
 Recorded event types include `START`, `TOKEN`, `CHECKPOINT`, `GUARDRAIL`, `DRIFT`, `RETRY`, `FALLBACK`, `CONTINUATION`, `COMPLETE`, and `ERROR`.
