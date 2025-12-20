@@ -25,9 +25,9 @@ export function detectZeroToken(content: string): boolean {
     return true;
   }
 
-  // Check for very short output (less than 3 characters)
+  // Check for empty after trim
   const trimmed = content.trim();
-  if (trimmed.length < 3) {
+  if (trimmed.length === 0) {
     return true;
   }
 

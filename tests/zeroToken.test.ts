@@ -32,10 +32,15 @@ describe("Zero Token Detection", () => {
       expect(detectZeroToken("  \n\t  \r\n  ")).toBe(true);
     });
 
-    it("should detect very short content (< 3 chars)", () => {
-      expect(detectZeroToken("a")).toBe(true);
-      expect(detectZeroToken("ab")).toBe(true);
-      expect(detectZeroToken("  x  ")).toBe(true);
+    it("should allow short but meaningful content", () => {
+      // Short alphanumeric content is valid (e.g., "4", "12", "Y", "No")
+      expect(detectZeroToken("a")).toBe(false);
+      expect(detectZeroToken("ab")).toBe(false);
+      expect(detectZeroToken("  x  ")).toBe(false);
+      expect(detectZeroToken("4")).toBe(false);
+      expect(detectZeroToken("12")).toBe(false);
+      expect(detectZeroToken("Y")).toBe(false);
+      expect(detectZeroToken("No")).toBe(false);
     });
 
     it("should detect punctuation-only content", () => {
@@ -431,9 +436,10 @@ describe("Zero Token Detection", () => {
       expect(msg).toContain(`chars: ${content.length}`);
     });
 
-    it("should handle very short content", () => {
+    it("should allow short but meaningful content", () => {
+      // Short alphanumeric content like "ab", "12", "Y" is valid
       const msg = getZeroTokenErrorMessage("ab", 1);
-      expect(msg).toContain("Zero-token output detected");
+      expect(msg).toBe("");
     });
 
     it("should handle punctuation only", () => {
@@ -546,12 +552,15 @@ describe("Zero Token Detection", () => {
     });
 
     it("should handle stalled stream scenario", () => {
+      // Short content like "He" is valid but stall detection still works
       const content = "He";
       const tokenCount = 1;
       const lastToken = Date.now() - 10000;
       const now = Date.now();
 
-      expect(detectZeroToken(content)).toBe(true);
+      // "He" is valid short content, not zero-token
+      expect(detectZeroToken(content)).toBe(false);
+      // But the stall detector still catches it based on timing/token count
       expect(detectFirstChunkStall(content, tokenCount, lastToken, now)).toBe(
         true,
       );
