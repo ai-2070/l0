@@ -25,11 +25,7 @@ export function detectZeroToken(content: string): boolean {
     return true;
   }
 
-  // Check for empty after trim
   const trimmed = content.trim();
-  if (trimmed.length === 0) {
-    return true;
-  }
 
   // Check for only punctuation/special characters
   if (/^[^\w\s]+$/.test(trimmed)) {
