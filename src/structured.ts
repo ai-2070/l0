@@ -137,7 +137,6 @@ export async function structured<T extends z.ZodTypeAny>(
       if (extracted !== processed) {
         try {
           parsed = JSON.parse(extracted);
-          processed = extracted;
           wasAutoCorrected = true;
           if (!appliedCorrections.includes("extract_json")) {
             appliedCorrections.push("extract_json");
@@ -154,15 +153,18 @@ export async function structured<T extends z.ZodTypeAny>(
           if (rescueResult.success) {
             try {
               parsed = JSON.parse(rescueResult.corrected);
-              processed = rescueResult.corrected;
               wasAutoCorrected = true;
               appliedCorrections.push(...rescueResult.corrections);
               autoCorrections++;
               correctionTypes.push(...rescueResult.corrections);
-            } catch {
+            } catch (innerErr) {
+              const innerError =
+                innerErr instanceof Error
+                  ? innerErr
+                  : new Error(String(innerErr));
               return {
                 success: false,
-                error: `Invalid JSON after auto-correction: ${err.message}`,
+                error: `Invalid JSON after auto-correction: ${innerError.message}`,
               };
             }
           } else {
@@ -184,7 +186,6 @@ export async function structured<T extends z.ZodTypeAny>(
           if (rescueResult.success) {
             try {
               parsed = JSON.parse(rescueResult.corrected);
-              processed = rescueResult.corrected;
               wasAutoCorrected = true;
               appliedCorrections.push(
                 "extract_json",
@@ -192,10 +193,14 @@ export async function structured<T extends z.ZodTypeAny>(
               );
               autoCorrections++;
               correctionTypes.push("extract_json", ...rescueResult.corrections);
-            } catch {
+            } catch (innerErr) {
+              const innerError =
+                innerErr instanceof Error
+                  ? innerErr
+                  : new Error(String(innerErr));
               return {
                 success: false,
-                error: `Invalid JSON: ${err.message}`,
+                error: `Invalid JSON: ${innerError.message}`,
               };
             }
           } else {
