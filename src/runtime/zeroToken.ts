@@ -25,11 +25,7 @@ export function detectZeroToken(content: string): boolean {
     return true;
   }
 
-  // Check for very short output (less than 3 characters)
   const trimmed = content.trim();
-  if (trimmed.length < 3) {
-    return true;
-  }
 
   // Check for only punctuation/special characters
   if (/^[^\w\s]+$/.test(trimmed)) {
