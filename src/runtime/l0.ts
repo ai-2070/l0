@@ -613,12 +613,15 @@ export async function l0<TOutput = unknown>(
             );
           }
           // 3. Native L0-compatible streams (Vercel AI SDK pattern)
-          // For streamObject results (detected by baseStream property), we need to
-          // tee the baseStream before consuming to avoid "ReadableStream is locked" errors.
+          // For streamObject results (detected by partialObjectStream + no teeStream),
+          // we need to tee the baseStream before consuming to avoid "ReadableStream is locked" errors.
           // This allows L0 to consume the stream while AI SDK internals also work.
+          // Note: streamText has teeStream method, streamObject does not.
           else if (
             streamResult.baseStream &&
-            typeof streamResult.baseStream.tee === "function"
+            typeof streamResult.baseStream.tee === "function" &&
+            streamResult.partialObjectStream &&
+            typeof streamResult.teeStream !== "function"
           ) {
             // streamObject result - tee the baseStream to avoid locking issues
             const [stream1, stream2] = streamResult.baseStream.tee();
