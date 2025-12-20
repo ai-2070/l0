@@ -445,6 +445,7 @@ export async function structuredStream<T extends z.ZodTypeAny>(
     retry = {},
     autoCorrect = true,
     strictMode = false,
+    detectZeroTokens,
     timeout,
     signal,
     monitoring,
@@ -479,6 +480,7 @@ export async function structuredStream<T extends z.ZodTypeAny>(
       retryOn: [...(retry.retryOn || []), "guardrail_violation", "incomplete"],
       errorTypeDelays: retry.errorTypeDelays,
     },
+    detectZeroTokens: detectZeroTokens ?? false,
     timeout,
     signal: combinedSignal,
     monitoring: {
