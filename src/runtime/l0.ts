@@ -612,8 +612,48 @@ export async function l0<TOutput = unknown>(
               processedOptions.adapterOptions,
             );
           }
-          // 3. Native L0-compatible streams (Vercel AI SDK pattern - simple text only)
-          else if (streamResult.textStream) {
+          // 3. Native L0-compatible streams (Vercel AI SDK pattern)
+          // For streamObject results (detected by partialObjectStream + no teeStream),
+          // we need to tee the baseStream before consuming to avoid "ReadableStream is locked" errors.
+          // This allows L0 to consume the stream while AI SDK internals also work.
+          // Note: streamText has teeStream method, streamObject does not.
+          else if (
+            streamResult.baseStream &&
+            typeof streamResult.baseStream.tee === "function" &&
+            "partialObjectStream" in streamResult &&
+            !("teeStream" in streamResult)
+          ) {
+            // streamObject result - tee the baseStream to avoid locking issues
+            const [stream1, stream2] = streamResult.baseStream.tee();
+            streamResult.baseStream = stream2; // Keep one for AI SDK internals
+            detectedAdapterName = "streamObject";
+            // Create an async iterable from the teed stream
+            sourceStream = {
+              async *[Symbol.asyncIterator]() {
+                const reader = stream1.getReader();
+                try {
+                  while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    // Normalize streamObject chunks to L0 events
+                    if (value && typeof value === "object") {
+                      if (value.type === "text-delta" && value.textDelta) {
+                        yield { type: "token", value: value.textDelta };
+                      } else if (value.type === "error") {
+                        yield { type: "error", error: value.error };
+                      } else if (value.type === "finish") {
+                        yield { type: "complete" };
+                      }
+                      // Note: 'object' chunks are for partial object updates,
+                      // but L0 structured() handles JSON parsing from text tokens
+                    }
+                  }
+                } finally {
+                  reader.releaseLock();
+                }
+              },
+            };
+          } else if (streamResult.textStream) {
             detectedAdapterName = "textStream";
             sourceStream = streamResult.textStream;
           } else if (streamResult.fullStream) {
