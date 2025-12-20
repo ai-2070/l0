@@ -9,6 +9,7 @@ import type {
   CorrectionInfo,
 } from "./types/structured";
 import type { L0Options, L0Event } from "./types/l0";
+import type { GuardrailViolation } from "./types/guardrails";
 import { l0 } from "./runtime/l0";
 import { autoCorrectJSON, isValidJSON, extractJSON } from "./utils/autoCorrect";
 
@@ -18,7 +19,7 @@ import { autoCorrectJSON, isValidJSON, extractJSON } from "./utils/autoCorrect";
  * Provides:
  * - Automatic schema validation with Zod
  * - Auto-correction of common JSON issues
- * - Retry on validation failure
+ * - Retry on validation failure (via L0's retry mechanism)
  * - Fallback model support
  * - Full L0 reliability (guardrails, network errors, etc.)
  *
@@ -69,7 +70,6 @@ export async function structured<T extends z.ZodTypeAny>(
   const correctionTypes: string[] = [];
   const validationErrors: z.ZodError[] = [];
   let rawOutput = "";
-  let correctedOutput = "";
   let appliedCorrections: string[] = [];
   let wasAutoCorrected = false;
   const errors: Error[] = [];
@@ -81,14 +81,158 @@ export async function structured<T extends z.ZodTypeAny>(
   // Create abort controller
   const abortController = new AbortController();
 
-  // Wrap the stream factory to attempt JSON parsing after completion
-  const wrappedStreamFactory = async () => {
-    return streamFactory();
+  // Schema validation state (for guardrail to access)
+  let parsedData: unknown = null;
+
+  // Helper to attempt JSON parsing and schema validation
+  const tryParseAndValidate = (
+    content: string,
+  ): { success: boolean; data?: unknown; error?: string } => {
+    validationAttempts++;
+    validationStartTime = Date.now();
+
+    // Step 1: Auto-correct if enabled
+    let processed = content;
+    appliedCorrections = [];
+
+    if (autoCorrect) {
+      const correctionResult = autoCorrectJSON(processed, {
+        structural: true,
+        stripFormatting: true,
+        schemaBased: false,
+        strict: strictMode,
+      });
+
+      if (correctionResult.corrections.length > 0) {
+        wasAutoCorrected = true;
+        processed = correctionResult.corrected;
+        appliedCorrections = correctionResult.corrections;
+        autoCorrections++;
+        correctionTypes.push(...correctionResult.corrections);
+
+        if (onAutoCorrect) {
+          const correctionInfo: CorrectionInfo = {
+            original: content,
+            corrected: processed,
+            corrections: correctionResult.corrections,
+            success: correctionResult.success,
+          };
+          onAutoCorrect(correctionInfo);
+        }
+      }
+    }
+
+    // Step 2: Parse JSON
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(processed);
+    } catch (parseError) {
+      const err =
+        parseError instanceof Error
+          ? parseError
+          : new Error(String(parseError));
+
+      // Try extractJSON to find JSON within surrounding text
+      const extracted = extractJSON(processed);
+      if (extracted !== processed) {
+        try {
+          parsed = JSON.parse(extracted);
+          processed = extracted;
+          wasAutoCorrected = true;
+          if (!appliedCorrections.includes("extract_json")) {
+            appliedCorrections.push("extract_json");
+            correctionTypes.push("extract_json");
+          }
+          autoCorrections++;
+        } catch {
+          // Try auto-correction on extracted content
+          const rescueResult = autoCorrectJSON(extracted, {
+            structural: true,
+            stripFormatting: true,
+          });
+
+          if (rescueResult.success) {
+            try {
+              parsed = JSON.parse(rescueResult.corrected);
+              processed = rescueResult.corrected;
+              wasAutoCorrected = true;
+              appliedCorrections.push(...rescueResult.corrections);
+              autoCorrections++;
+              correctionTypes.push(...rescueResult.corrections);
+            } catch {
+              return {
+                success: false,
+                error: `Invalid JSON after auto-correction: ${err.message}`,
+              };
+            }
+          } else {
+            return {
+              success: false,
+              error: `Invalid JSON after auto-correction: ${err.message}`,
+            };
+          }
+        }
+      } else {
+        // Try raw extraction as last resort
+        const rawExtracted = extractJSON(content);
+        if (rawExtracted !== content) {
+          const rescueResult = autoCorrectJSON(rawExtracted, {
+            structural: true,
+            stripFormatting: true,
+          });
+
+          if (rescueResult.success) {
+            try {
+              parsed = JSON.parse(rescueResult.corrected);
+              processed = rescueResult.corrected;
+              wasAutoCorrected = true;
+              appliedCorrections.push(
+                "extract_json",
+                ...rescueResult.corrections,
+              );
+              autoCorrections++;
+              correctionTypes.push("extract_json", ...rescueResult.corrections);
+            } catch {
+              return {
+                success: false,
+                error: `Invalid JSON: ${err.message}`,
+              };
+            }
+          } else {
+            return { success: false, error: `Invalid JSON: ${err.message}` };
+          }
+        } else {
+          return { success: false, error: `Invalid JSON: ${err.message}` };
+        }
+      }
+    }
+
+    // Step 3: Validate against schema
+    const validationResult = schema.safeParse(parsed);
+
+    if (!validationResult.success) {
+      validationFailures++;
+      validationErrors.push(validationResult.error);
+
+      if (onValidationError) {
+        onValidationError(validationResult.error, validationAttempts);
+      }
+
+      return {
+        success: false,
+        error: `Schema validation failed: ${validationResult.error.errors[0]?.message}`,
+      };
+    }
+
+    validationEndTime = Date.now();
+    parsedData = validationResult.data;
+
+    return { success: true, data: validationResult.data };
   };
 
-  // Build L0 options
+  // Build L0 options - let L0 handle all retries
   const l0Options: L0Options = {
-    stream: wrappedStreamFactory,
+    stream: streamFactory,
     fallbackStreams,
     retry: {
       attempts: retry.attempts ?? 2,
@@ -113,23 +257,39 @@ export async function structured<T extends z.ZodTypeAny>(
       },
     },
     guardrails: [
-      // Add JSON structure guardrail
+      // JSON + Schema validation guardrail (runs on completion)
       {
-        name: "json-structure",
-        check: (context) => {
-          if (context.completed) {
-            // Check if output is valid JSON
-            if (!isValidJSON(context.content)) {
-              return [
-                {
-                  rule: "json-structure",
-                  message: "Output is not valid JSON",
-                  severity: "error",
-                  recoverable: true,
-                },
-              ];
-            }
+        name: "json-schema-validation",
+        check: (context): GuardrailViolation[] => {
+          if (!context.completed) {
+            return [];
           }
+
+          // Check if output is valid JSON first
+          if (!isValidJSON(context.content)) {
+            return [
+              {
+                rule: "json-schema-validation",
+                message: "Output is not valid JSON",
+                severity: "error",
+                recoverable: true,
+              },
+            ];
+          }
+
+          // Try to parse and validate against schema
+          const result = tryParseAndValidate(context.content);
+          if (!result.success) {
+            return [
+              {
+                rule: "json-schema-validation",
+                message: result.error || "Validation failed",
+                severity: "error",
+                recoverable: true,
+              },
+            ];
+          }
+
           return [];
         },
       },
@@ -141,261 +301,69 @@ export async function structured<T extends z.ZodTypeAny>(
     },
   };
 
-  // Maximum retry attempts for validation
-  const maxValidationRetries = retry.attempts ?? 2;
-  let currentValidationAttempt = 0;
+  // Execute L0 stream - L0 handles all retries via guardrails
+  const result = await l0(l0Options);
 
-  // Retry loop for validation
-  while (currentValidationAttempt <= maxValidationRetries) {
-    try {
-      // Execute L0 stream
-      const result = await l0(l0Options);
-
-      // Accumulate output
-      rawOutput = "";
-      for await (const event of result.stream) {
-        if (event.type === "token" && event.value) {
-          rawOutput += event.value;
-        } else if (event.type === "error") {
-          errors.push(event.error || new Error("Unknown error"));
-        }
-      }
-
-      // Check if we got output
-      if (!rawOutput || rawOutput.trim().length === 0) {
-        throw new Error("No output received from model");
-      }
-
-      // Start validation timing
-      validationStartTime = Date.now();
-      validationAttempts++;
-
-      // Step 1: Auto-correct if enabled
-      correctedOutput = rawOutput;
-      appliedCorrections = [];
-
-      if (autoCorrect) {
-        const correctionResult = autoCorrectJSON(correctedOutput, {
-          structural: true,
-          stripFormatting: true,
-          schemaBased: false,
-          strict: strictMode,
-        });
-
-        if (correctionResult.corrections.length > 0) {
-          wasAutoCorrected = true;
-          correctedOutput = correctionResult.corrected;
-          appliedCorrections = correctionResult.corrections;
-          autoCorrections++;
-          correctionTypes.push(...correctionResult.corrections);
-
-          // Call callback
-          if (onAutoCorrect) {
-            const correctionInfo: CorrectionInfo = {
-              original: rawOutput,
-              corrected: correctedOutput,
-              corrections: correctionResult.corrections,
-              success: correctionResult.success,
-            };
-            onAutoCorrect(correctionInfo);
-          }
-        }
-      }
-
-      // Step 2: Parse JSON
-      let parsedData: any;
-      try {
-        parsedData = JSON.parse(correctedOutput);
-      } catch (parseError) {
-        const err =
-          parseError instanceof Error
-            ? parseError
-            : new Error(String(parseError));
-        errors.push(err);
-
-        // Try extractJSON to find JSON within surrounding text
-        const extracted = extractJSON(correctedOutput);
-        if (extracted !== correctedOutput) {
-          try {
-            // Try parsing the extracted JSON
-            parsedData = JSON.parse(extracted);
-            correctedOutput = extracted;
-            wasAutoCorrected = true;
-            if (!appliedCorrections.includes("extract_json")) {
-              appliedCorrections.push("extract_json");
-              correctionTypes.push("extract_json");
-            }
-            autoCorrections++;
-          } catch {
-            // Try auto-correction on the extracted content
-            const rescueResult = autoCorrectJSON(extracted, {
-              structural: true,
-              stripFormatting: true,
-            });
-
-            if (rescueResult.success) {
-              parsedData = JSON.parse(rescueResult.corrected);
-              correctedOutput = rescueResult.corrected;
-              wasAutoCorrected = true;
-              appliedCorrections.push(...rescueResult.corrections);
-              autoCorrections++;
-              correctionTypes.push(...rescueResult.corrections);
-            } else {
-              throw new Error(
-                `Invalid JSON after auto-correction: ${err.message}`,
-              );
-            }
-          }
-        } else if (!autoCorrect) {
-          // Try one more auto-correction attempt if not already done
-          const rescueResult = autoCorrectJSON(correctedOutput, {
-            structural: true,
-            stripFormatting: true,
-          });
-
-          if (rescueResult.success) {
-            parsedData = JSON.parse(rescueResult.corrected);
-            correctedOutput = rescueResult.corrected;
-            wasAutoCorrected = true;
-            appliedCorrections.push(...rescueResult.corrections);
-            autoCorrections++;
-            correctionTypes.push(...rescueResult.corrections);
-          } else {
-            throw new Error(`Invalid JSON: ${err.message}`);
-          }
-        } else {
-          // Auto-correction was applied but parsing still failed and extractJSON didn't help
-          // Try one more aggressive extraction - look for the first complete JSON structure
-          const rawExtracted = extractJSON(rawOutput);
-          if (rawExtracted !== rawOutput) {
-            const rescueResult = autoCorrectJSON(rawExtracted, {
-              structural: true,
-              stripFormatting: true,
-            });
-
-            if (rescueResult.success) {
-              try {
-                parsedData = JSON.parse(rescueResult.corrected);
-                correctedOutput = rescueResult.corrected;
-                wasAutoCorrected = true;
-                appliedCorrections.push(
-                  "extract_json",
-                  ...rescueResult.corrections,
-                );
-                autoCorrections++;
-                correctionTypes.push(
-                  "extract_json",
-                  ...rescueResult.corrections,
-                );
-              } catch {
-                throw new Error(
-                  `Invalid JSON after auto-correction: ${err.message}`,
-                );
-              }
-            } else {
-              throw new Error(
-                `Invalid JSON after auto-correction: ${err.message}`,
-              );
-            }
-          } else {
-            throw new Error(
-              `Invalid JSON after auto-correction: ${err.message}`,
-            );
-          }
-        }
-      }
-
-      // Step 3: Validate against schema
-      const validationResult = schema.safeParse(parsedData);
-
-      if (!validationResult.success) {
-        validationFailures++;
-        validationErrors.push(validationResult.error);
-
-        // Call validation error callback
-        if (onValidationError) {
-          onValidationError(validationResult.error, currentValidationAttempt);
-        }
-
-        // Check if we should retry
-        if (currentValidationAttempt < maxValidationRetries) {
-          currentValidationAttempt++;
-          if (onRetry) {
-            onRetry(
-              currentValidationAttempt,
-              `Schema validation failed: ${validationResult.error.errors[0]?.message}`,
-            );
-          }
-          continue;
-        }
-
-        // Out of retries
-        throw new Error(
-          `Schema validation failed after ${validationAttempts} attempts: ${JSON.stringify(validationResult.error.errors)}`,
-        );
-      }
-
-      // Success!
-      validationEndTime = Date.now();
-
-      // Build structured state
-      const structuredState: StructuredState = {
-        ...result.state,
-        validationFailures,
-        autoCorrections,
-        validationErrors,
-      };
-
-      // Build structured telemetry
-      let structuredTelemetry: StructuredTelemetry | undefined;
-      if (result.telemetry) {
-        structuredTelemetry = {
-          ...result.telemetry,
-          structured: {
-            schemaName: schema.description || "unknown",
-            validationAttempts,
-            validationFailures,
-            autoCorrections,
-            correctionTypes: Array.from(new Set(correctionTypes)),
-            validationSuccess: true,
-            validationTime: validationEndTime - validationStartTime,
-          },
-        };
-      }
-
-      // Return successful result
-      return {
-        data: validationResult.data,
-        raw: rawOutput,
-        corrected: wasAutoCorrected,
-        corrections: appliedCorrections,
-        state: structuredState,
-        telemetry: structuredTelemetry,
-        errors,
-        abort: () => abortController.abort(),
-      };
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      errors.push(err);
-
-      // Check if we should retry
-      if (currentValidationAttempt < maxValidationRetries) {
-        currentValidationAttempt++;
-        if (onRetry) {
-          onRetry(currentValidationAttempt, err.message);
-        }
-        continue;
-      }
-
-      // Out of retries - throw
-      throw new Error(
-        `Structured output failed after ${currentValidationAttempt + 1} attempts: ${err.message}`,
-      );
+  // Accumulate output
+  rawOutput = "";
+  for await (const event of result.stream) {
+    if (event.type === "token" && event.value) {
+      rawOutput += event.value;
+    } else if (event.type === "error") {
+      errors.push(event.error || new Error("Unknown error"));
     }
   }
 
-  // Should never reach here, but TypeScript needs it
-  throw new Error("Unexpected: exhausted retry loop without result");
+  // Check if we got output
+  if (!rawOutput || rawOutput.trim().length === 0) {
+    throw new Error("No output received from model");
+  }
+
+  // If guardrail passed, parsedData should be set
+  // But run validation one more time to be safe (in case guardrails weren't run)
+  if (parsedData === null) {
+    const finalResult = tryParseAndValidate(rawOutput);
+    if (!finalResult.success) {
+      throw new Error(`Structured output failed: ${finalResult.error}`);
+    }
+  }
+
+  // Build structured state
+  const structuredState: StructuredState = {
+    ...result.state,
+    validationFailures,
+    autoCorrections,
+    validationErrors,
+  };
+
+  // Build structured telemetry
+  let structuredTelemetry: StructuredTelemetry | undefined;
+  if (result.telemetry) {
+    structuredTelemetry = {
+      ...result.telemetry,
+      structured: {
+        schemaName: schema.description || "unknown",
+        validationAttempts,
+        validationFailures,
+        autoCorrections,
+        correctionTypes: Array.from(new Set(correctionTypes)),
+        validationSuccess: true,
+        validationTime: validationEndTime - validationStartTime,
+      },
+    };
+  }
+
+  // Return successful result
+  return {
+    data: parsedData as z.infer<T>,
+    raw: rawOutput,
+    corrected: wasAutoCorrected,
+    corrections: appliedCorrections,
+    state: structuredState,
+    telemetry: structuredTelemetry,
+    errors,
+    abort: () => abortController.abort(),
+  };
 }
 
 /**
@@ -441,18 +409,26 @@ export async function structuredArray<T extends z.ZodTypeAny>(
 /**
  * Create a streaming structured output (yields tokens as they arrive, validates at end)
  *
+ * This function allows you to stream tokens in real-time while also getting
+ * validated structured data when the stream completes.
+ *
  * @example
  * ```typescript
- * const result = structuredStream({ schema, stream });
+ * const { stream, result, abort } = await structuredStream({
+ *   schema: z.object({ name: z.string() }),
+ *   stream: () => streamText({ model, prompt })
+ * });
  *
- * for await (const event of result.stream) {
+ * // Stream tokens as they arrive
+ * for await (const event of stream) {
  *   if (event.type === 'token') {
- *     console.log(event.value);
+ *     process.stdout.write(event.value);
  *   }
  * }
  *
- * const validated = await result.result;
- * console.log(validated.data);
+ * // Get validated result after stream completes
+ * const validated = await result;
+ * console.log(validated.data.name);
  * ```
  */
 export async function structuredStream<T extends z.ZodTypeAny>(
@@ -462,27 +438,196 @@ export async function structuredStream<T extends z.ZodTypeAny>(
   result: Promise<StructuredResult<z.infer<T>>>;
   abort: () => void;
 }> {
+  const {
+    schema,
+    stream: streamFactory,
+    fallbackStreams = [],
+    retry = {},
+    autoCorrect = true,
+    strictMode = false,
+    timeout,
+    signal,
+    monitoring,
+    onValidationError,
+    onAutoCorrect,
+    onRetry,
+  } = options;
+
   const abortController = new AbortController();
+  const combinedSignal = signal || abortController.signal;
 
-  // Create a promise that resolves with the final result
-  const resultPromise = structured({
-    ...options,
-    signal: abortController.signal,
-  });
+  // Shared state for validation
+  let rawOutput = "";
+  let validationAttempts = 0;
+  let validationFailures = 0;
+  let autoCorrections = 0;
+  const correctionTypes: string[] = [];
+  const validationErrors: z.ZodError[] = [];
+  let appliedCorrections: string[] = [];
+  let wasAutoCorrected = false;
+  const errors: Error[] = [];
 
-  // Create l0 stream for real-time tokens
+  // Create L0 result for streaming
   const l0Result = await l0({
-    stream: options.stream,
-    fallbackStreams: options.fallbackStreams,
-    retry: options.retry,
-    timeout: options.timeout,
-    signal: abortController.signal,
-    monitoring: options.monitoring,
-    onRetry: options.onRetry,
+    stream: streamFactory,
+    fallbackStreams,
+    retry: {
+      attempts: retry.attempts ?? 2,
+      backoff: retry.backoff ?? "fixed-jitter",
+      baseDelay: retry.baseDelay ?? 1000,
+      maxDelay: retry.maxDelay ?? 5000,
+      retryOn: [...(retry.retryOn || []), "guardrail_violation", "incomplete"],
+      errorTypeDelays: retry.errorTypeDelays,
+    },
+    timeout,
+    signal: combinedSignal,
+    monitoring: {
+      enabled: monitoring?.enabled ?? false,
+      sampleRate: monitoring?.sampleRate ?? 1.0,
+      metadata: {
+        ...(monitoring?.metadata || {}),
+        structured: true,
+        schemaName: schema.description || "unknown",
+      },
+    },
+    onRetry,
   });
+
+  // Shared state for stream tee-ing
+  let streamResolve: () => void;
+  const streamDone = new Promise<void>((resolve) => {
+    streamResolve = resolve;
+  });
+
+  // Create a tee'd stream that collects output while yielding events
+  const teedStream = async function* (): AsyncGenerator<L0Event> {
+    for await (const event of l0Result.stream) {
+      // Collect tokens for validation
+      if (event.type === "token" && event.value) {
+        rawOutput += event.value;
+      } else if (event.type === "error") {
+        errors.push(event.error || new Error("Unknown error"));
+      }
+      // Yield the event to the consumer
+      yield event;
+    }
+    streamResolve();
+  };
+
+  // Create the stream generator once
+  const sharedStream = teedStream();
+
+  // Create validation promise that resolves after stream is consumed
+  const resultPromise = (async (): Promise<StructuredResult<z.infer<T>>> => {
+    // Wait for stream to be fully consumed
+    await streamDone;
+
+    // Validate the collected output
+    if (!rawOutput || rawOutput.trim().length === 0) {
+      throw new Error("No output received from model");
+    }
+
+    // Auto-correct and parse
+    let processed = rawOutput;
+    appliedCorrections = [];
+
+    if (autoCorrect) {
+      const correctionResult = autoCorrectJSON(processed, {
+        structural: true,
+        stripFormatting: true,
+        schemaBased: false,
+        strict: strictMode,
+      });
+
+      if (correctionResult.corrections.length > 0) {
+        wasAutoCorrected = true;
+        processed = correctionResult.corrected;
+        appliedCorrections = correctionResult.corrections;
+        autoCorrections++;
+        correctionTypes.push(...correctionResult.corrections);
+
+        if (onAutoCorrect) {
+          onAutoCorrect({
+            original: rawOutput,
+            corrected: processed,
+            corrections: correctionResult.corrections,
+            success: correctionResult.success,
+          });
+        }
+      }
+    }
+
+    // Parse JSON
+    let parsedData: unknown;
+    try {
+      parsedData = JSON.parse(processed);
+    } catch (parseError) {
+      // Try extraction
+      const extracted = extractJSON(processed);
+      if (extracted !== processed) {
+        try {
+          parsedData = JSON.parse(extracted);
+          wasAutoCorrected = true;
+          appliedCorrections.push("extract_json");
+        } catch {
+          throw new Error(`Invalid JSON: ${parseError}`);
+        }
+      } else {
+        throw new Error(`Invalid JSON: ${parseError}`);
+      }
+    }
+
+    // Validate against schema
+    validationAttempts++;
+    const validationResult = schema.safeParse(parsedData);
+
+    if (!validationResult.success) {
+      validationFailures++;
+      validationErrors.push(validationResult.error);
+
+      if (onValidationError) {
+        onValidationError(validationResult.error, validationAttempts);
+      }
+
+      throw new Error(
+        `Schema validation failed: ${validationResult.error.errors[0]?.message}`,
+      );
+    }
+
+    // Build result
+    const structuredState: StructuredState = {
+      ...l0Result.state,
+      validationFailures,
+      autoCorrections,
+      validationErrors,
+    };
+
+    return {
+      data: validationResult.data,
+      raw: rawOutput,
+      corrected: wasAutoCorrected,
+      corrections: appliedCorrections,
+      state: structuredState,
+      telemetry: l0Result.telemetry
+        ? {
+            ...l0Result.telemetry,
+            structured: {
+              schemaName: schema.description || "unknown",
+              validationAttempts,
+              validationFailures,
+              autoCorrections,
+              correctionTypes: Array.from(new Set(correctionTypes)),
+              validationSuccess: true,
+            },
+          }
+        : undefined,
+      errors,
+      abort: () => abortController.abort(),
+    };
+  })();
 
   return {
-    stream: l0Result.stream,
+    stream: sharedStream,
     result: resultPromise,
     abort: () => abortController.abort(),
   };
