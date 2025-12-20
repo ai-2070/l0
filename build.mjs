@@ -1,23 +1,8 @@
 import * as esbuild from "esbuild";
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { glob } from "glob";
 
-// Recursively find all TypeScript files
-async function findTsFiles(dir) {
-  const files = [];
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await findTsFiles(path)));
-    } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
-      files.push(path);
-    }
-  }
-  return files;
-}
-
-const entryPoints = await findTsFiles("src");
+// Find all TypeScript source files (excluding .d.ts)
+const entryPoints = await glob("src/**/*.ts", { ignore: "**/*.d.ts" });
 
 // Build ESM
 await esbuild.build({
