@@ -4,10 +4,25 @@
 import type { L0Adapter } from "../types/l0";
 
 /**
- * Internal registry of adapters.
- * Adapters are checked in registration order for auto-detection.
+ * Internal adapter entry with priority.
+ * Higher priority adapters are checked first during detection.
  */
-const registeredAdapters: L0Adapter[] = [];
+interface AdapterEntry {
+  adapter: L0Adapter;
+  priority: number;
+}
+
+/**
+ * Internal registry of adapters.
+ * Adapters are sorted by priority (higher first) for auto-detection.
+ */
+const registeredAdapters: AdapterEntry[] = [];
+
+/**
+ * Default priority for adapters.
+ * Built-in adapters use 0, specialized adapters should use higher values.
+ */
+export const DEFAULT_ADAPTER_PRIORITY = 0;
 
 /**
  * Register an adapter for auto-detection.
@@ -36,11 +51,13 @@ const registeredAdapters: L0Adapter[] = [];
  */
 export function registerAdapter(
   adapter: L0Adapter,
-  options: { silent?: boolean } = {},
+  options: { silent?: boolean; priority?: number } = {},
 ): void {
+  const { silent = false, priority = DEFAULT_ADAPTER_PRIORITY } = options;
+
   if (!adapter.detect) {
     if (
-      !options.silent &&
+      !silent &&
       typeof process !== "undefined" &&
       process.env?.NODE_ENV !== "production"
     ) {
@@ -51,10 +68,20 @@ export function registerAdapter(
       );
     }
   }
-  if (registeredAdapters.some((a) => a.name === adapter.name)) {
+  if (registeredAdapters.some((entry) => entry.adapter.name === adapter.name)) {
     throw new Error(`Adapter "${adapter.name}" is already registered`);
   }
-  registeredAdapters.push(adapter);
+
+  // Insert in priority order (higher priority first)
+  const entry: AdapterEntry = { adapter, priority };
+  const insertIndex = registeredAdapters.findIndex(
+    (e) => e.priority < priority,
+  );
+  if (insertIndex === -1) {
+    registeredAdapters.push(entry);
+  } else {
+    registeredAdapters.splice(insertIndex, 0, entry);
+  }
 }
 
 /**
@@ -72,7 +99,9 @@ export function registerAdapter(
  * ```
  */
 export function unregisterAdapter(name: string): boolean {
-  const index = registeredAdapters.findIndex((a) => a.name === name);
+  const index = registeredAdapters.findIndex(
+    (entry) => entry.adapter.name === name,
+  );
   if (index === -1) return false;
   registeredAdapters.splice(index, 1);
   return true;
@@ -85,7 +114,8 @@ export function unregisterAdapter(name: string): boolean {
  * @returns The adapter if found, undefined otherwise
  */
 export function getAdapter(name: string): L0Adapter | undefined {
-  return registeredAdapters.find((a) => a.name === name);
+  const entry = registeredAdapters.find((e) => e.adapter.name === name);
+  return entry?.adapter;
 }
 
 /**
@@ -94,7 +124,7 @@ export function getAdapter(name: string): L0Adapter | undefined {
  * @returns Array of registered adapter names
  */
 export function getRegisteredStreamAdapters(): string[] {
-  return registeredAdapters.map((a) => a.name);
+  return registeredAdapters.map((entry) => entry.adapter.name);
 }
 
 /**
@@ -124,8 +154,8 @@ export function clearAdapters(): void {
 export function unregisterAllExcept(except: string[] = []): string[] {
   const exceptSet = new Set(except);
   const toRemove = registeredAdapters
-    .filter((a) => !exceptSet.has(a.name))
-    .map((a) => a.name);
+    .filter((entry) => !exceptSet.has(entry.adapter.name))
+    .map((entry) => entry.adapter.name);
 
   for (const name of toRemove) {
     unregisterAdapter(name);
@@ -153,12 +183,17 @@ export function unregisterAllExcept(except: string[] = []): string[] {
  */
 export function detectAdapter(input: unknown): L0Adapter {
   // Only consider adapters that have detect() implemented
-  const detectableAdapters = registeredAdapters.filter((a) => a.detect);
-  const matches = detectableAdapters.filter((a) => a.detect!(input));
+  // Adapters are already sorted by priority (higher first)
+  const detectableAdapters = registeredAdapters.filter(
+    (entry) => entry.adapter.detect,
+  );
+  const matches = detectableAdapters.filter((entry) =>
+    entry.adapter.detect!(input),
+  );
 
   if (matches.length === 0) {
     const registered = getRegisteredStreamAdapters();
-    const detectable = detectableAdapters.map((a) => a.name);
+    const detectable = detectableAdapters.map((entry) => entry.adapter.name);
     const adapterList =
       detectable.length > 0 ? `[${detectable.join(", ")}]` : "(none)";
     const hint =
@@ -172,27 +207,26 @@ export function detectAdapter(input: unknown): L0Adapter {
     );
   }
 
-  if (matches.length > 1) {
-    throw new Error(
-      `Multiple adapters detected for stream: [${matches.map((a) => a.name).join(", ")}]. ` +
-        `Use explicit \`adapter: myAdapter\` to disambiguate.`,
-    );
-  }
-
-  return matches[0]!;
+  // Return the highest priority match (first in the sorted list)
+  // If multiple adapters match, use the one with highest priority
+  return matches[0]!.adapter;
 }
 
 /**
  * Check if an input matches any registered adapter.
  *
- * Unlike detectAdapter(), this does not throw on zero or multiple matches.
+ * Unlike detectAdapter(), this is a simple boolean check.
  * Only considers adapters that have detect() implemented.
  *
  * @param input - The stream to check
- * @returns True if exactly one adapter matches
+ * @returns True if at least one adapter matches
  */
 export function hasMatchingAdapter(input: unknown): boolean {
-  const detectableAdapters = registeredAdapters.filter((a) => a.detect);
-  const matches = detectableAdapters.filter((a) => a.detect!(input));
-  return matches.length === 1;
+  const detectableAdapters = registeredAdapters.filter(
+    (entry) => entry.adapter.detect,
+  );
+  const matches = detectableAdapters.filter((entry) =>
+    entry.adapter.detect!(input),
+  );
+  return matches.length >= 1;
 }

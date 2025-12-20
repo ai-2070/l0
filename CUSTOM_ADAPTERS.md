@@ -6,7 +6,7 @@ L0 supports custom adapters for integrating any LLM provider or streaming source
 
 L0 provides **official first-party adapters** for:
 
-- **Vercel AI SDK** - Native support, no adapter needed
+- **Vercel AI SDK** - Native support for `streamText()`, plus `vercelAIObjectAdapter` for `streamObject()`
 - **OpenAI SDK** - `openaiAdapter` via `@ai2070/l0/openai`
 - **Mastra AI** - `mastraAdapter` via `@ai2070/l0/mastra`
 - **Anthropic SDK** - `anthropicAdapter` via `@ai2070/l0/anthropic` (reference implementation)
@@ -42,7 +42,7 @@ Provider Stream → Adapter → L0Events → L0 Runtime → Reliable Output
 
 L0 ships with built-in support for:
 
-- **Vercel AI SDK** - Native support, no adapter needed
+- **Vercel AI SDK** - Native support for `streamText()`, plus `vercelAIObjectAdapter` for `streamObject()`
 - **OpenAI SDK** - `openaiAdapter`
 - **Mastra AI** - `mastraAdapter`
 - **Anthropic SDK** - `anthropicAdapter` (reference implementation)
@@ -481,6 +481,10 @@ import {
 // Register for auto-detection
 registerAdapter(myAdapter);
 
+// Register with priority (higher priority = checked first)
+// Default priority is 0. Use higher values for specialized adapters.
+registerAdapter(mySpecializedAdapter, { priority: 10 });
+
 // Silence warning for adapters without detect()
 registerAdapter(adapterWithoutDetect, { silent: true });
 
@@ -497,16 +501,17 @@ clearAdapters();
 
 ### Registry Functions
 
-| Function                             | Description                                   |
-| ------------------------------------ | --------------------------------------------- |
-| `registerAdapter(adapter, options?)` | Register for auto-detection                   |
-| `unregisterAdapter(name)`            | Remove by name                                |
-| `unregisterAllExcept(names?)`        | Remove all adapters except those in the array |
-| `getAdapter(name)`                   | Get adapter by name                           |
-| `getRegisteredStreamAdapters()`      | List all registered names                     |
-| `clearAdapters()`                    | Remove all adapters                           |
-| `detectAdapter(input)`               | Auto-detect adapter for stream                |
-| `hasMatchingAdapter(input)`          | Check if exactly one adapter matches          |
+| Function                             | Description                                                    |
+| ------------------------------------ | -------------------------------------------------------------- |
+| `registerAdapter(adapter, options?)` | Register for auto-detection. Options: `{ silent?, priority? }` |
+| `unregisterAdapter(name)`            | Remove by name                                                 |
+| `unregisterAllExcept(names?)`        | Remove all adapters except those in the array                  |
+| `getAdapter(name)`                   | Get adapter by name                                            |
+| `getRegisteredStreamAdapters()`      | List all registered names                                      |
+| `clearAdapters()`                    | Remove all adapters                                            |
+| `detectAdapter(input)`               | Auto-detect adapter for stream (returns highest priority match)|
+| `hasMatchingAdapter(input)`          | Check if at least one adapter matches                          |
+| `DEFAULT_ADAPTER_PRIORITY`           | Default priority value (0) for adapters                        |
 
 ### DX Warning
 
@@ -521,6 +526,61 @@ In development mode, registering an adapter without `detect()` logs a warning:
 Suppress with `{ silent: true }` or in production (`NODE_ENV=production`).
 
 ## Built-in Adapters
+
+### Vercel AI SDK Adapters
+
+L0 has native support for Vercel AI SDK's `streamText()`. For `streamObject()`, use the dedicated `vercelAIObjectAdapter`:
+
+```typescript
+import { structured } from "@ai2070/l0";
+import {
+  vercelAIObjectAdapter,
+  wrapVercelAIObjectStream,
+} from "@ai2070/l0/adapters";
+import { streamObject } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+
+const schema = z.object({
+  name: z.string(),
+  age: z.number(),
+});
+
+// Use with structured() - adapter auto-detected via priority
+const result = await structured({
+  schema,
+  stream: () =>
+    streamObject({
+      model: openai("gpt-4o"),
+      prompt: "Generate a person",
+      schema,
+    }),
+});
+
+// Or explicitly specify the adapter
+const result = await structured({
+  schema,
+  stream: () =>
+    streamObject({
+      model: openai("gpt-4o"),
+      prompt: "Generate a person",
+      schema,
+    }),
+  adapter: vercelAIObjectAdapter,
+});
+```
+
+#### Why a Separate Adapter?
+
+The standard `vercel-ai` adapter uses `fullStream.getReader()` which locks the ReadableStream. This causes "ReadableStream is locked" errors when L0's `structured()` needs to retry on validation failures. The `vercel-ai-object` adapter uses `textStream` (an AsyncIterable) instead, avoiding the locking issue.
+
+#### Vercel AI Object Adapter Options
+
+```typescript
+interface VercelAIObjectAdapterOptions {
+  includeUsage?: boolean; // Include usage in complete event (default: true)
+}
+```
 
 ### OpenAI Adapter
 

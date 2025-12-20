@@ -10,6 +10,7 @@ export {
   clearAdapters,
   detectAdapter,
   hasMatchingAdapter,
+  DEFAULT_ADAPTER_PRIORITY,
 } from "./registry";
 
 // Adapter helpers for building custom adapters
@@ -51,3 +52,14 @@ export {
   vercelAIAdapter,
   isVercelAIStream,
 } from "./vercel-ai";
+
+export {
+  wrapVercelAIObjectStream,
+  vercelAIObjectAdapter,
+  isVercelAIObjectStream,
+} from "./vercel-ai-object";
+
+export type {
+  VercelStreamObjectResult,
+  VercelAIObjectAdapterOptions,
+} from "./vercel-ai-object";

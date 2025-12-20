@@ -361,11 +361,10 @@ describe("Adapter Registry", () => {
 
       const stream = createMockStreamA(["test"]);
 
-      expect(() => detectAdapter(stream)).toThrow(
-        "Multiple adapters detected for stream",
-      );
-      expect(() => detectAdapter(stream)).toThrow("ambiguous-1");
-      expect(() => detectAdapter(stream)).toThrow("ambiguous-2");
+      // With priority-based detection, multiple matches return the first registered
+      // (same priority = registration order)
+      const detected = detectAdapter(stream);
+      expect(detected.name).toBe("ambiguous-1");
     });
 
     it("should skip adapters without detect()", () => {
@@ -419,7 +418,7 @@ describe("Adapter Registry", () => {
       expect(hasMatchingAdapter(unknownStream)).toBe(false);
     });
 
-    it("should return false when multiple adapters match", () => {
+    it("should return true when multiple adapters match (priority-based)", () => {
       const adapter1: L0Adapter<unknown> = {
         name: "dup-1",
         detect: (input): input is unknown => true,
@@ -438,7 +437,8 @@ describe("Adapter Registry", () => {
       registerAdapter(adapter1);
       registerAdapter(adapter2);
 
-      expect(hasMatchingAdapter({ any: "stream" })).toBe(false);
+      // With priority-based detection, multiple matches is valid (highest priority wins)
+      expect(hasMatchingAdapter({ any: "stream" })).toBe(true);
     });
 
     it("should skip adapters without detect()", () => {
@@ -565,13 +565,11 @@ describe("Adapter Registry", () => {
       registerAdapter(specificAdapter);
       registerAdapter(broadAdapter);
 
-      // Input that matches both - should match specific (registered first)
+      // Input that matches both - with priority-based detection, first registered wins
+      // (same priority = registration order)
       const inputBoth = { data: "test", specific: true as const };
-
-      // Both adapters match, so should throw ambiguity error
-      expect(() => detectAdapter(inputBoth)).toThrow(
-        "Multiple adapters detected for stream",
-      );
+      const detectedBoth = detectAdapter(inputBoth);
+      expect(detectedBoth.name).toBe("specific-adapter");
 
       // Input that only matches broad
       const inputBroad = { data: "test" };
@@ -595,7 +593,7 @@ describe("Adapter Registry", () => {
       expect(hasMatchingAdapter([1, 2, 3])).toBe(false);
     });
 
-    it("should list all matching adapter names in ambiguity error", () => {
+    it("should use highest priority adapter when multiple match", () => {
       const adapter1: L0Adapter<object> = {
         name: "match-1",
         detect: (input): input is object =>
@@ -621,19 +619,14 @@ describe("Adapter Registry", () => {
         },
       };
 
-      registerAdapter(adapter1);
-      registerAdapter(adapter2);
-      registerAdapter(adapter3);
+      // Register with different priorities
+      registerAdapter(adapter1, { priority: 0 });
+      registerAdapter(adapter2, { priority: 10 }); // highest priority
+      registerAdapter(adapter3, { priority: 5 });
 
-      try {
-        detectAdapter({ test: true });
-        expect.fail("Should have thrown");
-      } catch (error) {
-        const message = (error as Error).message;
-        expect(message).toContain("match-1");
-        expect(message).toContain("match-2");
-        expect(message).toContain("match-3");
-      }
+      // Should return highest priority adapter
+      const detected = detectAdapter({ test: true });
+      expect(detected.name).toBe("match-2");
     });
   });
 });
