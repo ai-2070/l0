@@ -1055,6 +1055,25 @@ describe("Structured Output Helpers", () => {
 
       expect(result.abort).toBeTypeOf("function");
     });
+
+    it("should accept detectZeroTokens option", async () => {
+      const schema = z.object({ value: z.string() });
+
+      // Should not throw when option is provided
+      const result = await structuredStream({
+        schema,
+        stream: createMockStreamFactory('{"value": "test"}'),
+        detectZeroTokens: true,
+      });
+
+      // Consume stream
+      for await (const _event of result.stream) {
+        // consume
+      }
+
+      const finalResult = await result.result;
+      expect(finalResult.data.value).toBe("test");
+    });
   });
 });
 
