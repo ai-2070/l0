@@ -215,11 +215,11 @@ export function detectAdapter(input: unknown): L0Adapter {
 /**
  * Check if an input matches any registered adapter.
  *
- * Unlike detectAdapter(), this does not throw on zero or multiple matches.
+ * Unlike detectAdapter(), this is a simple boolean check.
  * Only considers adapters that have detect() implemented.
  *
  * @param input - The stream to check
- * @returns True if exactly one adapter matches
+ * @returns True if at least one adapter matches
  */
 export function hasMatchingAdapter(input: unknown): boolean {
   const detectableAdapters = registeredAdapters.filter(
