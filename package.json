@@ -92,7 +92,7 @@
     "test": "tests"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --emitDeclarationOnly && node build.mjs",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
