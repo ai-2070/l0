@@ -612,8 +612,47 @@ export async function l0<TOutput = unknown>(
               processedOptions.adapterOptions,
             );
           }
-          // 3. Native L0-compatible streams (Vercel AI SDK pattern - simple text only)
-          else if (streamResult.textStream) {
+          // 3. Native L0-compatible streams (Vercel AI SDK pattern)
+          // For streamObject results (detected by baseStream property), we need to
+          // tee the baseStream before consuming to avoid "ReadableStream is locked" errors.
+          // This allows L0 to consume the stream while AI SDK internals also work.
+          else if (
+            streamResult.baseStream &&
+            typeof streamResult.baseStream.tee === "function"
+          ) {
+            // streamObject result - tee the baseStream to avoid locking issues
+            const [stream1, stream2] = streamResult.baseStream.tee();
+            streamResult.baseStream = stream2; // Keep one for AI SDK internals
+            detectedAdapterName = "streamObject";
+            // Create an async iterable from the teed stream
+            sourceStream = {
+              async *[Symbol.asyncIterator]() {
+                const reader = stream1.getReader();
+                try {
+                  while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    // Normalize streamObject chunks to L0 events
+                    if (value && typeof value === "object") {
+                      if (value.type === "text-delta" && value.textDelta) {
+                        yield { type: "token", value: value.textDelta };
+                      } else if (value.type === "error") {
+                        yield { type: "error", error: value.error };
+                      } else if (value.type === "finish") {
+                        yield { type: "done" };
+                      }
+                      // Also emit raw events for object-part streaming
+                      if (value.type === "object") {
+                        yield { type: "object-part", value: value.object };
+                      }
+                    }
+                  }
+                } finally {
+                  reader.releaseLock();
+                }
+              },
+            };
+          } else if (streamResult.textStream) {
             detectedAdapterName = "textStream";
             sourceStream = streamResult.textStream;
           } else if (streamResult.fullStream) {
