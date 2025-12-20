@@ -78,17 +78,11 @@ export async function* wrapMastraStream(
 
   try {
     // Get the text stream from Mastra
+    // Use for-await instead of getReader() to avoid "ReadableStream is locked" issues
     const textStream = streamResult.textStream;
-    const reader = textStream.getReader();
 
     // Stream text chunks
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
-      }
-
+    for await (const value of textStream) {
       if (value) {
         yield {
           type: "token",
@@ -356,16 +350,10 @@ export async function* wrapMastraFullStream(
   } = options;
 
   try {
+    // Use for-await instead of getReader() to avoid "ReadableStream is locked" issues
     const fullStream = streamResult.fullStream;
-    const reader = fullStream.getReader();
 
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
-      }
-
+    for await (const value of fullStream) {
       if (!value) continue;
 
       const chunk = value as any;

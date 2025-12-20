@@ -51,3 +51,9 @@ export {
   vercelAIAdapter,
   isVercelAIStream,
 } from "./vercel-ai";
+
+export {
+  wrapVercelAIObjectStream,
+  vercelAIObjectAdapter,
+  isVercelAIObjectStream,
+} from "./vercel-ai-object";

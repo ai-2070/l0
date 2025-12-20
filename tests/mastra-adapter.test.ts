@@ -12,6 +12,23 @@ import {
 } from "../src/adapters/mastra";
 import type { L0Event } from "../src/types/l0";
 
+// Helper to create an async iterable from chunks
+function createAsyncIterable<T>(
+  chunks: T[],
+  options?: { shouldError?: boolean; errorMessage?: string },
+): AsyncIterable<T> {
+  return {
+    [Symbol.asyncIterator]: async function* () {
+      if (options?.shouldError) {
+        throw new Error(options.errorMessage || "Stream error");
+      }
+      for (const chunk of chunks) {
+        yield chunk;
+      }
+    },
+  };
+}
+
 // Mock Mastra stream result
 function createMockMastraStream(
   textChunks: string[],
@@ -25,32 +42,11 @@ function createMockMastraStream(
     errorMessage?: string;
   } = {},
 ) {
-  let textStreamRead = false;
-  let fullStreamRead = false;
-
-  const textStream = {
-    getReader: () => ({
-      read: async () => {
-        if (options.shouldError && !textStreamRead) {
-          textStreamRead = true;
-          throw new Error(options.errorMessage || "Stream error");
-        }
-        if (!textStreamRead && textChunks.length > 0) {
-          textStreamRead = true;
-          // Return chunks one at a time
-          const chunk = textChunks.shift();
-          if (chunk !== undefined) {
-            return { done: false, value: chunk };
-          }
-        }
-        if (textChunks.length > 0) {
-          const chunk = textChunks.shift();
-          return { done: false, value: chunk };
-        }
-        return { done: true, value: undefined };
-      },
-    }),
-  };
+  // Create textStream as an async iterable (like real Mastra)
+  const textStream = createAsyncIterable([...textChunks], {
+    shouldError: options.shouldError,
+    errorMessage: options.errorMessage,
+  });
 
   const fullStreamChunks: any[] = [];
 
@@ -88,21 +84,11 @@ function createMockMastraStream(
     finishReason: options.finishReason || "stop",
   });
 
-  let fullStreamIndex = 0;
-  const fullStream = {
-    getReader: () => ({
-      read: async () => {
-        if (options.shouldError && fullStreamIndex === 0) {
-          fullStreamIndex++;
-          throw new Error(options.errorMessage || "Stream error");
-        }
-        if (fullStreamIndex < fullStreamChunks.length) {
-          return { done: false, value: fullStreamChunks[fullStreamIndex++] };
-        }
-        return { done: true, value: undefined };
-      },
-    }),
-  };
+  // Create fullStream as an async iterable (like real Mastra)
+  const fullStream = createAsyncIterable(fullStreamChunks, {
+    shouldError: options.shouldError,
+    errorMessage: options.errorMessage,
+  });
 
   return {
     textStream,
