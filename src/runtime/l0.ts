@@ -620,8 +620,8 @@ export async function l0<TOutput = unknown>(
           else if (
             streamResult.baseStream &&
             typeof streamResult.baseStream.tee === "function" &&
-            streamResult.partialObjectStream &&
-            typeof streamResult.teeStream !== "function"
+            "partialObjectStream" in streamResult &&
+            !("teeStream" in streamResult)
           ) {
             // streamObject result - tee the baseStream to avoid locking issues
             const [stream1, stream2] = streamResult.baseStream.tee();
@@ -642,12 +642,10 @@ export async function l0<TOutput = unknown>(
                       } else if (value.type === "error") {
                         yield { type: "error", error: value.error };
                       } else if (value.type === "finish") {
-                        yield { type: "done" };
+                        yield { type: "complete" };
                       }
-                      // Also emit raw events for object-part streaming
-                      if (value.type === "object") {
-                        yield { type: "object-part", value: value.object };
-                      }
+                      // Note: 'object' chunks are for partial object updates,
+                      // but L0 structured() handles JSON parsing from text tokens
                     }
                   }
                 } finally {
