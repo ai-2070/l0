@@ -1575,10 +1575,9 @@ describe("Structured Output - ReadableStream Lock Bug Fix", () => {
     expect(factoryCalls).toBe(1);
   });
 
-  it("should exhaust retries before using fallback", async () => {
-    // This test verifies that fallbacks are available but may not be triggered
-    // by schema validation failures (which are content errors, not stream errors).
-    // Fallbacks are primarily for when the primary stream completely fails.
+  it("should not use fallback when primary stream succeeds", async () => {
+    // Fallbacks are only used when the primary stream completely fails,
+    // not for schema validation errors (which trigger retries instead).
     const schema = z.object({ value: z.number() });
     let primaryCalls = 0;
 
