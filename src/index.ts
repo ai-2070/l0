@@ -871,3 +871,29 @@ export {
 
 // Shallow Copy Utilities
 export { shallowClone, shallowCopy } from "./utils/shallow";
+
+// Fault Tolerance - Process-level reliability
+// Also available via subpath import for reduced bundle size:
+//   import { createFaultTolerantInference } from "@ai2070/l0/fault-tolerance"
+export {
+  FaultTolerantInference,
+  createFaultTolerantInference,
+  CheckpointManager,
+  WorkerPool,
+  RequestQueue,
+  DEFAULT_CONFIG as FAULT_TOLERANCE_DEFAULTS,
+} from "./fault-tolerance";
+
+export type {
+  FaultToleranceConfig,
+  InferenceRequest,
+  InferenceResult,
+  InferenceOptions,
+  InferenceCheckpoint,
+  WorkerPoolConfig,
+  SupervisorConfig,
+  CheckpointConfig,
+  QueueConfig,
+  OrchestratorStats,
+  OrchestratorEvents,
+} from "./fault-tolerance";
