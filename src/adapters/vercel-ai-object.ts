@@ -183,26 +183,11 @@ export const vercelAIObjectAdapter: L0Adapter<
 };
 
 // Auto-register for detection when this module is imported
-// Register BEFORE vercel-ai adapter so it gets priority for streamObject() results
-import { registerAdapter, unregisterAdapter } from "./registry";
+// Use higher priority than vercel-ai adapter (priority 0) so this adapter
+// is checked first for streamObject() results
+import { registerAdapter } from "./registry";
 try {
-  // Ensure this adapter is registered first for proper priority
-  // If vercel-ai is already registered, we need to re-register it after us
-  const vercelAIWasRegistered = unregisterAdapter("vercel-ai");
-
-  registerAdapter(vercelAIObjectAdapter, { silent: true });
-
-  // Re-register vercel-ai after us if it was registered
-  if (vercelAIWasRegistered) {
-    // Import dynamically to avoid circular dependency issues
-    import("./vercel-ai").then(({ vercelAIAdapter }) => {
-      try {
-        registerAdapter(vercelAIAdapter, { silent: true });
-      } catch {
-        // Already registered, ignore
-      }
-    });
-  }
+  registerAdapter(vercelAIObjectAdapter, { silent: true, priority: 10 });
 } catch {
   // Already registered, ignore
 }

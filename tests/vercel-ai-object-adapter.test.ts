@@ -1,5 +1,5 @@
 // Vercel AI SDK streamObject() adapter tests
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   wrapVercelAIObjectStream,
   vercelAIObjectAdapter,
@@ -109,8 +109,10 @@ describe("Vercel AI Object Adapter", () => {
 
       // Our adapter should detect it
       expect(isVercelAIObjectStream(objectResult)).toBe(true);
-      // The streamText adapter might also detect it (has textStream), but shouldn't be used
-      // because our adapter has higher priority
+
+      // The vercel-ai (streamText) adapter should NOT detect streamObject results
+      // because isVercelAIStream checks for 'toolCalls' which streamObject doesn't have
+      expect(isVercelAIStream(objectResult)).toBe(false);
     });
   });
 
@@ -340,7 +342,6 @@ describe("Vercel AI Object Adapter", () => {
 
     it("should work with arrays", async () => {
       const arrayData = [1, 2, 3, { nested: true }];
-      const jsonString = JSON.stringify(arrayData);
 
       const result = createMockStreamObjectResult(
         ["[1,", "2,", "3,", '{"nested":', "true}]"],

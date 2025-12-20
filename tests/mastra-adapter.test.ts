@@ -15,15 +15,35 @@ import type { L0Event } from "../src/types/l0";
 // Helper to create an async iterable from chunks
 function createAsyncIterable<T>(
   chunks: T[],
-  options?: { shouldError?: boolean; errorMessage?: string },
+  options?: {
+    shouldError?: boolean;
+    errorMessage?: string;
+    errorAfterChunks?: number;
+  },
 ): AsyncIterable<T> {
   return {
     [Symbol.asyncIterator]: async function* () {
-      if (options?.shouldError) {
-        throw new Error(options.errorMessage || "Stream error");
-      }
+      let yielded = 0;
       for (const chunk of chunks) {
+        // If errorAfterChunks is set, throw after that many chunks
+        // Otherwise throw immediately if shouldError is true
+        if (
+          options?.shouldError &&
+          (options.errorAfterChunks === undefined ||
+            yielded >= options.errorAfterChunks)
+        ) {
+          throw new Error(options.errorMessage || "Stream error");
+        }
         yield chunk;
+        yielded++;
+      }
+      // If we haven't errored yet but should, throw at the end
+      if (
+        options?.shouldError &&
+        options.errorAfterChunks !== undefined &&
+        yielded < options.errorAfterChunks
+      ) {
+        throw new Error(options.errorMessage || "Stream error");
       }
     },
   };
