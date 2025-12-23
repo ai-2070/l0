@@ -138,7 +138,13 @@ describeIf(hasOpenAI)("Pipeline Integration", () => {
                 }),
             }),
             transform: (result) => {
-              const json = JSON.parse(result.state.content);
+              // Extract JSON from response (handles markdown code blocks)
+              let content = result.state.content.trim();
+              const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+              if (jsonMatch) {
+                content = jsonMatch[1].trim();
+              }
+              const json = JSON.parse(content);
               return json.name;
             },
           },
