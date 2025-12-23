@@ -192,18 +192,14 @@ type Expect<T extends true> = T;
  * Helper to check if a schema's output type matches the expected type.
  * This allows for some flexibility (e.g., optional vs undefined).
  */
-type SchemaOutputMatches<
-  Schema extends z.ZodType,
-  Expected,
-> = z.output<Schema> extends Expected ? true : false;
+type SchemaOutputMatches<Schema extends z.ZodType, Expected> =
+  z.output<Schema> extends Expected ? true : false;
 
 /**
  * Helper to check if the expected type can be assigned to the schema's output.
  */
-type ExpectedAssignableToSchema<
-  Schema extends z.ZodType,
-  Expected,
-> = Expected extends z.output<Schema> ? true : false;
+type ExpectedAssignableToSchema<Schema extends z.ZodType, Expected> =
+  Expected extends z.output<Schema> ? true : false;
 
 // =============================================================================
 // Compile-Time Type Checks
@@ -213,42 +209,96 @@ type ExpectedAssignableToSchema<
 // The test file compiling successfully means all schemas are type-correct.
 
 // --- Retry Types ---
-type _RetryReason = Expect<SchemaOutputMatches<typeof RetryReasonSchema, RetryReason>>;
-type _BackoffStrategy = Expect<SchemaOutputMatches<typeof BackoffStrategySchema, BackoffStrategy>>;
-type _ErrorTypeDelays = Expect<ExpectedAssignableToSchema<typeof ErrorTypeDelaysSchema, ErrorTypeDelays>>;
-type _BackoffResult = Expect<SchemaOutputMatches<typeof BackoffResultSchema, BackoffResult>>;
-type _ErrorClassification = Expect<SchemaOutputMatches<typeof ErrorClassificationSchema, ErrorClassification>>;
+type _RetryReason = Expect<
+  SchemaOutputMatches<typeof RetryReasonSchema, RetryReason>
+>;
+type _BackoffStrategy = Expect<
+  SchemaOutputMatches<typeof BackoffStrategySchema, BackoffStrategy>
+>;
+type _ErrorTypeDelays = Expect<
+  ExpectedAssignableToSchema<typeof ErrorTypeDelaysSchema, ErrorTypeDelays>
+>;
+type _BackoffResult = Expect<
+  SchemaOutputMatches<typeof BackoffResultSchema, BackoffResult>
+>;
+type _ErrorClassification = Expect<
+  SchemaOutputMatches<typeof ErrorClassificationSchema, ErrorClassification>
+>;
 
 // --- Stream Types ---
-type _StreamErrorType = Expect<SchemaOutputMatches<typeof StreamErrorTypeSchema, StreamErrorType>>;
-type _StreamNormalizerOptions = Expect<ExpectedAssignableToSchema<typeof StreamNormalizerOptionsSchema, StreamNormalizerOptions>>;
-type _StreamState = Expect<ExpectedAssignableToSchema<typeof StreamStateSchema, StreamState>>;
-type _StreamChunk = Expect<SchemaOutputMatches<typeof StreamChunkSchema, StreamChunk>>;
+type _StreamErrorType = Expect<
+  SchemaOutputMatches<typeof StreamErrorTypeSchema, StreamErrorType>
+>;
+type _StreamNormalizerOptions = Expect<
+  ExpectedAssignableToSchema<
+    typeof StreamNormalizerOptionsSchema,
+    StreamNormalizerOptions
+  >
+>;
+type _StreamState = Expect<
+  ExpectedAssignableToSchema<typeof StreamStateSchema, StreamState>
+>;
+type _StreamChunk = Expect<
+  SchemaOutputMatches<typeof StreamChunkSchema, StreamChunk>
+>;
 
 // --- Evaluate Types ---
-type _ComparisonStyle = Expect<SchemaOutputMatches<typeof ComparisonStyleSchema, ComparisonStyle>>;
-type _ComparisonType = Expect<SchemaOutputMatches<typeof ComparisonTypeSchema, ComparisonType>>;
-type _DifferenceType = Expect<SchemaOutputMatches<typeof DifferenceTypeSchema, DifferenceType>>;
-type _DifferenceSeverity = Expect<SchemaOutputMatches<typeof DifferenceSeveritySchema, DifferenceSeverity>>;
+type _ComparisonStyle = Expect<
+  SchemaOutputMatches<typeof ComparisonStyleSchema, ComparisonStyle>
+>;
+type _ComparisonType = Expect<
+  SchemaOutputMatches<typeof ComparisonTypeSchema, ComparisonType>
+>;
+type _DifferenceType = Expect<
+  SchemaOutputMatches<typeof DifferenceTypeSchema, DifferenceType>
+>;
+type _DifferenceSeverity = Expect<
+  SchemaOutputMatches<typeof DifferenceSeveritySchema, DifferenceSeverity>
+>;
 
 // --- Events Types ---
-type _L0RecordedEventType = Expect<SchemaOutputMatches<typeof L0RecordedEventTypeSchema, L0RecordedEventType>>;
-type _L0ExecutionMode = Expect<SchemaOutputMatches<typeof L0ExecutionModeSchema, L0ExecutionMode>>;
+type _L0RecordedEventType = Expect<
+  SchemaOutputMatches<typeof L0RecordedEventTypeSchema, L0RecordedEventType>
+>;
+type _L0ExecutionMode = Expect<
+  SchemaOutputMatches<typeof L0ExecutionModeSchema, L0ExecutionMode>
+>;
 
 // --- Window Types ---
-type _ChunkStrategy = Expect<SchemaOutputMatches<typeof ChunkStrategySchema, ChunkStrategy>>;
-type _ContextRestorationStrategy = Expect<SchemaOutputMatches<typeof ContextRestorationStrategySchema, ContextRestorationStrategy>>;
+type _ChunkStrategy = Expect<
+  SchemaOutputMatches<typeof ChunkStrategySchema, ChunkStrategy>
+>;
+type _ContextRestorationStrategy = Expect<
+  SchemaOutputMatches<
+    typeof ContextRestorationStrategySchema,
+    ContextRestorationStrategy
+  >
+>;
 
 // --- Consensus Types ---
-type _ConsensusStrategy = Expect<SchemaOutputMatches<typeof ConsensusStrategySchema, ConsensusStrategy>>;
-type _ConflictResolution = Expect<SchemaOutputMatches<typeof ConflictResolutionSchema, ConflictResolution>>;
-type _AgreementType = Expect<SchemaOutputMatches<typeof AgreementTypeSchema, AgreementType>>;
-type _DisagreementSeverity = Expect<SchemaOutputMatches<typeof DisagreementSeveritySchema, DisagreementSeverity>>;
+type _ConsensusStrategy = Expect<
+  SchemaOutputMatches<typeof ConsensusStrategySchema, ConsensusStrategy>
+>;
+type _ConflictResolution = Expect<
+  SchemaOutputMatches<typeof ConflictResolutionSchema, ConflictResolution>
+>;
+type _AgreementType = Expect<
+  SchemaOutputMatches<typeof AgreementTypeSchema, AgreementType>
+>;
+type _DisagreementSeverity = Expect<
+  SchemaOutputMatches<typeof DisagreementSeveritySchema, DisagreementSeverity>
+>;
 
 // --- Observability Types ---
-type _FailureType = Expect<SchemaOutputMatches<typeof FailureTypeSchema, FailureType>>;
-type _RecoveryStrategy = Expect<SchemaOutputMatches<typeof RecoveryStrategySchema, RecoveryStrategy>>;
-type _ToolErrorType = Expect<SchemaOutputMatches<typeof ToolErrorTypeSchema, ToolErrorType>>;
+type _FailureType = Expect<
+  SchemaOutputMatches<typeof FailureTypeSchema, FailureType>
+>;
+type _RecoveryStrategy = Expect<
+  SchemaOutputMatches<typeof RecoveryStrategySchema, RecoveryStrategy>
+>;
+type _ToolErrorType = Expect<
+  SchemaOutputMatches<typeof ToolErrorTypeSchema, ToolErrorType>
+>;
 
 // =============================================================================
 // Runtime Tests
@@ -454,7 +504,10 @@ describe("Zod Schema Runtime Validation", () => {
         successfulOutputs: 3,
         failedOutputs: 0,
         identicalOutputs: 2,
-        similarityMatrix: [[1, 0.9], [0.9, 1]],
+        similarityMatrix: [
+          [1, 0.9],
+          [0.9, 1],
+        ],
         averageSimilarity: 0.95,
         minSimilarity: 0.9,
         maxSimilarity: 1.0,

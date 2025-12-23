@@ -367,7 +367,11 @@ Dependency-free. Tree-shakeable subpath exports for minimal bundles.
 L0 exports Zod 4 schemas for runtime validation of all L0 types:
 
 ```typescript
-import { L0StateSchema, L0EventSchema, GuardrailViolationSchema } from "@ai2070/l0/zod";
+import {
+  L0StateSchema,
+  L0EventSchema,
+  GuardrailViolationSchema,
+} from "@ai2070/l0/zod";
 
 // Validate runtime data
 const state = L0StateSchema.parse(unknownData);

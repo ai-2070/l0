@@ -2715,119 +2715,123 @@ describe("L0 Runtime", () => {
   });
 });
 
-  describe("streamObject baseStream teeing", () => {
-    it("should detect streamObject results by partialObjectStream presence", async () => {
-      // Create a mock that mimics streamObject result structure
-      // - has baseStream (ReadableStream with tee method)
-      // - has partialObjectStream property
-      // - does NOT have teeStream method
-      
-      const chunks = [
-        { type: "text-delta", textDelta: '{"name":' },
-        { type: "text-delta", textDelta: '"Alice"' },
-        { type: "text-delta", textDelta: "}"},
-        { type: "finish" },
-      ];
-      
-      let chunkIndex = 0;
-      const baseStream = new ReadableStream({
-        pull(controller) {
-          if (chunkIndex < chunks.length) {
-            controller.enqueue(chunks[chunkIndex]);
-            chunkIndex++;
-          } else {
-            controller.close();
-          }
+describe("streamObject baseStream teeing", () => {
+  it("should detect streamObject results by partialObjectStream presence", async () => {
+    // Create a mock that mimics streamObject result structure
+    // - has baseStream (ReadableStream with tee method)
+    // - has partialObjectStream property
+    // - does NOT have teeStream method
+
+    const chunks = [
+      { type: "text-delta", textDelta: '{"name":' },
+      { type: "text-delta", textDelta: '"Alice"' },
+      { type: "text-delta", textDelta: "}" },
+      { type: "finish" },
+    ];
+
+    let chunkIndex = 0;
+    const baseStream = new ReadableStream({
+      pull(controller) {
+        if (chunkIndex < chunks.length) {
+          controller.enqueue(chunks[chunkIndex]);
+          chunkIndex++;
+        } else {
+          controller.close();
         }
-      });
-      
-      const mockStreamObjectResult = {
-        baseStream,
-        partialObjectStream: (async function*() { yield { name: "Alice" }; })(),
-        object: Promise.resolve({ name: "Alice" }),
-        // Note: no teeStream method - this is what distinguishes streamObject from streamText
-      };
-      
-      const result = await l0({
-        stream: () => mockStreamObjectResult,
-      });
-
-      const events: L0Event[] = [];
-      for await (const event of result.stream) {
-        events.push(event);
-      }
-
-      // Should have extracted tokens from the stream
-      const tokenEvents = events.filter(e => e.type === "token");
-      expect(tokenEvents.length).toBeGreaterThan(0);
-      expect(result.state.content).toContain("Alice");
+      },
     });
 
-    it("should tee baseStream allowing both L0 and AI SDK to consume", async () => {
-      // This test verifies that after L0 consumes the stream,
-      // the baseStream is still available for other consumers
-      
-      const chunks = [
-        { type: "text-delta", textDelta: "test" },
-        { type: "finish" },
-      ];
-      
-      let chunkIndex = 0;
-      const baseStream = new ReadableStream({
-        pull(controller) {
-          if (chunkIndex < chunks.length) {
-            controller.enqueue(chunks[chunkIndex]);
-            chunkIndex++;
-          } else {
-            controller.close();
-          }
-        }
-      });
-      
-      const mockStreamObjectResult = {
-        baseStream,
-        partialObjectStream: (async function*() { yield "test"; })(),
-        object: Promise.resolve("test"),
-      };
-      
-      const result = await l0({
-        stream: () => mockStreamObjectResult,
-      });
+    const mockStreamObjectResult = {
+      baseStream,
+      partialObjectStream: (async function* () {
+        yield { name: "Alice" };
+      })(),
+      object: Promise.resolve({ name: "Alice" }),
+      // Note: no teeStream method - this is what distinguishes streamObject from streamText
+    };
 
-      // Consume L0 stream
-      for await (const event of result.stream) {
-        // consume
-      }
-
-      // The baseStream should have been replaced with the teed copy
-      // and should still be readable (not locked)
-      expect(mockStreamObjectResult.baseStream).toBeDefined();
-      expect(mockStreamObjectResult.baseStream.locked).toBe(false);
+    const result = await l0({
+      stream: () => mockStreamObjectResult,
     });
 
-    it("should not apply streamObject handling to streamText results", async () => {
-      // streamText has teeStream method, streamObject does not
-      // This ensures we don't accidentally break streamText handling
-      
-      const tokens = ["Hello", " ", "world"];
-      
-      const mockStreamTextResult = {
-        textStream: createMockStream(tokens),
-        teeStream: () => {}, // streamText has this method
-        baseStream: new ReadableStream(), // Has baseStream but also has teeStream
-        partialObjectStream: undefined, // streamText doesn't have this
-      };
-      
-      const result = await l0({
-        stream: () => mockStreamTextResult,
-      });
+    const events: L0Event[] = [];
+    for await (const event of result.stream) {
+      events.push(event);
+    }
 
-      const events: L0Event[] = [];
-      for await (const event of result.stream) {
-        events.push(event);
-      }
-
-      // Should use textStream path, not baseStream teeing path
-      expect(result.state.content).toBe("Hello world");
-    });
+    // Should have extracted tokens from the stream
+    const tokenEvents = events.filter((e) => e.type === "token");
+    expect(tokenEvents.length).toBeGreaterThan(0);
+    expect(result.state.content).toContain("Alice");
   });
+
+  it("should tee baseStream allowing both L0 and AI SDK to consume", async () => {
+    // This test verifies that after L0 consumes the stream,
+    // the baseStream is still available for other consumers
+
+    const chunks = [
+      { type: "text-delta", textDelta: "test" },
+      { type: "finish" },
+    ];
+
+    let chunkIndex = 0;
+    const baseStream = new ReadableStream({
+      pull(controller) {
+        if (chunkIndex < chunks.length) {
+          controller.enqueue(chunks[chunkIndex]);
+          chunkIndex++;
+        } else {
+          controller.close();
+        }
+      },
+    });
+
+    const mockStreamObjectResult = {
+      baseStream,
+      partialObjectStream: (async function* () {
+        yield "test";
+      })(),
+      object: Promise.resolve("test"),
+    };
+
+    const result = await l0({
+      stream: () => mockStreamObjectResult,
+    });
+
+    // Consume L0 stream
+    for await (const event of result.stream) {
+      // consume
+    }
+
+    // The baseStream should have been replaced with the teed copy
+    // and should still be readable (not locked)
+    expect(mockStreamObjectResult.baseStream).toBeDefined();
+    expect(mockStreamObjectResult.baseStream.locked).toBe(false);
+  });
+
+  it("should not apply streamObject handling to streamText results", async () => {
+    // streamText has teeStream method, streamObject does not
+    // This ensures we don't accidentally break streamText handling
+
+    const tokens = ["Hello", " ", "world"];
+
+    const mockStreamTextResult = {
+      textStream: createMockStream(tokens),
+      teeStream: () => {}, // streamText has this method
+      baseStream: new ReadableStream(), // Has baseStream but also has teeStream
+      partialObjectStream: undefined, // streamText doesn't have this
+    };
+
+    const result = await l0({
+      stream: () => mockStreamTextResult,
+    });
+
+    const events: L0Event[] = [];
+    for await (const event of result.stream) {
+      events.push(event);
+    }
+
+    // Should use textStream path, not baseStream teeing path
+    expect(result.state.content).toBe("Hello world");
+  });
+});

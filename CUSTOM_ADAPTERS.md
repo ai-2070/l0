@@ -501,17 +501,17 @@ clearAdapters();
 
 ### Registry Functions
 
-| Function                             | Description                                                    |
-| ------------------------------------ | -------------------------------------------------------------- |
-| `registerAdapter(adapter, options?)` | Register for auto-detection. Options: `{ silent?, priority? }` |
-| `unregisterAdapter(name)`            | Remove by name                                                 |
-| `unregisterAllExcept(names?)`        | Remove all adapters except those in the array                  |
-| `getAdapter(name)`                   | Get adapter by name                                            |
-| `getRegisteredStreamAdapters()`      | List all registered names                                      |
-| `clearAdapters()`                    | Remove all adapters                                            |
-| `detectAdapter(input)`               | Auto-detect adapter for stream (returns highest priority match)|
-| `hasMatchingAdapter(input)`          | Check if at least one adapter matches                          |
-| `DEFAULT_ADAPTER_PRIORITY`           | Default priority value (0) for adapters                        |
+| Function                             | Description                                                     |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `registerAdapter(adapter, options?)` | Register for auto-detection. Options: `{ silent?, priority? }`  |
+| `unregisterAdapter(name)`            | Remove by name                                                  |
+| `unregisterAllExcept(names?)`        | Remove all adapters except those in the array                   |
+| `getAdapter(name)`                   | Get adapter by name                                             |
+| `getRegisteredStreamAdapters()`      | List all registered names                                       |
+| `clearAdapters()`                    | Remove all adapters                                             |
+| `detectAdapter(input)`               | Auto-detect adapter for stream (returns highest priority match) |
+| `hasMatchingAdapter(input)`          | Check if at least one adapter matches                           |
+| `DEFAULT_ADAPTER_PRIORITY`           | Default priority value (0) for adapters                         |
 
 ### DX Warning
 
